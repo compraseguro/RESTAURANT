@@ -1,0 +1,611 @@
+const router = require('express').Router();
+const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcryptjs');
+const { queryAll, queryOne, runSql, logAudit } = require('../database');
+const { authenticateToken, requireRole } = require('../middleware/auth');
+
+router.use(authenticateToken, requireRole('admin', 'cajero', 'mozo'));
+
+const APP_CONFIG_ALLOWED_KEYS = ['regional', 'series_contingencia', 'contrato', 'pagos_sistema', 'settings'];
+
+function parseJsonSafe(value, fallback = {}) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function normalizeDocType(value) {
+  const docType = String(value || '').trim();
+  if (docType === '6') return '6';
+  if (docType === '0') return '0';
+  return '1';
+}
+
+function normalizeDocNumber(value) {
+  return String(value || '').trim();
+}
+
+function validateCustomerDoc(docType, docNumber) {
+  if (!docNumber) return;
+  if (docType === '1' && !/^\d{8}$/.test(docNumber)) {
+    throw new Error('DNI inválido, debe tener 8 dígitos');
+  }
+  if (docType === '6' && !/^\d{11}$/.test(docNumber)) {
+    throw new Error('RUC inválido, debe tener 11 dígitos');
+  }
+}
+
+function readAppSettingsObject() {
+  const rows = queryAll('SELECT key, value FROM app_settings ORDER BY key ASC');
+  const out = {};
+  rows.forEach((row) => {
+    out[row.key] = parseJsonSafe(row.value, {});
+  });
+  return out;
+}
+
+function parseTimeToMinutes(timeValue) {
+  const [h, m] = String(timeValue || '').split(':').map(v => Number(v));
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h * 60 + m;
+}
+
+function hasReservationConflict({ tableId, date, time, excludeId = '' }) {
+  if (!tableId || !date || !time) return false;
+  const targetMinutes = parseTimeToMinutes(time);
+  if (targetMinutes === null) return false;
+  const rows = queryAll(
+    `SELECT id, time
+     FROM reservations
+     WHERE table_id = ?
+       AND date = ?
+       AND status IN ('confirmed', 'pending')
+       AND id != ?`,
+    [tableId, date, excludeId || '']
+  );
+  // Standard block window: 90 minutes per reservation.
+  return rows.some((row) => {
+    const existingMinutes = parseTimeToMinutes(row.time);
+    if (existingMinutes === null) return false;
+    return Math.abs(existingMinutes - targetMinutes) < 90;
+  });
+}
+
+router.get('/config/app', requireRole('admin'), (req, res) => {
+  res.json(readAppSettingsObject());
+});
+
+router.get('/config/app/history', requireRole('admin'), (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query?.limit || 20), 1), 100);
+  const offset = Math.max(Number(req.query?.offset || 0), 0);
+  const section = String(req.query?.section || '').trim();
+  const actor = String(req.query?.actor || '').trim();
+  const q = String(req.query?.q || '').trim();
+  const where = [];
+  const params = [];
+  if (section && section !== 'all') {
+    where.push('changed_keys LIKE ?');
+    params.push(`%"${section}"%`);
+  }
+  if (actor && actor !== 'all') {
+    if (actor === '__empty__') {
+      where.push("TRIM(COALESCE(actor_name, '')) = ''");
+    } else {
+      where.push('actor_name = ?');
+      params.push(actor);
+    }
+  }
+  if (q) {
+    where.push('(actor_name LIKE ? OR changed_keys LIKE ? OR details LIKE ?)');
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const countRow = queryOne(
+    `SELECT COUNT(*) as total
+     FROM app_settings_history
+     ${whereSql}`,
+    params
+  ) || { total: 0 };
+  const rows = queryAll(
+    `SELECT id, actor_user_id, actor_name, changed_keys, before_state, after_state, details, created_at
+     FROM app_settings_history
+     ${whereSql}
+     ORDER BY created_at DESC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+  const history = rows.map((row) => ({
+    ...row,
+    changed_keys: parseJsonSafe(row.changed_keys, []),
+    before_state: parseJsonSafe(row.before_state, {}),
+    after_state: parseJsonSafe(row.after_state, {}),
+    details: parseJsonSafe(row.details, {}),
+  }));
+  res.json({
+    items: history,
+    total: Number(countRow.total || 0),
+    limit,
+    offset,
+  });
+});
+
+router.put('/config/app', requireRole('admin'), (req, res) => {
+  const payload = req.body || {};
+  const beforeState = readAppSettingsObject();
+  const changedKeys = [];
+  const updatedKeys = [];
+  APP_CONFIG_ALLOWED_KEYS.forEach((key) => {
+    if (payload[key] === undefined) return;
+    updatedKeys.push(key);
+    const previous = queryOne('SELECT value FROM app_settings WHERE key = ?', [key]);
+    const prevParsed = parseJsonSafe(previous?.value, {});
+    const nextParsed = payload[key] || {};
+    if (JSON.stringify(prevParsed) !== JSON.stringify(nextParsed)) {
+      changedKeys.push(key);
+    }
+    runSql(
+      `INSERT INTO app_settings (key, value, updated_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+      [key, JSON.stringify(payload[key] || {})]
+    );
+  });
+  const out = readAppSettingsObject();
+  let historyId = '';
+  if (changedKeys.length) {
+    historyId = uuidv4();
+    runSql(
+      `INSERT INTO app_settings_history (id, actor_user_id, actor_name, changed_keys, before_state, after_state, details)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        historyId,
+        req.user.id,
+        req.user.full_name || req.user.username || '',
+        JSON.stringify(changedKeys),
+        JSON.stringify(beforeState),
+        JSON.stringify(out),
+        JSON.stringify({ source: 'config_app_put' }),
+      ]
+    );
+  }
+  if (updatedKeys.length) {
+    logAudit({
+      actorUserId: req.user.id,
+      actorName: req.user.full_name || req.user.username || '',
+      action: 'app_settings.update',
+      resourceType: 'app_settings',
+      resourceId: changedKeys.join(',') || updatedKeys.join(','),
+      details: {
+        updated_keys: updatedKeys,
+        changed_keys: changedKeys,
+        history_id: historyId || null,
+      },
+    });
+  }
+  res.json(out);
+});
+
+router.post('/config/app/rollback/:historyId', requireRole('admin'), (req, res) => {
+  const history = queryOne('SELECT * FROM app_settings_history WHERE id = ?', [req.params.historyId]);
+  if (!history) return res.status(404).json({ error: 'No se encontró el historial solicitado' });
+  const beforeRollback = readAppSettingsObject();
+  const targetState = parseJsonSafe(history.before_state, null);
+  if (!targetState || typeof targetState !== 'object') {
+    return res.status(400).json({ error: 'El historial no contiene un estado válido para restaurar' });
+  }
+  const restoredKeys = [];
+  APP_CONFIG_ALLOWED_KEYS.forEach((key) => {
+    if (targetState[key] === undefined) return;
+    restoredKeys.push(key);
+    runSql(
+      `INSERT INTO app_settings (key, value, updated_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+      [key, JSON.stringify(targetState[key] || {})]
+    );
+  });
+  const afterRollback = readAppSettingsObject();
+  const rollbackHistoryId = uuidv4();
+  runSql(
+    `INSERT INTO app_settings_history (id, actor_user_id, actor_name, changed_keys, before_state, after_state, details)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      rollbackHistoryId,
+      req.user.id,
+      req.user.full_name || req.user.username || '',
+      JSON.stringify(restoredKeys),
+      JSON.stringify(beforeRollback),
+      JSON.stringify(afterRollback),
+      JSON.stringify({ source: 'rollback', source_history_id: req.params.historyId }),
+    ]
+  );
+  logAudit({
+    actorUserId: req.user.id,
+    actorName: req.user.full_name || req.user.username || '',
+    action: 'app_settings.rollback',
+    resourceType: 'app_settings',
+    resourceId: req.params.historyId,
+    details: {
+      restored_keys: restoredKeys,
+      new_history_id: rollbackHistoryId,
+    },
+  });
+  res.json(afterRollback);
+});
+
+router.get('/customers', requireRole('admin', 'cajero'), (req, res) => {
+  const q = String(req.query?.q || '').trim();
+  let sql = 'SELECT id, name, email, phone, address, doc_type, doc_number, created_at FROM customers';
+  const params = [];
+  if (q) {
+    sql += ' WHERE name LIKE ? OR email LIKE ? OR phone LIKE ? OR doc_number LIKE ?';
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  sql += ' ORDER BY created_at DESC LIMIT 500';
+  const customers = queryAll(sql, params);
+  customers.forEach((c) => {
+    const stats = queryOne(
+      `SELECT COUNT(*) as visits,
+              COALESCE(SUM(CASE WHEN status != 'cancelled' AND payment_status = 'paid' THEN total ELSE 0 END), 0) as total_spent,
+              MAX(created_at) as last_visit
+       FROM orders
+       WHERE customer_id = ?`,
+      [c.id]
+    ) || { visits: 0, total_spent: 0, last_visit: null };
+    c.visits = Number(stats.visits || 0);
+    c.total_spent = Number(stats.total_spent || 0);
+    c.last_visit = stats.last_visit || '-';
+  });
+  res.json(customers);
+});
+
+router.get('/customers/by-document', requireRole('admin', 'cajero', 'mozo'), (req, res) => {
+  const docNumber = normalizeDocNumber(req.query?.doc_number);
+  if (!docNumber) return res.json(null);
+  const customer = queryOne(
+    `SELECT id, name, email, phone, address, doc_type, doc_number, created_at
+     FROM customers
+     WHERE doc_number = ?
+     LIMIT 1`,
+    [docNumber]
+  );
+  res.json(customer || null);
+});
+
+router.post('/customers', requireRole('admin', 'cajero'), (req, res) => {
+  const { name, email, phone = '', address = '', password = 'cliente123', doc_type, doc_number } = req.body || {};
+  const cleanName = String(name || '').trim();
+  if (!cleanName) return res.status(400).json({ error: 'Nombre es requerido' });
+  const cleanDocType = normalizeDocType(doc_type);
+  const cleanDocNumber = normalizeDocNumber(doc_number);
+  try {
+    validateCustomerDoc(cleanDocType, cleanDocNumber);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const fallbackEmail = cleanDocNumber
+    ? `cliente.${cleanDocNumber}@local.resto`
+    : `cliente.${Date.now()}@local.resto`;
+  const nextEmail = cleanEmail || fallbackEmail;
+  const existing = queryOne('SELECT id FROM customers WHERE email = ?', [nextEmail]);
+  if (existing) return res.status(400).json({ error: 'Ya existe un cliente con ese email' });
+  if (cleanDocNumber) {
+    const existingByDoc = queryOne('SELECT id FROM customers WHERE doc_number = ?', [cleanDocNumber]);
+    if (existingByDoc) return res.status(400).json({ error: 'Ya existe un cliente con ese DNI/RUC' });
+  }
+  const id = uuidv4();
+  const hash = bcrypt.hashSync(String(password), 10);
+  runSql(
+    'INSERT INTO customers (id, name, email, password_hash, phone, address, doc_type, doc_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, cleanName, nextEmail, hash, phone, address, cleanDocType, cleanDocNumber]
+  );
+  logAudit({
+    actorUserId: req.user.id,
+    actorName: req.user.full_name || req.user.username || '',
+    action: 'customer.create',
+    resourceType: 'customer',
+    resourceId: id,
+    details: { email: nextEmail, doc_type: cleanDocType, doc_number: cleanDocNumber },
+  });
+  res.status(201).json(queryOne('SELECT id, name, email, phone, address, doc_type, doc_number, created_at FROM customers WHERE id = ?', [id]));
+});
+
+router.put('/customers/:id', requireRole('admin', 'cajero'), (req, res) => {
+  const customer = queryOne('SELECT * FROM customers WHERE id = ?', [req.params.id]);
+  if (!customer) return res.status(404).json({ error: 'Cliente no encontrado' });
+  const { name, email, phone, address, password, doc_type, doc_number } = req.body || {};
+  const nextDocType = doc_type !== undefined ? normalizeDocType(doc_type) : normalizeDocType(customer.doc_type);
+  const nextDocNumber = doc_number !== undefined ? normalizeDocNumber(doc_number) : normalizeDocNumber(customer.doc_number);
+  try {
+    validateCustomerDoc(nextDocType, nextDocNumber);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+  if (email && email !== customer.email) {
+    const dup = queryOne('SELECT id FROM customers WHERE email = ? AND id != ?', [String(email).trim().toLowerCase(), req.params.id]);
+    if (dup) return res.status(400).json({ error: 'Ya existe un cliente con ese email' });
+  }
+  if (nextDocNumber !== normalizeDocNumber(customer.doc_number || '')) {
+    const dupDoc = queryOne('SELECT id FROM customers WHERE doc_number = ? AND id != ?', [nextDocNumber, req.params.id]);
+    if (dupDoc) return res.status(400).json({ error: 'Ya existe un cliente con ese DNI/RUC' });
+  }
+  runSql(
+    `UPDATE customers
+     SET name = COALESCE(?, name),
+         email = COALESCE(?, email),
+         phone = COALESCE(?, phone),
+         address = COALESCE(?, address),
+         doc_type = ?,
+         doc_number = ?
+     WHERE id = ?`,
+    [name, email ? String(email).trim().toLowerCase() : email, phone, address, nextDocType, nextDocNumber, req.params.id]
+  );
+  if (password && String(password).trim()) {
+    const hash = bcrypt.hashSync(String(password), 10);
+    runSql('UPDATE customers SET password_hash = ? WHERE id = ?', [hash, req.params.id]);
+  }
+  res.json(queryOne('SELECT id, name, email, phone, address, doc_type, doc_number, created_at FROM customers WHERE id = ?', [req.params.id]));
+});
+
+router.delete('/customers/:id', requireRole('admin'), (req, res) => {
+  const customer = queryOne('SELECT id FROM customers WHERE id = ?', [req.params.id]);
+  if (!customer) return res.status(404).json({ error: 'Cliente no encontrado' });
+  const ordersCount = queryOne('SELECT COUNT(*) as c FROM orders WHERE customer_id = ?', [req.params.id]);
+  if (Number(ordersCount?.c || 0) > 0) {
+    return res.status(400).json({ error: 'No se puede eliminar: el cliente tiene pedidos registrados' });
+  }
+  runSql('DELETE FROM customers WHERE id = ?', [req.params.id]);
+  res.json({ success: true });
+});
+
+router.get('/reservations', (req, res) => {
+  res.json(queryAll('SELECT * FROM reservations ORDER BY date DESC, time DESC, created_at DESC LIMIT 300'));
+});
+
+router.post('/reservations', (req, res) => {
+  const { client_name, phone = '', date, time, guests = 2, table_id = '', notes = '', status = 'confirmed' } = req.body || {};
+  if (!client_name || !date || !time) return res.status(400).json({ error: 'Nombre, fecha y hora son requeridos' });
+  if (!['confirmed', 'pending', 'cancelled', 'completed'].includes(String(status))) {
+    return res.status(400).json({ error: 'Estado de reserva inválido' });
+  }
+  if (table_id && hasReservationConflict({ tableId: table_id, date, time })) {
+    return res.status(400).json({ error: 'La mesa seleccionada ya tiene una reserva cercana en ese horario' });
+  }
+  const id = uuidv4();
+  runSql(
+    'INSERT INTO reservations (id, client_name, phone, date, time, guests, table_id, notes, status, created_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, client_name, phone, date, time, Number(guests || 2), table_id, notes, status, req.user.id]
+  );
+  logAudit({ actorUserId: req.user.id, actorName: req.user.full_name || req.user.username || '', action: 'reservation.create', resourceType: 'reservation', resourceId: id });
+  res.status(201).json(queryOne('SELECT * FROM reservations WHERE id = ?', [id]));
+});
+
+router.put('/reservations/:id', (req, res) => {
+  const existing = queryOne('SELECT * FROM reservations WHERE id = ?', [req.params.id]);
+  if (!existing) return res.status(404).json({ error: 'Reserva no encontrada' });
+  const { client_name, phone, date, time, guests, table_id, notes, status } = req.body || {};
+  const nextDate = date || existing.date;
+  const nextTime = time || existing.time;
+  const nextTableId = table_id === undefined ? existing.table_id : table_id;
+  const nextStatus = status || existing.status;
+  if (!['confirmed', 'pending', 'cancelled', 'completed'].includes(String(nextStatus))) {
+    return res.status(400).json({ error: 'Estado de reserva inválido' });
+  }
+  if (nextTableId && ['confirmed', 'pending'].includes(String(nextStatus)) && hasReservationConflict({
+    tableId: nextTableId,
+    date: nextDate,
+    time: nextTime,
+    excludeId: req.params.id,
+  })) {
+    return res.status(400).json({ error: 'La mesa seleccionada ya tiene una reserva cercana en ese horario' });
+  }
+  runSql(
+    `UPDATE reservations
+     SET client_name = COALESCE(?, client_name), phone = COALESCE(?, phone), date = COALESCE(?, date), time = COALESCE(?, time),
+         guests = COALESCE(?, guests), table_id = COALESCE(?, table_id), notes = COALESCE(?, notes), status = COALESCE(?, status),
+         updated_at = datetime('now')
+     WHERE id = ?`,
+    [client_name, phone, date, time, guests, table_id, notes, status, req.params.id]
+  );
+  res.json(queryOne('SELECT * FROM reservations WHERE id = ?', [req.params.id]));
+});
+
+router.delete('/reservations/:id', requireRole('admin', 'cajero'), (req, res) => {
+  runSql('DELETE FROM reservations WHERE id = ?', [req.params.id]);
+  res.json({ success: true });
+});
+
+router.get('/credits', (req, res) => {
+  const credits = queryAll('SELECT * FROM customer_credits ORDER BY created_at DESC LIMIT 300');
+  credits.forEach(c => {
+    c.payments = queryAll('SELECT * FROM credit_payments WHERE credit_id = ? ORDER BY created_at DESC', [c.id]);
+  });
+  res.json(credits);
+});
+
+router.post('/credits', requireRole('admin', 'cajero'), (req, res) => {
+  const { client_name, phone = '', total = 0, items = '' } = req.body || {};
+  if (!client_name || Number(total) <= 0) return res.status(400).json({ error: 'Cliente y monto total son requeridos' });
+  const id = uuidv4();
+  runSql(
+    'INSERT INTO customer_credits (id, client_name, phone, total, paid, items, status, created_by_user_id) VALUES (?, ?, ?, ?, 0, ?, ?, ?)',
+    [id, client_name, phone, Number(total), items, 'open', req.user.id]
+  );
+  res.status(201).json(queryOne('SELECT * FROM customer_credits WHERE id = ?', [id]));
+});
+
+router.post('/credits/:id/payments', requireRole('admin', 'cajero'), (req, res) => {
+  const credit = queryOne('SELECT * FROM customer_credits WHERE id = ?', [req.params.id]);
+  if (!credit) return res.status(404).json({ error: 'Crédito no encontrado' });
+  const amount = Number(req.body?.amount || 0);
+  if (amount <= 0) return res.status(400).json({ error: 'Monto inválido' });
+  const nextPaid = Math.min(Number(credit.total || 0), Number(credit.paid || 0) + amount);
+  const status = nextPaid >= Number(credit.total || 0) ? 'paid' : 'open';
+  const paymentId = uuidv4();
+  runSql('INSERT INTO credit_payments (id, credit_id, amount, created_by_user_id) VALUES (?, ?, ?, ?)', [paymentId, req.params.id, amount, req.user.id]);
+  runSql('UPDATE customer_credits SET paid = ?, status = ?, updated_at = datetime(\'now\') WHERE id = ?', [nextPaid, status, req.params.id]);
+  res.status(201).json(queryOne('SELECT * FROM customer_credits WHERE id = ?', [req.params.id]));
+});
+
+router.get('/discounts', (req, res) => {
+  res.json(queryAll('SELECT * FROM discounts_catalog ORDER BY created_at DESC'));
+});
+
+router.post('/discounts', requireRole('admin'), (req, res) => {
+  const { name, type = 'percentage', value = 0, applies_to = 'all', conditions = '', active = 1 } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Nombre requerido' });
+  const id = uuidv4();
+  runSql(
+    'INSERT INTO discounts_catalog (id, name, type, value, applies_to, conditions, active) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, name, type, Number(value || 0), applies_to, conditions, active ? 1 : 0]
+  );
+  res.status(201).json(queryOne('SELECT * FROM discounts_catalog WHERE id = ?', [id]));
+});
+
+router.put('/discounts/:id', requireRole('admin'), (req, res) => {
+  const { name, type, value, applies_to, conditions, active } = req.body || {};
+  runSql(
+    `UPDATE discounts_catalog
+     SET name = COALESCE(?, name), type = COALESCE(?, type), value = COALESCE(?, value), applies_to = COALESCE(?, applies_to),
+         conditions = COALESCE(?, conditions), active = COALESCE(?, active), updated_at = datetime('now')
+     WHERE id = ?`,
+    [name, type, value, applies_to, conditions, active, req.params.id]
+  );
+  res.json(queryOne('SELECT * FROM discounts_catalog WHERE id = ?', [req.params.id]));
+});
+
+router.delete('/discounts/:id', requireRole('admin'), (req, res) => {
+  runSql('DELETE FROM discounts_catalog WHERE id = ?', [req.params.id]);
+  res.json({ success: true });
+});
+
+router.get('/offers', (req, res) => {
+  res.json(queryAll('SELECT * FROM offers_catalog ORDER BY created_at DESC'));
+});
+
+router.post('/offers', requireRole('admin'), (req, res) => {
+  const { name, description = '', type = 'promo', discount = 0, start_date = '', end_date = '', products = '', active = 1 } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Nombre requerido' });
+  const id = uuidv4();
+  runSql(
+    'INSERT INTO offers_catalog (id, name, description, type, discount, start_date, end_date, products, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, name, description, type, Number(discount || 0), start_date, end_date, products, active ? 1 : 0]
+  );
+  res.status(201).json(queryOne('SELECT * FROM offers_catalog WHERE id = ?', [id]));
+});
+
+router.put('/offers/:id', requireRole('admin'), (req, res) => {
+  const { name, description, type, discount, start_date, end_date, products, active } = req.body || {};
+  runSql(
+    `UPDATE offers_catalog
+     SET name = COALESCE(?, name), description = COALESCE(?, description), type = COALESCE(?, type), discount = COALESCE(?, discount),
+         start_date = COALESCE(?, start_date), end_date = COALESCE(?, end_date), products = COALESCE(?, products), active = COALESCE(?, active),
+         updated_at = datetime('now')
+     WHERE id = ?`,
+    [name, description, type, discount, start_date, end_date, products, active, req.params.id]
+  );
+  res.json(queryOne('SELECT * FROM offers_catalog WHERE id = ?', [req.params.id]));
+});
+
+router.delete('/offers/:id', requireRole('admin'), (req, res) => {
+  runSql('DELETE FROM offers_catalog WHERE id = ?', [req.params.id]);
+  res.json({ success: true });
+});
+
+router.get('/combos', (req, res) => {
+  const combos = queryAll('SELECT * FROM combos ORDER BY created_at DESC');
+  combos.forEach(combo => {
+    combo.items = queryAll(
+      `SELECT ci.*, p.name as product_name
+       FROM combo_items ci
+       LEFT JOIN products p ON p.id = ci.product_id
+       WHERE ci.combo_id = ?`,
+      [combo.id]
+    );
+  });
+  res.json(combos);
+});
+
+router.post('/combos', requireRole('admin'), (req, res) => {
+  const { name, description = '', price = 0, active = 1, items = [] } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Nombre requerido' });
+  const id = uuidv4();
+  runSql('INSERT INTO combos (id, name, description, price, active) VALUES (?, ?, ?, ?, ?)', [id, name, description, Number(price || 0), active ? 1 : 0]);
+  (Array.isArray(items) ? items : []).forEach((it) => {
+    if (!it?.product_id) return;
+    runSql('INSERT INTO combo_items (id, combo_id, product_id, quantity) VALUES (?, ?, ?, ?)', [uuidv4(), id, it.product_id, Number(it.quantity || 1)]);
+  });
+  res.status(201).json({ id });
+});
+
+router.put('/combos/:id', requireRole('admin'), (req, res) => {
+  const { name, description, price, active, items = null } = req.body || {};
+  runSql(
+    `UPDATE combos
+     SET name = COALESCE(?, name), description = COALESCE(?, description), price = COALESCE(?, price), active = COALESCE(?, active),
+         updated_at = datetime('now')
+     WHERE id = ?`,
+    [name, description, price, active, req.params.id]
+  );
+  if (Array.isArray(items)) {
+    runSql('DELETE FROM combo_items WHERE combo_id = ?', [req.params.id]);
+    items.forEach((it) => {
+      if (!it?.product_id) return;
+      runSql('INSERT INTO combo_items (id, combo_id, product_id, quantity) VALUES (?, ?, ?, ?)', [uuidv4(), req.params.id, it.product_id, Number(it.quantity || 1)]);
+    });
+  }
+  res.json({ success: true });
+});
+
+router.delete('/combos/:id', requireRole('admin'), (req, res) => {
+  runSql('DELETE FROM combo_items WHERE combo_id = ?', [req.params.id]);
+  runSql('DELETE FROM combos WHERE id = ?', [req.params.id]);
+  res.json({ success: true });
+});
+
+router.get('/modifiers', (req, res) => {
+  const modifiers = queryAll('SELECT * FROM modifiers ORDER BY created_at DESC');
+  modifiers.forEach((m) => {
+    m.options = queryAll('SELECT * FROM modifier_options WHERE modifier_id = ?', [m.id]).map(o => o.option_name);
+  });
+  res.json(modifiers);
+});
+
+router.post('/modifiers', requireRole('admin'), (req, res) => {
+  const { name, required = false, active = true, options = [] } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Nombre requerido' });
+  const id = uuidv4();
+  runSql('INSERT INTO modifiers (id, name, required, active) VALUES (?, ?, ?, ?)', [id, name, required ? 1 : 0, active ? 1 : 0]);
+  (Array.isArray(options) ? options : []).forEach(opt => {
+    if (!opt) return;
+    runSql('INSERT INTO modifier_options (id, modifier_id, option_name) VALUES (?, ?, ?)', [uuidv4(), id, String(opt)]);
+  });
+  res.status(201).json({ id });
+});
+
+router.put('/modifiers/:id', requireRole('admin'), (req, res) => {
+  const { name, required, active, options = null } = req.body || {};
+  runSql(
+    'UPDATE modifiers SET name = COALESCE(?, name), required = COALESCE(?, required), active = COALESCE(?, active), updated_at = datetime(\'now\') WHERE id = ?',
+    [name, required, active, req.params.id]
+  );
+  if (Array.isArray(options)) {
+    runSql('DELETE FROM modifier_options WHERE modifier_id = ?', [req.params.id]);
+    options.forEach(opt => {
+      if (!opt) return;
+      runSql('INSERT INTO modifier_options (id, modifier_id, option_name) VALUES (?, ?, ?)', [uuidv4(), req.params.id, String(opt)]);
+    });
+  }
+  res.json({ success: true });
+});
+
+router.delete('/modifiers/:id', requireRole('admin'), (req, res) => {
+  runSql('DELETE FROM modifier_options WHERE modifier_id = ?', [req.params.id]);
+  runSql('DELETE FROM modifiers WHERE id = ?', [req.params.id]);
+  res.json({ success: true });
+});
+
+module.exports = router;

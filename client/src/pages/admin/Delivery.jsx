@@ -1,0 +1,295 @@
+import { useState, useEffect } from 'react';
+import { api, formatCurrency, formatDate, formatDateTime, getPaymentMethodOptions } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
+import Modal from '../../components/Modal';
+import {
+  MdDeliveryDining, MdLocationOn, MdCheck, MdTimer, MdAdd,
+  MdRemove, MdDelete, MdReceipt, MdSearch, MdShoppingCart,
+  MdPerson, MdPhone, MdHome
+} from 'react-icons/md';
+import toast from 'react-hot-toast';
+
+export default function Delivery() {
+  const [orders, setOrders] = useState([]);
+  const [tab, setTab] = useState('active');
+  const [loading, setLoading] = useState(true);
+
+  const [showNewOrder, setShowNewOrder] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [search, setSearch] = useState('');
+  const [selectedCat, setSelectedCat] = useState('all');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('efectivo');
+  const [paymentOptions, setPaymentOptions] = useState(getPaymentMethodOptions(null, { includeOnline: false }));
+
+  const load = () => {
+    api.get('/orders').then(data => {
+      setOrders(data.filter(o => o.type === 'delivery'));
+    }).catch(console.error).finally(() => setLoading(false));
+  };
+
+  const loadProducts = () => {
+    Promise.all([
+      api.get('/products?active_only=true'),
+      api.get('/categories/active'),
+      api.get('/admin-modules/config/app').catch(() => null),
+    ]).then(([prods, cats, cfg]) => {
+      setProducts(prods);
+      setCategories(cats);
+      const nextOptions = getPaymentMethodOptions(cfg, { includeOnline: false });
+      setPaymentOptions(nextOptions);
+    }).catch(console.error);
+  };
+
+  useEffect(() => {
+    if (!paymentOptions.some(opt => opt.value === paymentMethod)) {
+      setPaymentMethod(paymentOptions[0]?.value || 'efectivo');
+    }
+  }, [paymentOptions, paymentMethod]);
+
+  useEffect(() => { load(); loadProducts(); }, []);
+  useSocket('order-update', load);
+
+  const activeOrders = orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
+  const completedOrders = orders.filter(o => ['delivered', 'cancelled'].includes(o.status));
+  const todayKey = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const todayDeliveries = orders.filter(
+    o => o.status === 'delivered' && formatDate(o.updated_at || o.created_at) === todayKey
+  );
+
+  const displayed =
+    tab === 'active'
+      ? activeOrders
+      : tab === 'today'
+        ? todayDeliveries
+        : completedOrders;
+
+  const updateStatus = async (id, status) => {
+    try {
+      await api.put(`/orders/${id}/status`, { status });
+      toast.success('Estado actualizado');
+      load();
+    } catch (err) { toast.error(err.message); }
+  };
+
+  const openNewOrder = () => {
+    setShowNewOrder(true);
+    setCart([]);
+    setSearch('');
+    setSelectedCat('all');
+    setCustomerName('');
+    setCustomerPhone('');
+    setDeliveryAddress('');
+    setPaymentMethod('efectivo');
+  };
+
+  const addToCart = (product) => {
+    setCart(prev => {
+      const existing = prev.find(i => i.product_id === product.id);
+      if (existing) return prev.map(i => i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { product_id: product.id, name: product.name, price: product.price, quantity: 1 }];
+    });
+  };
+
+  const updateQty = (productId, delta) => {
+    setCart(prev => prev.map(i => {
+      if (i.product_id !== productId) return i;
+      const newQty = i.quantity + delta;
+      return newQty > 0 ? { ...i, quantity: newQty } : i;
+    }).filter(i => i.quantity > 0));
+  };
+
+  const removeFromCart = (productId) => setCart(prev => prev.filter(i => i.product_id !== productId));
+
+  const cartTotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+  const submitDeliveryOrder = async () => {
+    if (cart.length === 0) return toast.error('Agrega productos al pedido');
+    if (!customerName.trim()) return toast.error('Ingresa el nombre del cliente');
+    if (!deliveryAddress.trim()) return toast.error('Ingresa la dirección de entrega');
+    try {
+      await api.post('/orders', {
+        items: cart.map(i => ({ product_id: i.product_id, quantity: i.quantity })),
+        type: 'delivery',
+        customer_name: customerName.trim(),
+        delivery_address: deliveryAddress.trim(),
+        payment_method: paymentMethod,
+        notes: customerPhone ? `Tel: ${customerPhone}` : '',
+      });
+      toast.success('Pedido de delivery creado');
+      setShowNewOrder(false);
+      setCart([]);
+      load();
+    } catch (err) { toast.error(err.message); }
+  };
+
+  const filteredProducts = products.filter(p => {
+    if (selectedCat !== 'all' && p.category_id !== selectedCat) return false;
+    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const statusColors = { pending: 'bg-gold-100 text-gold-700', preparing: 'bg-sky-100 text-sky-700', ready: 'bg-sky-100 text-sky-700', delivered: 'bg-emerald-100 text-emerald-700', cancelled: 'bg-red-100 text-red-700' };
+  const statusNames = { pending: 'Pendiente', preparing: 'Preparando', ready: 'Listo para enviar', delivered: 'Entregado', cancelled: 'Cancelado' };
+
+  if (loading) return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-2xl font-bold text-slate-800">Delivery</h1>
+        <div className="flex gap-2">
+          <button onClick={openNewOrder} className="btn-primary flex items-center gap-2 text-sm">
+            <MdAdd /> Nuevo Pedido
+          </button>
+          <button onClick={() => setTab('active')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'active' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Activos ({activeOrders.length})</button>
+          <button onClick={() => setTab('today')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'today' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Hoy ({todayDeliveries.length})</button>
+          <button onClick={() => setTab('completed')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'completed' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Completados ({completedOrders.length})</button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-gold-100 rounded-xl flex items-center justify-center"><MdTimer className="text-gold-600" /></div><div><p className="text-xs text-slate-500">En proceso</p><p className="text-xl font-bold">{activeOrders.length}</p></div></div>
+        <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center"><MdCheck className="text-emerald-600" /></div><div><p className="text-xs text-slate-500">Entregados hoy</p><p className="text-xl font-bold">{todayDeliveries.length}</p></div></div>
+        <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center"><MdDeliveryDining className="text-sky-600" /></div><div><p className="text-xs text-slate-500">Total Delivery</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(orders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + (o.total || 0), 0))}</p></div></div>
+      </div>
+
+      {displayed.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border p-12 text-center text-slate-400"><MdDeliveryDining className="text-5xl mx-auto mb-3" /><p className="font-medium">No hay pedidos de delivery {tab === 'active' ? 'activos' : tab === 'today' ? 'entregados hoy' : 'completados'}</p></div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {displayed.map(o => (
+            <div key={o.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-lg">#{o.order_number}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[o.status]}`}>{statusNames[o.status]}</span>
+                </div>
+                <p className="text-xs text-slate-400">{formatDateTime(o.created_at)}</p>
+              </div>
+              <div className="space-y-1 mb-3 text-sm">
+                {o.customer_name && <p className="text-slate-600 flex items-center gap-1"><MdPerson className="text-slate-400" />{o.customer_name}</p>}
+                <p className="text-slate-600 flex items-center gap-1"><MdLocationOn className="text-slate-400" />{o.delivery_address || 'Sin dirección'}</p>
+                {o.notes && <p className="text-slate-500 flex items-center gap-1"><MdPhone className="text-slate-400" />{o.notes}</p>}
+              </div>
+              <div className="border-t border-slate-100 pt-3 mb-3">
+                <p className="text-xs font-semibold text-slate-500 mb-1">Detalle de lo pedido</p>
+                {(o.items || []).map((it, i) => (
+                  <div key={i} className="flex justify-between text-sm py-0.5"><span>{it.quantity}x {it.product_name}</span><span className="text-slate-500">{formatCurrency(it.subtotal)}</span></div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                <div>
+                  <p className="text-xs text-slate-500">Total compra</p>
+                  <p className="font-bold text-lg">{formatCurrency(o.total)}</p>
+                </div>
+                {tab === 'active' && (
+                  <div className="flex gap-2">
+                    {o.status === 'pending' && <button onClick={() => updateStatus(o.id, 'preparing')} className="text-xs px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-100">Preparar</button>}
+                    {o.status === 'preparing' && <button onClick={() => updateStatus(o.id, 'ready')} className="text-xs px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-100">Listo</button>}
+                    {o.status === 'ready' && <button onClick={() => updateStatus(o.id, 'delivered')} className="text-xs px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100">Entregado</button>}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal isOpen={showNewOrder} onClose={() => setShowNewOrder(false)} title="Nuevo Pedido de Delivery" size="xl">
+        <div className="flex gap-4" style={{ minHeight: '65vh' }}>
+          <div className="flex-1 flex flex-col">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1"><MdPerson className="inline mr-1" />Cliente *</label>
+                <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nombre del cliente" className="input-field text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1"><MdPhone className="inline mr-1" />Teléfono</label>
+                <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="999 888 777" className="input-field text-sm" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-1"><MdHome className="inline mr-1" />Dirección de entrega *</label>
+                <input value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} placeholder="Av. ejemplo 123, distrito" className="input-field text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Método de pago</label>
+                <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="input-field text-sm">
+                  {paymentOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <div className="relative">
+                <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar producto..." className="input-field pl-10" />
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap mb-3">
+              <button onClick={() => setSelectedCat('all')} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${selectedCat === 'all' ? 'bg-gold-600 text-white' : 'bg-slate-100 text-slate-600'}`}>Todos</button>
+              {categories.map(c => (
+                <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${selectedCat === c.id ? 'bg-gold-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{c.name}</button>
+              ))}
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {filteredProducts.map(p => (
+                  <button key={p.id} onClick={() => addToCart(p)} className="bg-slate-50 rounded-xl p-3 text-left hover:shadow-md transition-shadow border border-slate-100 hover:border-gold-300">
+                    <p className="font-medium text-sm truncate">{p.name}</p>
+                    <p className="text-gold-600 font-bold text-sm mt-1">{formatCurrency(p.price)}</p>
+                    <p className="text-xs text-slate-400">Stock: {p.stock}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="w-72 border-l pl-4 flex flex-col">
+            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <MdShoppingCart /> Pedido
+              {cart.length > 0 && <span className="text-xs bg-gold-100 text-gold-600 px-2 py-0.5 rounded-full">{cart.length}</span>}
+            </h3>
+
+            <div className="flex-1 overflow-y-auto space-y-2">
+              {cart.length === 0 ? (
+                <p className="text-center text-slate-400 text-sm py-8">Selecciona productos</p>
+              ) : cart.map(item => (
+                <div key={item.product_id} className="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{item.name}</p>
+                    <p className="text-xs text-slate-400">{formatCurrency(item.price)}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => updateQty(item.product_id, -1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdRemove className="text-xs" /></button>
+                    <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                    <button onClick={() => updateQty(item.product_id, 1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdAdd className="text-xs" /></button>
+                  </div>
+                  <button onClick={() => removeFromCart(item.product_id)} className="text-red-400 hover:text-red-600"><MdDelete className="text-sm" /></button>
+                </div>
+              ))}
+            </div>
+
+            {cart.length > 0 && (
+              <div className="border-t pt-3 mt-3 space-y-2">
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Total</span>
+                  <span className="text-gold-600">{formatCurrency(cartTotal)}</span>
+                </div>
+                <button onClick={submitDeliveryOrder} className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
+                  <MdDeliveryDining /> Crear Pedido Delivery
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}

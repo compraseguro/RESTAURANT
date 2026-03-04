@@ -1,0 +1,1215 @@
+const initSqlJs = require('sql.js');
+const bcrypt = require('bcryptjs');
+const path = require('path');
+const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
+
+const DB_PATH = path.join(__dirname, '..', 'restaurant.db');
+
+let db = null;
+let dbReady = null;
+
+function getDb() {
+  if (!db) throw new Error('Database not initialized');
+  return db;
+}
+
+function saveDb() {
+  if (db) {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(DB_PATH, buffer);
+  }
+}
+
+function getDefaultSchedule() {
+  return {
+    lunes: { open: '11:00', close: '23:00', enabled: true },
+    martes: { open: '11:00', close: '23:00', enabled: true },
+    miercoles: { open: '11:00', close: '23:00', enabled: true },
+    jueves: { open: '11:00', close: '23:00', enabled: true },
+    viernes: { open: '11:00', close: '00:00', enabled: true },
+    sabado: { open: '11:00', close: '00:00', enabled: true },
+    domingo: { open: '11:00', close: '22:00', enabled: true },
+  };
+}
+
+function getDbPath() {
+  return DB_PATH;
+}
+
+function createBackupFile() {
+  saveDb();
+  const backupsDir = path.join(__dirname, '..', 'backups');
+  if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
+  const ts = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '_');
+  const backupPath = path.join(backupsDir, `restaurant_${ts}.db`);
+  fs.copyFileSync(DB_PATH, backupPath);
+  return backupPath;
+}
+
+async function restoreDbFromBuffer(fileBuffer) {
+  if (!fileBuffer || !fileBuffer.length) {
+    throw new Error('Archivo de backup inválido');
+  }
+  const SQL = await initSqlJs();
+  const nextDb = new SQL.Database(fileBuffer);
+  nextDb.run('PRAGMA foreign_keys = ON');
+  if (db && typeof db.close === 'function') {
+    try {
+      db.close();
+    } catch (_) {
+      // noop
+    }
+  }
+  db = nextDb;
+  saveDb();
+}
+
+function resetOperationalData({ keepAdminUserId = '' } = {}) {
+  const keepId = String(keepAdminUserId || '').trim();
+  withTransaction((tx) => {
+    tx.run('PRAGMA foreign_keys = OFF');
+
+    const tablesToClear = [
+      'user_work_sessions',
+      'delivery_assignments',
+      'order_items',
+      'orders',
+      'cash_movements',
+      'cash_notes',
+      'cash_registers',
+      'inventory_logs',
+      'inventory_warehouse_stocks',
+      'purchase_order_items',
+      'purchase_orders',
+      'suppliers',
+      'customer_credits',
+      'credit_payments',
+      'electronic_documents',
+      'reservations',
+      'audit_logs',
+      'app_settings_history',
+      'discounts_catalog',
+      'offers_catalog',
+      'combo_items',
+      'combos',
+      'modifier_options',
+      'modifiers',
+      'product_variants',
+      'products',
+      'categories',
+      'customers',
+      'tables',
+      'user_permissions',
+      'warehouse_locations',
+    ];
+
+    tablesToClear.forEach((tableName) => {
+      tx.run(`DELETE FROM ${tableName}`);
+    });
+
+    if (keepId) {
+      tx.run("DELETE FROM users WHERE id != ?", [keepId]);
+      tx.run("UPDATE users SET role = 'admin', is_active = 1 WHERE id = ?", [keepId]);
+    } else {
+      tx.run('DELETE FROM users');
+    }
+
+    const restaurant = tx.queryOne('SELECT id FROM restaurants LIMIT 1');
+    if (restaurant?.id) {
+      tx.run(
+        `UPDATE restaurants
+         SET name = 'Mi Restaurante',
+             address = '',
+             phone = '',
+             email = '',
+             logo = '',
+             tax_rate = 18,
+             currency = 'PEN',
+             currency_symbol = 'S/',
+             delivery_enabled = 1,
+             delivery_fee = 5,
+             delivery_min_order = 20,
+             delivery_radius_km = 10,
+             company_ruc = '',
+             legal_name = '',
+             billing_enabled = 0,
+             billing_provider = 'nubefact',
+             billing_api_url = 'https://api.nubefact.com/api/v1/9c66b892-4f9e-4f4f-b6ba-95bb89ee7b82',
+             billing_api_token = '',
+             billing_series_boleta = 'B001',
+             billing_series_factura = 'F001',
+             billing_offline_mode = 1,
+             billing_auto_retry_enabled = 1,
+             billing_auto_retry_interval_sec = 120,
+             schedule = ?,
+             updated_at = datetime('now')
+         WHERE id = ?`,
+        [JSON.stringify(getDefaultSchedule()), restaurant.id]
+      );
+    } else {
+      tx.run(
+        'INSERT INTO restaurants (id, name, schedule) VALUES (?, ?, ?)',
+        [uuidv4(), 'Mi Restaurante', JSON.stringify(getDefaultSchedule())]
+      );
+    }
+
+    tx.run('DELETE FROM app_settings');
+    const defaultSettings = {
+      regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
+      series_contingencia: { boleta: 'BC01', factura: 'FC01', enabled: 1 },
+      contrato: { plan: 'pro', renewal_date: '', observations: '' },
+      pagos_sistema: {
+        acepta_efectivo: 1,
+        acepta_tarjeta: 1,
+        acepta_yape: 0,
+        acepta_plin: 0,
+        requiere_referencia_digital: 0,
+        propina_sugerida_pct: 10,
+        tolerancia_diferencia_caja: 2,
+        dias_max_credito: 15,
+        monto_max_credito: 500,
+        notificar_mora: 1,
+        texto_politica_cobro: 'Todo crédito debe regularizarse dentro del plazo acordado.',
+      },
+      settings: {
+        regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
+        locales: [{ name: 'Principal', address: '', phone: '', active: 1 }],
+        almacenes: [{ name: 'Almacén Principal', description: 'Almacén general de insumos', active: 1 }],
+        cajas: [{ name: 'Caja Principal', description: 'Caja #1 - Recepción', active: 1 }],
+        comprobantes: [
+          { name: 'Boleta de Venta', series: 'B001', active: 1 },
+          { name: 'Factura', series: 'F001', active: 1 },
+          { name: 'Nota de Venta', series: 'N001', active: 1 },
+        ],
+        impresoras: [
+          { name: 'Impresora Cocina', area: 'Comandas', width_mm: 80, copies: 1, active: 1 },
+          { name: 'Impresora Bar', area: 'Comandas Bar', width_mm: 80, copies: 1, active: 1 },
+          { name: 'Impresora Caja', area: 'Comprobantes', width_mm: 80, copies: 1, active: 1 },
+        ],
+        tarjetas: [
+          { name: 'Visa', fee_percent: 2.5, active: 1 },
+          { name: 'Mastercard', fee_percent: 3, active: 1 },
+        ],
+        monedas: [
+          { code: 'PEN', name: 'Sol Peruano', symbol: 'S/', active: 1 },
+          { code: 'USD', name: 'Dólar Americano', symbol: '$', active: 0 },
+        ],
+        cuentas_transferencia: [],
+        marcas: [],
+        imagenes_self: [],
+        categoria_anular: ['Error en el pedido', 'Cliente se retiró'],
+        formas_pago: [
+          { name: 'Efectivo', desc: 'Pago en efectivo', active: 1 },
+          { name: 'Yape', desc: 'Pago móvil BCP', active: 0 },
+          { name: 'Plin', desc: 'Pago móvil Interbank', active: 0 },
+          { name: 'Tarjeta', desc: 'Visa, Mastercard, etc.', active: 1 },
+        ],
+      },
+      master_admin_control: {
+        contract_title: 'Contrato de venta',
+        contract_notes: '',
+        billing_date: '',
+        notify_days_before: 5,
+        auto_block_on_overdue: 1,
+        global_lock_enabled: 0,
+        global_lock_reason: 'Bloqueo por falta de pago',
+        lock_enabled_by: '',
+        lock_enabled_at: '',
+        billing_alert_sent_for: '',
+      },
+      master_admin_notifications: [],
+    };
+    Object.entries(defaultSettings).forEach(([key, value]) => {
+      tx.run(
+        `INSERT INTO app_settings (key, value, updated_at)
+         VALUES (?, ?, datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+        [key, JSON.stringify(value)]
+      );
+    });
+
+    tx.run('DELETE FROM order_sequence');
+    tx.run('INSERT INTO order_sequence (id, current_number) VALUES (1, 0)');
+
+    const activeRestaurant = tx.queryOne('SELECT id FROM restaurants LIMIT 1');
+    if (activeRestaurant?.id) {
+      for (let i = 1; i <= 5; i += 1) {
+        tx.run(
+          'INSERT INTO tables (id, number, name, capacity, zone, restaurant_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [uuidv4(), i, `Mesa ${i}`, 4, 'principal', activeRestaurant.id]
+        );
+      }
+    }
+
+    tx.run('PRAGMA foreign_keys = ON');
+  });
+}
+
+async function initDatabase() {
+  if (dbReady) return dbReady;
+
+  dbReady = (async () => {
+    const SQL = await initSqlJs();
+
+    if (fs.existsSync(DB_PATH)) {
+      const fileBuffer = fs.readFileSync(DB_PATH);
+      db = new SQL.Database(fileBuffer);
+    } else {
+      db = new SQL.Database();
+    }
+
+    db.run('PRAGMA foreign_keys = ON');
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS restaurants (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT 'Mi Restaurante',
+        address TEXT DEFAULT '',
+        phone TEXT DEFAULT '',
+        email TEXT DEFAULT '',
+        logo TEXT DEFAULT '',
+        tax_rate REAL DEFAULT 18.0,
+        currency TEXT DEFAULT 'PEN',
+        currency_symbol TEXT DEFAULT 'S/',
+        delivery_enabled INTEGER DEFAULT 1,
+        delivery_fee REAL DEFAULT 5.00,
+        delivery_min_order REAL DEFAULT 20.00,
+        delivery_radius_km REAL DEFAULT 10.0,
+        company_ruc TEXT DEFAULT '',
+        legal_name TEXT DEFAULT '',
+        billing_enabled INTEGER DEFAULT 0,
+        billing_provider TEXT DEFAULT 'nubefact',
+        billing_api_url TEXT DEFAULT 'https://api.nubefact.com/api/v1/9c66b892-4f9e-4f4f-b6ba-95bb89ee7b82',
+        billing_api_token TEXT DEFAULT '',
+        billing_series_boleta TEXT DEFAULT 'B001',
+        billing_series_factura TEXT DEFAULT 'F001',
+        billing_offline_mode INTEGER DEFAULT 1,
+        billing_auto_retry_enabled INTEGER DEFAULT 1,
+        billing_auto_retry_interval_sec INTEGER DEFAULT 120,
+        schedule TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('admin','cajero','mozo','cocina','bar','delivery')),
+        restaurant_id TEXT,
+        is_active INTEGER DEFAULT 1,
+        phone TEXT DEFAULT '',
+        avatar TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS user_work_sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        session_token_id TEXT UNIQUE,
+        username TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        role TEXT NOT NULL,
+        login_at TEXT DEFAULT (datetime('now')),
+        logout_at TEXT,
+        worked_minutes INTEGER DEFAULT 0,
+        close_reason TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS customers (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        doc_type TEXT DEFAULT '1',
+        doc_number TEXT DEFAULT '',
+        phone TEXT DEFAULT '',
+        address TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS categories (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        image TEXT DEFAULT '',
+        restaurant_id TEXT,
+        is_active INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS products (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        price REAL NOT NULL,
+        image TEXT DEFAULT '',
+        category_id TEXT,
+        restaurant_id TEXT,
+        stock INTEGER DEFAULT 100,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS product_variants (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        price_modifier REAL DEFAULT 0,
+        is_active INTEGER DEFAULT 1
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id TEXT PRIMARY KEY,
+        order_number INTEGER,
+        customer_id TEXT,
+        customer_name TEXT DEFAULT '',
+        restaurant_id TEXT,
+        type TEXT NOT NULL CHECK(type IN ('dine_in','delivery','pickup')),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','preparing','ready','delivered','cancelled')),
+        subtotal REAL DEFAULT 0,
+        tax REAL DEFAULT 0,
+        discount REAL DEFAULT 0,
+        delivery_fee REAL DEFAULT 0,
+        total REAL DEFAULT 0,
+        payment_method TEXT DEFAULT 'efectivo' CHECK(payment_method IN ('efectivo','yape','plin','tarjeta','online')),
+        payment_status TEXT DEFAULT 'pending' CHECK(payment_status IN ('pending','paid','refunded')),
+        table_number TEXT DEFAULT '',
+        delivery_address TEXT DEFAULT '',
+        delivery_lat REAL,
+        delivery_lng REAL,
+        notes TEXT DEFAULT '',
+        sale_document_type TEXT DEFAULT 'nota_venta' CHECK(sale_document_type IN ('nota_venta','boleta','factura')),
+        sale_document_number TEXT DEFAULT '',
+        created_by_user_id TEXT DEFAULT '',
+        created_by_user_name TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS order_items (
+        id TEXT PRIMARY KEY,
+        order_id TEXT NOT NULL,
+        product_id TEXT,
+        product_name TEXT NOT NULL,
+        variant_name TEXT DEFAULT '',
+        quantity INTEGER NOT NULL DEFAULT 1,
+        unit_price REAL NOT NULL,
+        subtotal REAL NOT NULL,
+        notes TEXT DEFAULT ''
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS delivery_assignments (
+        id TEXT PRIMARY KEY,
+        order_id TEXT NOT NULL,
+        driver_id TEXT NOT NULL,
+        status TEXT DEFAULT 'assigned' CHECK(status IN ('assigned','picking_up','on_the_way','delivered')),
+        assigned_at TEXT DEFAULT (datetime('now')),
+        picked_up_at TEXT,
+        delivered_at TEXT,
+        rating INTEGER,
+        notes TEXT DEFAULT ''
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS cash_registers (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        restaurant_id TEXT,
+        opened_at TEXT DEFAULT (datetime('now')),
+        closed_at TEXT,
+        opening_amount REAL DEFAULT 0,
+        closing_amount REAL,
+        total_sales REAL DEFAULT 0,
+        total_cash REAL DEFAULT 0,
+        total_yape REAL DEFAULT 0,
+        total_plin REAL DEFAULT 0,
+        total_card REAL DEFAULT 0,
+        notes TEXT DEFAULT '',
+        arqueo_data TEXT DEFAULT '{}'
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS cash_movements (
+        id TEXT PRIMARY KEY,
+        register_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('income','expense')),
+        amount REAL NOT NULL,
+        concept TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS cash_notes (
+        id TEXT PRIMARY KEY,
+        register_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        note_type TEXT NOT NULL CHECK(note_type IN ('credit','debit')),
+        amount REAL NOT NULL,
+        reason TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS inventory_logs (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL,
+        quantity_change INTEGER NOT NULL,
+        previous_stock INTEGER,
+        new_stock INTEGER,
+        reason TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now')),
+        created_by TEXT
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS warehouse_locations (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT DEFAULT '',
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS inventory_warehouse_stocks (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL,
+        warehouse_id TEXT NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(product_id, warehouse_id)
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        contact_name TEXT DEFAULT '',
+        phone TEXT DEFAULT '',
+        email TEXT DEFAULT '',
+        address TEXT DEFAULT '',
+        restaurant_id TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS purchase_orders (
+        id TEXT PRIMARY KEY,
+        supplier_id TEXT,
+        restaurant_id TEXT,
+        total REAL DEFAULT 0,
+        status TEXT DEFAULT 'pending' CHECK(status IN ('pending','received','cancelled')),
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS purchase_order_items (
+        id TEXT PRIMARY KEY,
+        purchase_order_id TEXT NOT NULL,
+        product_id TEXT,
+        product_name TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        unit_cost REAL NOT NULL,
+        subtotal REAL NOT NULL
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS tables (
+        id TEXT PRIMARY KEY,
+        number INTEGER NOT NULL,
+        name TEXT DEFAULT '',
+        capacity INTEGER DEFAULT 4,
+        status TEXT DEFAULT 'available' CHECK(status IN ('available','occupied','reserved','maintenance')),
+        current_order_id TEXT,
+        restaurant_id TEXT,
+        zone TEXT DEFAULT 'principal',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS user_permissions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL UNIQUE,
+        permissions TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        migration_key TEXT UNIQUE NOT NULL,
+        executed_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id TEXT PRIMARY KEY,
+        actor_user_id TEXT DEFAULT '',
+        actor_name TEXT DEFAULT '',
+        action TEXT NOT NULL,
+        resource_type TEXT DEFAULT '',
+        resource_id TEXT DEFAULT '',
+        details TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS order_sequence (
+        id INTEGER PRIMARY KEY CHECK(id = 1),
+        current_number INTEGER DEFAULT 0
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS electronic_documents (
+        id TEXT PRIMARY KEY,
+        order_id TEXT NOT NULL UNIQUE,
+        order_number INTEGER,
+        doc_type TEXT NOT NULL CHECK(doc_type IN ('boleta','factura')),
+        series TEXT NOT NULL,
+        correlative INTEGER NOT NULL,
+        full_number TEXT NOT NULL,
+        customer_doc_type TEXT DEFAULT '',
+        customer_doc_number TEXT DEFAULT '',
+        customer_name TEXT DEFAULT '',
+        customer_address TEXT DEFAULT '',
+        subtotal REAL DEFAULT 0,
+        tax REAL DEFAULT 0,
+        total REAL DEFAULT 0,
+        currency TEXT DEFAULT 'PEN',
+        payment_method TEXT DEFAULT '',
+        provider TEXT DEFAULT 'nubefact',
+        provider_status TEXT DEFAULT 'pending',
+        provider_message TEXT DEFAULT '',
+        hash_code TEXT DEFAULT '',
+        sunat_description TEXT DEFAULT '',
+        xml_url TEXT DEFAULT '',
+        cdr_url TEXT DEFAULT '',
+        pdf_url TEXT DEFAULT '',
+        provider_payload TEXT DEFAULT '{}',
+        provider_response TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS reservations (
+        id TEXT PRIMARY KEY,
+        client_name TEXT NOT NULL,
+        phone TEXT DEFAULT '',
+        date TEXT NOT NULL,
+        time TEXT NOT NULL,
+        guests INTEGER DEFAULT 2,
+        table_id TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        status TEXT DEFAULT 'confirmed' CHECK(status IN ('confirmed','pending','cancelled','completed')),
+        created_by_user_id TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS customer_credits (
+        id TEXT PRIMARY KEY,
+        client_name TEXT NOT NULL,
+        phone TEXT DEFAULT '',
+        total REAL DEFAULT 0,
+        paid REAL DEFAULT 0,
+        items TEXT DEFAULT '',
+        status TEXT DEFAULT 'open' CHECK(status IN ('open','paid','cancelled')),
+        created_by_user_id TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS credit_payments (
+        id TEXT PRIMARY KEY,
+        credit_id TEXT NOT NULL,
+        amount REAL DEFAULT 0,
+        created_by_user_id TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS discounts_catalog (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('percentage','fixed')),
+        value REAL DEFAULT 0,
+        applies_to TEXT DEFAULT 'all' CHECK(applies_to IN ('all','total')),
+        conditions TEXT DEFAULT '',
+        active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS offers_catalog (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        type TEXT DEFAULT 'promo' CHECK(type IN ('promo','combo')),
+        discount REAL DEFAULT 0,
+        start_date TEXT DEFAULT '',
+        end_date TEXT DEFAULT '',
+        products TEXT DEFAULT '',
+        active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS combos (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        price REAL DEFAULT 0,
+        active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS combo_items (
+        id TEXT PRIMARY KEY,
+        combo_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        quantity REAL DEFAULT 1
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS modifiers (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        required INTEGER DEFAULT 0,
+        active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS modifier_options (
+        id TEXT PRIMARY KEY,
+        modifier_id TEXT NOT NULL,
+        option_name TEXT NOT NULL
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT DEFAULT '{}',
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS app_settings_history (
+        id TEXT PRIMARY KEY,
+        actor_user_id TEXT DEFAULT '',
+        actor_name TEXT DEFAULT '',
+        changed_keys TEXT DEFAULT '[]',
+        before_state TEXT DEFAULT '{}',
+        after_state TEXT DEFAULT '{}',
+        details TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+
+    // Migration: ensure arqueo_data exists in older databases
+    const cashColumns = queryAll('PRAGMA table_info(cash_registers)');
+    if (!cashColumns.some(col => col.name === 'arqueo_data')) {
+      db.run("ALTER TABLE cash_registers ADD COLUMN arqueo_data TEXT DEFAULT '{}'");
+    }
+
+    const productColumns = queryAll('PRAGMA table_info(products)');
+    if (!productColumns.some(col => col.name === 'process_type')) {
+      db.run("ALTER TABLE products ADD COLUMN process_type TEXT DEFAULT 'transformed'");
+    }
+    if (!productColumns.some(col => col.name === 'stock_warehouse_id')) {
+      db.run("ALTER TABLE products ADD COLUMN stock_warehouse_id TEXT DEFAULT ''");
+    }
+    if (!productColumns.some(col => col.name === 'production_area')) {
+      db.run("ALTER TABLE products ADD COLUMN production_area TEXT DEFAULT 'cocina'");
+    }
+    if (!productColumns.some(col => col.name === 'tax_type')) {
+      db.run("ALTER TABLE products ADD COLUMN tax_type TEXT DEFAULT 'igv'");
+    }
+    if (!productColumns.some(col => col.name === 'modifier_id')) {
+      db.run("ALTER TABLE products ADD COLUMN modifier_id TEXT DEFAULT ''");
+    }
+
+    const orderColumns = queryAll('PRAGMA table_info(orders)');
+    if (!orderColumns.some(col => col.name === 'sale_document_type')) {
+      db.run("ALTER TABLE orders ADD COLUMN sale_document_type TEXT DEFAULT 'nota_venta'");
+    }
+    if (!orderColumns.some(col => col.name === 'sale_document_number')) {
+      db.run("ALTER TABLE orders ADD COLUMN sale_document_number TEXT DEFAULT ''");
+    }
+    if (!orderColumns.some(col => col.name === 'created_by_user_id')) {
+      db.run("ALTER TABLE orders ADD COLUMN created_by_user_id TEXT DEFAULT ''");
+    }
+    if (!orderColumns.some(col => col.name === 'created_by_user_name')) {
+      db.run("ALTER TABLE orders ADD COLUMN created_by_user_name TEXT DEFAULT ''");
+    }
+    db.run("UPDATE orders SET sale_document_type = COALESCE(NULLIF(sale_document_type, ''), 'nota_venta')");
+    db.run(
+      "UPDATE orders SET sale_document_number = printf('001-%08d', COALESCE(order_number, 0)) WHERE COALESCE(sale_document_number, '') = ''"
+    );
+    db.run(
+      "UPDATE orders SET created_by_user_name = COALESCE(NULLIF(created_by_user_name, ''), customer_name, '') WHERE COALESCE(created_by_user_name, '') = ''"
+    );
+
+    const customerColumns = queryAll('PRAGMA table_info(customers)');
+    if (!customerColumns.some(col => col.name === 'doc_type')) {
+      db.run("ALTER TABLE customers ADD COLUMN doc_type TEXT DEFAULT '1'");
+    }
+    if (!customerColumns.some(col => col.name === 'doc_number')) {
+      db.run("ALTER TABLE customers ADD COLUMN doc_number TEXT DEFAULT ''");
+    }
+
+    const restaurantColumns = queryAll('PRAGMA table_info(restaurants)');
+    if (!restaurantColumns.some(col => col.name === 'company_ruc')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN company_ruc TEXT DEFAULT ''");
+    }
+    if (!restaurantColumns.some(col => col.name === 'legal_name')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN legal_name TEXT DEFAULT ''");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_enabled')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_enabled INTEGER DEFAULT 0");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_provider')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_provider TEXT DEFAULT 'nubefact'");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_api_url')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_api_url TEXT DEFAULT 'https://api.nubefact.com/api/v1/9c66b892-4f9e-4f4f-b6ba-95bb89ee7b82'");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_api_token')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_api_token TEXT DEFAULT ''");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_series_boleta')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_series_boleta TEXT DEFAULT 'B001'");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_series_factura')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_series_factura TEXT DEFAULT 'F001'");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_offline_mode')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_offline_mode INTEGER DEFAULT 1");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_auto_retry_enabled')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_auto_retry_enabled INTEGER DEFAULT 1");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_auto_retry_interval_sec')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_auto_retry_interval_sec INTEGER DEFAULT 120");
+    }
+
+    const usersTableSql = queryOne("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'");
+    if (usersTableSql?.sql && !usersTableSql.sql.includes("'bar'")) {
+      db.run('PRAGMA foreign_keys = OFF');
+      db.run('ALTER TABLE users RENAME TO users_legacy');
+      db.run(`
+        CREATE TABLE users (
+          id TEXT PRIMARY KEY,
+          username TEXT UNIQUE NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          full_name TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('admin','cajero','mozo','cocina','bar','delivery')),
+          restaurant_id TEXT,
+          is_active INTEGER DEFAULT 1,
+          phone TEXT DEFAULT '',
+          avatar TEXT DEFAULT '',
+          created_at TEXT DEFAULT (datetime('now'))
+        )
+      `);
+      db.run(`
+        INSERT INTO users (id, username, email, password_hash, full_name, role, restaurant_id, is_active, phone, avatar, created_at)
+        SELECT id, username, email, password_hash, full_name, role, restaurant_id, is_active, phone, avatar, created_at
+        FROM users_legacy
+      `);
+      db.run('DROP TABLE users_legacy');
+      db.run('PRAGMA foreign_keys = ON');
+    }
+
+    const seqExists = queryOne('SELECT COUNT(*) as c FROM order_sequence');
+    if (seqExists.c === 0) {
+      db.run('INSERT INTO order_sequence (id, current_number) VALUES (1, 0)');
+    }
+
+    db.run('CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_user_work_sessions_user_login ON user_work_sessions(user_id, login_at)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_user_work_sessions_open ON user_work_sessions(user_id, logout_at)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_orders_status_payment ON orders(status, payment_status)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_orders_table_number ON orders(table_number)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_delivery_assignments_order ON delivery_assignments(order_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_delivery_assignments_driver ON delivery_assignments(driver_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_inventory_logs_product_created ON inventory_logs(product_id, created_at)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_documents_order ON electronic_documents(order_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_customers_doc_number ON customers(doc_number)');
+    db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_doc_number_unique ON customers(doc_number) WHERE COALESCE(doc_number, '') != ''");
+    db.run('CREATE INDEX IF NOT EXISTS idx_app_settings_history_created_at ON app_settings_history(created_at)');
+    db.run('INSERT OR IGNORE INTO schema_migrations (migration_key) VALUES (?)', ['2026-02-professionalization-indexes-audit']);
+
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['regional', JSON.stringify({ country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' })]);
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['series_contingencia', JSON.stringify({ boleta: 'BC01', factura: 'FC01', enabled: 1 })]);
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['contrato', JSON.stringify({ plan: 'pro', renewal_date: '', observations: '' })]);
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['master_admin_control', JSON.stringify({
+      contract_title: 'Contrato de venta',
+      contract_notes: '',
+      billing_date: '',
+      notify_days_before: 5,
+      auto_block_on_overdue: 1,
+      global_lock_enabled: 0,
+      global_lock_reason: 'Bloqueo por falta de pago',
+      lock_enabled_by: '',
+      lock_enabled_at: '',
+      billing_alert_sent_for: '',
+    })]);
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['master_admin_auth', JSON.stringify({
+      username: 'Romero25879',
+      password_hash: bcrypt.hashSync('2587903042007', 10),
+      updated_at: new Date().toISOString(),
+    })]);
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['master_admin_notifications', JSON.stringify([])]);
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['bootstrap_mode', JSON.stringify({ mode: 'demo' })]);
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['pagos_sistema', JSON.stringify({
+      acepta_efectivo: 1,
+      acepta_tarjeta: 1,
+      acepta_yape: 0,
+      acepta_plin: 0,
+      requiere_referencia_digital: 0,
+      propina_sugerida_pct: 10,
+      tolerancia_diferencia_caja: 2,
+      dias_max_credito: 15,
+      monto_max_credito: 500,
+      notificar_mora: 1,
+      texto_politica_cobro: 'Todo crédito debe regularizarse dentro del plazo acordado.',
+    })]);
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['settings', JSON.stringify({
+      regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
+      locales: [{ name: 'Principal', address: '', phone: '', active: 1 }],
+      almacenes: [{ name: 'Almacén Principal', description: 'Almacén general de insumos', active: 1 }],
+      cajas: [{ name: 'Caja Principal', description: 'Caja #1 - Recepción', active: 1 }],
+      comprobantes: [
+        { name: 'Boleta de Venta', series: 'B001', active: 1 },
+        { name: 'Factura', series: 'F001', active: 1 },
+        { name: 'Nota de Venta', series: 'N001', active: 1 },
+      ],
+      impresoras: [
+        { name: 'Impresora Cocina', area: 'Comandas', width_mm: 80, copies: 1, active: 1 },
+        { name: 'Impresora Bar', area: 'Comandas Bar', width_mm: 80, copies: 1, active: 1 },
+        { name: 'Impresora Caja', area: 'Comprobantes', width_mm: 80, copies: 1, active: 1 },
+      ],
+      tarjetas: [
+        { name: 'Visa', fee_percent: 2.5, active: 1 },
+        { name: 'Mastercard', fee_percent: 3, active: 1 },
+      ],
+      monedas: [
+        { code: 'PEN', name: 'Sol Peruano', symbol: 'S/', active: 1 },
+        { code: 'USD', name: 'Dólar Americano', symbol: '$', active: 0 },
+      ],
+      cuentas_transferencia: [],
+      marcas: [],
+      imagenes_self: [],
+      categoria_anular: ['Error en el pedido', 'Cliente se retiró'],
+      formas_pago: [
+        { name: 'Efectivo', desc: 'Pago en efectivo', active: 1 },
+        { name: 'Yape', desc: 'Pago móvil BCP', active: 0 },
+        { name: 'Plin', desc: 'Pago móvil Interbank', active: 0 },
+        { name: 'Tarjeta', desc: 'Visa, Mastercard, etc.', active: 1 },
+      ],
+    })]);
+    const settingsRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
+    if (settingsRow?.value) {
+      let parsed = {};
+      try {
+        parsed = JSON.parse(settingsRow.value);
+      } catch (_) {
+        parsed = {};
+      }
+      const printers = Array.isArray(parsed.impresoras) ? parsed.impresoras : [];
+      const hasBarPrinter = printers.some(p => String(p?.name || '').toLowerCase().includes('bar'));
+      const normalizedPrinters = printers.map((p) => ({
+        ...p,
+        width_mm: [58, 80].includes(Number(p?.width_mm)) ? Number(p.width_mm) : 80,
+        copies: Math.min(5, Math.max(1, Number(p?.copies || 1))),
+      }));
+      let nextPrinters = normalizedPrinters;
+      if (!hasBarPrinter) {
+        nextPrinters = [...normalizedPrinters, { name: 'Impresora Bar', area: 'Comandas Bar', width_mm: 80, copies: 1, active: 1 }];
+      }
+      const printersChanged = JSON.stringify(printers) !== JSON.stringify(nextPrinters);
+      if (printersChanged) {
+        const next = {
+          ...parsed,
+          impresoras: nextPrinters,
+        };
+        db.run("UPDATE app_settings SET value = ?, updated_at = datetime('now') WHERE key = 'settings'", [JSON.stringify(next)]);
+      }
+    }
+
+    seedData();
+    ensureOperationalUsers();
+    seedTables();
+    seedWarehouses();
+    saveDb();
+    return db;
+  })();
+
+  return dbReady;
+}
+
+function queryAll(sql, params = []) {
+  const stmt = db.prepare(sql);
+  if (params.length) stmt.bind(params);
+  const results = [];
+  while (stmt.step()) {
+    results.push(stmt.getAsObject());
+  }
+  stmt.free();
+  return results;
+}
+
+function queryOne(sql, params = []) {
+  const stmt = db.prepare(sql);
+  if (params.length) stmt.bind(params);
+  let result = null;
+  if (stmt.step()) {
+    result = stmt.getAsObject();
+  }
+  stmt.free();
+  return result;
+}
+
+function runSql(sql, params = []) {
+  if (params.length) {
+    db.run(sql, params);
+  } else {
+    db.run(sql);
+  }
+  saveDb();
+}
+
+function withTransaction(work) {
+  db.run('BEGIN IMMEDIATE');
+  try {
+    const tx = {
+      queryAll,
+      queryOne,
+      run(sql, params = []) {
+        if (params.length) db.run(sql, params);
+        else db.run(sql);
+      },
+    };
+    const result = work(tx);
+    db.run('COMMIT');
+    saveDb();
+    return result;
+  } catch (err) {
+    try {
+      db.run('ROLLBACK');
+    } catch (_) {
+      // noop
+    }
+    throw err;
+  }
+}
+
+function getNextOrderNumber() {
+  db.run('UPDATE order_sequence SET current_number = current_number + 1 WHERE id = 1');
+  const result = queryOne('SELECT current_number FROM order_sequence WHERE id = 1');
+  saveDb();
+  return result.current_number;
+}
+
+function logAudit({ actorUserId = '', actorName = '', action, resourceType = '', resourceId = '', details = {} }) {
+  if (!action) return;
+  runSql(
+    'INSERT INTO audit_logs (id, actor_user_id, actor_name, action, resource_type, resource_id, details) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [uuidv4(), actorUserId, actorName, action, resourceType, resourceId, JSON.stringify(details || {})]
+  );
+}
+
+function seedData() {
+  const count = queryOne('SELECT COUNT(*) as c FROM restaurants');
+  if (count.c > 0) return;
+
+  const restaurantId = uuidv4();
+  db.run(
+    'INSERT INTO restaurants (id, name, address, phone, email, schedule) VALUES (?, ?, ?, ?, ?, ?)',
+    [restaurantId, 'Sabor Peruano', 'Av. Larco 345, Miraflores, Lima', '+51 999 888 777', 'info@saborperuano.pe',
+      JSON.stringify({
+        lunes: { open: '11:00', close: '23:00', enabled: true },
+        martes: { open: '11:00', close: '23:00', enabled: true },
+        miercoles: { open: '11:00', close: '23:00', enabled: true },
+        jueves: { open: '11:00', close: '23:00', enabled: true },
+        viernes: { open: '11:00', close: '00:00', enabled: true },
+        sabado: { open: '11:00', close: '00:00', enabled: true },
+        domingo: { open: '11:00', close: '22:00', enabled: true },
+      })
+    ]
+  );
+
+  const adminHash = bcrypt.hashSync('admin123', 10);
+  const cajeroHash = bcrypt.hashSync('cajero123', 10);
+  const mozoHash = bcrypt.hashSync('mozo123', 10);
+
+  const adminId = uuidv4(), cajeroId = uuidv4(), mozoId = uuidv4();
+  const insertUser = 'INSERT INTO users (id, username, email, password_hash, full_name, role, restaurant_id) VALUES (?, ?, ?, ?, ?, ?, ?)';
+  db.run(insertUser, [adminId, 'admin', 'admin@saborperuano.pe', adminHash, 'Administrador', 'admin', restaurantId]);
+  db.run(insertUser, [cajeroId, 'cajero', 'cajero@saborperuano.pe', cajeroHash, 'María García', 'cajero', restaurantId]);
+  db.run(insertUser, [mozoId, 'mozo', 'mozo@saborperuano.pe', mozoHash, 'Carlos Mesero', 'mozo', restaurantId]);
+
+  // El catalogo arranca vacio: sin categorias ni productos precargados.
+}
+
+function ensureOperationalUsers() {
+  const bootstrapModeRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['bootstrap_mode']);
+  let bootstrapMode = 'demo';
+  try {
+    bootstrapMode = JSON.parse(bootstrapModeRow?.value || '{}')?.mode || 'demo';
+  } catch (_) {
+    bootstrapMode = 'demo';
+  }
+  if (bootstrapMode === 'sale_ready') return;
+
+  const restaurant = queryOne('SELECT id FROM restaurants LIMIT 1');
+  if (!restaurant?.id) return;
+  const defaults = [
+    { username: 'cocina', email: 'cocina@saborperuano.pe', password: 'cocina123', full_name: 'Operador Cocina', role: 'cocina' },
+    { username: 'bar', email: 'bar@saborperuano.pe', password: 'bar123', full_name: 'Operador Bar', role: 'bar' },
+    { username: 'delivery', email: 'delivery@saborperuano.pe', password: 'delivery123', full_name: 'Operador Delivery', role: 'delivery' },
+  ];
+  defaults.forEach((user) => {
+    const existing = queryOne('SELECT id, is_active FROM users WHERE username = ? OR email = ?', [user.username, user.email]);
+    if (existing) {
+      if (Number(existing.is_active) !== 1) {
+        db.run('UPDATE users SET is_active = 1 WHERE id = ?', [existing.id]);
+      }
+      return;
+    }
+    db.run(
+      'INSERT INTO users (id, username, email, password_hash, full_name, role, restaurant_id, is_active, phone, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)',
+      [uuidv4(), user.username, user.email, bcrypt.hashSync(user.password, 10), user.full_name, user.role, restaurant.id, '', '']
+    );
+  });
+}
+
+function seedTables() {
+  const bootstrapModeRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['bootstrap_mode']);
+  let bootstrapMode = 'demo';
+  try {
+    bootstrapMode = JSON.parse(bootstrapModeRow?.value || '{}')?.mode || 'demo';
+  } catch (_) {
+    bootstrapMode = 'demo';
+  }
+  if (bootstrapMode === 'sale_ready') return;
+
+  const tableCount = queryOne('SELECT COUNT(*) as c FROM tables');
+  if (tableCount.c > 0) return;
+
+  const restaurant = queryOne('SELECT id FROM restaurants LIMIT 1');
+  if (!restaurant) return;
+
+  for (let i = 1; i <= 5; i++) {
+    db.run(
+      'INSERT INTO tables (id, number, name, capacity, zone, restaurant_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [uuidv4(), i, `Mesa ${i}`, 4, 'principal', restaurant.id]
+    );
+  }
+}
+
+function seedWarehouses() {
+  const bootstrapModeRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['bootstrap_mode']);
+  let bootstrapMode = 'demo';
+  try {
+    bootstrapMode = JSON.parse(bootstrapModeRow?.value || '{}')?.mode || 'demo';
+  } catch (_) {
+    bootstrapMode = 'demo';
+  }
+  if (bootstrapMode === 'sale_ready') return;
+
+  const defaults = [
+    { id: uuidv4(), name: 'Almacen Principal', description: 'Almacen principal de ventas directas' },
+    { id: uuidv4(), name: 'Almacen Cocina', description: 'Almacen para cocina y transformados' },
+  ];
+  defaults.forEach(w => {
+    db.run(
+      'INSERT OR IGNORE INTO warehouse_locations (id, name, description, is_active) VALUES (?, ?, ?, 1)',
+      [w.id, w.name, w.description]
+    );
+  });
+}
+
+module.exports = {
+  getDb,
+  initDatabase,
+  getNextOrderNumber,
+  queryAll,
+  queryOne,
+  runSql,
+  saveDb,
+  getDbPath,
+  createBackupFile,
+  restoreDbFromBuffer,
+  resetOperationalData,
+  withTransaction,
+  logAudit,
+};
