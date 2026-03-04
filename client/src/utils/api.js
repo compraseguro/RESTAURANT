@@ -1,4 +1,4 @@
-const API_ORIGIN = String(import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
+const API_ORIGIN = String(import.meta.env.VITE_API_URL || 'https://resto-fadey-api.onrender.com').trim().replace(/\/$/, '');
 const API_BASE = API_ORIGIN ? `${API_ORIGIN}/api` : '/api';
 
 async function request(endpoint, options = {}) {
