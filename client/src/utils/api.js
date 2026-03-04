@@ -1,4 +1,5 @@
-const API_BASE = '/api';
+const API_ORIGIN = String(import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
+const API_BASE = API_ORIGIN ? `${API_ORIGIN}/api` : '/api';
 
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('token');
