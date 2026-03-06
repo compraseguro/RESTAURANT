@@ -4,7 +4,8 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
-const DB_PATH = path.join(__dirname, '..', 'restaurant.db');
+const DEFAULT_DB_PATH = path.join(__dirname, '..', 'restaurant.db');
+const DB_PATH = path.resolve(process.env.DB_PATH || DEFAULT_DB_PATH);
 
 let db = null;
 let dbReady = null;
@@ -16,6 +17,10 @@ function getDb() {
 
 function saveDb() {
   if (db) {
+    const parentDir = path.dirname(DB_PATH);
+    if (!fs.existsSync(parentDir)) {
+      fs.mkdirSync(parentDir, { recursive: true });
+    }
     const data = db.export();
     const buffer = Buffer.from(data);
     fs.writeFileSync(DB_PATH, buffer);

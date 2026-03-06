@@ -7,6 +7,8 @@ import { MdMenu, MdNotificationsNone, MdPointOfSale, MdLock, MdClose } from 'rea
 
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user } = useAuth();
   const [cajaOpen, setCajaOpen] = useState(null);
   const [checkingCaja, setCheckingCaja] = useState(true);
@@ -33,6 +35,18 @@ export default function Layout() {
   }, [user?.role]);
 
   useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileMenuOpen(false);
+    }
+  }, [isMobile]);
+
+  useEffect(() => {
     if (!['admin', 'master_admin'].includes(user?.role)) {
       setAdminNotifications([]);
       return;
@@ -51,11 +65,22 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-[#111827]">
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-      <div className={`transition-all duration-300 ${collapsed ? 'ml-16' : 'ml-60'}`}>
-        <header className="h-14 bg-[#1F2937] flex items-center justify-between px-6 sticky top-0 z-30 shadow-sm border-b border-[#3B82F6]/30">
+      {isMobile && mobileMenuOpen && (
+        <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setMobileMenuOpen(false)} />
+      )}
+      <Sidebar
+        collapsed={collapsed}
+        isMobile={isMobile}
+        mobileOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+      />
+      <div className={`transition-all duration-300 ${isMobile ? 'ml-0' : (collapsed ? 'ml-16' : 'ml-60')}`}>
+        <header className="h-14 bg-[#1F2937] flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shadow-sm border-b border-[#3B82F6]/30">
           <div className="flex items-center gap-4">
-            <button onClick={() => setCollapsed(!collapsed)} className="p-2 hover:bg-[#3B82F6]/20 rounded-lg transition-colors">
+            <button
+              onClick={() => (isMobile ? setMobileMenuOpen(prev => !prev) : setCollapsed(!collapsed))}
+              className="p-2 hover:bg-[#3B82F6]/20 rounded-lg transition-colors"
+            >
               <MdMenu className="text-xl text-[#F9FAFB]" />
             </button>
           </div>
@@ -71,7 +96,7 @@ export default function Layout() {
             </button>
             {notificationsOpen && (
               <div
-                className="absolute top-12 right-24 w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-96 overflow-auto"
+                className={`absolute top-12 ${isMobile ? 'right-2 w-[calc(100vw-1rem)] max-w-sm' : 'right-24 w-80'} bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-96 overflow-auto`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="px-3 py-2 border-b flex items-center justify-between">
@@ -115,7 +140,7 @@ export default function Layout() {
                 )}
               </div>
             )}
-            <div className="h-8 w-px bg-[#3B82F6]/25" />
+            {!isMobile && <div className="h-8 w-px bg-[#3B82F6]/25" />}
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-[#3B82F6]/20 rounded-full flex items-center justify-center border border-[#3B82F6]/35">
                 <span className="text-[#F9FAFB] text-xs font-bold">{user?.full_name?.[0] || 'U'}</span>
@@ -127,7 +152,7 @@ export default function Layout() {
             </div>
           </div>
         </header>
-        <main className="p-6 bg-[#111827] min-h-[calc(100vh-3.5rem)]">
+        <main className="p-3 sm:p-6 bg-[#111827] min-h-[calc(100vh-3.5rem)]">
           {isMozoBlocked ? (
             <div className="flex flex-col items-center justify-center py-32 text-center">
               <div className="w-24 h-24 bg-[#1F2937] rounded-3xl flex items-center justify-center mb-6 border border-[#3B82F6]/30">

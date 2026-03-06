@@ -61,7 +61,7 @@ function isPermissionEnabled(value) {
   return value === true || value === 1 || value === '1' || value === 'true';
 }
 
-export default function Sidebar({ collapsed }) {
+export default function Sidebar({ collapsed, isMobile = false, mobileOpen = false, onClose = () => {} }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [isCajaExpanded, setIsCajaExpanded] = useState(location.pathname.startsWith('/admin/caja'));
@@ -88,13 +88,19 @@ export default function Sidebar({ collapsed }) {
         : 'text-[#F9FAFB] hover:bg-[#3B82F6]/15 hover:text-white'
     }`;
 
+  const isCollapsed = isMobile ? false : collapsed;
+
   return (
-    <aside className={`fixed left-0 top-0 h-full bg-[#1F2937] z-40 transition-all duration-300 flex flex-col border-r border-[#3B82F6]/30 ${collapsed ? 'w-16' : 'w-60'}`}>
+    <aside className={`fixed left-0 top-0 h-full bg-[#1F2937] z-40 transition-all duration-300 flex flex-col border-r border-[#3B82F6]/30 ${
+      isMobile
+        ? `w-72 max-w-[85vw] transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
+        : (isCollapsed ? 'w-16' : 'w-60')
+    }`}>
       <div className="flex items-center gap-3 px-4 h-16 border-b border-[#3B82F6]/30">
         <div className="w-9 h-9 bg-gradient-to-br from-[#3B82F6] to-[#2563EB] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
           <MdStorefront className="text-white text-lg" />
         </div>
-        {!collapsed && <span className="font-bold text-base text-[#F9FAFB] tracking-tight truncate">Resto-FADEY</span>}
+        {!isCollapsed && <span className="font-bold text-base text-[#F9FAFB] tracking-tight truncate">Resto-FADEY</span>}
       </div>
 
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin">
@@ -106,7 +112,7 @@ export default function Sidebar({ collapsed }) {
               className={linkClass}
               title={link.label}
               onClick={(e) => {
-                if (collapsed) return;
+                if (isCollapsed) return;
                 if (link.to === '/admin/caja') {
                   const isInCaja = location.pathname.startsWith('/admin/caja');
                   if (isInCaja) {
@@ -136,13 +142,14 @@ export default function Sidebar({ collapsed }) {
                   }
                   setIsAlmacenExpanded(true);
                 }
+                if (isMobile) onClose();
               }}
             >
               <link.icon className="text-lg flex-shrink-0" />
-              {!collapsed && <span className="truncate">{link.label}</span>}
+              {!isCollapsed && <span className="truncate">{link.label}</span>}
             </NavLink>
 
-            {!collapsed && link.to === '/admin/caja' && isCajaExpanded && (
+            {!isCollapsed && link.to === '/admin/caja' && isCajaExpanded && (
               <div className="mt-1 ml-8 space-y-0.5">
                 {cajaSubOptions.map(option => (
                   <NavLink
@@ -163,7 +170,7 @@ export default function Sidebar({ collapsed }) {
               </div>
             )}
 
-            {!collapsed && link.to === '/admin/mi-restaurant' && isMiRestaurantExpanded && (
+            {!isCollapsed && link.to === '/admin/mi-restaurant' && isMiRestaurantExpanded && (
               <div className="mt-1 ml-8 space-y-0.5">
                 {miRestaurantSubOptions.map(option => (
                   <NavLink
@@ -184,7 +191,7 @@ export default function Sidebar({ collapsed }) {
               </div>
             )}
 
-            {!collapsed && link.to === '/admin/almacen' && isAlmacenExpanded && (
+            {!isCollapsed && link.to === '/admin/almacen' && isAlmacenExpanded && (
               <div className="mt-1 ml-8 space-y-0.5">
                 {almacenSubOptions.map(option => (
                   <NavLink
@@ -212,7 +219,7 @@ export default function Sidebar({ collapsed }) {
       <div className="p-2 border-t border-[#3B82F6]/30">
         <button onClick={logout} className="flex items-center gap-3 px-3 py-2 rounded-lg text-[#F9FAFB] hover:bg-[#3B82F6]/15 hover:text-white w-full transition-colors text-sm" title="Finalizar jornada">
           <MdLogout className="text-lg flex-shrink-0" />
-          {!collapsed && <span>Finalizar jornada</span>}
+          {!isCollapsed && <span>Finalizar jornada</span>}
         </button>
       </div>
     </aside>

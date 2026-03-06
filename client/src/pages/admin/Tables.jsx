@@ -277,7 +277,7 @@ export default function Tables() {
             </div>
 
             <div className="p-4 flex-1 overflow-hidden">
-              <div className="flex gap-4 h-full">
+              <div className="flex flex-col lg:flex-row gap-4 h-full">
                 <div className="flex-1 flex flex-col min-w-0">
                   <div className="mb-3">
                     <div className="relative">
@@ -311,7 +311,7 @@ export default function Tables() {
                   </div>
                 </div>
 
-                <div className="w-72 border-l border-[#3B82F6]/30 pl-4 flex flex-col">
+                <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-[#3B82F6]/30 pt-4 lg:pt-0 lg:pl-4 flex flex-col">
                   <h3 className="font-bold text-white mb-3 flex items-center gap-2">
                     <MdShoppingCart /> Pedido
                     {cart.length > 0 && <span className="text-xs bg-[#BFDBFE] text-[#1E3A8A] px-2 py-0.5 rounded-full">{cart.length}</span>}

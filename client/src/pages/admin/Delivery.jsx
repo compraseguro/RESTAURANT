@@ -140,9 +140,9 @@ export default function Delivery() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
         <h1 className="text-2xl font-bold text-slate-800">Delivery</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button onClick={openNewOrder} className="btn-primary flex items-center gap-2 text-sm">
             <MdAdd /> Nuevo Pedido
           </button>
@@ -201,7 +201,7 @@ export default function Delivery() {
       )}
 
       <Modal isOpen={showNewOrder} onClose={() => setShowNewOrder(false)} title="Nuevo Pedido de Delivery" size="xl">
-        <div className="flex gap-4" style={{ minHeight: '65vh' }}>
+        <div className="flex flex-col lg:flex-row gap-4" style={{ minHeight: '65vh' }}>
           <div className="flex-1 flex flex-col">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
               <div>
@@ -251,7 +251,7 @@ export default function Delivery() {
             </div>
           </div>
 
-          <div className="w-72 border-l pl-4 flex flex-col">
+          <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l pt-4 lg:pt-0 lg:pl-4 flex flex-col">
             <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
               <MdShoppingCart /> Pedido
               {cart.length > 0 && <span className="text-xs bg-gold-100 text-gold-600 px-2 py-0.5 rounded-full">{cart.length}</span>}
