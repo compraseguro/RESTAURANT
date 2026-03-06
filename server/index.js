@@ -6,7 +6,7 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const crypto = require('crypto');
-const { initDatabase } = require('./database');
+const { initDatabase, getDbPath } = require('./database');
 const { authenticateToken, requireRole } = require('./middleware/auth');
 const { createRateLimiter } = require('./middleware/rateLimit');
 
@@ -148,6 +148,7 @@ const PORT = process.env.PORT || 3001;
 
 async function start() {
   await initDatabase();
+  console.log(`[DB] SQLite path: ${getDbPath()}`);
   if (typeof billingRoutes.startBillingAutoRetryJob === 'function') {
     billingRoutes.startBillingAutoRetryJob();
   }
