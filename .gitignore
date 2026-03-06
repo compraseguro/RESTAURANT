@@ -1,7 +1,45 @@
-﻿node_modules/
+# Dependencies
+node_modules/
 client/node_modules/
-.env
-*.db
-uploads/
+
+# Build output
 client/dist/
+dist/
+
+# Runtime and local data
+uploads/
+tmp_xlsx/
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Environment files
+.env
+.env.*
+!.env.example
+!client/.env.example
+
+# Logs and OS/editor cache
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Deployment/platform cache
+.vercel/
+.render/
+
+# Local archives/backups
+*.zip
+*.7z
+*.tar
+*.tar.gz
