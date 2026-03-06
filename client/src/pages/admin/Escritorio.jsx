@@ -217,8 +217,8 @@ export default function Escritorio() {
           <div
             role="button"
             tabIndex={0}
-            onClick={() => navigate('/kitchen')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/kitchen'); }}
+            onClick={() => navigate('/admin/cocina')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/admin/cocina'); }}
             className={`text-left p-3 rounded-xl border transition-colors cursor-pointer ${getQueueLevel(kitchenQueue).card}`}
           >
             <div className="flex items-center gap-2 text-amber-700 font-semibold"><MdKitchen /> Cocina</div>
@@ -233,8 +233,8 @@ export default function Escritorio() {
           <div
             role="button"
             tabIndex={0}
-            onClick={() => navigate('/bar')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/bar'); }}
+            onClick={() => navigate('/admin/bar')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/admin/bar'); }}
             className={`text-left p-3 rounded-xl border transition-colors cursor-pointer ${getQueueLevel(barQueue).card}`}
           >
             <div className="flex items-center gap-2 text-indigo-700 font-semibold"><MdLocalBar /> Bar</div>

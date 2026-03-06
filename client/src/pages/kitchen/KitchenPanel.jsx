@@ -4,17 +4,21 @@ import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useAuth } from '../../context/AuthContext';
 import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime, MdPrint } from 'react-icons/md';
 import toast from 'react-hot-toast';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function KitchenPanel({ station = 'cocina' }) {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
   const [printConfig, setPrintConfig] = useState({ cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const emit = useSocketEmit();
   const isBar = station === 'bar';
   const StationIcon = isBar ? MdLocalBar : MdKitchen;
   const panelTitle = isBar ? 'Panel de Bar' : 'Panel de Cocina';
+  const canReturnToAdmin = user?.role === 'admin' && !location.pathname.startsWith('/admin');
 
   const playStationAlert = () => {
     try {
@@ -205,6 +209,11 @@ export default function KitchenPanel({ station = 'cocina' }) {
           <button onClick={() => printQueue('all')} className="px-3 py-2 bg-[#111827]/60 hover:bg-[#1F2937] border border-[#3B82F6]/25 rounded-lg text-sm font-medium flex items-center gap-2">
             <MdPrint /> Imprimir Todo
           </button>
+          {canReturnToAdmin && (
+            <button onClick={() => navigate('/admin')} className="px-3 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg text-white border border-[#3B82F6]/25 text-sm font-medium">
+              Volver al Centro Operativo
+            </button>
+          )}
           <button onClick={logout} className="px-3 py-2 hover:bg-[#1F2937] rounded-lg text-[#9CA3AF] hover:text-[#F9FAFB] border border-[#3B82F6]/25 text-sm font-medium inline-flex items-center gap-2">
             <MdLogout className="text-lg" /> Finalizar jornada
           </button>
