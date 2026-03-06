@@ -6,6 +6,13 @@ const { assertPaymentMethodAllowed, normalizePaymentMethod } = require('../busin
 
 const router = express.Router();
 
+function getChargeBase(order) {
+  return Math.max(
+    0,
+    Number(order?.subtotal || 0) + Number(order?.delivery_fee || 0)
+  );
+}
+
 function getOpenRegister(userId) {
   return queryOne('SELECT * FROM cash_registers WHERE user_id = ? AND closed_at IS NULL', [userId]);
 }
@@ -188,7 +195,7 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
         }
         const extraDiscount = Math.max(0, Number(discountsByOrder[orderId] || 0));
         if (extraDiscount > 0) {
-          const baseTotal = Number(order.subtotal || 0) + Number(order.tax || 0) + Number(order.delivery_fee || 0);
+          const baseTotal = getChargeBase(order);
           const nextDiscount = Math.max(0, Math.min(baseTotal, Number(order.discount || 0) + extraDiscount));
           const nextTotal = Math.max(0, baseTotal - nextDiscount);
           const note = discountReason ? ` [DESCUENTO: ${discountReason}]` : '';

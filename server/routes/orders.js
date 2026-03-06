@@ -13,6 +13,13 @@ const ORDER_TRANSITIONS = {
   cancelled: [],
 };
 
+function getChargeBase(order) {
+  return Math.max(
+    0,
+    Number(order?.subtotal || 0) + Number(order?.delivery_fee || 0)
+  );
+}
+
 function recalculateProductStock(productId) {
   const sum = queryOne(
     'SELECT COALESCE(SUM(quantity), 0) as total FROM inventory_warehouse_stocks WHERE product_id = ?',
@@ -304,11 +311,10 @@ router.post('/', authenticateToken, (req, res) => {
         };
       });
 
-      const taxRate = Number(restaurant?.tax_rate || 18);
-      const tax = subtotal * (taxRate / 100);
+      const tax = 0;
       const discountAmount = Math.max(0, Number(discount || 0));
       const deliveryFee = orderType === 'delivery' ? Number(restaurant?.delivery_fee || 0) : 0;
-      const total = Math.max(0, subtotal + tax - discountAmount + deliveryFee);
+      const total = Math.max(0, subtotal - discountAmount + deliveryFee);
       const customerId = req.user.type === 'customer' ? req.user.id : null;
       const custName = req.user.type === 'customer' ? req.user.name : (customer_name || '');
       const saleDocumentNumber = `001-${String(orderNumber).padStart(8, '0')}`;
@@ -494,7 +500,7 @@ router.put('/:id/discount', authenticateToken, requireRole('admin', 'cajero', 'm
     return res.status(400).json({ error: 'Descuento inválido' });
   }
 
-  const baseTotal = Number(order.subtotal || 0) + Number(order.tax || 0) + Number(order.delivery_fee || 0);
+  const baseTotal = getChargeBase(order);
   const safeDiscount = Math.max(0, Math.min(Number(discount), baseTotal));
   const newTotal = Math.max(0, baseTotal - safeDiscount);
   const discountNote = reason ? ` [DESCUENTO: ${reason}]` : '';

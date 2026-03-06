@@ -42,6 +42,13 @@ const EMPTY_CUSTOMER_FORM = {
   email: '',
 };
 
+const getOrderChargeTotal = (order) => {
+  if (!order) return 0;
+  const base = Number(order.subtotal || 0) + Number(order.delivery_fee || 0);
+  const discount = Number(order.discount || 0);
+  return Math.max(0, base - discount);
+};
+
 export default function POSPanel() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tables, setTables] = useState([]);
@@ -484,7 +491,7 @@ export default function POSPanel() {
     if (billingError) return toast.error(billingError);
     try {
       const discountValue = Math.max(0, parseFloat(discountConfig.value) || 0);
-      const totalOrdersAmount = payableOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+      const totalOrdersAmount = payableOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
       const totalDiscountToApply = !discountConfig.applied
         ? 0
         : (discountConfig.type === 'percent'
@@ -494,7 +501,7 @@ export default function POSPanel() {
       const discountsByOrder = {};
       for (let idx = 0; idx < payableOrders.length; idx += 1) {
         const order = payableOrders[idx];
-        const orderTotal = Number(order.total || 0);
+        const orderTotal = getOrderChargeTotal(order);
         let extraDiscount = 0;
         if (totalDiscountToApply > 0) {
           if (discountConfig.type === 'percent') {
@@ -853,9 +860,11 @@ export default function POSPanel() {
   const closingAmt = parseFloat(closingAmount) || 0;
   const difference = closingAmt - expectedCash;
   const selectedOrders = (selectedTable?.orders || []).filter(o => selectedOrderIds.includes(o.id));
-  const selectedTotal = selectedOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+  const selectedTotal = selectedOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
   const selectionEnabled = splitMode;
-  const selectionBaseTotal = splitMode ? selectedTotal : (selectedTable?.order_total || 0);
+  const selectionBaseTotal = splitMode
+    ? selectedTotal
+    : (selectedTable?.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
   const discountValue = Math.max(0, parseFloat(discountConfig.value) || 0);
   const discountPreview = !discountConfig.applied
     ? 0
@@ -927,7 +936,7 @@ export default function POSPanel() {
       <div class="sep"></div>
       <table>${itemLines}</table>
       <div class="sep"></div>
-      <p style="font-size:16px"><strong>Total a pagar:</strong> ${formatCurrency(table.order_total || 0)}</p>
+      <p style="font-size:16px"><strong>Total a pagar:</strong> ${formatCurrency((table.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}</p>
       <script>window.print(); window.onafterprint = () => window.close();</script>
       </body></html>
     `);
@@ -996,7 +1005,7 @@ export default function POSPanel() {
                 {tableDetail.orders?.length ? `${tableDetail.orders.length} pedido(s) activo(s)` : 'Sin pedidos activos'}
               </p>
             </div>
-            <p className="text-xl font-bold text-gold-600">{formatCurrency(tableDetail.order_total || 0)}</p>
+            <p className="text-xl font-bold text-gold-600">{formatCurrency((tableDetail.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}</p>
           </div>
 
           {tableDetail.orders?.length ? (
@@ -1481,7 +1490,7 @@ export default function POSPanel() {
                     <div key={order.id} className="border border-slate-200 rounded-lg p-3">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-bold bg-slate-100 px-2 py-1 rounded">Pedido #{order.order_number}</p>
-                        <p className="font-bold text-slate-700">{formatCurrency(order.total)}</p>
+                        <p className="font-bold text-slate-700">{formatCurrency(getOrderChargeTotal(order))}</p>
                       </div>
                       <div className="space-y-1">
                         {(order.items || []).map(item => (
