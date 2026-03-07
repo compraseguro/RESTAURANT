@@ -11,7 +11,7 @@ import {
   MdCheckCircle, MdAttachMoney, MdPeople, MdClose,
   MdAccountBalanceWallet, MdTrendingUp, MdTrendingDown,
   MdAdd, MdRemove, MdDelete, MdSearch, MdShoppingCart, MdRestaurantMenu,
-  MdAccessTime, MdPersonAdd
+  MdAccessTime, MdPersonAdd, MdEmail
 } from 'react-icons/md';
 
 const CAJA_OPTIONS = [
@@ -89,6 +89,7 @@ export default function POSPanel() {
   const [searchingCustomer, setSearchingCustomer] = useState(false);
   const [openingAmount, setOpeningAmount] = useState('');
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [sendingCloseMail, setSendingCloseMail] = useState(false);
   const [activeCajaOption, setActiveCajaOption] = useState(searchParams.get('view') || 'cobrar');
   const [closingData, setClosingData] = useState(null);
   const [closingAmount, setClosingAmount] = useState('');
@@ -361,6 +362,30 @@ export default function POSPanel() {
       setShowCloseModal(false);
       setRegister(null);
     } catch (err) { toast.error(err.message); }
+  };
+  const sendCloseByEmail = async () => {
+    if (closingAmount === '') return toast.error('Ingresa el efectivo contado para enviar el reporte');
+    const amount = parseFloat(closingAmount);
+    if (Number.isNaN(amount) || amount < 0) return toast.error('El efectivo contado no es válido');
+    try {
+      setSendingCloseMail(true);
+      await api.post('/pos/send-close-email', {
+        closing_amount: amount,
+        notes: closingNotes,
+        arqueo: {
+          expected_cash: expectedCash,
+          counted_cash: amount,
+          difference,
+          denominations,
+          observations: closingNotes,
+        },
+      });
+      toast.success('Reporte enviado al correo configurado');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSendingCloseMail(false);
+    }
   };
 
   const handlePrint = () => {
@@ -1940,6 +1965,13 @@ export default function POSPanel() {
               <button onClick={() => setShowCloseModal(false)} className="btn-secondary flex-1">Cancelar</button>
               <button onClick={handlePrint} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium text-sm border border-slate-300">
                 <MdPrint /> Enviar a impresora
+              </button>
+              <button
+                onClick={sendCloseByEmail}
+                disabled={sendingCloseMail}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium text-sm border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <MdEmail /> {sendingCloseMail ? 'Enviando...' : 'Enviar a correo'}
               </button>
               <button onClick={closeRegister} className="btn-primary flex-1 flex items-center justify-center gap-2">
                 <MdCheckCircle /> Cerrar Caja

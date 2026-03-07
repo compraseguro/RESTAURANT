@@ -271,6 +271,49 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
   res.json(closedRegister);
 });
 
+router.post('/send-close-email', authenticateToken, requireRole('admin', 'cajero'), async (req, res) => {
+  const { closing_amount, notes, arqueo } = req.body || {};
+  const register = getAccessibleOpenRegister(req.user);
+  if (!register) return res.status(400).json({ error: 'No tienes una caja abierta' });
+  if (closing_amount === undefined || closing_amount === null || Number.isNaN(Number(closing_amount))) {
+    return res.status(400).json({ error: 'Debes ingresar el efectivo contado para enviar el reporte' });
+  }
+  if (Number(closing_amount) < 0) {
+    return res.status(400).json({ error: 'El efectivo contado no puede ser negativo' });
+  }
+
+  const sales = queryOne(`SELECT COALESCE(SUM(total), 0) as total_sales,
+    COALESCE(SUM(CASE WHEN payment_method = 'efectivo' THEN total ELSE 0 END), 0) as total_cash,
+    COALESCE(SUM(CASE WHEN payment_method = 'yape' THEN total ELSE 0 END), 0) as total_yape,
+    COALESCE(SUM(CASE WHEN payment_method = 'plin' THEN total ELSE 0 END), 0) as total_plin,
+    COALESCE(SUM(CASE WHEN payment_method = 'tarjeta' THEN total ELSE 0 END), 0) as total_card,
+    COUNT(*) as order_count
+    FROM orders WHERE ${SALES_EVENT_AT_SQL} >= ? AND status != 'cancelled' AND payment_status = 'paid'`, [register.opened_at]);
+  const movements = getMovementTotals(register.id);
+  const expectedCash = Number(register.opening_amount || 0)
+    + Number(sales.total_cash || 0)
+    + Number(movements.total_income || 0)
+    - Number(movements.total_expense || 0);
+  const countedCash = Number(closing_amount);
+  const diff = countedCash - expectedCash;
+
+  try {
+    await sendCashCloseNotification({
+      register,
+      sales,
+      movements,
+      expectedCash,
+      countedCash,
+      difference: diff,
+      notes: String(arqueo?.observations || notes || '').trim(),
+      closedByName: req.user.full_name || req.user.username || '',
+    });
+    return res.json({ success: true, message: 'Reporte enviado al correo configurado' });
+  } catch (err) {
+    return res.status(400).json({ error: err.message || 'No se pudo enviar el reporte por correo' });
+  }
+});
+
 router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
   const { order_ids: orderIdsRaw, payment_method: paymentMethodRaw, discount_reason: discountReason = '', discounts_by_order: discountsByOrder = {} } = req.body || {};
   const orderIds = Array.isArray(orderIdsRaw) ? orderIdsRaw.filter(Boolean) : [];
