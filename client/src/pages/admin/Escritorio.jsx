@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { MdDateRange, MdKeyboardArrowDown, MdKitchen, MdLocalBar, MdDeliveryDining, MdPointOfSale, MdPrint, MdTableBar } from 'react-icons/md';
 
 const PAYMENT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
+const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4'];
 const toInputDate = (date) => {
   const d = new Date(date);
   const y = d.getFullYear();
@@ -37,6 +38,7 @@ export default function Escritorio() {
   const [startDate, setStartDate] = useState(getCurrentMonthRange().start);
   const [endDate, setEndDate] = useState(getCurrentMonthRange().end);
   const [datePickStep, setDatePickStep] = useState('idle');
+  const [rankingMode, setRankingMode] = useState('dias');
   const startDateInputRef = useRef(null);
   const endDateInputRef = useRef(null);
   const navigate = useNavigate();
@@ -140,6 +142,68 @@ export default function Escritorio() {
   const totalCredit = paidOrders
     .filter(o => o.payment_method === 'online')
     .reduce((sum, o) => sum + Number(o.total || 0), 0);
+  const parseHourToMinutes = (raw) => {
+    const [h = '0', m = '0'] = String(raw || '').split(':');
+    return (Number(h) * 60) + Number(m);
+  };
+  const isSaleInConfiguredSchedule = (order) => {
+    const schedule = restaurantInfo?.schedule;
+    if (!schedule || typeof schedule !== 'object') return true;
+    const date = parseApiDate(order?.updated_at || order?.created_at);
+    if (!date) return true;
+    const dayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayKey = dayMap[date.getDay()];
+    const aliases = {
+      sunday: ['sunday', 'domingo', 'dom'],
+      monday: ['monday', 'lunes', 'lun'],
+      tuesday: ['tuesday', 'martes', 'mar'],
+      wednesday: ['wednesday', 'miercoles', 'miércoles', 'mie', 'mié'],
+      thursday: ['thursday', 'jueves', 'jue'],
+      friday: ['friday', 'viernes', 'vie'],
+      saturday: ['saturday', 'sabado', 'sábado', 'sab', 'sáb'],
+    };
+    const cfg = (aliases[dayKey] || [])
+      .map(k => schedule[k])
+      .find(Boolean);
+    if (!cfg) return true;
+    if (cfg.enabled === false || Number(cfg.enabled) === 0) return false;
+    const openMinutes = parseHourToMinutes(cfg.open || '00:00');
+    const closeMinutes = parseHourToMinutes(cfg.close || '23:59');
+    const currentMinutes = (date.getHours() * 60) + date.getMinutes();
+    if (closeMinutes >= openMinutes) {
+      return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
+    }
+    return currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
+  };
+  const paidOrdersInSchedule = useMemo(
+    () => paidOrders.filter(isSaleInConfiguredSchedule),
+    [paidOrders, restaurantInfo]
+  );
+  const topSalesData = useMemo(() => {
+    const grouped = {};
+    if (rankingMode === 'mesas') {
+      paidOrdersInSchedule.forEach((o) => {
+        const table = String(o.table_number || '').trim();
+        if (!table) return;
+        const key = `Mesa ${table}`;
+        if (!grouped[key]) grouped[key] = { name: key, value: 0, orders: 0 };
+        grouped[key].value += Number(o.total || 0);
+        grouped[key].orders += 1;
+      });
+    } else {
+      paidOrdersInSchedule.forEach((o) => {
+        const date = parseApiDate(o.updated_at || o.created_at);
+        if (!date) return;
+        const label = date.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' });
+        if (!grouped[label]) grouped[label] = { name: label, value: 0, orders: 0 };
+        grouped[label].value += Number(o.total || 0);
+        grouped[label].orders += 1;
+      });
+    }
+    return Object.values(grouped)
+      .sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
+      .slice(0, 6);
+  }, [rankingMode, paidOrdersInSchedule]);
 
   const isBarItem = (item) => {
     const text = `${item?.product_name || ''} ${item?.notes || ''}`.toLowerCase();
@@ -493,41 +557,66 @@ export default function Escritorio() {
         </div>
 
         <div className="xl:col-span-4 card p-4">
-          <h3 className="text-xl font-light text-slate-700 mb-3">Resumen de ingresos</h3>
-          <div className="grid grid-cols-1 gap-2">
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-              <p className="text-xs text-emerald-700">Ingreso total por ventas</p>
-              <p className="text-xl font-bold text-emerald-800">{formatCurrency(totalSales)}</p>
-            </div>
-            <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
-              <p className="text-xs text-violet-700">Ingreso total al crédito</p>
-              <p className="text-xl font-bold text-violet-800">{formatCurrency(totalCredit)}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
-                <p className="text-[11px] text-sky-700">Ingresos en efectivo</p>
-                <p className="text-sm font-bold text-sky-800">{formatCurrency(salesByPayment.efectivo)}</p>
-              </div>
-              <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-                <p className="text-[11px] text-indigo-700">Ingresos digitales</p>
-                <p className="text-sm font-bold text-indigo-800">{formatCurrency((salesByPayment.tarjeta || 0) + (salesByPayment.yape || 0) + (salesByPayment.plin || 0))}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-center">
-                <p className="text-[10px] text-slate-500">Cobradas</p>
-                <p className="text-sm font-bold text-slate-800">{paidOrdersCount}</p>
-              </div>
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-center">
-                <p className="text-[10px] text-amber-600">Pendientes</p>
-                <p className="text-sm font-bold text-amber-700">{pendingPaymentCount}</p>
-              </div>
-              <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-center">
-                <p className="text-[10px] text-red-600">Canceladas</p>
-                <p className="text-sm font-bold text-red-700">{cancelledOrdersCount}</p>
-              </div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xl font-light text-slate-700">
+              {rankingMode === 'dias' ? 'Top días con más ventas' : 'Top mesas que más venden'}
+            </h3>
+            <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setRankingMode('dias')}
+                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  rankingMode === 'dias' ? 'bg-[#2563EB] text-white' : 'bg-white text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Días
+              </button>
+              <button
+                type="button"
+                onClick={() => setRankingMode('mesas')}
+                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  rankingMode === 'mesas' ? 'bg-[#2563EB] text-white' : 'bg-white text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Mesas
+              </button>
             </div>
           </div>
+          {topSalesData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={topSalesData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={78}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {topSalesData.map((_, idx) => <Cell key={`rank-${idx}`} fill={CHART_COLORS[idx % CHART_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => formatCurrency(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-1 gap-1 mt-2">
+                {topSalesData.map((item, idx) => (
+                  <div key={`${item.name}-${idx}`} className="flex items-center justify-between text-xs border-b border-slate-100 py-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }} />
+                      <span className="text-slate-700 truncate">{item.name}</span>
+                    </div>
+                    <span className="font-semibold text-slate-800">{formatCurrency(item.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="h-[220px] flex items-center justify-center text-sm text-slate-500">
+              Sin ventas en el rango y horario seleccionado.
+            </div>
+          )}
         </div>
       </div>
 
