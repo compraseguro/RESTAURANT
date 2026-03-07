@@ -148,6 +148,8 @@ export default function KitchenPanel({ station = 'cocina' }) {
   useEffect(() => {
     loadOrders();
     emit(isBar ? 'join-bar' : 'join-kitchen');
+    const timer = setInterval(loadOrders, 10000);
+    return () => clearInterval(timer);
   }, [filter, station]);
 
   useEffect(() => {

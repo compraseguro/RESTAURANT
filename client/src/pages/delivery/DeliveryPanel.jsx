@@ -22,6 +22,8 @@ export default function DeliveryPanel() {
 
   useEffect(() => {
     loadData();
+    const timer = setInterval(loadData, 10000);
+    return () => clearInterval(timer);
   }, []);
 
   useSocket('new-order', loadData);

@@ -26,7 +26,11 @@ export default function Escritorio() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    const timer = setInterval(loadData, 10000);
+    return () => clearInterval(timer);
+  }, []);
   useSocket('order-update', loadData);
   useEffect(() => {
     api.get('/orders/print-config')

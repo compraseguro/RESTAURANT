@@ -51,7 +51,12 @@ export default function Delivery() {
     }
   }, [paymentOptions, paymentMethod]);
 
-  useEffect(() => { load(); loadProducts(); }, []);
+  useEffect(() => {
+    load();
+    loadProducts();
+    const timer = setInterval(load, 10000);
+    return () => clearInterval(timer);
+  }, []);
   useSocket('order-update', load);
 
   const activeOrders = orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));

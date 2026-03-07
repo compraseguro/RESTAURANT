@@ -43,7 +43,12 @@ export default function Tables() {
     }).catch(console.error);
   };
 
-  useEffect(() => { loadTables(); loadProducts(); }, []);
+  useEffect(() => {
+    loadTables();
+    loadProducts();
+    const timer = setInterval(loadTables, 10000);
+    return () => clearInterval(timer);
+  }, []);
   useSocket('order-update', loadTables);
   useSocket('table-update', loadTables);
 

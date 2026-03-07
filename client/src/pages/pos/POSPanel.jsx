@@ -153,7 +153,11 @@ export default function POSPanel() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    const timer = setInterval(loadData, 10000);
+    return () => clearInterval(timer);
+  }, []);
   useSocket('order-update', loadData);
   useSocket('table-update', loadData);
 
