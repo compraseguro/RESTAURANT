@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { api, formatCurrency, parseApiDate, toLocalDateKey } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -36,7 +36,9 @@ export default function Escritorio() {
   const [datePreset, setDatePreset] = useState('month');
   const [startDate, setStartDate] = useState(getCurrentMonthRange().start);
   const [endDate, setEndDate] = useState(getCurrentMonthRange().end);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickStep, setDatePickStep] = useState('idle');
+  const startDateInputRef = useRef(null);
+  const endDateInputRef = useRef(null);
   const navigate = useNavigate();
 
   const loadData = async () => {
@@ -253,6 +255,23 @@ export default function Escritorio() {
     setStartDate(monthRange.start);
     setEndDate(monthRange.end);
   };
+  const openNativeDatePicker = (inputRef) => {
+    const input = inputRef?.current;
+    if (!input) return;
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+      return;
+    }
+    input.click();
+  };
+  const startRangeSelection = () => {
+    setDatePickStep('start');
+    setTimeout(() => openNativeDatePicker(startDateInputRef), 0);
+  };
+  const continueRangeSelection = () => {
+    setDatePickStep('end');
+    setTimeout(() => openNativeDatePicker(endDateInputRef), 0);
+  };
 
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
@@ -327,13 +346,13 @@ export default function Escritorio() {
           <div className="grid grid-cols-12 gap-2">
             <button
               type="button"
-              onClick={() => setShowDatePicker(prev => !prev)}
+              onClick={startRangeSelection}
               className="col-span-7 rounded-md border border-slate-300 bg-white/70 px-2 py-1.5 text-left hover:border-[#3B82F6] transition-colors"
             >
               <div className="flex items-center gap-2 text-slate-500 text-xs">
                 <MdDateRange />
-                <span>Rango de fechas</span>
-                <MdKeyboardArrowDown className={`ml-auto transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
+                <span>{datePickStep === 'end' ? 'Selecciona FIN' : 'Selecciona INICIO'}</span>
+                <MdKeyboardArrowDown className="ml-auto" />
               </div>
               <div className="mt-0.5 leading-tight text-[13px] font-medium text-slate-700">
                 <div>{formatDateForLabel(startDate)}</div>
@@ -344,7 +363,7 @@ export default function Escritorio() {
               type="button"
               onClick={() => {
                 applyMonthRange();
-                setShowDatePicker(false);
+                setDatePickStep('idle');
               }}
               className={`col-span-2 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
                 datePreset === 'month'
@@ -358,7 +377,7 @@ export default function Escritorio() {
               type="button"
               onClick={() => {
                 setDatePreset('total');
-                setShowDatePicker(false);
+                setDatePickStep('idle');
               }}
               className={`col-span-3 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
                 datePreset === 'total'
@@ -368,35 +387,33 @@ export default function Escritorio() {
             >
               Todo
             </button>
+            <input
+              ref={startDateInputRef}
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setDatePreset('custom');
+                setStartDate(e.target.value);
+                continueRangeSelection();
+              }}
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+            <input
+              ref={endDateInputRef}
+              type="date"
+              value={endDate}
+              onChange={(e) => {
+                setDatePreset('custom');
+                setEndDate(e.target.value);
+                setDatePickStep('idle');
+              }}
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
           </div>
-          {showDatePicker && (
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <p className="text-[11px] font-semibold text-[#3B82F6] mb-1">INICIO</p>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setDatePreset('custom');
-                    setStartDate(e.target.value);
-                  }}
-                  className="w-full rounded-md border border-[#3B82F6]/60 bg-[#EFF6FF] px-2 py-1 text-xs text-slate-700 focus:border-[#2563EB] focus:ring-2 focus:ring-[#3B82F6]/25"
-                />
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold text-[#3B82F6] mb-1">FIN</p>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setDatePreset('custom');
-                    setEndDate(e.target.value);
-                  }}
-                  className="w-full rounded-md border border-[#3B82F6]/60 bg-[#EFF6FF] px-2 py-1 text-xs text-slate-700 focus:border-[#2563EB] focus:ring-2 focus:ring-[#3B82F6]/25"
-                />
-              </div>
-            </div>
-          )}
         </div>
         <button className="input-field text-left flex items-center justify-between text-sm text-slate-600">
           Local: Principal <MdKeyboardArrowDown />
