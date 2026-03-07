@@ -84,14 +84,31 @@ export default function Reservas() {
       const notesMerged = [String(form.notes || '').trim(), requestedSummary ? `Pedido solicitado: ${requestedSummary}` : '']
         .filter(Boolean)
         .join('\n');
-      await api.post('/admin-modules/reservations', {
+      const createdReservation = await api.post('/admin-modules/reservations', {
         ...form,
         notes: notesMerged,
         status: 'confirmed',
       });
+      if (requestItems.length > 0) {
+        const selectedTable = tables.find(t => t.id === form.table_id);
+        await api.post('/orders', {
+          items: requestItems.map(item => ({
+            product_id: item.product_id,
+            quantity: Number(item.qty || 1),
+          })),
+          type: 'dine_in',
+          table_number: selectedTable ? String(selectedTable.number || '') : '',
+          customer_name: clientName,
+          notes: [
+            `Reserva: ${createdReservation?.date || form.date} ${createdReservation?.time || form.time}`,
+            notesMerged ? `Detalle reserva: ${notesMerged}` : '',
+          ].filter(Boolean).join(' | '),
+          payment_method: 'efectivo',
+        });
+      }
       setShowModal(false);
       resetForm();
-      toast.success('Reserva creada');
+      toast.success(requestItems.length > 0 ? 'Reserva creada y pedido enviado a preparación' : 'Reserva creada');
       load();
     } catch (err) {
       toast.error(err.message);
@@ -156,6 +173,7 @@ export default function Reservas() {
                     <p className="font-bold text-slate-800">{r.client_name}</p>
                     <p className="text-sm text-slate-500"><MdCalendarToday className="inline text-xs mr-1" />{r.date} · <MdAccessTime className="inline text-xs mr-1" />{r.time} · {r.guests} personas</p>
                     {r.phone && <p className="text-xs text-slate-400"><MdPhone className="inline text-xs mr-1" />{r.phone}</p>}
+                    {r.notes && <p className="text-xs text-slate-500 mt-1 max-w-[520px] truncate">Nota: {r.notes}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
