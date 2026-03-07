@@ -6,6 +6,7 @@ export default function Modal({
   title,
   children,
   size = 'md',
+  containerClassName = '',
   headerClassName = '',
   titleClassName = '',
   closeButtonClassName = '',
@@ -22,7 +23,7 @@ export default function Modal({
   }[size];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${containerClassName}`} onClick={onClose}>
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
       <div className={`relative bg-white rounded-2xl shadow-xl w-full ${sizeClass} max-h-[90vh] flex flex-col border border-slate-200`} onClick={e => e.stopPropagation()}>
         <div className={`flex items-center justify-between px-6 py-4 border-b border-slate-100 ${headerClassName}`}>

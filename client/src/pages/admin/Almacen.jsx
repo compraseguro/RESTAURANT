@@ -118,6 +118,12 @@ export default function Almacen() {
     ...categories.filter(c => (c.name || '').toUpperCase() === WAREHOUSE_CATEGORY_NAMES.supplies),
   ];
   const principalWarehouse = warehouses.find(w => w.name === 'Almacen Principal') || warehouses[0];
+  const getDefaultCreateWarehouseId = () => {
+    if (selectedWarehouseView && warehouses.some(w => w.id === selectedWarehouseView)) {
+      return selectedWarehouseView;
+    }
+    return principalWarehouse?.id || warehouses[0]?.id || '';
+  };
 
   const load = async () => {
     try {
@@ -189,12 +195,12 @@ export default function Almacen() {
   useEffect(() => {
     if (!warehouses.length) return;
     if (!itemForm.stock_warehouse) {
-      setItemForm(prev => ({ ...prev, stock_warehouse: principalWarehouse?.id || warehouses[0].id }));
+      setItemForm(prev => ({ ...prev, stock_warehouse: getDefaultCreateWarehouseId() }));
     }
     if (!stockWarehouse) {
       setStockWarehouse(principalWarehouse?.id || warehouses[0].id);
     }
-  }, [warehouses]);
+  }, [warehouses, selectedWarehouseView]);
   useEffect(() => {
     if (!warehouses.length) return;
     if (!logisticsWarehouseFilter) {
@@ -226,7 +232,9 @@ export default function Almacen() {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     return matchSearch;
   });
-  const lowStockGlobal = products.filter(p => p.stock <= 10);
+  const lowStockGlobal = products.filter(
+    (p) => p.process === 'non_transformed' && Number(p.stock || 0) <= 10
+  );
   const productsForSelectedWarehouse = selectedWarehouseView
     ? scopedProducts.filter(p =>
       (p.warehouse_stocks || []).some(ws => ws.warehouse_id === selectedWarehouseView)
@@ -242,7 +250,9 @@ export default function Almacen() {
     return acc;
   }, {});
 
-  const lowStock = productsForSelectedWarehouse.filter(p => p.stock <= 10);
+  const lowStock = productsForSelectedWarehouse.filter(
+    (p) => p.process === 'non_transformed' && Number(p.stock || 0) <= 10
+  );
   const totalValue = productsForSelectedWarehouse.reduce((s, p) => s + (p.price * p.stock), 0);
   const logisticsProducts = [...products]
     .filter(product => {
@@ -339,7 +349,7 @@ export default function Almacen() {
         price: '',
         stock: '0',
         category_id: '',
-        stock_warehouse: principalWarehouse?.id || '',
+        stock_warehouse: getDefaultCreateWarehouseId(),
       });
       load();
     } catch (err) {
@@ -925,6 +935,7 @@ export default function Almacen() {
               setItemForm(prev => ({
                 ...prev,
                 category_id: '',
+                stock_warehouse: getDefaultCreateWarehouseId(),
               }));
               setShowCreateModal(true);
             }}
@@ -1116,6 +1127,7 @@ export default function Almacen() {
         onClose={() => setShowCreateModal(false)}
         title="Nuevo producto"
         size="sm"
+        containerClassName="justify-end"
       >
         <form onSubmit={handleCreateItem} className="space-y-4">
           <div>
