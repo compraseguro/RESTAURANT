@@ -16,10 +16,28 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
   .map(v => v.trim())
   .filter(Boolean);
+
+function escapeRegex(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function wildcardToRegex(rule) {
+  const escaped = escapeRegex(rule).replace(/\\\*/g, '.*');
+  return new RegExp(`^${escaped}$`, 'i');
+}
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  if (!corsOrigins.length) return true;
+  if (corsOrigins.includes(origin)) return true;
+  return corsOrigins
+    .filter(rule => rule.includes('*'))
+    .some((rule) => wildcardToRegex(rule).test(origin));
+}
+
 const corsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true);
-    if (!corsOrigins.length || corsOrigins.includes(origin)) return cb(null, true);
+    if (isOriginAllowed(origin)) return cb(null, true);
     return cb(new Error('Origen no permitido por CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
