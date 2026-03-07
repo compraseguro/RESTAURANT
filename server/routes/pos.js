@@ -44,6 +44,7 @@ function getMovementTotals(registerId) {
     [registerId]
   ) || { total_income: 0, total_expense: 0 };
 }
+const SALES_EVENT_AT_SQL = 'COALESCE(updated_at, created_at)';
 
 router.post('/open-register', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
   const { opening_amount } = req.body;
@@ -90,7 +91,7 @@ router.get('/current-register', authenticateToken, requireRole('admin', 'cajero'
     COALESCE(SUM(CASE WHEN payment_method = 'plin' THEN total ELSE 0 END), 0) as total_plin,
     COALESCE(SUM(CASE WHEN payment_method = 'tarjeta' THEN total ELSE 0 END), 0) as total_card,
     COUNT(*) as order_count
-    FROM orders WHERE created_at >= ? AND status != 'cancelled' AND payment_status = 'paid'`, [register.opened_at]);
+    FROM orders WHERE ${SALES_EVENT_AT_SQL} >= ? AND status != 'cancelled' AND payment_status = 'paid'`, [register.opened_at]);
 
   const movements = getMovementTotals(register.id);
   const expectedCash = Number(register.opening_amount || 0)
@@ -118,7 +119,7 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
     COALESCE(SUM(CASE WHEN payment_method = 'plin' THEN total ELSE 0 END), 0) as total_plin,
     COALESCE(SUM(CASE WHEN payment_method = 'tarjeta' THEN total ELSE 0 END), 0) as total_card,
     COUNT(*) as order_count
-    FROM orders WHERE created_at >= ? AND status != 'cancelled' AND payment_status = 'paid'`, [register.opened_at]);
+    FROM orders WHERE ${SALES_EVENT_AT_SQL} >= ? AND status != 'cancelled' AND payment_status = 'paid'`, [register.opened_at]);
 
   const movements = getMovementTotals(register.id);
   const expectedCash = Number(register.opening_amount || 0)
@@ -317,7 +318,7 @@ router.get('/sales-monitor', authenticateToken, requireRole('admin', 'cajero'), 
             COUNT(*) as orders,
             COALESCE(SUM(total), 0) as total
      FROM orders
-     WHERE created_at >= ? AND status != 'cancelled' AND payment_status = 'paid'
+     WHERE ${SALES_EVENT_AT_SQL} >= ? AND status != 'cancelled' AND payment_status = 'paid'
      GROUP BY strftime('%H', created_at)
      ORDER BY hour`,
     [register.opened_at]
@@ -327,7 +328,7 @@ router.get('/sales-monitor', authenticateToken, requireRole('admin', 'cajero'), 
             COUNT(*) as count,
             COALESCE(SUM(total), 0) as total
      FROM orders
-     WHERE created_at >= ? AND status != 'cancelled' AND payment_status = 'paid'
+     WHERE ${SALES_EVENT_AT_SQL} >= ? AND status != 'cancelled' AND payment_status = 'paid'
      GROUP BY payment_method
      ORDER BY total DESC`,
     [register.opened_at]
@@ -335,7 +336,7 @@ router.get('/sales-monitor', authenticateToken, requireRole('admin', 'cajero'), 
   const summary = queryOne(
     `SELECT COUNT(*) as order_count, COALESCE(SUM(total), 0) as total_sales
      FROM orders
-     WHERE created_at >= ? AND status != 'cancelled' AND payment_status = 'paid'`,
+     WHERE ${SALES_EVENT_AT_SQL} >= ? AND status != 'cancelled' AND payment_status = 'paid'`,
     [register.opened_at]
   );
   res.json({ hourly, by_payment: byPayment, ...summary });

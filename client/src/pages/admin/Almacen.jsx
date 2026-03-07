@@ -123,6 +123,12 @@ export default function Almacen() {
     if (selectedWarehouseView && warehouses.some(w => sameWarehouseId(w.id, selectedWarehouseView))) {
       return String(selectedWarehouseView);
     }
+    if (stockWarehouse && warehouses.some(w => sameWarehouseId(w.id, stockWarehouse))) {
+      return String(stockWarehouse);
+    }
+    if (logisticsWarehouseFilter && warehouses.some(w => sameWarehouseId(w.id, logisticsWarehouseFilter))) {
+      return String(logisticsWarehouseFilter);
+    }
     return String(principalWarehouse?.id || warehouses[0]?.id || '');
   };
 
@@ -202,6 +208,12 @@ export default function Almacen() {
       setStockWarehouse(principalWarehouse?.id || warehouses[0].id);
     }
   }, [warehouses, selectedWarehouseView]);
+  useEffect(() => {
+    if (!showCreateModal) return;
+    const defaultWarehouseId = getDefaultCreateWarehouseId();
+    if (!defaultWarehouseId) return;
+    setItemForm(prev => ({ ...prev, stock_warehouse: defaultWarehouseId }));
+  }, [showCreateModal, selectedWarehouseView, stockWarehouse, logisticsWarehouseFilter, warehouses]);
   useEffect(() => {
     if (!warehouses.length) return;
     if (!logisticsWarehouseFilter) {
@@ -954,11 +966,11 @@ export default function Almacen() {
           return (
             <div
               key={w.id}
-              onClick={() => setSelectedWarehouseView(prev => (sameWarehouseId(prev, w.id) ? '' : String(w.id)))}
+              onClick={() => setSelectedWarehouseView(String(w.id))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  setSelectedWarehouseView(prev => (sameWarehouseId(prev, w.id) ? '' : String(w.id)));
+                  setSelectedWarehouseView(String(w.id));
                 }
               }}
               role="button"
@@ -1128,7 +1140,7 @@ export default function Almacen() {
         onClose={() => setShowCreateModal(false)}
         title="Nuevo producto"
         size="sm"
-        containerClassName="justify-end"
+        placement="right"
       >
         <form onSubmit={handleCreateItem} className="space-y-4">
           <div>

@@ -740,6 +740,10 @@ export default function POSPanel() {
         payment_method: paymentMethod,
       });
       if (quickSaleMode) {
+        await api.put(`/orders/${createdOrder.id}/payment`, {
+          payment_method: paymentMethod,
+          payment_status: 'paid',
+        });
         await api.put(`/orders/${createdOrder.id}/status`, { status: 'delivered' });
         if (billingForm.enabled) {
           const doc = await issueElectronicDocument(createdOrder.id);
