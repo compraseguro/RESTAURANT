@@ -45,6 +45,91 @@ function getMovementTotals(registerId) {
   ) || { total_income: 0, total_expense: 0 };
 }
 const SALES_EVENT_AT_SQL = 'COALESCE(updated_at, created_at)';
+async function sendCashCloseNotification({
+  register,
+  sales,
+  movements,
+  expectedCash,
+  countedCash,
+  difference,
+  notes,
+  closedByName,
+}) {
+  const endpoint = String(process.env.CASH_CLOSE_FORM_URL || '').trim();
+  if (!endpoint) return;
+
+  const notifyEnabled = String(process.env.CASH_CLOSE_NOTIFY_ENABLED || '1').trim() !== '0';
+  if (!notifyEnabled) return;
+
+  const restaurant = queryOne('SELECT name FROM restaurants LIMIT 1');
+  const restaurantName = restaurant?.name || 'Resto-FADEY';
+  const toEmail = String(process.env.CASH_CLOSE_EMAIL || '').trim();
+  const closeDate = new Date().toISOString();
+  const subject = `[Caja] Cierre registrado - ${restaurantName}`;
+  const messageLines = [
+    `Restaurante: ${restaurantName}`,
+    `Caja: ${register.id}`,
+    `Cajero: ${closedByName || '-'}`,
+    `Apertura: ${register.opened_at || '-'}`,
+    `Cierre: ${closeDate}`,
+    `Ventas: ${Number(sales.total_sales || 0)}`,
+    `Efectivo ventas: ${Number(sales.total_cash || 0)}`,
+    `Yape: ${Number(sales.total_yape || 0)}`,
+    `Plin: ${Number(sales.total_plin || 0)}`,
+    `Tarjeta: ${Number(sales.total_card || 0)}`,
+    `Ingresos caja: ${Number(movements.total_income || 0)}`,
+    `Egresos caja: ${Number(movements.total_expense || 0)}`,
+    `Efectivo esperado: ${Number(expectedCash || 0)}`,
+    `Efectivo contado: ${Number(countedCash || 0)}`,
+    `Diferencia: ${Number(difference || 0)}`,
+    `Observaciones: ${notes || '-'}`,
+  ];
+
+  const body = {
+    subject,
+    message: messageLines.join('\n'),
+    restaurant_name: restaurantName,
+    register_id: register.id,
+    opened_at: register.opened_at,
+    closed_at: closeDate,
+    closed_by: closedByName || '',
+    order_count: Number(sales.order_count || 0),
+    total_sales: Number(sales.total_sales || 0),
+    total_cash: Number(sales.total_cash || 0),
+    total_yape: Number(sales.total_yape || 0),
+    total_plin: Number(sales.total_plin || 0),
+    total_card: Number(sales.total_card || 0),
+    total_income: Number(movements.total_income || 0),
+    total_expense: Number(movements.total_expense || 0),
+    expected_cash: Number(expectedCash || 0),
+    counted_cash: Number(countedCash || 0),
+    difference: Number(difference || 0),
+    notes: notes || '',
+    to_email: toEmail,
+    _replyto: toEmail,
+    _subject: subject,
+  };
+
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeout = setTimeout(() => ctrl?.abort(), 8000);
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: ctrl?.signal,
+    });
+    if (!response.ok) {
+      const payload = await response.text().catch(() => '');
+      throw new Error(`No se pudo notificar cierre (${response.status}) ${payload}`.trim());
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 router.post('/open-register', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
   const { opening_amount } = req.body;
@@ -102,7 +187,7 @@ router.get('/current-register', authenticateToken, requireRole('admin', 'cajero'
   res.json({ ...register, ...sales, ...movements, expected_cash: expectedCash });
 });
 
-router.post('/close-register', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
+router.post('/close-register', authenticateToken, requireRole('admin', 'cajero'), async (req, res) => {
   const { closing_amount, notes, arqueo } = req.body;
   const register = getAccessibleOpenRegister(req.user);
   if (!register) return res.status(400).json({ error: 'No tienes una caja abierta' });
@@ -167,7 +252,23 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
     details: { closing_amount: countedCash, expected_cash: expectedCash, difference: diff },
   });
 
-  res.json(queryOne('SELECT * FROM cash_registers WHERE id = ?', [register.id]));
+  const closedRegister = queryOne('SELECT * FROM cash_registers WHERE id = ?', [register.id]);
+  try {
+    await sendCashCloseNotification({
+      register: closedRegister || register,
+      sales,
+      movements,
+      expectedCash,
+      countedCash,
+      difference: diff,
+      notes: notes || '',
+      closedByName: req.user.full_name || req.user.username || '',
+    });
+  } catch (notifyErr) {
+    console.error('[close-register] aviso externo fallido:', notifyErr.message);
+  }
+
+  res.json(closedRegister);
 });
 
 router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
