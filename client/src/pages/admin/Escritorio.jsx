@@ -8,12 +8,35 @@ import { MdDateRange, MdKeyboardArrowDown, MdMenu, MdKitchen, MdLocalBar, MdDeli
 
 const PAYMENT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
 const ATTENTION_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
+const toInputDate = (date) => {
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+const getCurrentMonthRange = () => {
+  const now = new Date();
+  return {
+    start: toInputDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+    end: toInputDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+  };
+};
+const formatDateForLabel = (value) => {
+  if (!value) return '-';
+  const [y, m, d] = String(value).split('-');
+  if (!y || !m || !d) return value;
+  return `${d}/${m}/${y}`;
+};
 
 export default function Escritorio() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [printConfig, setPrintConfig] = useState({ cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
+  const [datePreset, setDatePreset] = useState('month');
+  const [startDate, setStartDate] = useState(getCurrentMonthRange().start);
+  const [endDate, setEndDate] = useState(getCurrentMonthRange().end);
   const navigate = useNavigate();
 
   const loadData = async () => {
@@ -33,6 +56,12 @@ export default function Escritorio() {
   useActiveInterval(loadData, 10000);
   useSocket('order-update', loadData);
   useEffect(() => {
+    if (datePreset !== 'month') return;
+    const monthRange = getCurrentMonthRange();
+    setStartDate(monthRange.start);
+    setEndDate(monthRange.end);
+  }, [datePreset]);
+  useEffect(() => {
     api.get('/orders/print-config')
       .then((cfg) => {
         setPrintConfig(cfg?.printers || { cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
@@ -41,14 +70,20 @@ export default function Escritorio() {
       .catch(() => {});
   }, []);
 
-  const today = toLocalDateKey(new Date().toISOString());
-  const todayOrders = useMemo(
-    () => orders.filter(o => toLocalDateKey(o.created_at) === today && o.status !== 'cancelled'),
-    [orders, today]
-  );
+  const scopedOrders = useMemo(() => {
+    const valid = orders.filter(o => o.status !== 'cancelled');
+    if (datePreset === 'total') return valid;
+    const from = String(startDate || '');
+    const to = String(endDate || '');
+    if (!from || !to) return valid;
+    return valid.filter((o) => {
+      const dateKey = toLocalDateKey(o.created_at);
+      return dateKey >= from && dateKey <= to;
+    });
+  }, [orders, datePreset, startDate, endDate]);
   const paidOrders = useMemo(
-    () => todayOrders.filter(o => o.payment_status === 'paid'),
-    [todayOrders]
+    () => scopedOrders.filter(o => o.payment_status === 'paid'),
+    [scopedOrders]
   );
 
   const hourlySales = useMemo(() => {
@@ -83,7 +118,7 @@ export default function Escritorio() {
   }, [paidOrders]);
 
   const totalSales = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
-  const totalDiscounts = todayOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
+  const totalDiscounts = scopedOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
   const totalCredit = paidOrders
     .filter(o => o.payment_method === 'online')
     .reduce((sum, o) => sum + Number(o.total || 0), 0);
@@ -194,17 +229,20 @@ export default function Escritorio() {
   };
 
   const attentionData = useMemo(() => {
-    const delivered = todayOrders.filter(o => o.status === 'delivered').length;
-    const preparing = todayOrders.filter(o => o.status === 'preparing').length;
-    const pending = todayOrders.filter(o => o.status === 'pending').length;
-    const ready = todayOrders.filter(o => o.status === 'ready').length;
+    const delivered = scopedOrders.filter(o => o.status === 'delivered').length;
+    const preparing = scopedOrders.filter(o => o.status === 'preparing').length;
+    const pending = scopedOrders.filter(o => o.status === 'pending').length;
+    const ready = scopedOrders.filter(o => o.status === 'ready').length;
     return [
       { name: 'Excelente', value: delivered || 0 },
       { name: 'Bueno', value: ready || 0 },
       { name: 'Regular', value: preparing || 0 },
       { name: 'Malo', value: pending || 0 },
     ];
-  }, [todayOrders]);
+  }, [scopedOrders]);
+  const dateRangeLabel = datePreset === 'total'
+    ? 'Total (desde inicio hasta hoy)'
+    : `Del ${formatDateForLabel(startDate)} hasta ${formatDateForLabel(endDate)}`;
 
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
@@ -263,7 +301,7 @@ export default function Escritorio() {
           <button onClick={() => navigate('/admin/caja')} className="text-left p-3 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 transition-colors">
             <div className="flex items-center gap-2 text-sky-700 font-semibold"><MdPointOfSale /> Caja</div>
             <p className="text-2xl font-bold text-sky-800 mt-1">{paidOrders.length}</p>
-            <p className="text-xs text-sky-700">Ventas cobradas hoy</p>
+            <p className="text-xs text-sky-700">Ventas cobradas ({datePreset === 'total' ? 'total' : 'rango'})</p>
           </button>
         </div>
       </div>
@@ -275,10 +313,45 @@ export default function Escritorio() {
         <button className="input-field text-left flex items-center justify-between text-sm text-slate-600">
           Caja: Caja 01 <MdKeyboardArrowDown />
         </button>
-        <button className="input-field text-left flex items-center gap-2 text-sm text-slate-600">
-          <MdDateRange />
-          Del 22 Febrero, 2026 hasta 23Febrero, 2026
-        </button>
+        <div className="input-field text-left text-sm text-slate-600 flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <MdDateRange />
+            <span>{dateRangeLabel}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={datePreset}
+              onChange={(e) => setDatePreset(e.target.value)}
+              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+            >
+              <option value="month">Mes actual</option>
+              <option value="custom">Personalizado</option>
+              <option value="total">Total</option>
+            </select>
+            {datePreset !== 'total' && (
+              <>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setDatePreset('custom');
+                    setStartDate(e.target.value);
+                  }}
+                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+                />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setDatePreset('custom');
+                    setEndDate(e.target.value);
+                  }}
+                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+                />
+              </>
+            )}
+          </div>
+        </div>
         <button className="input-field text-left flex items-center justify-between text-sm text-slate-600">
           Local: Principal <MdKeyboardArrowDown />
         </button>
@@ -393,7 +466,7 @@ export default function Escritorio() {
         </div>
         <div className="card p-4">
           <p className="text-sm text-slate-500">Clientes</p>
-          <p className="text-2xl font-light text-slate-700">{todayOrders.length}</p>
+          <p className="text-2xl font-light text-slate-700">{scopedOrders.length}</p>
         </div>
         <div className="card p-4">
           <p className="text-sm text-slate-500">Por tipo de pago</p>
