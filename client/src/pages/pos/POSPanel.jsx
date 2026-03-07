@@ -1939,7 +1939,7 @@ export default function POSPanel() {
             <div className="flex gap-3 pt-4 mt-4 border-t border-slate-200">
               <button onClick={() => setShowCloseModal(false)} className="btn-secondary flex-1">Cancelar</button>
               <button onClick={handlePrint} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium text-sm border border-slate-300">
-                <MdPrint /> Imprimir
+                <MdPrint /> Enviar a impresora
               </button>
               <button onClick={closeRegister} className="btn-primary flex-1 flex items-center justify-center gap-2">
                 <MdCheckCircle /> Cerrar Caja
