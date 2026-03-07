@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, ORDER_TYPES, formatTime } from '../../utils/api';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
+import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
 import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime, MdPrint } from 'react-icons/md';
 import toast from 'react-hot-toast';
@@ -148,9 +149,8 @@ export default function KitchenPanel({ station = 'cocina' }) {
   useEffect(() => {
     loadOrders();
     emit(isBar ? 'join-bar' : 'join-kitchen');
-    const timer = setInterval(loadOrders, 10000);
-    return () => clearInterval(timer);
   }, [filter, station]);
+  useActiveInterval(loadOrders, 10000);
 
   useEffect(() => {
     api.get('/orders/print-config')

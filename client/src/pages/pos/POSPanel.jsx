@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
+import { useActiveInterval } from '../../hooks/useActiveInterval';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import {
@@ -155,9 +156,8 @@ export default function POSPanel() {
 
   useEffect(() => {
     loadData();
-    const timer = setInterval(loadData, 10000);
-    return () => clearInterval(timer);
   }, []);
+  useActiveInterval(loadData, 10000);
   useSocket('order-update', loadData);
   useSocket('table-update', loadData);
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, formatCurrency } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
+import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -22,9 +23,8 @@ export default function DeliveryPanel() {
 
   useEffect(() => {
     loadData();
-    const timer = setInterval(loadData, 10000);
-    return () => clearInterval(timer);
   }, []);
+  useActiveInterval(loadData, 10000);
 
   useSocket('new-order', loadData);
   useSocket('order-update', loadData);

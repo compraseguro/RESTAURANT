@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { api, formatCurrency } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
+import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -46,9 +47,8 @@ export default function Tables() {
   useEffect(() => {
     loadTables();
     loadProducts();
-    const timer = setInterval(loadTables, 10000);
-    return () => clearInterval(timer);
   }, []);
+  useActiveInterval(loadTables, 10000);
   useSocket('order-update', loadTables);
   useSocket('table-update', loadTables);
 

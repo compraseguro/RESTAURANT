@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { api, formatCurrency, parseApiDate, toLocalDateKey } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
+import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { MdDateRange, MdKeyboardArrowDown, MdMenu, MdKitchen, MdLocalBar, MdDeliveryDining, MdPointOfSale, MdPrint, MdTableBar } from 'react-icons/md';
@@ -28,9 +29,8 @@ export default function Escritorio() {
 
   useEffect(() => {
     loadData();
-    const timer = setInterval(loadData, 10000);
-    return () => clearInterval(timer);
   }, []);
+  useActiveInterval(loadData, 10000);
   useSocket('order-update', loadData);
   useEffect(() => {
     api.get('/orders/print-config')

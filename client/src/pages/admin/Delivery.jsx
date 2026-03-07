@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, formatCurrency, formatDate, formatDateTime, getPaymentMethodOptions } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
+import { useActiveInterval } from '../../hooks/useActiveInterval';
 import Modal from '../../components/Modal';
 import {
   MdDeliveryDining, MdLocationOn, MdCheck, MdTimer, MdAdd,
@@ -54,9 +55,8 @@ export default function Delivery() {
   useEffect(() => {
     load();
     loadProducts();
-    const timer = setInterval(load, 10000);
-    return () => clearInterval(timer);
   }, []);
+  useActiveInterval(load, 10000);
   useSocket('order-update', load);
 
   const activeOrders = orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
