@@ -324,15 +324,35 @@ export default function Escritorio() {
           Caja: Caja 01 <MdKeyboardArrowDown />
         </button>
         <div className="input-field text-left text-sm text-slate-600 flex flex-col gap-2">
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-12 gap-2">
             <button
               type="button"
               onClick={() => setShowDatePicker(prev => !prev)}
-              className="flex-1 flex items-center gap-2 text-left"
+              className="col-span-7 rounded-md border border-slate-300 bg-white/70 px-2 py-1.5 text-left hover:border-[#3B82F6] transition-colors"
             >
-              <MdDateRange />
-              <span>{dateRangeLabel}</span>
-              <MdKeyboardArrowDown className={`ml-auto transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
+              <div className="flex items-center gap-2 text-slate-500 text-xs">
+                <MdDateRange />
+                <span>Rango de fechas</span>
+                <MdKeyboardArrowDown className={`ml-auto transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
+              </div>
+              <div className="mt-0.5 leading-tight text-[13px] font-medium text-slate-700">
+                <div>{formatDateForLabel(startDate)}</div>
+                <div>{datePreset === 'total' ? 'Hoy' : formatDateForLabel(endDate)}</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                applyMonthRange();
+                setShowDatePicker(false);
+              }}
+              className={`col-span-2 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
+                datePreset === 'month'
+                  ? 'bg-[#DBEAFE] border-[#3B82F6] text-[#1D4ED8]'
+                  : 'bg-white border-slate-300 text-slate-700 hover:border-[#3B82F6] hover:text-[#2563EB]'
+              }`}
+            >
+              Mes
             </button>
             <button
               type="button"
@@ -340,7 +360,7 @@ export default function Escritorio() {
                 setDatePreset('total');
                 setShowDatePicker(false);
               }}
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${
+              className={`col-span-3 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
                 datePreset === 'total'
                   ? 'bg-[#2563EB] border-[#2563EB] text-white'
                   : 'bg-white border-slate-300 text-slate-700 hover:border-[#3B82F6] hover:text-[#2563EB]'
@@ -350,36 +370,31 @@ export default function Escritorio() {
             </button>
           </div>
           {showDatePicker && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={applyMonthRange}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${
-                  datePreset === 'month'
-                    ? 'bg-[#DBEAFE] border-[#3B82F6] text-[#1D4ED8]'
-                    : 'bg-white border-slate-300 text-slate-700 hover:border-[#3B82F6] hover:text-[#2563EB]'
-                }`}
-              >
-                Mes actual
-              </button>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setDatePreset('custom');
-                  setStartDate(e.target.value);
-                }}
-                className="rounded-md border border-[#3B82F6]/60 bg-[#EFF6FF] px-2 py-1 text-xs text-slate-700 focus:border-[#2563EB] focus:ring-2 focus:ring-[#3B82F6]/25"
-              />
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setDatePreset('custom');
-                  setEndDate(e.target.value);
-                }}
-                className="rounded-md border border-[#3B82F6]/60 bg-[#EFF6FF] px-2 py-1 text-xs text-slate-700 focus:border-[#2563EB] focus:ring-2 focus:ring-[#3B82F6]/25"
-              />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-[11px] font-semibold text-[#3B82F6] mb-1">INICIO</p>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setDatePreset('custom');
+                    setStartDate(e.target.value);
+                  }}
+                  className="w-full rounded-md border border-[#3B82F6]/60 bg-[#EFF6FF] px-2 py-1 text-xs text-slate-700 focus:border-[#2563EB] focus:ring-2 focus:ring-[#3B82F6]/25"
+                />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-[#3B82F6] mb-1">FIN</p>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setDatePreset('custom');
+                    setEndDate(e.target.value);
+                  }}
+                  className="w-full rounded-md border border-[#3B82F6]/60 bg-[#EFF6FF] px-2 py-1 text-xs text-slate-700 focus:border-[#2563EB] focus:ring-2 focus:ring-[#3B82F6]/25"
+                />
+              </div>
             </div>
           )}
         </div>
