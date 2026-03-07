@@ -92,6 +92,14 @@ router.get('/closed-registers/:id', authenticateToken, requireRole('admin', 'caj
   );
   if (!register) return res.status(404).json({ error: 'Cierre de caja no encontrado' });
   register.arqueo = parseArqueoData(register.arqueo_data);
+  register.movements = queryAll(
+    "SELECT cm.*, u.full_name as user_name FROM cash_movements cm LEFT JOIN users u ON u.id = cm.user_id WHERE cm.register_id = ? ORDER BY cm.created_at ASC",
+    [register.id]
+  );
+  register.notes_list = queryAll(
+    "SELECT cn.*, u.full_name as user_name FROM cash_notes cn LEFT JOIN users u ON u.id = cn.user_id WHERE cn.register_id = ? ORDER BY cn.created_at ASC",
+    [register.id]
+  );
   res.json(register);
 });
 

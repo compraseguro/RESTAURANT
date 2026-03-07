@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, formatCurrency, PAYMENT_METHODS } from '../../utils/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { MdCalendarToday, MdCalendarMonth, MdEmojiEvents, MdTrendingUp, MdReceipt, MdAttachMoney, MdVisibility, MdRefresh } from 'react-icons/md';
+import { MdCalendarToday, MdCalendarMonth, MdEmojiEvents, MdTrendingUp, MdReceipt, MdAttachMoney, MdVisibility, MdRefresh, MdPointOfSale, MdDownload } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 
@@ -40,6 +40,7 @@ export default function Reports() {
   const [retryingDocId, setRetryingDocId] = useState('');
   const [retryingFailed, setRetryingFailed] = useState(false);
   const [selectedClosedRegister, setSelectedClosedRegister] = useState(null);
+  const [loadingClosedRegister, setLoadingClosedRegister] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadDaily = () => api.get('/reports/daily').then(setDailyData).catch(console.error);
@@ -103,6 +104,75 @@ export default function Reports() {
       setRetryingFailed(false);
     }
   };
+  const openClosedRegisterDetail = async (register) => {
+    if (!register?.id) return;
+    try {
+      setLoadingClosedRegister(true);
+      const detail = await api.get(`/reports/closed-registers/${register.id}`);
+      setSelectedClosedRegister(detail);
+    } catch (err) {
+      toast.error(err.message || 'No se pudo cargar el detalle del cierre');
+      setSelectedClosedRegister(register);
+    } finally {
+      setLoadingClosedRegister(false);
+    }
+  };
+  const buildClosedRegisterReportText = (register) => {
+    if (!register) return '';
+    const lines = [];
+    const diff = Number(register?.arqueo?.difference ?? 0);
+    lines.push('REPORTE DE CIERRE DE CAJA');
+    lines.push('========================================');
+    lines.push(`Caja cerrada: ${register.id}`);
+    lines.push(`Cajero: ${register.user_name || '-'}`);
+    lines.push(`Apertura: ${formatDateTime(register.opened_at)}`);
+    lines.push(`Cierre: ${formatDateTime(register.closed_at)}`);
+    lines.push('----------------------------------------');
+    lines.push(`Venta total: ${formatCurrency(register.total_sales || 0)}`);
+    lines.push(`Efectivo: ${formatCurrency(register.total_cash || 0)}`);
+    lines.push(`Yape: ${formatCurrency(register.total_yape || 0)}`);
+    lines.push(`Plin: ${formatCurrency(register.total_plin || 0)}`);
+    lines.push(`Tarjeta: ${formatCurrency(register.total_card || 0)}`);
+    lines.push(`Efectivo esperado: ${formatCurrency(register.arqueo?.expected_cash || 0)}`);
+    lines.push(`Efectivo contado: ${formatCurrency(register.arqueo?.counted_cash ?? register.closing_amount ?? 0)}`);
+    lines.push(`Diferencia: ${diff >= 0 ? '+' : ''}${formatCurrency(diff)}`);
+    lines.push('----------------------------------------');
+    lines.push('DENOMINACIONES');
+    Object.entries(DENOMINATION_LABELS).forEach(([key, label]) => {
+      lines.push(`${label}: ${register.arqueo?.denominations?.[key] || 0}`);
+    });
+    lines.push('----------------------------------------');
+    lines.push(`Observaciones: ${register.arqueo?.observations || register.notes || 'Sin observaciones'}`);
+    if (Array.isArray(register.movements) && register.movements.length) {
+      lines.push('----------------------------------------');
+      lines.push('MOVIMIENTOS DE CAJA');
+      register.movements.forEach((mv) => {
+        lines.push(`${formatDateTime(mv.created_at)} | ${mv.type === 'income' ? 'Ingreso' : 'Egreso'} | ${formatCurrency(mv.amount)} | ${mv.concept || '-'}`);
+      });
+    }
+    if (Array.isArray(register.notes_list) && register.notes_list.length) {
+      lines.push('----------------------------------------');
+      lines.push('NOTAS (CRÉDITO / DÉBITO)');
+      register.notes_list.forEach((note) => {
+        lines.push(`${formatDateTime(note.created_at)} | ${note.note_type === 'credit' ? 'Crédito' : 'Débito'} | ${formatCurrency(note.amount)} | ${note.reason || '-'}`);
+      });
+    }
+    return `${lines.join('\n')}\n`;
+  };
+  const downloadClosedRegisterReport = (register) => {
+    if (!register) return;
+    const content = buildClosedRegisterReportText(register);
+    const dateStamp = String(register.closed_at || new Date().toISOString()).replace(/[:T]/g, '-').slice(0, 16);
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `cierre-caja-${dateStamp}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
 
@@ -130,6 +200,7 @@ export default function Reports() {
   ];
   const sectionCards = [
     { id: 'ventas', title: 'Informe de Ventas', desc: 'Diversos informes de las ventas realizadas en la empresa.' },
+    { id: 'caja', title: 'Informe de Caja', desc: 'Historial de cajas cerradas, detalle del cierre y descarga del reporte.' },
     { id: 'compras', title: 'Informe de Compras', desc: 'Las compras que has realizado.' },
     { id: 'finanzas', title: 'Informe de Finanzas', desc: 'Todo lo concerniente al flujo de dinero en las cajas.' },
     { id: 'facturacion', title: 'Informe de Facturación Electrónica', desc: 'Todo lo concerniente a documentos de facturación electrónica.' },
@@ -389,7 +460,7 @@ export default function Reports() {
                         <td className="py-2 px-3 text-right">{formatCurrency((r.total_yape || 0) + (r.total_plin || 0) + (r.total_card || 0))}</td>
                         <td className="py-2 px-3 text-right">
                           <button
-                            onClick={() => setSelectedClosedRegister(r)}
+                            onClick={() => openClosedRegisterDetail(r)}
                             className="text-xs px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 inline-flex items-center gap-1"
                           >
                             <MdVisibility /> Ver detalle
@@ -477,6 +548,65 @@ export default function Reports() {
         </div>
       )}
         </>
+      )}
+
+      {reportSection === 'caja' && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <MdPointOfSale className="text-[#3B82F6] text-xl" />
+              <h3 className="font-bold text-slate-800">Reporte de Caja</h3>
+            </div>
+            <span className="text-xs text-slate-500">
+              Cierres registrados: {(monthlyData?.closedRegisters || []).length}
+            </span>
+          </div>
+          {(monthlyData?.closedRegisters || []).length === 0 ? (
+            <p className="text-slate-500">No hay cierres de caja registrados todavía.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Caja cerrada</th>
+                    <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Cajero</th>
+                    <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Inicio de turno</th>
+                    <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Hora de cierre</th>
+                    <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Venta total</th>
+                    <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(monthlyData?.closedRegisters || []).map((r) => (
+                    <tr key={r.id} className="border-b border-slate-50">
+                      <td className="py-2 px-3 font-medium">{r.id.slice(0, 8).toUpperCase()}</td>
+                      <td className="py-2 px-3">{r.user_name || '-'}</td>
+                      <td className="py-2 px-3 text-slate-500">{formatDateTime(r.opened_at)}</td>
+                      <td className="py-2 px-3 text-slate-500">{formatDateTime(r.closed_at)}</td>
+                      <td className="py-2 px-3 text-right font-bold">{formatCurrency(r.total_sales || 0)}</td>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openClosedRegisterDetail(r)}
+                            className="text-xs px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 inline-flex items-center gap-1"
+                          >
+                            <MdVisibility /> Ver detalle
+                          </button>
+                          <button
+                            onClick={() => downloadClosedRegisterReport(r)}
+                            className="text-xs px-3 py-1.5 bg-[#3B82F6] text-white rounded-lg hover:bg-[#2563EB] inline-flex items-center gap-1"
+                          >
+                            <MdDownload /> Descargar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       {reportSection === 'compras' && (
@@ -697,8 +827,20 @@ export default function Reports() {
         title="Detalle de Cierre de Caja"
         size="lg"
       >
-        {selectedClosedRegister && (
+        {loadingClosedRegister && (
+          <div className="py-8 text-center text-slate-500">Cargando detalle...</div>
+        )}
+        {selectedClosedRegister && !loadingClosedRegister && (
           <div className="space-y-4">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => downloadClosedRegisterReport(selectedClosedRegister)}
+                className="text-xs px-3 py-1.5 bg-[#3B82F6] text-white rounded-lg hover:bg-[#2563EB] inline-flex items-center gap-1"
+              >
+                <MdDownload /> Descargar reporte
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="bg-slate-50 rounded-lg p-3">
                 <p className="text-xs text-slate-500">Cajero</p>
@@ -771,6 +913,32 @@ export default function Reports() {
               <p className="text-xs text-slate-500 mb-1">Observaciones</p>
               <p className="text-sm text-slate-700">{selectedClosedRegister.arqueo?.observations || selectedClosedRegister.notes || 'Sin observaciones'}</p>
             </div>
+            {Array.isArray(selectedClosedRegister.movements) && selectedClosedRegister.movements.length > 0 && (
+              <div className="bg-white border border-slate-200 rounded-lg p-3">
+                <p className="text-sm font-semibold text-slate-800 mb-2">Movimientos de caja</p>
+                <div className="space-y-1">
+                  {selectedClosedRegister.movements.map((mv) => (
+                    <div key={mv.id} className="text-sm flex justify-between border-b border-slate-100 py-1">
+                      <span className="text-slate-600">{formatDateTime(mv.created_at)} · {mv.type === 'income' ? 'Ingreso' : 'Egreso'} · {mv.concept || 'Sin concepto'}</span>
+                      <span className={`font-medium ${mv.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(mv.amount || 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {Array.isArray(selectedClosedRegister.notes_list) && selectedClosedRegister.notes_list.length > 0 && (
+              <div className="bg-white border border-slate-200 rounded-lg p-3">
+                <p className="text-sm font-semibold text-slate-800 mb-2">Notas de crédito / débito</p>
+                <div className="space-y-1">
+                  {selectedClosedRegister.notes_list.map((note) => (
+                    <div key={note.id} className="text-sm flex justify-between border-b border-slate-100 py-1">
+                      <span className="text-slate-600">{formatDateTime(note.created_at)} · {note.note_type === 'credit' ? 'Crédito' : 'Débito'} · {note.reason || 'Sin motivo'}</span>
+                      <span className="font-medium text-slate-800">{formatCurrency(note.amount || 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>
