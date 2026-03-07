@@ -5,26 +5,33 @@ import Modal from '../../components/Modal';
 import { MdAdd, MdEdit, MdDelete, MdEventSeat, MdPerson, MdPhone, MdCalendarToday, MdAccessTime } from 'react-icons/md';
 
 export default function Reservas() {
+  const todayKey = new Date().toISOString().slice(0, 10);
   const [reservas, setReservas] = useState([]);
   const [tables, setTables] = useState([]);
+  const [menuProducts, setMenuProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [customerSuggestions, setCustomerSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [saveAsNewCustomer, setSaveAsNewCustomer] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [selectedRequestProductId, setSelectedRequestProductId] = useState('');
+  const [selectedRequestQty, setSelectedRequestQty] = useState('1');
+  const [requestItems, setRequestItems] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ client_name: '', phone: '', date: '', time: '', guests: 2, table_id: '', notes: '' });
+  const [form, setForm] = useState({ client_name: '', phone: '', date: todayKey, time: '', guests: 1, table_id: '', notes: '' });
 
   const load = async () => {
     try {
-      const [tablesData, reservationsData, customersData] = await Promise.all([
+      const [tablesData, reservationsData, customersData, productsData] = await Promise.all([
         api.get('/tables'),
         api.get('/admin-modules/reservations'),
         api.get('/admin-modules/customers').catch(() => []),
+        api.get('/products?active_only=true').catch(() => []),
       ]);
       setTables(tablesData);
       setReservas(reservationsData || []);
       setCustomers(customersData || []);
+      setMenuProducts((productsData || []).filter(p => Number(p.is_active ?? 1) === 1));
     } catch (err) {
       toast.error(err.message);
     }
@@ -33,21 +40,22 @@ export default function Reservas() {
   useEffect(() => { load(); }, []);
   useEffect(() => {
     const query = String(form.client_name || '').trim().toLowerCase();
-    if (!query) {
-      setCustomerSuggestions([]);
-      return;
-    }
-    const suggestions = (customers || [])
-      .filter(c => String(c.name || '').toLowerCase().includes(query))
+    const source = (customers || []);
+    const suggestions = (!query
+      ? source
+      : source.filter(c => String(c.name || '').toLowerCase().includes(query)))
       .slice(0, 8);
     setCustomerSuggestions(suggestions);
   }, [form.client_name, customers]);
 
   const resetForm = () => {
-    setForm({ client_name: '', phone: '', date: '', time: '', guests: 2, table_id: '', notes: '' });
+    setForm({ client_name: '', phone: '', date: todayKey, time: '', guests: 1, table_id: '', notes: '' });
     setSaveAsNewCustomer(false);
     setSelectedCustomerId('');
     setShowSuggestions(false);
+    setSelectedRequestProductId('');
+    setSelectedRequestQty('1');
+    setRequestItems([]);
   };
   const selectCustomer = (customer) => {
     setForm(prev => ({
@@ -70,7 +78,17 @@ export default function Reservas() {
           phone: String(form.phone || '').trim(),
         });
       }
-      await api.post('/admin-modules/reservations', { ...form, status: 'confirmed' });
+      const requestedSummary = requestItems
+        .map(item => `${item.qty}x ${item.name}`)
+        .join(' | ');
+      const notesMerged = [String(form.notes || '').trim(), requestedSummary ? `Pedido solicitado: ${requestedSummary}` : '']
+        .filter(Boolean)
+        .join('\n');
+      await api.post('/admin-modules/reservations', {
+        ...form,
+        notes: notesMerged,
+        status: 'confirmed',
+      });
       setShowModal(false);
       resetForm();
       toast.success('Reserva creada');
@@ -78,6 +96,23 @@ export default function Reservas() {
     } catch (err) {
       toast.error(err.message);
     }
+  };
+  const addRequestItem = () => {
+    const product = menuProducts.find(p => p.id === selectedRequestProductId);
+    if (!product) return toast.error('Selecciona un producto de la carta');
+    const qty = Math.max(1, parseInt(selectedRequestQty || '1', 10) || 1);
+    setRequestItems(prev => {
+      const existing = prev.find(item => item.product_id === product.id);
+      if (existing) {
+        return prev.map(item => item.product_id === product.id ? { ...item, qty: item.qty + qty } : item);
+      }
+      return [...prev, { product_id: product.id, name: product.name, qty }];
+    });
+    setSelectedRequestProductId('');
+    setSelectedRequestQty('1');
+  };
+  const removeRequestItem = (productId) => {
+    setRequestItems(prev => prev.filter(item => item.product_id !== productId));
   };
 
   const cancelReserva = async (id) => {
@@ -147,6 +182,7 @@ export default function Reservas() {
                 setShowSuggestions(true);
               }}
               onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
               className="input-field"
               required
               placeholder="Busca o escribe nombre del cliente"
@@ -164,6 +200,11 @@ export default function Reservas() {
                     <p className="text-xs text-slate-500">{c.phone || 'Sin teléfono'}</p>
                   </button>
                 ))}
+              </div>
+            )}
+            {showSuggestions && customerSuggestions.length === 0 && (
+              <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg p-3">
+                <p className="text-xs text-slate-500">No hay coincidencias. Puedes crear cliente nuevo con la opción de abajo.</p>
               </div>
             )}
             <label className="flex items-center gap-2 mt-2 text-xs text-slate-600">
@@ -189,6 +230,40 @@ export default function Reservas() {
               <option value="">Sin asignar</option>
               {tables.map(t => <option key={t.id} value={t.id}>{t.name || `Mesa ${t.number}`} (Cap. {t.capacity})</option>)}
             </select>
+          </div>
+          <div className="rounded-lg border border-slate-200 p-3 bg-slate-50">
+            <p className="text-sm font-medium text-slate-700 mb-2">Pedido solicitado (opcional)</p>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+              <select
+                value={selectedRequestProductId}
+                onChange={e => setSelectedRequestProductId(e.target.value)}
+                className="input-field md:col-span-2"
+              >
+                <option value="">Selecciona producto de carta</option>
+                {menuProducts.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="1"
+                value={selectedRequestQty}
+                onChange={e => setSelectedRequestQty(e.target.value)}
+                className="input-field"
+                placeholder="Cant."
+              />
+              <button type="button" onClick={addRequestItem} className="btn-secondary">Añadir</button>
+            </div>
+            {requestItems.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {requestItems.map(item => (
+                  <div key={item.product_id} className="flex items-center justify-between rounded-md bg-white border border-slate-200 px-2 py-1 text-sm">
+                    <span>{item.qty}x {item.name}</span>
+                    <button type="button" onClick={() => removeRequestItem(item.product_id)} className="text-xs text-red-600 hover:text-red-700">Quitar</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Notas</label><textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className="input-field" rows="2" placeholder="Observaciones..." /></div>
           <div className="flex gap-3 pt-2">
