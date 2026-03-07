@@ -450,46 +450,6 @@ export default function Reports() {
             </div>
           </div>
 
-          {monthlyData.closedRegisters?.length > 0 && (
-            <div className="card">
-              <h3 className="font-bold text-slate-800 mb-4">Historial de Cajas Cerradas</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Cajero</th>
-                      <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Apertura</th>
-                      <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Cierre</th>
-                      <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Ventas</th>
-                      <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Efectivo</th>
-                      <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Digital</th>
-                      <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Detalle</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {monthlyData.closedRegisters.map(r => (
-                      <tr key={r.id} className="border-b border-slate-50">
-                        <td className="py-2 px-3 font-medium">{r.user_name}</td>
-                        <td className="py-2 px-3 text-slate-500">{formatDateTime(r.opened_at)}</td>
-                        <td className="py-2 px-3 text-slate-500">{formatDateTime(r.closed_at)}</td>
-                        <td className="py-2 px-3 text-right font-bold">{formatCurrency(r.total_sales)}</td>
-                        <td className="py-2 px-3 text-right">{formatCurrency(r.total_cash)}</td>
-                        <td className="py-2 px-3 text-right">{formatCurrency((r.total_yape || 0) + (r.total_plin || 0) + (r.total_card || 0))}</td>
-                        <td className="py-2 px-3 text-right">
-                          <button
-                            onClick={() => openClosedRegisterDetail(r)}
-                            className="text-xs px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 inline-flex items-center gap-1"
-                          >
-                            <MdVisibility /> Ver detalle
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
