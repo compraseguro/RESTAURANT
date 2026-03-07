@@ -157,6 +157,23 @@ export default function Reports() {
         lines.push(`${formatDateTime(note.created_at)} | ${note.note_type === 'credit' ? 'Crédito' : 'Débito'} | ${formatCurrency(note.amount)} | ${note.reason || '-'}`);
       });
     }
+    if (Array.isArray(register.sold_products) && register.sold_products.length) {
+      lines.push('----------------------------------------');
+      lines.push('PRODUCTOS VENDIDOS EN ESTA CAJA');
+      register.sold_products.forEach((item) => {
+        lines.push(`${item.product_name} | Cantidad: ${Number(item.total_qty || 0)} | Importe: ${formatCurrency(item.total_amount || 0)} | Pedidos: ${Number(item.order_count || 0)}`);
+      });
+    }
+    if (Array.isArray(register.sales_orders) && register.sales_orders.length) {
+      lines.push('----------------------------------------');
+      lines.push('DETALLE DE VENTAS (PEDIDOS)');
+      register.sales_orders.forEach((order) => {
+        lines.push(`Pedido #${order.order_number || '-'} | ${formatDateTime(order.sold_at || order.updated_at || order.created_at)} | ${order.payment_method || '-'} | ${formatCurrency(order.total || 0)}`);
+        (order.items || []).forEach((it) => {
+          lines.push(`  - ${it.product_name} x${Number(it.quantity || 0)} (${formatCurrency(it.subtotal || 0)})`);
+        });
+      });
+    }
     return `${lines.join('\n')}\n`;
   };
   const downloadClosedRegisterReport = (register) => {
@@ -913,6 +930,62 @@ export default function Reports() {
               <p className="text-xs text-slate-500 mb-1">Observaciones</p>
               <p className="text-sm text-slate-700">{selectedClosedRegister.arqueo?.observations || selectedClosedRegister.notes || 'Sin observaciones'}</p>
             </div>
+            {Array.isArray(selectedClosedRegister.sold_products) && selectedClosedRegister.sold_products.length > 0 && (
+              <div className="bg-white border border-slate-200 rounded-lg p-3">
+                <p className="text-sm font-semibold text-slate-800 mb-2">Productos vendidos en esta caja</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <th className="text-left py-2 px-2 text-xs text-slate-400 uppercase">Producto</th>
+                        <th className="text-right py-2 px-2 text-xs text-slate-400 uppercase">Cantidad</th>
+                        <th className="text-right py-2 px-2 text-xs text-slate-400 uppercase">Importe</th>
+                        <th className="text-right py-2 px-2 text-xs text-slate-400 uppercase">Pedidos</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedClosedRegister.sold_products.map((item) => (
+                        <tr key={`${item.product_id || item.product_name}`} className="border-b border-slate-50">
+                          <td className="py-2 px-2">{item.product_name}</td>
+                          <td className="py-2 px-2 text-right font-medium">{Number(item.total_qty || 0)}</td>
+                          <td className="py-2 px-2 text-right font-medium">{formatCurrency(item.total_amount || 0)}</td>
+                          <td className="py-2 px-2 text-right">{Number(item.order_count || 0)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            {Array.isArray(selectedClosedRegister.sales_orders) && selectedClosedRegister.sales_orders.length > 0 && (
+              <div className="bg-white border border-slate-200 rounded-lg p-3">
+                <p className="text-sm font-semibold text-slate-800 mb-2">Detalle de ventas de la caja</p>
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {selectedClosedRegister.sales_orders.map((order) => (
+                    <div key={order.id} className="border border-slate-100 rounded-lg p-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <p className="font-semibold text-slate-800">Pedido #{order.order_number || '-'}</p>
+                        <p className="text-xs text-slate-500">{formatDateTime(order.sold_at || order.updated_at || order.created_at)}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 mt-1">
+                        <span>Método: {PAYMENT_METHODS[order.payment_method] || order.payment_method || '-'}</span>
+                        <span className="font-semibold text-slate-800">{formatCurrency(order.total || 0)}</span>
+                      </div>
+                      {Array.isArray(order.items) && order.items.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {order.items.map((it, idx) => (
+                            <div key={`${order.id}-${idx}`} className="text-xs flex justify-between border-b border-slate-50 py-0.5">
+                              <span className="text-slate-600">{it.product_name} x{Number(it.quantity || 0)}</span>
+                              <span className="font-medium">{formatCurrency(it.subtotal || 0)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {Array.isArray(selectedClosedRegister.movements) && selectedClosedRegister.movements.length > 0 && (
               <div className="bg-white border border-slate-200 rounded-lg p-3">
                 <p className="text-sm font-semibold text-slate-800 mb-2">Movimientos de caja</p>

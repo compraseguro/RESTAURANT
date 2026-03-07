@@ -100,6 +100,61 @@ router.get('/closed-registers/:id', authenticateToken, requireRole('admin', 'caj
     "SELECT cn.*, u.full_name as user_name FROM cash_notes cn LEFT JOIN users u ON u.id = cn.user_id WHERE cn.register_id = ? ORDER BY cn.created_at ASC",
     [register.id]
   );
+  register.sold_products = queryAll(
+    `SELECT
+      oi.product_id,
+      oi.product_name,
+      COALESCE(SUM(oi.quantity), 0) as total_qty,
+      COALESCE(SUM(oi.subtotal), 0) as total_amount,
+      COUNT(DISTINCT oi.order_id) as order_count
+     FROM order_items oi
+     JOIN orders o ON o.id = oi.order_id
+     WHERE o.status != 'cancelled'
+       AND o.payment_status = 'paid'
+       AND COALESCE(o.updated_at, o.created_at) >= ?
+       AND COALESCE(o.updated_at, o.created_at) <= ?
+     GROUP BY oi.product_id, oi.product_name
+     ORDER BY total_qty DESC, total_amount DESC, oi.product_name ASC`,
+    [register.opened_at, register.closed_at || new Date().toISOString()]
+  );
+  register.sales_orders = queryAll(
+    `SELECT
+      o.id,
+      o.order_number,
+      o.type,
+      o.table_number,
+      o.payment_method,
+      o.total,
+      o.created_at,
+      o.updated_at
+     FROM orders o
+     WHERE o.status != 'cancelled'
+       AND o.payment_status = 'paid'
+       AND COALESCE(o.updated_at, o.created_at) >= ?
+       AND COALESCE(o.updated_at, o.created_at) <= ?
+     ORDER BY COALESCE(o.updated_at, o.created_at) ASC`,
+    [register.opened_at, register.closed_at || new Date().toISOString()]
+  );
+  if (register.sales_orders.length > 0) {
+    const orderIds = register.sales_orders.map((o) => o.id);
+    const placeholders = orderIds.map(() => '?').join(',');
+    const orderItems = queryAll(
+      `SELECT order_id, product_name, quantity, unit_price, subtotal
+       FROM order_items
+       WHERE order_id IN (${placeholders})`,
+      orderIds
+    );
+    const itemsByOrder = orderItems.reduce((acc, item) => {
+      if (!acc[item.order_id]) acc[item.order_id] = [];
+      acc[item.order_id].push(item);
+      return acc;
+    }, {});
+    register.sales_orders = register.sales_orders.map((order) => ({
+      ...order,
+      sold_at: order.updated_at || order.created_at,
+      items: itemsByOrder[order.id] || [],
+    }));
+  }
   res.json(register);
 });
 
