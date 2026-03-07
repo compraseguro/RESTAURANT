@@ -7,30 +7,72 @@ import { MdAdd, MdEdit, MdDelete, MdEventSeat, MdPerson, MdPhone, MdCalendarToda
 export default function Reservas() {
   const [reservas, setReservas] = useState([]);
   const [tables, setTables] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [customerSuggestions, setCustomerSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [saveAsNewCustomer, setSaveAsNewCustomer] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ client_name: '', phone: '', date: '', time: '', guests: 2, table_id: '', notes: '' });
 
   const load = async () => {
     try {
-      const [tablesData, reservationsData] = await Promise.all([
+      const [tablesData, reservationsData, customersData] = await Promise.all([
         api.get('/tables'),
         api.get('/admin-modules/reservations'),
+        api.get('/admin-modules/customers').catch(() => []),
       ]);
       setTables(tablesData);
       setReservas(reservationsData || []);
+      setCustomers(customersData || []);
     } catch (err) {
       toast.error(err.message);
     }
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const query = String(form.client_name || '').trim().toLowerCase();
+    if (!query) {
+      setCustomerSuggestions([]);
+      return;
+    }
+    const suggestions = (customers || [])
+      .filter(c => String(c.name || '').toLowerCase().includes(query))
+      .slice(0, 8);
+    setCustomerSuggestions(suggestions);
+  }, [form.client_name, customers]);
+
+  const resetForm = () => {
+    setForm({ client_name: '', phone: '', date: '', time: '', guests: 2, table_id: '', notes: '' });
+    setSaveAsNewCustomer(false);
+    setSelectedCustomerId('');
+    setShowSuggestions(false);
+  };
+  const selectCustomer = (customer) => {
+    setForm(prev => ({
+      ...prev,
+      client_name: customer.name || '',
+      phone: customer.phone || prev.phone || '',
+    }));
+    setSelectedCustomerId(customer.id || '');
+    setShowSuggestions(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const clientName = String(form.client_name || '').trim();
+      if (!clientName) return toast.error('Ingresa o selecciona el cliente');
+      if (saveAsNewCustomer && !selectedCustomerId) {
+        await api.post('/admin-modules/customers', {
+          name: clientName,
+          phone: String(form.phone || '').trim(),
+        });
+      }
       await api.post('/admin-modules/reservations', { ...form, status: 'confirmed' });
       setShowModal(false);
-      setForm({ client_name: '', phone: '', date: '', time: '', guests: 2, table_id: '', notes: '' });
+      resetForm();
       toast.success('Reserva creada');
       load();
     } catch (err) {
@@ -57,7 +99,7 @@ export default function Reservas() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-bold text-slate-800">Reservas</h1>
-        <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2"><MdAdd /> Nueva Reserva</button>
+        <button onClick={() => { resetForm(); setShowModal(true); }} className="btn-primary flex items-center gap-2"><MdAdd /> Nueva Reserva</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
@@ -95,7 +137,45 @@ export default function Reservas() {
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nueva Reserva" size="md">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Cliente</label><input value={form.client_name} onChange={e => setForm({ ...form, client_name: e.target.value })} className="input-field" required placeholder="Nombre completo" /></div>
+          <div className="relative">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Cliente</label>
+            <input
+              value={form.client_name}
+              onChange={e => {
+                setForm({ ...form, client_name: e.target.value });
+                setSelectedCustomerId('');
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              className="input-field"
+              required
+              placeholder="Busca o escribe nombre del cliente"
+            />
+            {showSuggestions && customerSuggestions.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
+                {customerSuggestions.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => selectCustomer(c)}
+                    className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
+                  >
+                    <p className="text-sm font-medium text-slate-800">{c.name}</p>
+                    <p className="text-xs text-slate-500">{c.phone || 'Sin teléfono'}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            <label className="flex items-center gap-2 mt-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={saveAsNewCustomer}
+                onChange={e => setSaveAsNewCustomer(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              Guardar como cliente nuevo si no existe (opción de nueva solicitud)
+            </label>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label><input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input-field" placeholder="999 999 999" /></div>
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Comensales</label><input type="number" min="1" max="20" value={form.guests} onChange={e => setForm({ ...form, guests: parseInt(e.target.value) })} className="input-field" /></div>
