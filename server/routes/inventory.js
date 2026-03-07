@@ -138,7 +138,15 @@ router.get('/stock', authenticateToken, requireRole('admin', 'cajero'), (req, re
 });
 
 router.get('/alerts', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
-  res.json(queryAll('SELECT p.id, p.name, p.stock, c.name as category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.stock <= 10 AND p.is_active = 1 ORDER BY p.stock ASC'));
+  res.json(queryAll(
+    `SELECT p.id, p.name, p.stock, c.name as category_name
+     FROM products p
+     LEFT JOIN categories c ON c.id = p.category_id
+     WHERE p.stock <= 10
+       AND p.is_active = 1
+       AND p.process_type = 'non_transformed'
+     ORDER BY p.stock ASC`
+  ));
 });
 
 router.put('/adjust/:product_id', authenticateToken, requireRole('admin'), (req, res) => {

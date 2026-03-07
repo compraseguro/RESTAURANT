@@ -118,11 +118,12 @@ export default function Almacen() {
     ...categories.filter(c => (c.name || '').toUpperCase() === WAREHOUSE_CATEGORY_NAMES.supplies),
   ];
   const principalWarehouse = warehouses.find(w => w.name === 'Almacen Principal') || warehouses[0];
+  const sameWarehouseId = (a, b) => String(a || '') === String(b || '');
   const getDefaultCreateWarehouseId = () => {
-    if (selectedWarehouseView && warehouses.some(w => w.id === selectedWarehouseView)) {
-      return selectedWarehouseView;
+    if (selectedWarehouseView && warehouses.some(w => sameWarehouseId(w.id, selectedWarehouseView))) {
+      return String(selectedWarehouseView);
     }
-    return principalWarehouse?.id || warehouses[0]?.id || '';
+    return String(principalWarehouse?.id || warehouses[0]?.id || '');
   };
 
   const load = async () => {
@@ -237,7 +238,7 @@ export default function Almacen() {
   );
   const productsForSelectedWarehouse = selectedWarehouseView
     ? scopedProducts.filter(p =>
-      (p.warehouse_stocks || []).some(ws => ws.warehouse_id === selectedWarehouseView)
+      (p.warehouse_stocks || []).some(ws => sameWarehouseId(ws.warehouse_id, selectedWarehouseView))
     )
     : [];
 
@@ -953,17 +954,17 @@ export default function Almacen() {
           return (
             <div
               key={w.id}
-              onClick={() => setSelectedWarehouseView(prev => (prev === w.id ? '' : w.id))}
+              onClick={() => setSelectedWarehouseView(prev => (sameWarehouseId(prev, w.id) ? '' : String(w.id)))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  setSelectedWarehouseView(prev => (prev === w.id ? '' : w.id));
+                  setSelectedWarehouseView(prev => (sameWarehouseId(prev, w.id) ? '' : String(w.id)));
                 }
               }}
               role="button"
               tabIndex={0}
               className={`bg-white rounded-xl border p-3 flex flex-col min-h-28 text-left transition-colors ${
-                selectedWarehouseView === w.id
+                sameWarehouseId(selectedWarehouseView, w.id)
                   ? 'border-gold-500 ring-2 ring-gold-200'
                   : 'border-slate-200 hover:border-gold-300'
               }`}

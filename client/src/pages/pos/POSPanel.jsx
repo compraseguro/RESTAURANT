@@ -55,6 +55,7 @@ export default function POSPanel() {
   const [tables, setTables] = useState([]);
   const [register, setRegister] = useState(null);
   const [registerStatus, setRegisterStatus] = useState({ is_open: false, register: null });
+  const [dailySales, setDailySales] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedTable, setSelectedTable] = useState(null);
   const [tableDetail, setTableDetail] = useState(null);
@@ -125,13 +126,14 @@ export default function POSPanel() {
 
   const loadData = async () => {
     try {
-      const [tablesData, reg, status, prods, cats, cfg] = await Promise.all([
+      const [tablesData, reg, status, prods, cats, cfg, daily] = await Promise.all([
         api.get('/tables'),
         api.get('/pos/current-register'),
         api.get('/pos/register-status'),
         api.get('/products?active_only=true'),
         api.get('/categories/active'),
         api.get('/admin-modules/config/app').catch(() => null),
+        api.get('/reports/daily').catch(() => null),
       ]);
       const visibleCategories = cats.filter(c => !WAREHOUSE_CATEGORY_NAMES.has((c.name || '').toUpperCase()));
       const visibleCategoryIds = new Set(visibleCategories.map(c => c.id));
@@ -142,6 +144,11 @@ export default function POSPanel() {
       setProducts(visibleProducts);
       setCategories(visibleCategories);
       setPaymentOptions(getPaymentMethodOptions(cfg, { includeOnline: false }));
+      setDailySales(
+        daily?.sales?.total_sales === undefined || daily?.sales?.total_sales === null
+          ? null
+          : Number(daily.sales.total_sales || 0)
+      );
       if (selectedTable) {
         const updated = tablesData.find(t => t.id === selectedTable.id);
         if (updated) setSelectedTable(updated);
@@ -850,7 +857,8 @@ export default function POSPanel() {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
-  const todaySales = register?.total_sales || 0;
+  const registerSales = Number(register?.total_sales || 0);
+  const todaySales = dailySales === null ? registerSales : Number(dailySales || 0);
   const openingAmt = register?.opening_amount || 0;
 
   const totalCash = register?.total_cash || 0;
@@ -1100,7 +1108,7 @@ export default function POSPanel() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Apertura</p><p className="font-bold">{formatCurrency(openingAmt)}</p></div>
             <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Efectivo esperado</p><p className="font-bold">{formatCurrency(expectedCash)}</p></div>
-            <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Ventas del turno</p><p className="font-bold">{formatCurrency(todaySales)}</p></div>
+            <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Ventas del turno</p><p className="font-bold">{formatCurrency(registerSales)}</p></div>
           </div>
           <button onClick={prepareClose} className="btn-primary">Ir al cierre de caja</button>
         </div>
@@ -1786,7 +1794,7 @@ export default function POSPanel() {
               <div className="row"><span>Ventas en Plin</span><span>{formatCurrency(totalPlin)}</span></div>
               <div className="row"><span>Ventas en Tarjeta</span><span>{formatCurrency(totalCard)}</span></div>
               <div className="sep"></div>
-              <div className="row total-row"><span>TOTAL VENTAS</span><span>{formatCurrency(todaySales)}</span></div>
+              <div className="row total-row"><span>TOTAL VENTAS</span><span>{formatCurrency(registerSales)}</span></div>
               <div className="row bold"><span>N° de operaciones</span><span>{closingData.order_count || 0}</span></div>
               <div className="sep"></div>
               <div className="row bold"><span>EFECTIVO ESPERADO</span><span>{formatCurrency(expectedCash)}</span></div>
@@ -1829,7 +1837,7 @@ export default function POSPanel() {
                 </div>
                 <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-200">
                   <span className="font-bold text-slate-700">Total Ventas</span>
-                  <span className="font-bold text-xl text-emerald-600">{formatCurrency(todaySales)}</span>
+                  <span className="font-bold text-xl text-emerald-600">{formatCurrency(registerSales)}</span>
                 </div>
               </div>
 

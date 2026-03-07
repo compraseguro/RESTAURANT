@@ -21,9 +21,11 @@ export default function Modal({
     xl: 'max-w-4xl',
     full: 'max-w-6xl',
   }[size];
+  const hasCustomJustify = /\bjustify-(start|end|center|between|around|evenly)\b/.test(containerClassName);
+  const justifyClass = hasCustomJustify ? '' : 'justify-center';
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${containerClassName}`} onClick={onClose}>
+    <div className={`fixed inset-0 z-50 flex items-center ${justifyClass} p-4 ${containerClassName}`} onClick={onClose}>
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
       <div className={`relative bg-white rounded-2xl shadow-xl w-full ${sizeClass} max-h-[90vh] flex flex-col border border-slate-200`} onClick={e => e.stopPropagation()}>
         <div className={`flex items-center justify-between px-6 py-4 border-b border-slate-100 ${headerClassName}`}>
