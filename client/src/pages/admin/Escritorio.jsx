@@ -4,10 +4,9 @@ import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { MdDateRange, MdKeyboardArrowDown, MdMenu, MdKitchen, MdLocalBar, MdDeliveryDining, MdPointOfSale, MdPrint, MdTableBar } from 'react-icons/md';
+import { MdDateRange, MdKeyboardArrowDown, MdKitchen, MdLocalBar, MdDeliveryDining, MdPointOfSale, MdPrint, MdTableBar } from 'react-icons/md';
 
 const PAYMENT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
-const ATTENTION_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
 const toInputDate = (date) => {
   const d = new Date(date);
   const y = d.getFullYear();
@@ -71,8 +70,8 @@ export default function Escritorio() {
       .catch(() => {});
   }, []);
 
-  const scopedOrders = useMemo(() => {
-    const valid = orders.filter(o => o.status !== 'cancelled');
+  const scopedOrdersAll = useMemo(() => {
+    const valid = [...orders];
     if (datePreset === 'total') return valid;
     const from = String(startDate || '');
     const to = String(endDate || '');
@@ -82,9 +81,25 @@ export default function Escritorio() {
       return dateKey >= from && dateKey <= to;
     });
   }, [orders, datePreset, startDate, endDate]);
+  const scopedOrders = useMemo(
+    () => scopedOrdersAll.filter(o => o.status !== 'cancelled'),
+    [scopedOrdersAll]
+  );
   const paidOrders = useMemo(
     () => scopedOrders.filter(o => o.payment_status === 'paid'),
     [scopedOrders]
+  );
+  const paidOrdersCount = useMemo(
+    () => scopedOrdersAll.filter(o => o.status !== 'cancelled' && o.payment_status === 'paid').length,
+    [scopedOrdersAll]
+  );
+  const pendingPaymentCount = useMemo(
+    () => scopedOrdersAll.filter(o => o.status !== 'cancelled' && o.payment_status !== 'paid').length,
+    [scopedOrdersAll]
+  );
+  const cancelledOrdersCount = useMemo(
+    () => scopedOrdersAll.filter(o => o.status === 'cancelled').length,
+    [scopedOrdersAll]
   );
 
   const hourlySales = useMemo(() => {
@@ -229,18 +244,6 @@ export default function Escritorio() {
     }, 120);
   };
 
-  const attentionData = useMemo(() => {
-    const delivered = scopedOrders.filter(o => o.status === 'delivered').length;
-    const preparing = scopedOrders.filter(o => o.status === 'preparing').length;
-    const pending = scopedOrders.filter(o => o.status === 'pending').length;
-    const ready = scopedOrders.filter(o => o.status === 'ready').length;
-    return [
-      { name: 'Excelente', value: delivered || 0 },
-      { name: 'Bueno', value: ready || 0 },
-      { name: 'Regular', value: preparing || 0 },
-      { name: 'Malo', value: pending || 0 },
-    ];
-  }, [scopedOrders]);
   const dateRangeLabel = datePreset === 'total'
     ? 'Total (desde inicio hasta hoy)'
     : `Del ${formatDateForLabel(startDate)} hasta ${formatDateForLabel(endDate)}`;
@@ -458,33 +461,51 @@ export default function Escritorio() {
         </div>
 
         <div className="xl:col-span-4 card p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xl font-light text-slate-700">Atención en general</h3>
-            <MdMenu className="text-slate-400" />
-          </div>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={attentionData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65}>
-                {attentionData.map((_, idx) => <Cell key={idx} fill={ATTENTION_COLORS[idx % ATTENTION_COLORS.length]} />)}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="grid grid-cols-2 gap-y-1">
-            {attentionData.map((item, idx) => (
-              <div key={item.name} className="flex items-center gap-2 text-xs text-slate-600">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ATTENTION_COLORS[idx % ATTENTION_COLORS.length] }} />
-                {item.name}
+          <h3 className="text-xl font-light text-slate-700 mb-3">Resumen de ingresos</h3>
+          <div className="grid grid-cols-1 gap-2">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-xs text-emerald-700">Ingreso total por ventas</p>
+              <p className="text-xl font-bold text-emerald-800">{formatCurrency(totalSales)}</p>
+            </div>
+            <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
+              <p className="text-xs text-violet-700">Ingreso total al crédito</p>
+              <p className="text-xl font-bold text-violet-800">{formatCurrency(totalCredit)}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
+                <p className="text-[11px] text-sky-700">Ingresos en efectivo</p>
+                <p className="text-sm font-bold text-sky-800">{formatCurrency(salesByPayment.efectivo)}</p>
               </div>
-            ))}
+              <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                <p className="text-[11px] text-indigo-700">Ingresos digitales</p>
+                <p className="text-sm font-bold text-indigo-800">{formatCurrency((salesByPayment.tarjeta || 0) + (salesByPayment.yape || 0) + (salesByPayment.plin || 0))}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-center">
+                <p className="text-[10px] text-slate-500">Cobradas</p>
+                <p className="text-sm font-bold text-slate-800">{paidOrdersCount}</p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-center">
+                <p className="text-[10px] text-amber-600">Pendientes</p>
+                <p className="text-sm font-bold text-amber-700">{pendingPaymentCount}</p>
+              </div>
+              <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-center">
+                <p className="text-[10px] text-red-600">Canceladas</p>
+                <p className="text-sm font-bold text-red-700">{cancelledOrdersCount}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <div className="card p-4">
-          <p className="text-sm text-slate-500">Ventas</p>
-          <p className="text-2xl font-light text-slate-700">{paidOrders.length}</p>
+          <p className="text-sm text-slate-500">Total ventas (pedidos)</p>
+          <p className="text-2xl font-light text-slate-700">{scopedOrdersAll.length}</p>
+          <p className="text-xs text-slate-500 mt-2">
+            Cobradas: <strong>{paidOrdersCount}</strong> · Pendientes: <strong>{pendingPaymentCount}</strong> · Canceladas: <strong>{cancelledOrdersCount}</strong>
+          </p>
         </div>
         <div className="card p-4">
           <p className="text-sm text-slate-500">Promedio de consumo por venta y por persona</p>
