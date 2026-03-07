@@ -19,7 +19,7 @@ const getCurrentMonthRange = () => {
   const now = new Date();
   return {
     start: toInputDate(new Date(now.getFullYear(), now.getMonth(), 1)),
-    end: toInputDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+    end: toInputDate(now),
   };
 };
 const formatDateForLabel = (value) => {
@@ -37,6 +37,7 @@ export default function Escritorio() {
   const [datePreset, setDatePreset] = useState('month');
   const [startDate, setStartDate] = useState(getCurrentMonthRange().start);
   const [endDate, setEndDate] = useState(getCurrentMonthRange().end);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const navigate = useNavigate();
 
   const loadData = async () => {
@@ -243,6 +244,12 @@ export default function Escritorio() {
   const dateRangeLabel = datePreset === 'total'
     ? 'Total (desde inicio hasta hoy)'
     : `Del ${formatDateForLabel(startDate)} hasta ${formatDateForLabel(endDate)}`;
+  const applyMonthRange = () => {
+    const monthRange = getCurrentMonthRange();
+    setDatePreset('month');
+    setStartDate(monthRange.start);
+    setEndDate(monthRange.end);
+  };
 
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
@@ -315,42 +322,63 @@ export default function Escritorio() {
         </button>
         <div className="input-field text-left text-sm text-slate-600 flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <MdDateRange />
-            <span>{dateRangeLabel}</span>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={datePreset}
-              onChange={(e) => setDatePreset(e.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+            <button
+              type="button"
+              onClick={() => setShowDatePicker(prev => !prev)}
+              className="flex-1 flex items-center gap-2 text-left"
             >
-              <option value="month">Mes actual</option>
-              <option value="custom">Personalizado</option>
-              <option value="total">Total</option>
-            </select>
-            {datePreset !== 'total' && (
-              <>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setDatePreset('custom');
-                    setStartDate(e.target.value);
-                  }}
-                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
-                />
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setDatePreset('custom');
-                    setEndDate(e.target.value);
-                  }}
-                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
-                />
-              </>
-            )}
+              <MdDateRange />
+              <span>{dateRangeLabel}</span>
+              <MdKeyboardArrowDown className={`ml-auto transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDatePreset('total');
+                setShowDatePicker(false);
+              }}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${
+                datePreset === 'total'
+                  ? 'bg-[#2563EB] border-[#2563EB] text-white'
+                  : 'bg-white border-slate-300 text-slate-700 hover:border-[#3B82F6] hover:text-[#2563EB]'
+              }`}
+            >
+              Todo
+            </button>
           </div>
+          {showDatePicker && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={applyMonthRange}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors ${
+                  datePreset === 'month'
+                    ? 'bg-[#DBEAFE] border-[#3B82F6] text-[#1D4ED8]'
+                    : 'bg-white border-slate-300 text-slate-700 hover:border-[#3B82F6] hover:text-[#2563EB]'
+                }`}
+              >
+                Mes actual
+              </button>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setDatePreset('custom');
+                  setStartDate(e.target.value);
+                }}
+                className="rounded-md border border-[#3B82F6]/60 bg-[#EFF6FF] px-2 py-1 text-xs text-slate-700 focus:border-[#2563EB] focus:ring-2 focus:ring-[#3B82F6]/25"
+              />
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setDatePreset('custom');
+                  setEndDate(e.target.value);
+                }}
+                className="rounded-md border border-[#3B82F6]/60 bg-[#EFF6FF] px-2 py-1 text-xs text-slate-700 focus:border-[#2563EB] focus:ring-2 focus:ring-[#3B82F6]/25"
+              />
+            </div>
+          )}
         </div>
         <button className="input-field text-left flex items-center justify-between text-sm text-slate-600">
           Local: Principal <MdKeyboardArrowDown />
