@@ -522,19 +522,19 @@ export default function Escritorio() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         <div className="xl:col-span-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <div>
-            <p className="text-sm text-slate-500">Ventas en efectivo</p>
+            <p className="text-sm text-slate-500">Ventas en efectivo (periodo)</p>
             <p className="text-4xl font-light text-slate-700">{formatCurrency(salesByPayment.efectivo)}</p>
           </div>
           <div>
-            <p className="text-sm text-slate-500">Ventas con tarjeta</p>
+            <p className="text-sm text-slate-500">Ventas con tarjeta (periodo)</p>
             <p className="text-4xl font-light text-slate-700">{formatCurrency(salesByPayment.tarjeta)}</p>
           </div>
           <div>
-            <p className="text-sm text-slate-500">Ventas por Yape/Plin</p>
+            <p className="text-sm text-slate-500">Ventas por Yape/Plin (periodo)</p>
             <p className="text-4xl font-light text-slate-700">{formatCurrency((salesByPayment.yape || 0) + (salesByPayment.plin || 0))}</p>
           </div>
           <div>
-            <p className="text-sm text-slate-500">Total de Ventas</p>
+            <p className="text-sm text-slate-500">Total de Ventas (periodo)</p>
             <p className="text-4xl font-light text-slate-700">{formatCurrency(totalSales)}</p>
           </div>
 
