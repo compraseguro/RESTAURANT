@@ -872,7 +872,7 @@ export default function POSPanel() {
       });
       const total = linkedOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
       return { reservation, linkedOrders, total };
-    });
+    }).filter((entry) => entry.linkedOrders.length > 0);
   }, [reservations, allOrders]);
   const stableTables = [...tables].sort((a, b) => Number(a.number || 0) - Number(b.number || 0));
   const filteredProducts = products.filter(p => {
