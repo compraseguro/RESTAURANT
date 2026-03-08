@@ -849,26 +849,35 @@ export default function POSPanel() {
       const st = normalize(r.status);
       return !['cancelled', 'completed', 'cancelada', 'completada'].includes(st);
     });
+    const isOrderPendingPayment = (o) =>
+      String(o.payment_status || '') !== 'paid' &&
+      String(o.status || '') !== 'cancelled';
+
     return pendingReservations.map((reservation) => {
       const marker = `RESERVA_ID:${reservation.id}`;
       const reservationName = normalize(reservation.client_name);
       const reservationDate = String(reservation.date || '');
+      const reservationTime = String(reservation.time || '').slice(0, 5);
+      const legacyStamp = `Reserva: ${reservationDate}${reservationTime ? ` ${reservationTime}` : ''}`;
       const linkedOrders = (allOrders || []).filter((o) => {
-        const unpaid = String(o.payment_status || '') !== 'paid' && String(o.status || '') !== 'cancelled';
-        if (!unpaid) return false;
+        if (!isOrderPendingPayment(o)) return false;
         const notes = String(o.notes || '');
+
+        // Vinculación exacta (nueva): siempre prioritaria e independiente.
         if (notes.includes(marker)) return true;
+
         // Compatibilidad con reservas antiguas (antes de RESERVA_ID)
-        const isReservationOrder = notes.includes('Reserva:');
-        if (!isReservationOrder) return false;
+        // Reglas estrictas para no mezclar reservas entre sí:
+        // 1) Debe incluir sello completo "Reserva: fecha hora".
+        // 2) Debe coincidir cliente (o customer_id si existiera en ambos).
+        if (!notes.includes(legacyStamp)) return false;
         const byCustomerId =
           reservation.customer_id &&
           o.customer_id &&
           String(reservation.customer_id).trim() === String(o.customer_id).trim();
         if (byCustomerId) return true;
         const sameCustomer = normalize(o.customer_name) === reservationName;
-        const sameDateHint = notes.includes(reservationDate);
-        return sameCustomer && (sameDateHint || !reservationDate);
+        return sameCustomer;
       });
       const total = linkedOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
       return { reservation, linkedOrders, total };
