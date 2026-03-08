@@ -105,7 +105,7 @@ export default function Clientes() {
         <div className="card"><p className="text-xs text-slate-500">Ingreso por Clientes</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(totalIncome)}</p></div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+      <div className="card p-5">
         <div className="relative mb-4">
           <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nombre o teléfono..." className="input-field pl-9" />
@@ -115,36 +115,36 @@ export default function Clientes() {
         ) : (
         <div className="space-y-3">
           {filtered.map(c => (
-            <div key={c.id} className="p-4 rounded-lg border border-slate-100 hover:bg-slate-50">
+            <div key={c.id} className="p-4 rounded-lg border border-slate-700 bg-slate-800/40 hover:bg-slate-700/40">
               <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-gold-100 rounded-full flex items-center justify-center"><span className="font-bold text-gold-700 text-lg">{c.name[0]}</span></div>
                 <div>
-                  <p className="font-bold text-slate-800">{c.name}</p>
-                  <p className="text-sm text-slate-500"><MdPhone className="inline text-xs" /> {c.phone} · <MdEmail className="inline text-xs" /> {c.email}</p>
+                  <p className="font-bold text-slate-100">{c.name}</p>
+                  <p className="text-sm text-slate-300"><MdPhone className="inline text-xs" /> {c.phone} · <MdEmail className="inline text-xs" /> {c.email}</p>
                   <p className="text-xs text-slate-400">{Number(c.visits || 0)} visitas · Última: {c.last_visit || '-'} · Total: {formatCurrency(c.total_spent || 0)}</p>
-                  <p className="text-xs text-indigo-600 mt-1">
+                  <p className="text-xs text-sky-300 mt-1">
                     Pedidos pendientes: <strong>{(pendingOrdersByCustomer[c.id] || []).length}</strong>
                   </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => setExpandedClientId(prev => prev === c.id ? '' : c.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><MdReceipt /></button>
-                <button onClick={(e) => { e.stopPropagation(); openEdit(c); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><MdEdit /></button>
-                <button onClick={(e) => { e.stopPropagation(); deleteClient(c.id); }} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"><MdDelete /></button>
+                <button onClick={() => setExpandedClientId(prev => prev === c.id ? '' : c.id)} className="p-2 hover:bg-slate-700 rounded-lg text-slate-300"><MdReceipt /></button>
+                <button onClick={(e) => { e.stopPropagation(); openEdit(c); }} className="p-2 hover:bg-slate-700 rounded-lg text-slate-300"><MdEdit /></button>
+                <button onClick={(e) => { e.stopPropagation(); deleteClient(c.id); }} className="p-2 hover:bg-red-900/40 rounded-lg text-slate-300 hover:text-red-300"><MdDelete /></button>
               </div>
               </div>
               {expandedClientId === c.id && (
-                <div className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-                  <p className="text-xs font-semibold text-indigo-700 mb-2">Pedidos pendientes por cobrar</p>
+                <div className="mt-3 rounded-lg border border-slate-600 bg-slate-900/60 p-3">
+                  <p className="text-xs font-semibold text-sky-300 mb-2">Pedidos pendientes por cobrar</p>
                   {(pendingOrdersByCustomer[c.id] || []).length === 0 ? (
-                    <p className="text-xs text-slate-500">No tiene pedidos pendientes.</p>
+                    <p className="text-xs text-slate-300">No tiene pedidos pendientes.</p>
                   ) : (
                     <div className="space-y-1">
                       {(pendingOrdersByCustomer[c.id] || []).map(o => (
-                        <div key={o.id} className="flex items-center justify-between text-xs border-b border-indigo-100 pb-1">
-                          <span>Pedido #{o.order_number || '-'} · {o.table_number ? `Mesa ${o.table_number}` : 'Sin mesa'}</span>
-                          <strong>{formatCurrency(o.total || 0)}</strong>
+                        <div key={o.id} className="flex items-center justify-between text-xs border-b border-slate-700 pb-1">
+                          <span className="text-slate-100">Pedido #{o.order_number || '-'} · {o.table_number ? `Mesa ${o.table_number}` : 'Sin mesa'}</span>
+                          <strong className="text-emerald-300">{formatCurrency(o.total || 0)}</strong>
                         </div>
                       ))}
                     </div>

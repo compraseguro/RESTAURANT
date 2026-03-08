@@ -840,17 +840,35 @@ export default function POSPanel() {
 
   const occupiedTables = tables.filter(t => t.orders && t.orders.length > 0);
   const reservationQueue = useMemo(() => {
-    const pendingReservations = (reservations || []).filter(r => ['confirmed', 'pending'].includes(String(r.status || '')));
+    const normalize = (value) => String(value || '').trim().toLowerCase();
+    const pendingReservations = (reservations || []).filter((r) => {
+      const st = normalize(r.status);
+      return !['cancelled', 'completed', 'cancelada', 'completada'].includes(st);
+    });
     return pendingReservations.map((reservation) => {
       const marker = `RESERVA_ID:${reservation.id}`;
-      const linkedOrders = (allOrders || []).filter((o) =>
-        String(o.notes || '').includes(marker) &&
-        String(o.payment_status || '') !== 'paid' &&
-        String(o.status || '') !== 'cancelled'
-      );
+      const reservationName = normalize(reservation.client_name);
+      const reservationDate = String(reservation.date || '');
+      const linkedOrders = (allOrders || []).filter((o) => {
+        const unpaid = String(o.payment_status || '') !== 'paid' && String(o.status || '') !== 'cancelled';
+        if (!unpaid) return false;
+        const notes = String(o.notes || '');
+        if (notes.includes(marker)) return true;
+        // Compatibilidad con reservas antiguas (antes de RESERVA_ID)
+        const isReservationOrder = notes.includes('Reserva:');
+        if (!isReservationOrder) return false;
+        const byCustomerId =
+          reservation.customer_id &&
+          o.customer_id &&
+          String(reservation.customer_id).trim() === String(o.customer_id).trim();
+        if (byCustomerId) return true;
+        const sameCustomer = normalize(o.customer_name) === reservationName;
+        const sameDateHint = notes.includes(reservationDate);
+        return sameCustomer && (sameDateHint || !reservationDate);
+      });
       const total = linkedOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
       return { reservation, linkedOrders, total };
-    }).filter(entry => entry.linkedOrders.length > 0);
+    });
   }, [reservations, allOrders]);
   const stableTables = [...tables].sort((a, b) => Number(a.number || 0) - Number(b.number || 0));
   const filteredProducts = products.filter(p => {
@@ -1212,7 +1230,7 @@ export default function POSPanel() {
                       disabled={!entry.linkedOrders.length}
                       className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Cobrar reserva
+                      {entry.linkedOrders.length ? 'Cobrar reserva' : 'Sin pedido para cobrar'}
                     </button>
                   </div>
                 </div>

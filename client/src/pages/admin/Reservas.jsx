@@ -223,7 +223,10 @@ export default function Reservas() {
                   <button
                     key={c.id}
                     type="button"
-                    onClick={() => selectCustomer(c)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      selectCustomer(c);
+                    }}
                     className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
                   >
                     <p className="text-sm font-medium text-slate-800">{c.name}</p>
