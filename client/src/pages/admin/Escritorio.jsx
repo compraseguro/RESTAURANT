@@ -81,7 +81,7 @@ export default function Escritorio() {
     const to = String(endDate || '');
     if (!from || !to) return valid;
     return valid.filter((o) => {
-      const dateKey = toLocalDateKey(o.created_at);
+      const dateKey = toLocalDateKey(o.updated_at || o.created_at);
       return dateKey >= from && dateKey <= to;
     });
   }, [orders, datePreset, startDate, endDate]);
@@ -110,7 +110,7 @@ export default function Escritorio() {
     const byHour = {};
     for (let h = 0; h < 24; h += 1) byHour[String(h).padStart(2, '0')] = 0;
     paidOrders.forEach((o) => {
-      const parsed = parseApiDate(o.created_at);
+      const parsed = parseApiDate(o.updated_at || o.created_at);
       if (!parsed) return;
       const hour = parsed.getHours();
       byHour[String(hour).padStart(2, '0')] += Number(o.total || 0);
