@@ -70,6 +70,7 @@ export default function POSPanel() {
   const [showMenu, setShowMenu] = useState(false);
   const [quickSaleMode, setQuickSaleMode] = useState(false);
   const [products, setProducts] = useState([]);
+  const [modifiers, setModifiers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState('');
@@ -130,12 +131,13 @@ export default function POSPanel() {
 
   const loadData = async () => {
     try {
-      const [tablesData, reg, status, prods, cats, cfg, daily, reservationsData, ordersData] = await Promise.all([
+      const [tablesData, reg, status, prods, cats, modifiersData, cfg, daily, reservationsData, ordersData] = await Promise.all([
         api.get('/tables'),
         api.get('/pos/current-register'),
         api.get('/pos/register-status'),
         api.get('/products?active_only=true'),
         api.get('/categories/active'),
+        api.get('/admin-modules/modifiers').catch(() => []),
         api.get('/admin-modules/config/app').catch(() => null),
         api.get('/reports/daily').catch(() => null),
         api.get('/admin-modules/reservations').catch(() => []),
@@ -150,6 +152,7 @@ export default function POSPanel() {
       setRegister(reg);
       setRegisterStatus(status);
       setProducts(visibleProducts);
+      setModifiers(Array.isArray(modifiersData) ? modifiersData : []);
       setCategories(visibleCategories);
       setPaymentOptions(getPaymentMethodOptions(cfg, { includeOnline: false }));
       setDailySales(
@@ -835,57 +838,6 @@ export default function POSPanel() {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
-
-  if (!register) {
-    const blockedByOther = false;
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="card text-center max-w-md">
-          <MdPointOfSale className="text-6xl text-gold-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Abrir Caja</h2>
-          <p className="text-slate-500 mb-6">Ingresa el monto inicial y abre la caja para comenzar a operar</p>
-
-          <div className="mb-4 text-left">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Monto de apertura</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">S/</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={openingAmount}
-                onChange={e => setOpeningAmount(e.target.value)}
-                placeholder="0.00"
-                className="input-field pl-10 text-lg font-bold text-center"
-                autoFocus
-              />
-            </div>
-            <p className="text-xs text-slate-400 mt-1">Dinero en efectivo al iniciar el turno</p>
-            {blockedByOther && (
-              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                <p className="text-xs text-amber-700 font-medium">
-                  Caja en uso por {registerStatus.register?.cajero_name || 'otro usuario'}
-                </p>
-                <p className="text-xs text-amber-600">
-                  Abierta: {registerStatus.register?.opened_at ? new Date(`${registerStatus.register.opened_at}Z`).toLocaleString('es-PE') : '-'}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={openRegister}
-            disabled={openingAmount === '' || blockedByOther}
-            className="btn-primary w-full py-3 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <MdPointOfSale /> {blockedByOther ? 'Caja en uso' : 'Abrir Caja'}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const occupiedTables = tables.filter(t => t.orders && t.orders.length > 0);
   const reservationQueue = useMemo(() => {
     const pendingReservations = (reservations || []).filter(r => ['confirmed', 'pending'].includes(String(r.status || '')));
@@ -975,6 +927,57 @@ export default function POSPanel() {
     `);
     w.document.close();
   };
+
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
+
+  if (!register) {
+    const blockedByOther = false;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="card text-center max-w-md">
+          <MdPointOfSale className="text-6xl text-gold-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">Abrir Caja</h2>
+          <p className="text-slate-500 mb-6">Ingresa el monto inicial y abre la caja para comenzar a operar</p>
+
+          <div className="mb-4 text-left">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Monto de apertura</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">S/</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={openingAmount}
+                onChange={e => setOpeningAmount(e.target.value)}
+                placeholder="0.00"
+                className="input-field pl-10 text-lg font-bold text-center"
+                autoFocus
+              />
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Dinero en efectivo al iniciar el turno</p>
+            {blockedByOther && (
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                <p className="text-xs text-amber-700 font-medium">
+                  Caja en uso por {registerStatus.register?.cajero_name || 'otro usuario'}
+                </p>
+                <p className="text-xs text-amber-600">
+                  Abierta: {registerStatus.register?.opened_at ? new Date(`${registerStatus.register.opened_at}Z`).toLocaleString('es-PE') : '-'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={openRegister}
+            disabled={openingAmount === '' || blockedByOther}
+            className="btn-primary w-full py-3 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <MdPointOfSale /> {blockedByOther ? 'Caja en uso' : 'Abrir Caja'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const printTableOrder = (table) => {
     if (!table) return;
