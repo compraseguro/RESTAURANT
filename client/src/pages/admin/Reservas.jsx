@@ -89,26 +89,36 @@ export default function Reservas() {
         notes: notesMerged,
         status: 'confirmed',
       });
+      let orderCreated = false;
       if (requestItems.length > 0) {
-        const selectedTable = tables.find(t => t.id === form.table_id);
-        await api.post('/orders', {
-          items: requestItems.map(item => ({
-            product_id: item.product_id,
-            quantity: Number(item.qty || 1),
-          })),
-          type: 'dine_in',
-          table_number: selectedTable ? String(selectedTable.number || '') : '',
-          customer_name: clientName,
-          notes: [
-            `Reserva: ${createdReservation?.date || form.date} ${createdReservation?.time || form.time}`,
-            notesMerged ? `Detalle reserva: ${notesMerged}` : '',
-          ].filter(Boolean).join(' | '),
-          payment_method: 'efectivo',
-        });
+        try {
+          const selectedTable = tables.find(t => t.id === form.table_id);
+          await api.post('/orders', {
+            items: requestItems.map(item => ({
+              product_id: item.product_id,
+              quantity: Number(item.qty || 1),
+            })),
+            type: 'dine_in',
+            table_number: selectedTable ? String(selectedTable.number || '') : '',
+            customer_name: clientName,
+            notes: [
+              `Reserva: ${createdReservation?.date || form.date} ${createdReservation?.time || form.time}`,
+              notesMerged ? `Detalle reserva: ${notesMerged}` : '',
+            ].filter(Boolean).join(' | '),
+            payment_method: 'efectivo',
+          });
+          orderCreated = true;
+        } catch (orderErr) {
+          toast.error(`Reserva guardada, pero el pedido no se pudo enviar: ${orderErr.message}`);
+        }
       }
       setShowModal(false);
       resetForm();
-      toast.success(requestItems.length > 0 ? 'Reserva creada y pedido enviado a preparación' : 'Reserva creada');
+      if (requestItems.length > 0) {
+        toast.success(orderCreated ? 'Reserva creada y pedido enviado a preparación' : 'Reserva creada');
+      } else {
+        toast.success('Reserva creada');
+      }
       load();
     } catch (err) {
       toast.error(err.message);

@@ -402,13 +402,27 @@ router.put('/reservations/:id', (req, res) => {
   })) {
     return res.status(400).json({ error: 'La mesa seleccionada ya tiene una reserva cercana en ese horario' });
   }
+  const safeValue = (value) => (value === undefined ? null : value);
+  const safeGuests = guests === undefined || guests === null || Number.isNaN(Number(guests))
+    ? null
+    : Number(guests);
   runSql(
     `UPDATE reservations
      SET client_name = COALESCE(?, client_name), phone = COALESCE(?, phone), date = COALESCE(?, date), time = COALESCE(?, time),
          guests = COALESCE(?, guests), table_id = COALESCE(?, table_id), notes = COALESCE(?, notes), status = COALESCE(?, status),
          updated_at = datetime('now')
      WHERE id = ?`,
-    [client_name, phone, date, time, guests, table_id, notes, status, req.params.id]
+    [
+      safeValue(client_name),
+      safeValue(phone),
+      safeValue(date),
+      safeValue(time),
+      safeGuests,
+      safeValue(table_id),
+      safeValue(notes),
+      safeValue(status),
+      req.params.id,
+    ]
   );
   res.json(queryOne('SELECT * FROM reservations WHERE id = ?', [req.params.id]));
 });
