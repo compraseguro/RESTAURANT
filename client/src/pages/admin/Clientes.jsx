@@ -1,22 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, formatCurrency } from '../../utils/api';
-import { MdAdd, MdEdit, MdDelete, MdSearch, MdPhone, MdEmail } from 'react-icons/md';
+import { MdAdd, MdEdit, MdDelete, MdSearch, MdPhone, MdEmail, MdReceipt } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 
 export default function Clientes() {
   const [clientes, setClientes] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editClient, setEditClient] = useState(null);
+  const [expandedClientId, setExpandedClientId] = useState('');
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', password: '' });
 
   const load = async (term = '') => {
     setLoading(true);
     try {
-      const data = await api.get(`/admin-modules/customers${term ? `?q=${encodeURIComponent(term)}` : ''}`);
+      const [data, ordersData] = await Promise.all([
+        api.get(`/admin-modules/customers${term ? `?q=${encodeURIComponent(term)}` : ''}`),
+        api.get('/orders?limit=600').catch(() => []),
+      ]);
       setClientes(data || []);
+      setOrders(ordersData || []);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -74,6 +80,17 @@ export default function Clientes() {
 
   const totalVisits = clientes.reduce((s, c) => s + Number(c.visits || 0), 0);
   const totalIncome = clientes.reduce((s, c) => s + Number(c.total_spent || 0), 0);
+  const pendingOrdersByCustomer = useMemo(() => {
+    const map = {};
+    (orders || []).forEach((o) => {
+      if (String(o.payment_status || '') === 'paid' || String(o.status || '') === 'cancelled') return;
+      const cid = String(o.customer_id || '').trim();
+      if (!cid) return;
+      if (!map[cid]) map[cid] = [];
+      map[cid].push(o);
+    });
+    return map;
+  }, [orders]);
 
   return (
     <div>
@@ -98,19 +115,42 @@ export default function Clientes() {
         ) : (
         <div className="space-y-3">
           {filtered.map(c => (
-            <div key={c.id} className="flex items-center justify-between p-4 rounded-lg border border-slate-100 hover:bg-slate-50">
+            <div key={c.id} className="p-4 rounded-lg border border-slate-100 hover:bg-slate-50">
+              <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-gold-100 rounded-full flex items-center justify-center"><span className="font-bold text-gold-700 text-lg">{c.name[0]}</span></div>
                 <div>
                   <p className="font-bold text-slate-800">{c.name}</p>
                   <p className="text-sm text-slate-500"><MdPhone className="inline text-xs" /> {c.phone} · <MdEmail className="inline text-xs" /> {c.email}</p>
                   <p className="text-xs text-slate-400">{Number(c.visits || 0)} visitas · Última: {c.last_visit || '-'} · Total: {formatCurrency(c.total_spent || 0)}</p>
+                  <p className="text-xs text-indigo-600 mt-1">
+                    Pedidos pendientes: <strong>{(pendingOrdersByCustomer[c.id] || []).length}</strong>
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => openEdit(c)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><MdEdit /></button>
-                <button onClick={() => deleteClient(c.id)} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"><MdDelete /></button>
+                <button onClick={() => setExpandedClientId(prev => prev === c.id ? '' : c.id)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"><MdReceipt /></button>
+                <button onClick={(e) => { e.stopPropagation(); openEdit(c); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><MdEdit /></button>
+                <button onClick={(e) => { e.stopPropagation(); deleteClient(c.id); }} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"><MdDelete /></button>
               </div>
+              </div>
+              {expandedClientId === c.id && (
+                <div className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                  <p className="text-xs font-semibold text-indigo-700 mb-2">Pedidos pendientes por cobrar</p>
+                  {(pendingOrdersByCustomer[c.id] || []).length === 0 ? (
+                    <p className="text-xs text-slate-500">No tiene pedidos pendientes.</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {(pendingOrdersByCustomer[c.id] || []).map(o => (
+                        <div key={o.id} className="flex items-center justify-between text-xs border-b border-indigo-100 pb-1">
+                          <span>Pedido #{o.order_number || '-'} · {o.table_number ? `Mesa ${o.table_number}` : 'Sin mesa'}</span>
+                          <strong>{formatCurrency(o.total || 0)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
           {filtered.length === 0 && <p className="text-center py-8 text-slate-400">No se encontraron clientes</p>}

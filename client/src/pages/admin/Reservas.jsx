@@ -99,9 +99,11 @@ export default function Reservas() {
               quantity: Number(item.qty || 1),
             })),
             type: 'dine_in',
+            customer_id: selectedCustomerId || '',
             table_number: selectedTable ? String(selectedTable.number || '') : '',
             customer_name: clientName,
             notes: [
+              `RESERVA_ID:${createdReservation.id}`,
               `Reserva: ${createdReservation?.date || form.date} ${createdReservation?.time || form.time}`,
               notesMerged ? `Detalle reserva: ${notesMerged}` : '',
             ].filter(Boolean).join(' | '),

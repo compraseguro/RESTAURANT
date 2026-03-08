@@ -16,6 +16,7 @@ import {
 
 const CAJA_OPTIONS = [
   { id: 'cobrar', label: 'Cobrar' },
+  { id: 'reservas', label: 'Reservas' },
   { id: 'apertura_cierre', label: 'Apertura y cierre' },
   { id: 'cierres_caja', label: 'Cierres de caja' },
   { id: 'ingresos', label: 'Ingresos' },
@@ -53,6 +54,8 @@ const getOrderChargeTotal = (order) => {
 export default function POSPanel() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tables, setTables] = useState([]);
+  const [reservations, setReservations] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
   const [register, setRegister] = useState(null);
   const [registerStatus, setRegisterStatus] = useState({ is_open: false, register: null });
   const [dailySales, setDailySales] = useState(null);
@@ -127,7 +130,7 @@ export default function POSPanel() {
 
   const loadData = async () => {
     try {
-      const [tablesData, reg, status, prods, cats, cfg, daily] = await Promise.all([
+      const [tablesData, reg, status, prods, cats, cfg, daily, reservationsData, ordersData] = await Promise.all([
         api.get('/tables'),
         api.get('/pos/current-register'),
         api.get('/pos/register-status'),
@@ -135,11 +138,15 @@ export default function POSPanel() {
         api.get('/categories/active'),
         api.get('/admin-modules/config/app').catch(() => null),
         api.get('/reports/daily').catch(() => null),
+        api.get('/admin-modules/reservations').catch(() => []),
+        api.get('/orders?limit=600').catch(() => []),
       ]);
       const visibleCategories = cats.filter(c => !WAREHOUSE_CATEGORY_NAMES.has((c.name || '').toUpperCase()));
       const visibleCategoryIds = new Set(visibleCategories.map(c => c.id));
       const visibleProducts = prods.filter(p => visibleCategoryIds.has(p.category_id));
       setTables(tablesData);
+      setReservations(reservationsData || []);
+      setAllOrders(ordersData || []);
       setRegister(reg);
       setRegisterStatus(status);
       setProducts(visibleProducts);
@@ -880,6 +887,19 @@ export default function POSPanel() {
   }
 
   const occupiedTables = tables.filter(t => t.orders && t.orders.length > 0);
+  const reservationQueue = useMemo(() => {
+    const pendingReservations = (reservations || []).filter(r => ['confirmed', 'pending'].includes(String(r.status || '')));
+    return pendingReservations.map((reservation) => {
+      const marker = `RESERVA_ID:${reservation.id}`;
+      const linkedOrders = (allOrders || []).filter((o) =>
+        String(o.notes || '').includes(marker) &&
+        String(o.payment_status || '') !== 'paid' &&
+        String(o.status || '') !== 'cancelled'
+      );
+      const total = linkedOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
+      return { reservation, linkedOrders, total };
+    }).filter(entry => entry.linkedOrders.length > 0);
+  }, [reservations, allOrders]);
   const stableTables = [...tables].sort((a, b) => Number(a.number || 0) - Number(b.number || 0));
   const filteredProducts = products.filter(p => {
     if (selectedCat !== 'all' && p.category_id !== selectedCat) return false;
@@ -982,6 +1002,21 @@ export default function POSPanel() {
       </body></html>
     `);
     w.document.close();
+  };
+  const chargeReservation = async (entry) => {
+    const orders = entry?.linkedOrders || [];
+    if (!orders.length) return toast.error('Esta reserva no tiene pedidos pendientes para cobrar');
+    try {
+      await api.post('/pos/checkout-table', {
+        order_ids: orders.map(o => o.id),
+        payment_method: paymentMethod || 'efectivo',
+      });
+      await api.put(`/admin-modules/reservations/${entry.reservation.id}`, { status: 'completed' }).catch(() => {});
+      toast.success(`Reserva de ${entry.reservation.client_name} cobrada correctamente`);
+      loadData();
+    } catch (err) {
+      toast.error(err.message);
+    }
   };
 
   return (
@@ -1096,7 +1131,19 @@ export default function POSPanel() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <button
+          onClick={() => setActiveCajaOption('reservas')}
+          className="card flex items-center gap-3 hover:border-indigo-300 text-left"
+        >
+          <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+            <MdReceipt className="text-indigo-600 text-xl" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500">Reservas</p>
+            <p className="text-xl font-bold text-indigo-700">{reservationQueue.length}</p>
+          </div>
+        </button>
         <div className="card flex items-center gap-3">
           <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center"><MdTableRestaurant className="text-sky-600 text-xl" /></div>
           <div><p className="text-xs text-slate-500">Total Mesas</p><p className="text-xl font-bold">{tables.length}</p></div>
@@ -1129,6 +1176,47 @@ export default function POSPanel() {
         </button>
       </div>
         </>
+      )}
+
+      {activeCajaOption === 'reservas' && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-slate-800">Reservas para cobro</h3>
+            <span className="text-xs text-slate-500">Total: {reservationQueue.length}</span>
+          </div>
+          {reservationQueue.length === 0 ? (
+            <p className="text-slate-500">No hay reservas pendientes.</p>
+          ) : (
+            <div className="space-y-3">
+              {reservationQueue.map((entry) => (
+                <div key={entry.reservation.id} className="border border-slate-200 rounded-lg p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-slate-800">{entry.reservation.client_name}</p>
+                      <p className="text-xs text-slate-500">{entry.reservation.date} · {entry.reservation.time} · {entry.reservation.guests} comensales</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-500">Total pedido</p>
+                      <p className="font-bold text-emerald-700">{formatCurrency(entry.total)}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-600">
+                    {entry.reservation.notes || 'Sin nota adicional'}
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={() => chargeReservation(entry)}
+                      disabled={!entry.linkedOrders.length}
+                      className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Cobrar reserva
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {activeCajaOption === 'apertura_cierre' && (

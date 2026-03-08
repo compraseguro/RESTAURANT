@@ -232,7 +232,7 @@ router.get('/:id', authenticateToken, (req, res) => {
 });
 
 router.post('/', authenticateToken, (req, res) => {
-  const { items, type, table_number, delivery_address, notes, payment_method, customer_name, discount } = req.body;
+  const { items, type, table_number, delivery_address, notes, payment_method, customer_name, discount, customer_id } = req.body;
   if (!items || items.length === 0) return res.status(400).json({ error: 'El pedido debe tener al menos un producto' });
   const orderType = ['dine_in', 'delivery', 'pickup'].includes(type) ? type : 'dine_in';
   const requestedPaymentMethod = String(payment_method || '').trim().toLowerCase();
@@ -315,8 +315,15 @@ router.post('/', authenticateToken, (req, res) => {
       const discountAmount = Math.max(0, Number(discount || 0));
       const deliveryFee = orderType === 'delivery' ? Number(restaurant?.delivery_fee || 0) : 0;
       const total = Math.max(0, subtotal - discountAmount + deliveryFee);
-      const customerId = req.user.type === 'customer' ? req.user.id : null;
-      const custName = req.user.type === 'customer' ? req.user.name : (customer_name || '');
+      let customerId = req.user.type === 'customer' ? req.user.id : (String(customer_id || '').trim() || null);
+      if (customerId) {
+        const customer = tx.queryOne('SELECT id, name FROM customers WHERE id = ?', [customerId]);
+        if (!customer) throw new Error('Cliente no encontrado para el pedido');
+      }
+      const customerFromDb = customerId ? tx.queryOne('SELECT id, name FROM customers WHERE id = ?', [customerId]) : null;
+      const custName = req.user.type === 'customer'
+        ? req.user.name
+        : (customerFromDb?.name || customer_name || '');
       const saleDocumentNumber = `001-${String(orderNumber).padStart(8, '0')}`;
       const paymentMethod = normalizePaymentMethod(requestedPaymentMethod || 'efectivo', { allowOnline: true, fallback: 'efectivo' });
 
