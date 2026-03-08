@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, formatCurrency } from '../../utils/api';
-import { MdAdd, MdEdit, MdDelete, MdSearch, MdPhone, MdEmail, MdReceipt } from 'react-icons/md';
+import { MdAdd, MdEdit, MdDelete, MdSearch, MdPhone, MdEmail, MdReceipt, MdAttachMoney } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 
@@ -12,6 +12,7 @@ export default function Clientes() {
   const [showModal, setShowModal] = useState(false);
   const [editClient, setEditClient] = useState(null);
   const [expandedClientId, setExpandedClientId] = useState('');
+  const [chargingClientId, setChargingClientId] = useState('');
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', password: '' });
 
   const load = async (term = '') => {
@@ -91,6 +92,25 @@ export default function Clientes() {
     });
     return map;
   }, [orders]);
+  const getCustomerPendingTotal = (customerId) =>
+    (pendingOrdersByCustomer[customerId] || []).reduce((sum, o) => sum + Number(o.total || 0), 0);
+  const chargeCustomerPendingOrders = async (customer) => {
+    const customerOrders = pendingOrdersByCustomer[customer.id] || [];
+    if (!customerOrders.length) return toast.error('No hay pedidos pendientes para cobrar');
+    try {
+      setChargingClientId(customer.id);
+      await api.post('/pos/checkout-table', {
+        order_ids: customerOrders.map(o => o.id),
+        payment_method: 'efectivo',
+      });
+      toast.success(`Pedidos de ${customer.name} cobrados correctamente`);
+      await load(search);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setChargingClientId('');
+    }
+  };
 
   return (
     <div>
@@ -140,13 +160,40 @@ export default function Clientes() {
                   {(pendingOrdersByCustomer[c.id] || []).length === 0 ? (
                     <p className="text-xs text-slate-700">No tiene pedidos pendientes.</p>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {(pendingOrdersByCustomer[c.id] || []).map(o => (
-                        <div key={o.id} className="flex items-center justify-between text-xs border-b border-slate-200 pb-1">
-                          <span className="text-slate-800">Pedido #{o.order_number || '-'} · {o.table_number ? `Mesa ${o.table_number}` : 'Sin mesa'}</span>
-                          <strong className="text-emerald-700">{formatCurrency(o.total || 0)}</strong>
+                        <div key={o.id} className="rounded-lg border border-slate-200 p-2">
+                          <div className="text-[11px] font-semibold text-slate-700 mb-1">Pedido #{o.order_number || '-'}</div>
+                          <div className="space-y-1">
+                            {(o.items || []).length === 0 ? (
+                              <p className="text-xs text-slate-500">Sin detalle de productos</p>
+                            ) : (
+                              (o.items || []).map((item) => (
+                                <div key={item.id || `${o.id}-${item.product_id}`} className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-800">{item.quantity}x {item.product_name}</span>
+                                  <span className="text-slate-700">{formatCurrency(item.subtotal || 0)}</span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                          <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-1">
+                            <span className="text-xs font-medium text-slate-700">Total pedido</span>
+                            <strong className="text-emerald-700">{formatCurrency(o.total || 0)}</strong>
+                          </div>
                         </div>
                       ))}
+                      <div className="mt-2 rounded-lg bg-slate-900 px-3 py-2 text-white flex items-center justify-between">
+                        <span className="text-sm font-semibold">Total pendiente</span>
+                        <span className="text-base font-bold">{formatCurrency(getCustomerPendingTotal(c.id))}</span>
+                      </div>
+                      <button
+                        onClick={() => chargeCustomerPendingOrders(c)}
+                        disabled={chargingClientId === c.id}
+                        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <MdAttachMoney />
+                        {chargingClientId === c.id ? 'Cobrando...' : 'Cobrar pendientes'}
+                      </button>
                     </div>
                   )}
                 </div>
