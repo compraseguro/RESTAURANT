@@ -135,16 +135,16 @@ export default function Clientes() {
               </div>
               </div>
               {expandedClientId === c.id && (
-                <div className="mt-3 rounded-lg border border-slate-600 bg-slate-900/60 p-3">
-                  <p className="text-xs font-semibold text-sky-300 mb-2">Pedidos pendientes por cobrar</p>
+                <div className="mt-3 rounded-lg border border-slate-300 bg-white p-3">
+                  <p className="text-xs font-semibold text-slate-900 mb-2">Pedidos pendientes por cobrar</p>
                   {(pendingOrdersByCustomer[c.id] || []).length === 0 ? (
-                    <p className="text-xs text-slate-300">No tiene pedidos pendientes.</p>
+                    <p className="text-xs text-slate-700">No tiene pedidos pendientes.</p>
                   ) : (
                     <div className="space-y-1">
                       {(pendingOrdersByCustomer[c.id] || []).map(o => (
-                        <div key={o.id} className="flex items-center justify-between text-xs border-b border-slate-700 pb-1">
-                          <span className="text-slate-100">Pedido #{o.order_number || '-'} · {o.table_number ? `Mesa ${o.table_number}` : 'Sin mesa'}</span>
-                          <strong className="text-emerald-300">{formatCurrency(o.total || 0)}</strong>
+                        <div key={o.id} className="flex items-center justify-between text-xs border-b border-slate-200 pb-1">
+                          <span className="text-slate-800">Pedido #{o.order_number || '-'} · {o.table_number ? `Mesa ${o.table_number}` : 'Sin mesa'}</span>
+                          <strong className="text-emerald-700">{formatCurrency(o.total || 0)}</strong>
                         </div>
                       ))}
                     </div>

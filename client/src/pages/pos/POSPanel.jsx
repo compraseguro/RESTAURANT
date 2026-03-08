@@ -128,6 +128,10 @@ export default function POSPanel() {
   const [priceResults, setPriceResults] = useState([]);
   const printRef = useRef(null);
   const { user } = useAuth();
+  const openCajaView = (view) => {
+    setActiveCajaOption(view);
+    setSearchParams({ view }, { replace: true });
+  };
 
   const loadData = async () => {
     try {
@@ -1154,7 +1158,7 @@ export default function POSPanel() {
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <button
-          onClick={() => setActiveCajaOption('reservas')}
+          onClick={() => openCajaView('reservas')}
           className="card flex items-center gap-3 hover:border-indigo-300 text-left"
         >
           <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
