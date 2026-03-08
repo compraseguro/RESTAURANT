@@ -881,7 +881,7 @@ export default function POSPanel() {
     return true;
   });
   const registerSales = Number(register?.total_sales || 0);
-  const todaySales = dailySales === null ? registerSales : Number(dailySales || 0);
+  const todaySales = registerSales;
   const openingAmt = register?.opening_amount || 0;
 
   const totalCash = register?.total_cash || 0;
