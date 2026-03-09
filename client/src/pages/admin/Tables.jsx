@@ -390,25 +390,24 @@ export default function Tables() {
                             <p className="text-xs text-[#BFDBFE]">{formatCurrency(item.price)}</p>
                           </div>
                           <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setNoteEditorProductId(prev => (prev === item.product_id ? '' : item.product_id))}
+                              className={`w-7 h-7 rounded flex items-center justify-center border ${
+                                item.notes?.trim()
+                                  ? 'bg-amber-100 border-amber-300 text-amber-700'
+                                  : 'bg-[#1E3A8A]/50 border-[#93C5FD]/30 text-[#DBEAFE] hover:bg-[#1E3A8A]/70'
+                              }`}
+                              title="Agregar nota"
+                            >
+                              <MdEditNote className="text-sm" />
+                            </button>
                             <button onClick={() => updateQty(item.product_id, -1)} className="w-6 h-6 bg-[#1E3A8A]/50 border border-[#93C5FD]/30 rounded flex items-center justify-center hover:bg-[#1E3A8A]/70 text-[#DBEAFE]"><MdRemove className="text-xs" /></button>
                             <span className="w-6 text-center text-sm font-bold text-white">{item.quantity}</span>
                             <button onClick={() => updateQty(item.product_id, 1)} className="w-6 h-6 bg-[#1E3A8A]/50 border border-[#93C5FD]/30 rounded flex items-center justify-center hover:bg-[#1E3A8A]/70 text-[#DBEAFE]"><MdAdd className="text-xs" /></button>
                           </div>
                           <button onClick={() => removeFromCart(item.product_id)} className="text-[#93C5FD] hover:text-white"><MdDelete className="text-sm" /></button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setNoteEditorProductId(prev => (prev === item.product_id ? '' : item.product_id))}
-                          className={`mt-2 w-full rounded-md border px-2 py-1 text-xs font-semibold flex items-center justify-center gap-1 ${
-                            item.notes?.trim()
-                              ? 'bg-amber-100 border-amber-300 text-amber-700'
-                              : 'bg-[#1E3A8A]/40 border-[#93C5FD]/40 text-[#DBEAFE] hover:bg-[#1E3A8A]/70'
-                          }`}
-                          title="Agregar nota"
-                        >
-                          <MdEditNote className="text-base" />
-                          Nota
-                        </button>
                         {(noteEditorProductId === item.product_id || item.notes?.trim()) && (
                           <div className="mt-2">
                             <textarea

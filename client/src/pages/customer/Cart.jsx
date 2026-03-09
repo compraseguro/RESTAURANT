@@ -102,6 +102,18 @@ export default function Cart() {
                 <p className="text-primary-600 font-bold">{formatCurrency(item.price)}</p>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNoteEditorItemKey(prev => (prev === item.key ? '' : item.key))}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
+                    item.notes?.trim()
+                      ? 'bg-amber-100 border-amber-300 text-amber-700'
+                      : 'bg-gray-100 hover:bg-gray-200'
+                  }`}
+                  title="Agregar nota"
+                >
+                  <MdEditNote className="text-base" />
+                </button>
                 <button onClick={() => updateQuantity(item.key, item.quantity - 1)} className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200">
                   <MdRemove className="text-sm" />
                 </button>
@@ -117,19 +129,6 @@ export default function Cart() {
                 </button>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setNoteEditorItemKey(prev => (prev === item.key ? '' : item.key))}
-              className={`mt-2 w-full rounded-md border px-2 py-1 text-xs font-semibold flex items-center justify-center gap-1 ${
-                item.notes?.trim()
-                  ? 'bg-amber-100 border-amber-300 text-amber-700'
-                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
-              }`}
-              title="Agregar nota"
-            >
-              <MdEditNote className="text-base" />
-              Nota
-            </button>
             {(noteEditorItemKey === item.key || item.notes?.trim()) && (
               <div className="mt-3">
                 <textarea

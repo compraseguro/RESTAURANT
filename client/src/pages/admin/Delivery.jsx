@@ -301,25 +301,24 @@ export default function Delivery() {
                       <p className="text-xs text-slate-400">{formatCurrency(item.price)}</p>
                     </div>
                     <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setNoteEditorProductId(prev => (prev === item.product_id ? '' : item.product_id))}
+                        className={`w-7 h-7 rounded flex items-center justify-center border ${
+                          item.notes?.trim()
+                            ? 'bg-amber-100 border-amber-300 text-amber-700'
+                            : 'bg-white hover:bg-slate-200'
+                        }`}
+                        title="Agregar nota"
+                      >
+                        <MdEditNote className="text-sm" />
+                      </button>
                       <button onClick={() => updateQty(item.product_id, -1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdRemove className="text-xs" /></button>
                       <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
                       <button onClick={() => updateQty(item.product_id, 1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdAdd className="text-xs" /></button>
                     </div>
                     <button onClick={() => removeFromCart(item.product_id)} className="text-red-400 hover:text-red-600"><MdDelete className="text-sm" /></button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setNoteEditorProductId(prev => (prev === item.product_id ? '' : item.product_id))}
-                    className={`mt-2 w-full rounded-md border px-2 py-1 text-xs font-semibold flex items-center justify-center gap-1 ${
-                      item.notes?.trim()
-                        ? 'bg-amber-100 border-amber-300 text-amber-700'
-                        : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
-                    }`}
-                    title="Agregar nota"
-                  >
-                    <MdEditNote className="text-base" />
-                    Nota
-                  </button>
                   {(noteEditorProductId === item.product_id || item.notes?.trim()) && (
                     <div className="mt-2">
                       <textarea
