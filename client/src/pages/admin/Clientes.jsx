@@ -15,6 +15,13 @@ export default function Clientes() {
   const [chargingClientId, setChargingClientId] = useState('');
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', password: '' });
 
+  const normalizeCustomerEmail = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw || raw.toLowerCase() === '@gmail.com') return '';
+    if (raw.includes('@')) return raw;
+    return `${raw}@gmail.com`;
+  };
+
   const load = async (term = '') => {
     setLoading(true);
     try {
@@ -42,11 +49,15 @@ export default function Clientes() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...form,
+        email: normalizeCustomerEmail(form.email),
+      };
       if (editClient) {
-        await api.put(`/admin-modules/customers/${editClient.id}`, form);
+        await api.put(`/admin-modules/customers/${editClient.id}`, payload);
         toast.success('Cliente actualizado');
       } else {
-        await api.post('/admin-modules/customers', form);
+        await api.post('/admin-modules/customers', payload);
         toast.success('Cliente registrado');
       }
       setShowModal(false);

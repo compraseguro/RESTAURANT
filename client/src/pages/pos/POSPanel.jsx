@@ -44,6 +44,13 @@ const EMPTY_CUSTOMER_FORM = {
   email: '',
 };
 
+const normalizeCustomerEmail = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw || raw.toLowerCase() === '@gmail.com') return '';
+  if (raw.includes('@')) return raw;
+  return `${raw}@gmail.com`;
+};
+
 const getOrderChargeTotal = (order) => {
   if (!order) return 0;
   const base = Number(order.subtotal || 0) + Number(order.delivery_fee || 0);
@@ -515,7 +522,7 @@ export default function POSPanel() {
         doc_number: docNumber,
         phone: String(customerForm.phone || '').trim(),
         address: String(customerForm.address || '').trim(),
-        email: String(customerForm.email || '').trim(),
+        email: normalizeCustomerEmail(customerForm.email),
       });
       applyCustomerToBilling(created);
       setMatchedCustomer(created);
