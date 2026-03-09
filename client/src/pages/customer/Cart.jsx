@@ -134,7 +134,7 @@ export default function Cart() {
                   value={item.notes || ''}
                   onChange={(e) => updateItemNotes(item.key, e.target.value)}
                   rows={2}
-                  className="input-field"
+                  className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                   placeholder="Escribe una nota para cocina/bar..."
                 />
               </div>

@@ -1565,7 +1565,7 @@ export default function POSPanel() {
                         value={item.notes || ''}
                         onChange={(e) => updateItemNote(item.line_key, e.target.value)}
                         placeholder="Escribe una nota para cocina..."
-                        className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                        className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                         rows={2}
                       />
                     </div>
