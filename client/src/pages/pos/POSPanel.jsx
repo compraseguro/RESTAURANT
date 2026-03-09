@@ -73,6 +73,7 @@ export default function POSPanel() {
   const [modifiers, setModifiers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [cart, setCart] = useState([]);
+  const [noteEditorLineKey, setNoteEditorLineKey] = useState('');
   const [search, setSearch] = useState('');
   const [selectedCat, setSelectedCat] = useState('all');
   const [paymentMethod, setPaymentMethod] = useState('efectivo');
@@ -645,6 +646,7 @@ export default function POSPanel() {
     setSelectedTable(table);
     setShowMenu(true);
     setCart([]);
+    setNoteEditorLineKey('');
     setSearch('');
     setSelectedCat('all');
     setAmountReceived('');
@@ -658,6 +660,7 @@ export default function POSPanel() {
     setPaymentMethod('efectivo');
     setShowMenu(true);
     setCart([]);
+    setNoteEditorLineKey('');
     setSearch('');
     setSelectedCat('all');
     setAmountReceived('');
@@ -681,6 +684,8 @@ export default function POSPanel() {
           modifier_id: modifierId,
           modifier_name: modifierName,
           modifier_option: modifierOption,
+          note_required: Number(product.note_required || 0) === 1 ? 1 : 0,
+          notes: '',
         },
       ];
     });
@@ -751,6 +756,9 @@ export default function POSPanel() {
   };
 
   const removeFromCart = (lineKey) => setCart(prev => prev.filter(i => i.line_key !== lineKey));
+  const updateItemNote = (lineKey, nextNote) => {
+    setCart(prev => prev.map(i => (i.line_key === lineKey ? { ...i, notes: String(nextNote || '') } : i)));
+  };
   const cartTotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const receivedAmount = Math.max(0, parseFloat(amountReceived) || 0);
   const quickSaleChange = Math.max(0, receivedAmount - cartTotal);
@@ -758,6 +766,11 @@ export default function POSPanel() {
 
   const submitOrder = async () => {
     if (cart.length === 0) return toast.error('Agrega productos al pedido');
+    const missingRequiredNote = cart.find(i => Number(i.note_required || 0) === 1 && !String(i.notes || '').trim());
+    if (missingRequiredNote) {
+      setNoteEditorLineKey(missingRequiredNote.line_key);
+      return toast.error(`"${missingRequiredNote.name}" requiere una nota obligatoria`);
+    }
     if (quickSaleMode && paymentMethod === 'efectivo' && receivedAmount < cartTotal) {
       return toast.error(`Monto insuficiente. Falta ${formatCurrency(cartTotal - receivedAmount)}`);
     }
@@ -772,6 +785,7 @@ export default function POSPanel() {
           quantity: i.quantity,
           modifier_id: i.modifier_id || '',
           modifier_option: i.modifier_option || '',
+          notes: String(i.notes || '').trim(),
         })),
         type: quickSaleMode ? 'pickup' : 'dine_in',
         table_number: quickSaleMode ? '' : String(selectedTable.number),
@@ -797,6 +811,7 @@ export default function POSPanel() {
       setShowMenu(false);
       setQuickSaleMode(false);
       setCart([]);
+      setNoteEditorLineKey('');
       setModifierPrompt({ open: false, product: null, modifier: null, selectedOption: '' });
       setAmountReceived('');
       resetBillingForm();
@@ -1514,20 +1529,47 @@ export default function POSPanel() {
               {cart.length === 0 ? (
                 <p className="text-center text-slate-400 text-sm py-8">Selecciona productos</p>
               ) : cart.map(item => (
-                <div key={item.line_key} className="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.name}</p>
-                    {item.modifier_name && item.modifier_option && (
-                      <p className="text-[11px] text-slate-500 truncate">{item.modifier_name}: {item.modifier_option}</p>
-                    )}
-                    <p className="text-xs text-slate-400">{formatCurrency(item.price)}</p>
+                <div key={item.line_key} className="bg-slate-50 rounded-lg p-2 border border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{item.name}</p>
+                      {Number(item.note_required || 0) === 1 && (
+                        <p className="text-[11px] text-red-600 font-medium">Nota obligatoria</p>
+                      )}
+                      {item.modifier_name && item.modifier_option && (
+                        <p className="text-[11px] text-slate-500 truncate">{item.modifier_name}: {item.modifier_option}</p>
+                      )}
+                      <p className="text-xs text-slate-400">{formatCurrency(item.price)}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setNoteEditorLineKey(prev => (prev === item.line_key ? '' : item.line_key))}
+                        className={`w-6 h-6 rounded flex items-center justify-center border text-xs ${
+                          item.notes?.trim()
+                            ? 'bg-amber-100 border-amber-300 text-amber-700'
+                            : 'bg-white hover:bg-slate-200'
+                        }`}
+                        title="Agregar nota al producto"
+                      >
+                        📝
+                      </button>
+                      <button onClick={() => updateQty(item.line_key, -1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdRemove className="text-xs" /></button>
+                      <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                      <button onClick={() => updateQty(item.line_key, 1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdAdd className="text-xs" /></button>
+                    </div>
+                    <button onClick={() => removeFromCart(item.line_key)} className="text-red-400 hover:text-red-600"><MdDelete className="text-sm" /></button>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => updateQty(item.line_key, -1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdRemove className="text-xs" /></button>
-                    <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
-                    <button onClick={() => updateQty(item.line_key, 1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdAdd className="text-xs" /></button>
-                  </div>
-                  <button onClick={() => removeFromCart(item.line_key)} className="text-red-400 hover:text-red-600"><MdDelete className="text-sm" /></button>
+                  {(noteEditorLineKey === item.line_key || item.notes?.trim()) && (
+                    <div className="mt-2">
+                      <textarea
+                        value={item.notes || ''}
+                        onChange={(e) => updateItemNote(item.line_key, e.target.value)}
+                        placeholder="Escribe una nota para cocina..."
+                        className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                        rows={2}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
