@@ -7,7 +7,7 @@ import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 import {
   MdTableRestaurant, MdAdd, MdRemove, MdDelete, MdReceipt,
-  MdSearch, MdClose, MdRestaurantMenu, MdShoppingCart
+  MdSearch, MdClose, MdRestaurantMenu, MdShoppingCart, MdEditNote
 } from 'react-icons/md';
 
 export default function Tables() {
@@ -392,14 +392,14 @@ export default function Tables() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => setNoteEditorProductId(prev => (prev === item.product_id ? '' : item.product_id))}
-                              className={`w-6 h-6 rounded flex items-center justify-center border text-xs ${
+                              className={`w-7 h-7 rounded flex items-center justify-center border ${
                                 item.notes?.trim()
                                   ? 'bg-amber-100 border-amber-300 text-amber-700'
                                   : 'bg-[#1E3A8A]/50 border-[#93C5FD]/30 text-[#DBEAFE] hover:bg-[#1E3A8A]/70'
                               }`}
                               title="Agregar nota"
                             >
-                              📝
+                              <MdEditNote className="text-sm" />
                             </button>
                             <button onClick={() => updateQty(item.product_id, -1)} className="w-6 h-6 bg-[#1E3A8A]/50 border border-[#93C5FD]/30 rounded flex items-center justify-center hover:bg-[#1E3A8A]/70 text-[#DBEAFE]"><MdRemove className="text-xs" /></button>
                             <span className="w-6 text-center text-sm font-bold text-white">{item.quantity}</span>

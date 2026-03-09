@@ -6,7 +6,7 @@ import Modal from '../../components/Modal';
 import {
   MdDeliveryDining, MdLocationOn, MdCheck, MdTimer, MdAdd,
   MdRemove, MdDelete, MdReceipt, MdSearch, MdShoppingCart,
-  MdPerson, MdPhone, MdHome
+  MdPerson, MdPhone, MdHome, MdEditNote
 } from 'react-icons/md';
 import toast from 'react-hot-toast';
 
@@ -303,14 +303,14 @@ export default function Delivery() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setNoteEditorProductId(prev => (prev === item.product_id ? '' : item.product_id))}
-                        className={`w-6 h-6 rounded flex items-center justify-center border text-xs ${
+                        className={`w-7 h-7 rounded flex items-center justify-center border ${
                           item.notes?.trim()
                             ? 'bg-amber-100 border-amber-300 text-amber-700'
                             : 'bg-white hover:bg-slate-200'
                         }`}
                         title="Agregar nota"
                       >
-                        📝
+                        <MdEditNote className="text-sm" />
                       </button>
                       <button onClick={() => updateQty(item.product_id, -1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdRemove className="text-xs" /></button>
                       <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>

@@ -4,7 +4,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { api, formatCurrency } from '../../utils/api';
 import toast from 'react-hot-toast';
-import { MdAdd, MdRemove, MdDelete, MdShoppingCart, MdDeliveryDining, MdStorefront, MdRestaurant, MdArrowBack } from 'react-icons/md';
+import { MdAdd, MdRemove, MdDelete, MdShoppingCart, MdDeliveryDining, MdStorefront, MdRestaurant, MdArrowBack, MdEditNote } from 'react-icons/md';
 
 export default function Cart() {
   const { items, updateQuantity, updateItemNotes, removeItem, clearCart, total, count } = useCart();
@@ -104,14 +104,14 @@ export default function Cart() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setNoteEditorItemKey(prev => (prev === item.key ? '' : item.key))}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center border text-xs ${
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
                     item.notes?.trim()
                       ? 'bg-amber-100 border-amber-300 text-amber-700'
                       : 'bg-gray-100 hover:bg-gray-200'
                   }`}
                   title="Agregar nota"
                 >
-                  📝
+                  <MdEditNote className="text-base" />
                 </button>
                 <button onClick={() => updateQuantity(item.key, item.quantity - 1)} className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200">
                   <MdRemove className="text-sm" />
