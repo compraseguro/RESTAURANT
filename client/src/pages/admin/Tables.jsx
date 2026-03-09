@@ -19,6 +19,7 @@ export default function Tables() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [cart, setCart] = useState([]);
+  const [noteEditorProductId, setNoteEditorProductId] = useState('');
   const [search, setSearch] = useState('');
   const [selectedCat, setSelectedCat] = useState('all');
   const [selectedSalon, setSelectedSalon] = useState('all');
@@ -56,6 +57,7 @@ export default function Tables() {
     setSelectedTable(table);
     setShowMenu(true);
     setCart([]);
+    setNoteEditorProductId('');
     setSearch('');
     setSelectedCat('all');
   };
@@ -63,6 +65,7 @@ export default function Tables() {
   const closeMenuPanel = () => {
     setShowMenu(false);
     setCart([]);
+    setNoteEditorProductId('');
     setSearch('');
     setSelectedCat('all');
   };
@@ -112,7 +115,17 @@ export default function Tables() {
     setCart(prev => {
       const existing = prev.find(i => i.product_id === product.id);
       if (existing) return prev.map(i => i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { product_id: product.id, name: product.name, price: product.price, quantity: 1 }];
+      return [
+        ...prev,
+        {
+          product_id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+          note_required: Number(product.note_required || 0) === 1 ? 1 : 0,
+          notes: '',
+        },
+      ];
     });
   };
 
@@ -125,15 +138,27 @@ export default function Tables() {
   };
 
   const removeFromCart = (productId) => setCart(prev => prev.filter(i => i.product_id !== productId));
+  const updateItemNote = (productId, nextNote) => {
+    setCart(prev => prev.map(i => (i.product_id === productId ? { ...i, notes: String(nextNote || '') } : i)));
+  };
 
   const cartTotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
   const submitOrder = async () => {
     if (!selectedTable) return toast.error('Selecciona una mesa');
     if (cart.length === 0) return toast.error('Agrega productos al pedido');
+    const missingRequiredNote = cart.find(i => Number(i.note_required || 0) === 1 && !String(i.notes || '').trim());
+    if (missingRequiredNote) {
+      setNoteEditorProductId(missingRequiredNote.product_id);
+      return toast.error(`"${missingRequiredNote.name}" requiere nota obligatoria`);
+    }
     try {
       await api.post('/orders', {
-        items: cart.map(i => ({ product_id: i.product_id, quantity: i.quantity })),
+        items: cart.map(i => ({
+          product_id: i.product_id,
+          quantity: i.quantity,
+          notes: String(i.notes || '').trim(),
+        })),
         type: 'dine_in',
         table_number: String(selectedTable.number),
         customer_name: `Mesa ${selectedTable.number}`,
@@ -355,17 +380,44 @@ export default function Tables() {
                     {cart.length === 0 ? (
                       <p className="text-center text-[#BFDBFE] text-sm py-4">Selecciona productos</p>
                     ) : cart.map(item => (
-                      <div key={item.product_id} className="flex items-center gap-2 bg-[#1D4ED8]/25 border border-[#3B82F6]/20 rounded-lg p-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate text-white">{item.name}</p>
-                          <p className="text-xs text-[#BFDBFE]">{formatCurrency(item.price)}</p>
+                      <div key={item.product_id} className="bg-[#1D4ED8]/25 border border-[#3B82F6]/20 rounded-lg p-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate text-white">{item.name}</p>
+                            {Number(item.note_required || 0) === 1 && (
+                              <p className="text-[11px] text-[#FCA5A5] font-semibold">Nota obligatoria</p>
+                            )}
+                            <p className="text-xs text-[#BFDBFE]">{formatCurrency(item.price)}</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setNoteEditorProductId(prev => (prev === item.product_id ? '' : item.product_id))}
+                              className={`w-6 h-6 rounded flex items-center justify-center border text-xs ${
+                                item.notes?.trim()
+                                  ? 'bg-amber-100 border-amber-300 text-amber-700'
+                                  : 'bg-[#1E3A8A]/50 border-[#93C5FD]/30 text-[#DBEAFE] hover:bg-[#1E3A8A]/70'
+                              }`}
+                              title="Agregar nota"
+                            >
+                              📝
+                            </button>
+                            <button onClick={() => updateQty(item.product_id, -1)} className="w-6 h-6 bg-[#1E3A8A]/50 border border-[#93C5FD]/30 rounded flex items-center justify-center hover:bg-[#1E3A8A]/70 text-[#DBEAFE]"><MdRemove className="text-xs" /></button>
+                            <span className="w-6 text-center text-sm font-bold text-white">{item.quantity}</span>
+                            <button onClick={() => updateQty(item.product_id, 1)} className="w-6 h-6 bg-[#1E3A8A]/50 border border-[#93C5FD]/30 rounded flex items-center justify-center hover:bg-[#1E3A8A]/70 text-[#DBEAFE]"><MdAdd className="text-xs" /></button>
+                          </div>
+                          <button onClick={() => removeFromCart(item.product_id)} className="text-[#93C5FD] hover:text-white"><MdDelete className="text-sm" /></button>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => updateQty(item.product_id, -1)} className="w-6 h-6 bg-[#1E3A8A]/50 border border-[#93C5FD]/30 rounded flex items-center justify-center hover:bg-[#1E3A8A]/70 text-[#DBEAFE]"><MdRemove className="text-xs" /></button>
-                          <span className="w-6 text-center text-sm font-bold text-white">{item.quantity}</span>
-                          <button onClick={() => updateQty(item.product_id, 1)} className="w-6 h-6 bg-[#1E3A8A]/50 border border-[#93C5FD]/30 rounded flex items-center justify-center hover:bg-[#1E3A8A]/70 text-[#DBEAFE]"><MdAdd className="text-xs" /></button>
-                        </div>
-                        <button onClick={() => removeFromCart(item.product_id)} className="text-[#93C5FD] hover:text-white"><MdDelete className="text-sm" /></button>
+                        {(noteEditorProductId === item.product_id || item.notes?.trim()) && (
+                          <div className="mt-2">
+                            <textarea
+                              value={item.notes || ''}
+                              onChange={(e) => updateItemNote(item.product_id, e.target.value)}
+                              placeholder="Escribe una nota para cocina..."
+                              className="w-full rounded border border-[#3B82F6]/40 bg-[#111827]/40 px-2 py-1.5 text-xs text-white placeholder:text-[#93C5FD] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                              rows={2}
+                            />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
