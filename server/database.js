@@ -369,6 +369,7 @@ async function initDatabase() {
         category_id TEXT,
         restaurant_id TEXT,
         stock INTEGER DEFAULT 100,
+        note_required INTEGER DEFAULT 0,
         is_active INTEGER DEFAULT 1,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
@@ -798,6 +799,9 @@ async function initDatabase() {
     }
     if (!productColumns.some(col => col.name === 'modifier_id')) {
       db.run("ALTER TABLE products ADD COLUMN modifier_id TEXT DEFAULT ''");
+    }
+    if (!productColumns.some(col => col.name === 'note_required')) {
+      db.run("ALTER TABLE products ADD COLUMN note_required INTEGER DEFAULT 0");
     }
 
     const orderColumns = queryAll('PRAGMA table_info(orders)');

@@ -123,6 +123,7 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
     production_area,
     tax_type,
     modifier_id,
+    note_required,
   } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error: 'Nombre y precio son requeridos' });
 
@@ -136,11 +137,12 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
     ? String(tax_type).toLowerCase()
     : 'igv';
   const safeModifierId = String(modifier_id || '').trim();
+  const safeNoteRequired = Number(note_required) === 1 ? 1 : 0;
   runSql(
     `INSERT INTO products (
       id, name, description, price, image, category_id, restaurant_id, stock,
-      process_type, stock_warehouse_id, production_area, tax_type, modifier_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      process_type, stock_warehouse_id, production_area, tax_type, modifier_id, note_required
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       name,
@@ -155,6 +157,7 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
       safeProductionArea,
       safeTaxType,
       safeModifierId,
+      safeNoteRequired,
     ]
   );
   if (safeProcessType === 'non_transformed') {
@@ -185,6 +188,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
     production_area,
     tax_type,
     modifier_id,
+    note_required,
   } = req.body;
   const current = queryOne('SELECT * FROM products WHERE id = ?', [req.params.id]);
   if (!current) return res.status(404).json({ error: 'Producto no encontrado' });
@@ -202,6 +206,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       ? String(tax_type).toLowerCase()
       : 'igv');
   const safeModifierId = modifier_id === undefined ? null : String(modifier_id || '').trim();
+  const safeNoteRequired = note_required === undefined ? null : (Number(note_required) === 1 ? 1 : 0);
   const safeName = name === undefined ? null : name;
   const safeDescription = description === undefined ? null : description;
   const safePrice = price === undefined ? null : price;
@@ -222,6 +227,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       production_area = COALESCE(?, production_area),
       tax_type = COALESCE(?, tax_type),
       modifier_id = COALESCE(?, modifier_id),
+      note_required = COALESCE(?, note_required),
       updated_at = datetime('now')
     WHERE id = ?`,
     [
@@ -237,6 +243,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       safeProductionArea,
       safeTaxType,
       safeModifierId,
+      safeNoteRequired,
       req.params.id,
     ]
   );
