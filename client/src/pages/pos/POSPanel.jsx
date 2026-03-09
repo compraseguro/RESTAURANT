@@ -1936,8 +1936,11 @@ export default function POSPanel() {
               <input
                 className="input-field"
                 type="email"
+                name="pos-customer-email"
+                autoComplete="off"
                 value={customerForm.email}
                 onChange={(e) => setCustomerForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="@gmail.com"
               />
             </div>
           </div>

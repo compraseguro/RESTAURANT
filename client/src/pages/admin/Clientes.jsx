@@ -206,11 +206,11 @@ export default function Clientes() {
       </div>
 
       <Modal isOpen={showModal} onClose={() => { setShowModal(false); setEditClient(null); }} title={editClient ? 'Editar Cliente' : 'Nuevo Cliente'} size="md">
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input-field" required /></div>
           <div className="grid grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label><input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Email</label><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input-field" /></div>
+            <div><label className="block text-sm font-medium text-slate-700 mb-1">Email</label><input type="email" name="customer-create-email" autoComplete="off" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input-field" placeholder="@gmail.com" /></div>
           </div>
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Dirección</label><input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="input-field" /></div>
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Contraseña {editClient ? '(opcional para actualizar)' : '(opcional, por defecto cliente123)'}</label><input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} className="input-field" /></div>
