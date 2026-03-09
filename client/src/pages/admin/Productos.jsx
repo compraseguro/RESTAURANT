@@ -40,6 +40,7 @@ export default function Productos() {
     production_area: 'cocina',
     tax_type: 'igv',
     modifier_id: '',
+    note_required: 0,
   });
 
   const [showCatModal, setShowCatModal] = useState(false);
@@ -118,6 +119,7 @@ export default function Productos() {
       production_area: 'cocina',
       tax_type: 'igv',
       modifier_id: '',
+      note_required: 0,
     });
     setShowProductModal(true);
   };
@@ -138,6 +140,7 @@ export default function Productos() {
         ? String(p.tax_type).toLowerCase()
         : 'igv',
       modifier_id: p.modifier_id || '',
+      note_required: Number(p.note_required || 0) === 1 ? 1 : 0,
     });
     setShowProductModal(true);
   };
@@ -592,6 +595,15 @@ export default function Productos() {
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={productForm.is_active === 1 || productForm.is_active === true} onChange={e => setProductForm({ ...productForm, is_active: e.target.checked ? 1 : 0 })} className="rounded text-gold-500" />
               <span className="font-medium text-slate-700">Producto activo</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Number(productForm.note_required || 0) === 1}
+                onChange={e => setProductForm({ ...productForm, note_required: e.target.checked ? 1 : 0 })}
+                className="rounded text-gold-500"
+              />
+              <span className="font-medium text-slate-700">Nota obligatoria al pedir</span>
             </label>
           </div>
           <div className="flex gap-3 pt-2">

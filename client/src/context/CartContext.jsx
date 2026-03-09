@@ -19,6 +19,8 @@ export function CartProvider({ children }) {
         price: product.price + (variant?.price_modifier || 0),
         variant_name: variant?.name || '',
         price_modifier: variant?.price_modifier || 0,
+        note_required: Number(product.note_required || 0) === 1 ? 1 : 0,
+        notes: '',
         quantity,
         image: product.image,
       }];
@@ -31,6 +33,9 @@ export function CartProvider({ children }) {
     if (quantity <= 0) return removeItem(key);
     setItems(prev => prev.map(i => i.key === key ? { ...i, quantity } : i));
   };
+  const updateItemNotes = (key, notes) => {
+    setItems(prev => prev.map(i => (i.key === key ? { ...i, notes: String(notes || '') } : i)));
+  };
 
   const clearCart = () => setItems([]);
 
@@ -38,7 +43,7 @@ export function CartProvider({ children }) {
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, total, count }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, updateItemNotes, clearCart, total, count }}>
       {children}
     </CartContext.Provider>
   );

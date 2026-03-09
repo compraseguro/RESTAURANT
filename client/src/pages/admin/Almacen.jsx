@@ -105,6 +105,7 @@ export default function Almacen() {
     stock: '0',
     category_id: '',
     stock_warehouse: DEFAULT_STOCK_WAREHOUSE,
+    note_required: 0,
   });
 
   const getCategoryIdByType = (type) => categories.find(c => c.name === WAREHOUSE_CATEGORY_NAMES[type])?.id || '';
@@ -345,6 +346,7 @@ export default function Almacen() {
         category_id: itemForm.category_id || null,
         process_type: 'non_transformed',
         stock_warehouse_id: selectedWarehouseId || '',
+        note_required: Number(itemForm.note_required || 0) === 1 ? 1 : 0,
       });
 
       if (selectedWarehouseId) {
@@ -363,6 +365,7 @@ export default function Almacen() {
         stock: '0',
         category_id: '',
         stock_warehouse: getDefaultCreateWarehouseId(),
+        note_required: 0,
       });
       load();
     } catch (err) {
@@ -949,6 +952,7 @@ export default function Almacen() {
                 ...prev,
                 category_id: '',
                 stock_warehouse: getDefaultCreateWarehouseId(),
+                note_required: 0,
               }));
               setShowCreateModal(true);
             }}
@@ -1217,6 +1221,15 @@ export default function Almacen() {
                 ))}
               </select>
           </div>
+          <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={Number(itemForm.note_required || 0) === 1}
+              onChange={(e) => setItemForm({ ...itemForm, note_required: e.target.checked ? 1 : 0 })}
+              className="rounded"
+            />
+            <span>Nota obligatoria al pedir</span>
+          </label>
           <div className="flex gap-3">
             <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary flex-1">Cancelar</button>
             <button type="submit" className="btn-primary flex-1">Guardar</button>

@@ -7,12 +7,13 @@ import toast from 'react-hot-toast';
 import { MdAdd, MdRemove, MdDelete, MdShoppingCart, MdDeliveryDining, MdStorefront, MdRestaurant, MdArrowBack } from 'react-icons/md';
 
 export default function Cart() {
-  const { items, updateQuantity, removeItem, clearCart, total, count } = useCart();
+  const { items, updateQuantity, updateItemNotes, removeItem, clearCart, total, count } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [orderType, setOrderType] = useState('pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
+  const [noteEditorItemKey, setNoteEditorItemKey] = useState('');
   const [loading, setLoading] = useState(false);
 
   const taxRate = 0.18;
@@ -31,6 +32,12 @@ export default function Cart() {
       toast.error('Ingresa tu dirección de delivery');
       return;
     }
+    const missingRequiredNote = items.find(i => Number(i.note_required || 0) === 1 && !String(i.notes || '').trim());
+    if (missingRequiredNote) {
+      setNoteEditorItemKey(missingRequiredNote.key);
+      toast.error(`"${missingRequiredNote.name}" requiere nota obligatoria`);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -40,6 +47,7 @@ export default function Cart() {
           quantity: i.quantity,
           variant_name: i.variant_name,
           price_modifier: i.price_modifier || 0,
+          notes: String(i.notes || '').trim(),
         })),
         type: orderType,
         delivery_address: deliveryAddress,
@@ -82,16 +90,29 @@ export default function Cart() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-3">
           {items.map(item => (
-            <div key={item.key} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4">
+            <div key={item.key} className="bg-white rounded-xl border border-gray-100 p-4">
+              <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
                 {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <span className="text-2xl">🍽️</span>}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-gray-800">{item.name}</h3>
+                {Number(item.note_required || 0) === 1 && <p className="text-[11px] text-red-600 font-medium">Nota obligatoria</p>}
                 {item.variant_name && <p className="text-xs text-gray-400">{item.variant_name}</p>}
                 <p className="text-primary-600 font-bold">{formatCurrency(item.price)}</p>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setNoteEditorItemKey(prev => (prev === item.key ? '' : item.key))}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center border text-xs ${
+                    item.notes?.trim()
+                      ? 'bg-amber-100 border-amber-300 text-amber-700'
+                      : 'bg-gray-100 hover:bg-gray-200'
+                  }`}
+                  title="Agregar nota"
+                >
+                  📝
+                </button>
                 <button onClick={() => updateQuantity(item.key, item.quantity - 1)} className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200">
                   <MdRemove className="text-sm" />
                 </button>
@@ -106,6 +127,18 @@ export default function Cart() {
                   <MdDelete className="text-lg" />
                 </button>
               </div>
+            </div>
+            {(noteEditorItemKey === item.key || item.notes?.trim()) && (
+              <div className="mt-3">
+                <textarea
+                  value={item.notes || ''}
+                  onChange={(e) => updateItemNotes(item.key, e.target.value)}
+                  rows={2}
+                  className="input-field"
+                  placeholder="Escribe una nota para cocina/bar..."
+                />
+              </div>
+            )}
             </div>
           ))}
 

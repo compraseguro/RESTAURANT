@@ -291,10 +291,14 @@ router.post('/', authenticateToken, (req, res) => {
           }
         }
         const unitPrice = Number(product.price || 0) + Number(item.price_modifier || 0);
+        const itemNote = String(item.notes || '').trim();
+        if (Number(product.note_required || 0) === 1 && !itemNote) {
+          throw new Error(`El producto ${product.name} requiere una nota obligatoria`);
+        }
         const itemSubtotal = unitPrice * qty;
         subtotal += itemSubtotal;
         const composedNotes = [
-          String(item.notes || '').trim(),
+          itemNote,
           modifierName && modifierOption ? `${modifierName}: ${modifierOption}` : '',
         ].filter(Boolean).join(' | ');
         return {
