@@ -265,12 +265,14 @@ export default function Tables() {
                 style={cardStyle}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-bold text-slate-800">{table.name}</p>
+                  <span className="inline-flex items-center rounded-md bg-[#1E3A8A] px-2 py-0.5">
+                    <p className="font-bold text-white">{table.name}</p>
+                  </span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={badgeStyle}>
                     {isOccupied ? 'Ocupada' : 'Libre'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">{table.capacity} pers.</p>
+                <p className="text-xs text-[#1E3A8A]">{table.capacity} pers.</p>
                 <p className="text-xs mt-1 font-medium" style={stateTextStyle}>
                   {isOccupied ? `${table.orders?.length || 0} pedido(s)` : 'Disponible'}
                 </p>
