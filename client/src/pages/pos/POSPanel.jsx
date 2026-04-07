@@ -1667,14 +1667,14 @@ export default function POSPanel() {
         closeIconClassName="text-white"
       >
         {selectedTable && (
-          <div className="border border-red-200 rounded-lg p-3 bg-red-50/30">
-            <p className="text-red-600 font-bold mb-2">COBRAR-MESA {selectedTable.number || selectedTable.name}</p>
+          <div className="border border-red-300 rounded-lg p-3 bg-[#FEE2E2]">
+            <p className="text-red-800 font-bold mb-2">COBRAR-MESA {selectedTable.number || selectedTable.name}</p>
             <div className="flex items-end justify-between mb-3">
               <div>
                 <p className="inline-flex px-3 py-1 rounded-lg bg-red-600 text-white text-sm font-bold">MESA {selectedTable.name}</p>
-                <p className="text-xs text-slate-400">Busca un producto</p>
+                <p className="text-xs text-slate-700">Busca un producto</p>
               </div>
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-slate-800">
                 <span className="font-semibold">Detalles de mesa:</span> Sin detalles
               </div>
             </div>
@@ -1682,22 +1682,22 @@ export default function POSPanel() {
             <div className="flex gap-2 mb-2">
               <button
                 onClick={() => setBillTab('pedidos')}
-                className={`px-4 py-2 rounded-t-lg text-sm ${billTab === 'pedidos' ? 'bg-white border border-b-0 border-red-200 font-semibold text-red-700' : 'bg-red-100 text-red-500'}`}
+                className={`px-4 py-2 rounded-t-lg text-sm ${billTab === 'pedidos' ? 'bg-[#ffffff] border border-b-0 border-red-200 font-semibold text-red-800' : 'bg-red-200 text-red-800'}`}
               >
                 Pedidos
               </button>
               <button
                 onClick={() => setBillTab('cuenta')}
-                className={`px-4 py-2 rounded-t-lg text-sm ${billTab === 'cuenta' ? 'bg-white border border-b-0 border-red-200 font-semibold text-red-700' : 'bg-red-100 text-red-500'}`}
+                className={`px-4 py-2 rounded-t-lg text-sm ${billTab === 'cuenta' ? 'bg-[#ffffff] border border-b-0 border-red-200 font-semibold text-red-800' : 'bg-red-200 text-red-800'}`}
               >
                 $ Cuenta
               </button>
             </div>
 
             {billTab === 'pedidos' ? (
-              <div className="border rounded-lg p-3 mb-3 space-y-3">
+              <div className="border border-slate-200 rounded-lg p-3 mb-3 space-y-3 bg-[#ffffff]">
                 {(selectedTable.orders || []).length === 0 ? (
-                  <p className="text-sm text-slate-400 text-center py-6">Sin pedidos activos</p>
+                  <p className="text-sm text-slate-600 text-center py-6">Sin pedidos activos</p>
                 ) : (
                   (selectedTable.orders || []).map(order => (
                     <div key={order.id} className="border border-slate-200 rounded-lg p-3">
@@ -1718,41 +1718,41 @@ export default function POSPanel() {
                 )}
               </div>
             ) : (
-              <div className="border rounded-lg p-3 mb-3">
+              <div className="border border-slate-200 rounded-lg p-3 mb-3 bg-[#ffffff]">
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-sm font-medium text-slate-600">Cobro completo</span>
-                  <span className="text-xs text-slate-500">{selectedOrderIds.length} pedido(s) seleccionados</span>
+                  <span className="text-sm font-medium text-slate-800">Cobro completo</span>
+                  <span className="text-xs text-slate-600">{selectedOrderIds.length} pedido(s) seleccionados</span>
                 </div>
                 <div className="flex items-end justify-between border-t border-slate-200 pt-3">
                   <div>
-                    <p className="text-xs text-slate-500">Pedidos</p>
-                    <p className="text-2xl font-bold text-slate-700">{selectedOrderIds.length}</p>
+                    <p className="text-xs text-slate-600">Pedidos</p>
+                    <p className="text-2xl font-bold text-slate-900">{selectedOrderIds.length}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-slate-500">Total</p>
-                    <p className="text-4xl font-bold text-slate-700">S/ {payableTotal.toFixed(2)}</p>
+                    <p className="text-xs text-slate-600">Total</p>
+                    <p className="text-4xl font-bold text-slate-900">S/ {payableTotal.toFixed(2)}</p>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="border rounded-lg p-3 mb-3 bg-white">
+            <div className="border border-slate-200 rounded-lg p-3 mb-3 bg-[#ffffff]">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Método de pago</label>
-                  <select className="input-field" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                  <label className="block text-xs font-medium text-slate-800 mb-1">Método de pago</label>
+                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] outline-none" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
                     {paymentOptions.map(opt => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Paga con</label>
+                  <label className="block text-xs font-medium text-slate-800 mb-1">Paga con</label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
-                    className="input-field"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] outline-none"
                     value={amountReceived}
                     onChange={e => setAmountReceived(e.target.value)}
                     placeholder="0.00"
@@ -1773,9 +1773,9 @@ export default function POSPanel() {
               </div>
             </div>
 
-            <div className="border rounded-lg p-3 mb-3 bg-white">
+            <div className="border border-slate-200 rounded-lg p-3 mb-3 bg-[#ffffff]">
               <div className="flex items-center justify-between gap-2 mb-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-900">
                   <input
                     type="checkbox"
                     checked={billingForm.enabled}
@@ -1795,7 +1795,7 @@ export default function POSPanel() {
               {billingForm.enabled && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <select
-                    className="input-field"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 focus:ring-2 focus:ring-[#2563EB] outline-none"
                     value={billingForm.doc_type}
                     onChange={e => setBillingForm(prev => ({ ...prev, doc_type: e.target.value }))}
                   >
@@ -1803,7 +1803,7 @@ export default function POSPanel() {
                     <option value="factura">Factura</option>
                   </select>
                   <select
-                    className="input-field"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 focus:ring-2 focus:ring-[#2563EB] outline-none"
                     value={billingForm.customer_doc_type}
                     onChange={e => setBillingForm(prev => ({ ...prev, customer_doc_type: e.target.value }))}
                     disabled={billingForm.doc_type === 'factura'}
@@ -1813,19 +1813,19 @@ export default function POSPanel() {
                     <option value="0">Sin documento</option>
                   </select>
                   <input
-                    className="input-field"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-[#2563EB] outline-none"
                     placeholder="N° documento"
                     value={billingForm.customer_doc_number}
                     onChange={e => setBillingForm(prev => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))}
                   />
                   <input
-                    className="input-field"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-[#2563EB] outline-none"
                     placeholder={billingForm.doc_type === 'factura' ? 'Razón social' : 'Nombre cliente'}
                     value={billingForm.customer_name}
                     onChange={e => setBillingForm(prev => ({ ...prev, customer_name: e.target.value }))}
                   />
                   <input
-                    className="input-field md:col-span-2"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-[#2563EB] outline-none md:col-span-2"
                     placeholder="Dirección (opcional)"
                     value={billingForm.customer_address}
                     onChange={e => setBillingForm(prev => ({ ...prev, customer_address: e.target.value }))}
