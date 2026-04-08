@@ -2,7 +2,8 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql, withTransaction, logAudit } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { assertPaymentMethodAllowed, normalizePaymentMethod } = require('../businessRules');
+const { assertPaymentMethodAllowed } = require('../businessRules');
+const { getOrderWithItems, createOrderInTransaction, actorFromRequest } = require('../orderCreateService');
 
 const router = express.Router();
 const ORDER_TRANSITIONS = {
@@ -87,13 +88,6 @@ function addToWarehouses(product, quantityToAdd) {
     [current + Number(quantityToAdd || 0), target.id]
   );
   recalculateProductStock(product.id);
-}
-
-function getOrderWithItems(orderId) {
-  const order = queryOne('SELECT * FROM orders WHERE id = ?', [orderId]);
-  if (!order) return null;
-  order.items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
-  return order;
 }
 
 function isBarText(value = '') {
@@ -232,9 +226,8 @@ router.get('/:id', authenticateToken, (req, res) => {
 });
 
 router.post('/', authenticateToken, (req, res) => {
-  const { items, type, table_number, delivery_address, notes, payment_method, customer_name, discount, customer_id } = req.body;
+  const { items, payment_method } = req.body;
   if (!items || items.length === 0) return res.status(400).json({ error: 'El pedido debe tener al menos un producto' });
-  const orderType = ['dine_in', 'delivery', 'pickup'].includes(type) ? type : 'dine_in';
   const requestedPaymentMethod = String(payment_method || '').trim().toLowerCase();
   if (requestedPaymentMethod) {
     try {
@@ -245,154 +238,10 @@ router.post('/', authenticateToken, (req, res) => {
   }
   try {
     const orderId = uuidv4();
-    const result = withTransaction((tx) => {
-      const restaurant = tx.queryOne('SELECT * FROM restaurants LIMIT 1');
-      const seq = tx.queryOne('SELECT current_number FROM order_sequence WHERE id = 1') || { current_number: 0 };
-      const orderNumber = Number(seq.current_number || 0) + 1;
-      tx.run('UPDATE order_sequence SET current_number = ? WHERE id = 1', [orderNumber]);
-
-      let subtotal = 0;
-      const orderItems = items.map(item => {
-        const product = tx.queryOne('SELECT * FROM products WHERE id = ?', [item.product_id]);
-        if (!product) throw new Error(`Producto no encontrado: ${item.product_id}`);
-        const qty = Number(item.quantity || 0);
-        if (qty <= 0) throw new Error(`Cantidad inválida para ${product.name}`);
-        const requiresStock = product.process_type === 'non_transformed';
-        if (requiresStock && Number(product.stock || 0) < qty) {
-          throw new Error(`Stock insuficiente para ${product.name}`);
-        }
-        const productModifierId = String(product.modifier_id || '').trim();
-        let modifierName = '';
-        let modifierOption = '';
-        if (productModifierId) {
-          const modifier = tx.queryOne('SELECT * FROM modifiers WHERE id = ?', [productModifierId]);
-          if (modifier) {
-            const requestedModifierId = String(item.modifier_id || '').trim();
-            const requestedOption = String(item.modifier_option || '').trim();
-            const availableOptions = tx.queryAll(
-              'SELECT option_name FROM modifier_options WHERE modifier_id = ?',
-              [productModifierId]
-            ).map(row => String(row.option_name || '').trim()).filter(Boolean);
-            const isRequired = Number(modifier.required || 0) === 1;
-
-            if (requestedModifierId && requestedModifierId !== productModifierId) {
-              throw new Error(`El producto ${product.name} tiene un modificador inválido`);
-            }
-            if (isRequired && !requestedOption) {
-              throw new Error(`El producto ${product.name} requiere seleccionar ${modifier.name}`);
-            }
-            if (requestedOption) {
-              if (availableOptions.length > 0 && !availableOptions.includes(requestedOption)) {
-                throw new Error(`La opción "${requestedOption}" no es válida para ${modifier.name}`);
-              }
-              modifierName = String(modifier.name || '').trim();
-              modifierOption = requestedOption;
-            }
-          }
-        }
-        const unitPrice = Number(product.price || 0) + Number(item.price_modifier || 0);
-        const itemNote = String(item.notes || '').trim();
-        if (Number(product.note_required || 0) === 1 && !itemNote) {
-          throw new Error(`El producto ${product.name} requiere una nota obligatoria`);
-        }
-        const itemSubtotal = unitPrice * qty;
-        subtotal += itemSubtotal;
-        const composedNotes = [
-          itemNote,
-          modifierName && modifierOption ? `${modifierName}: ${modifierOption}` : '',
-        ].filter(Boolean).join(' | ');
-        return {
-          id: uuidv4(),
-          order_id: orderId,
-          product_id: product.id,
-          product_name: product.name,
-          variant_name: item.variant_name || '',
-          quantity: qty,
-          unit_price: unitPrice,
-          subtotal: itemSubtotal,
-          notes: composedNotes,
-          process_type: product.process_type,
-        };
-      });
-
-      const tax = 0;
-      const discountAmount = Math.max(0, Number(discount || 0));
-      const deliveryFee = orderType === 'delivery' ? Number(restaurant?.delivery_fee || 0) : 0;
-      const total = Math.max(0, subtotal - discountAmount + deliveryFee);
-      let customerId = req.user.type === 'customer' ? req.user.id : (String(customer_id || '').trim() || null);
-      if (customerId) {
-        const customer = tx.queryOne('SELECT id, name FROM customers WHERE id = ?', [customerId]);
-        if (!customer) throw new Error('Cliente no encontrado para el pedido');
-      }
-      const customerFromDb = customerId ? tx.queryOne('SELECT id, name FROM customers WHERE id = ?', [customerId]) : null;
-      const custName = req.user.type === 'customer'
-        ? req.user.name
-        : (customerFromDb?.name || customer_name || '');
-      const saleDocumentNumber = `001-${String(orderNumber).padStart(8, '0')}`;
-      const paymentMethod = normalizePaymentMethod(requestedPaymentMethod || 'efectivo', { allowOnline: true, fallback: 'efectivo' });
-
-      tx.run(
-        `INSERT INTO orders (
-          id, order_number, customer_id, customer_name, restaurant_id, type, subtotal, tax, discount, delivery_fee, total,
-          payment_method, table_number, delivery_address, notes, sale_document_type, sale_document_number, created_by_user_id, created_by_user_name
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          orderId,
-          orderNumber,
-          customerId,
-          custName,
-          restaurant?.id,
-          orderType,
-          subtotal,
-          tax,
-          discountAmount,
-          deliveryFee,
-          total,
-          paymentMethod,
-          table_number || '',
-          delivery_address || '',
-          notes || '',
-          'nota_venta',
-          saleDocumentNumber,
-          req.user.id || '',
-          req.user.full_name || req.user.username || '',
-        ]
-      );
-
-      orderItems.forEach(item => {
-        if (item.process_type === 'non_transformed') {
-          const stockRows = tx.queryAll(
-            'SELECT id, quantity FROM inventory_warehouse_stocks WHERE product_id = ? ORDER BY quantity DESC',
-            [item.product_id]
-          );
-          let pending = Number(item.quantity || 0);
-          for (const row of stockRows) {
-            if (pending <= 0) break;
-            const available = Number(row.quantity || 0);
-            if (available <= 0) continue;
-            const consume = Math.min(available, pending);
-            tx.run(
-              'UPDATE inventory_warehouse_stocks SET quantity = ?, updated_at = datetime(\'now\') WHERE id = ?',
-              [available - consume, row.id]
-            );
-            pending -= consume;
-          }
-          if (pending > 0) {
-            throw new Error(`No hay stock suficiente en almacenes para ${item.product_name}`);
-          }
-          const newSum = tx.queryOne(
-            'SELECT COALESCE(SUM(quantity), 0) as total FROM inventory_warehouse_stocks WHERE product_id = ?',
-            [item.product_id]
-          );
-          tx.run('UPDATE products SET stock = ?, updated_at = datetime(\'now\') WHERE id = ?', [Number(newSum?.total || 0), item.product_id]);
-        }
-        tx.run(
-          'INSERT INTO order_items (id, order_id, product_id, product_name, variant_name, quantity, unit_price, subtotal, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [item.id, item.order_id, item.product_id, item.product_name, item.variant_name, item.quantity, item.unit_price, item.subtotal, item.notes]
-        );
-      });
-      return { orderId };
-    });
+    const actor = actorFromRequest(req);
+    const result = withTransaction((tx) =>
+      createOrderInTransaction(tx, orderId, req.body, actor)
+    );
 
     const order = getOrderWithItems(result.orderId);
     const io = req.app.get('io');

@@ -108,11 +108,20 @@ function resetOperationalData({ keepAdminUserId = '' } = {}) {
       'tables',
       'user_permissions',
       'warehouse_locations',
+      'staff_internal_messages',
     ];
 
     tablesToClear.forEach((tableName) => {
       tx.run(`DELETE FROM ${tableName}`);
     });
+
+    try {
+      tx.run(
+        `UPDATE internal_chat_state SET cycle_id = 1, all_staff_offline_at = NULL, cycle_started_at = datetime('now') WHERE id = 1`
+      );
+    } catch (_) {
+      /* tabla puede no existir en backups antiguos */
+    }
 
     if (keepId) {
       tx.run("DELETE FROM users WHERE id != ?", [keepId]);
@@ -327,10 +336,36 @@ async function initDatabase() {
         logout_at TEXT,
         worked_minutes INTEGER DEFAULT 0,
         close_reason TEXT DEFAULT '',
+        photo_login TEXT,
+        photo_logout TEXT,
+        attendance_status TEXT DEFAULT 'pending',
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
       )
     `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS internal_chat_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        cycle_id INTEGER NOT NULL DEFAULT 1,
+        cycle_started_at TEXT DEFAULT (datetime('now')),
+        all_staff_offline_at TEXT
+      )
+    `);
+    db.run(`INSERT OR IGNORE INTO internal_chat_state (id, cycle_id, cycle_started_at) VALUES (1, 1, datetime('now'))`);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS staff_internal_messages (
+        id TEXT PRIMARY KEY,
+        cycle_id INTEGER NOT NULL,
+        sender_id TEXT NOT NULL,
+        recipient_id TEXT,
+        body TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    db.run('CREATE INDEX IF NOT EXISTS idx_staff_chat_cycle ON staff_internal_messages(cycle_id, created_at)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_staff_chat_pair ON staff_internal_messages(cycle_id, sender_id, recipient_id)');
 
     db.run(`
       CREATE TABLE IF NOT EXISTS customers (
@@ -868,6 +903,24 @@ async function initDatabase() {
       db.run("ALTER TABLE restaurants ADD COLUMN billing_auto_retry_interval_sec INTEGER DEFAULT 120");
     }
 
+    const workSessionCols = queryAll('PRAGMA table_info(user_work_sessions)');
+    const workSessionColNames = new Set((workSessionCols || []).map((c) => c.name));
+    if (!workSessionColNames.has('photo_login')) {
+      db.run('ALTER TABLE user_work_sessions ADD COLUMN photo_login TEXT');
+    }
+    if (!workSessionColNames.has('photo_logout')) {
+      db.run('ALTER TABLE user_work_sessions ADD COLUMN photo_logout TEXT');
+    }
+    if (!workSessionColNames.has('attendance_status')) {
+      db.run('ALTER TABLE user_work_sessions ADD COLUMN attendance_status TEXT');
+      db.run(`UPDATE user_work_sessions SET attendance_status = 'asistente'
+        WHERE date(datetime(login_at, 'localtime')) < date('now', 'localtime')`);
+      db.run(`UPDATE user_work_sessions SET attendance_status = 'pending'
+        WHERE date(datetime(login_at, 'localtime')) = date('now', 'localtime')`);
+      db.run(`UPDATE user_work_sessions SET attendance_status = 'asistente'
+        WHERE attendance_status IS NULL OR trim(attendance_status) = ''`);
+    }
+
     const usersTableSql = queryOne("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'");
     if (usersTableSql?.sql && !usersTableSql.sql.includes("'bar'")) {
       db.run('PRAGMA foreign_keys = OFF');
@@ -984,6 +1037,11 @@ async function initDatabase() {
         { name: 'Plin', desc: 'Pago móvil Interbank', active: 0 },
         { name: 'Tarjeta', desc: 'Visa, Mastercard, etc.', active: 1 },
       ],
+      jornada_laboral: {
+        requiere_foto_inicio_sesion: 0,
+        requiere_foto_fin_jornada: 0,
+        requiere_foto_asistencia: 0,
+      },
     })]);
     const settingsRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
     if (settingsRow?.value) {
@@ -1005,11 +1063,27 @@ async function initDatabase() {
         nextPrinters = [...normalizedPrinters, { name: 'Impresora Bar', area: 'Comandas Bar', width_mm: 80, copies: 1, active: 1 }];
       }
       const printersChanged = JSON.stringify(printers) !== JSON.stringify(nextPrinters);
+      let next = { ...parsed };
       if (printersChanged) {
-        const next = {
-          ...parsed,
-          impresoras: nextPrinters,
+        next.impresoras = nextPrinters;
+      }
+      const jl = next.jornada_laboral && typeof next.jornada_laboral === 'object' ? next.jornada_laboral : {};
+      const legacy = Number(jl.requiere_foto_asistencia) === 1;
+      const hasInicio = Object.prototype.hasOwnProperty.call(jl, 'requiere_foto_inicio_sesion');
+      const hasFin = Object.prototype.hasOwnProperty.call(jl, 'requiere_foto_fin_jornada');
+      if (!hasInicio || !hasFin) {
+        const inicioVal = hasInicio ? (Number(jl.requiere_foto_inicio_sesion) === 1 ? 1 : 0) : (legacy ? 1 : 0);
+        const finVal = hasFin ? (Number(jl.requiere_foto_fin_jornada) === 1 ? 1 : 0) : (legacy ? 1 : 0);
+        next = {
+          ...next,
+          jornada_laboral: {
+            ...jl,
+            requiere_foto_inicio_sesion: inicioVal,
+            requiere_foto_fin_jornada: finVal,
+          },
         };
+      }
+      if (JSON.stringify(next) !== JSON.stringify(parsed)) {
         db.run("UPDATE app_settings SET value = ?, updated_at = datetime('now') WHERE key = 'settings'", [JSON.stringify(next)]);
       }
     }

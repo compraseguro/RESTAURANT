@@ -3,13 +3,16 @@ import { api, formatCurrency } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
+import EndShiftModal from '../../components/EndShiftModal';
+import NotificationCenter from '../../components/NotificationCenter';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MdDeliveryDining, MdLogout, MdPhone, MdLocationOn, MdAccessTime, MdCheckCircle } from 'react-icons/md';
 
 export default function DeliveryPanel() {
   const [deliveries, setDeliveries] = useState([]);
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const [endShiftOpen, setEndShiftOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const canReturnToAdmin = user?.role === 'admin' && !location.pathname.startsWith('/admin');
@@ -71,11 +74,13 @@ export default function DeliveryPanel() {
               Volver al Centro Operativo
             </button>
           )}
-          <button onClick={logout} className="px-3 py-2 hover:bg-[#111827]/80 rounded-lg text-[#9CA3AF] hover:text-[#F9FAFB] border border-[#3B82F6]/25 text-sm font-medium inline-flex items-center gap-2">
+          <NotificationCenter />
+          <button type="button" onClick={() => setEndShiftOpen(true)} className="px-3 py-2 hover:bg-[#111827]/80 rounded-lg text-[#9CA3AF] hover:text-[#F9FAFB] border border-[#3B82F6]/25 text-sm font-medium inline-flex items-center gap-2">
             <MdLogout className="text-lg" /> Finalizar jornada
           </button>
         </div>
       </header>
+      <EndShiftModal isOpen={endShiftOpen} onClose={() => setEndShiftOpen(false)} />
 
       <div className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

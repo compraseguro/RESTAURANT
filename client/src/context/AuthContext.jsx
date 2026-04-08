@@ -19,8 +19,10 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = async (username, password) => {
-    const data = await api.post('/auth/login', { username, password });
+  const login = async (username, password, opts = {}) => {
+    const body = { username, password };
+    if (opts.photo_login) body.photo_login = opts.photo_login;
+    const data = await api.post('/auth/login', body);
     localStorage.setItem('token', data.token);
     setUser({ ...data.user, type: 'staff' });
     return data.user;
@@ -40,16 +42,13 @@ export function AuthProvider({ children }) {
     return data.customer;
   };
 
-  const logout = async () => {
-    try {
-      await api.post('/auth/logout', {});
-    } catch (_) {
-      // Ignore logout API errors; local logout must always succeed.
-    } finally {
-      localStorage.removeItem('token');
-      setUser(null);
-      window.location.href = '/';
-    }
+  const logout = async (opts = {}) => {
+    const body = {};
+    if (opts.photo_logout) body.photo_logout = opts.photo_logout;
+    await api.post('/auth/logout', body);
+    localStorage.removeItem('token');
+    setUser(null);
+    window.location.href = '/';
   };
 
   return (

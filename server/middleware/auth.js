@@ -72,8 +72,8 @@ function ensureOpenWorkSession(user) {
 
     runSql(
       `INSERT INTO user_work_sessions
-       (id, user_id, session_token_id, username, full_name, role, login_at)
-       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+       (id, user_id, session_token_id, username, full_name, role, login_at, photo_login, attendance_status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now'), NULL, 'pending', datetime('now'), datetime('now'))`,
       [
         uuidv4(),
         user.id,

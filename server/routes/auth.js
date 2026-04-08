@@ -5,10 +5,25 @@ const { v4: uuidv4 } = require('uuid');
 const { queryOne, runSql } = require('../database');
 const { JWT_SECRET, authenticateToken } = require('../middleware/auth');
 const { getLockState, verifyMasterCredentials, getMasterCredentialsPublic } = require('../masterAdminService');
+const { advanceStaffChatCycleIfDue, markAllStaffOfflineIfNeeded } = require('../staffChatService');
 
 const router = express.Router();
+
+const MAX_PHOTO_CHARS = 450000;
+/** JPEG en base64 (data URL); por debajo suele ser captura truncada o inválida */
+const MIN_PHOTO_CHARS = 120;
+
+/** data:image/jpeg;base64,... — obligatorio para personal en login/cierre de jornada */
+function normalizeAttendancePhoto(input) {
+  const s = typeof input === 'string' ? input.trim() : '';
+  if (s.length < MIN_PHOTO_CHARS || s.length > MAX_PHOTO_CHARS) return null;
+  if (!s.startsWith('data:image/')) return null;
+  if (!s.includes('base64,')) return null;
+  return s;
+}
+
 const MODULE_IDS = [
-  'escritorio', 'ventas', 'caja', 'mesas', 'reservas', 'creditos', 'clientes',
+  'escritorio', 'ventas', 'caja', 'mesas', 'reservas', 'auto_pedido', 'creditos', 'clientes',
   'productos', 'ofertas', 'descuentos', 'almacen', 'delivery', 'informes',
   'indicadores', 'mi_restaurant', 'configuracion', 'cocina', 'bar', 'tiempo_trabajado',
 ];
@@ -38,7 +53,7 @@ function getUserPermissions(userId) {
   }, {});
 }
 
-function startWorkSession(user) {
+function startWorkSession(user, photoLogin = null) {
   if (!user?.id) return '';
   const sessionTokenId = uuidv4();
   runSql(
@@ -52,14 +67,14 @@ function startWorkSession(user) {
   );
   runSql(
     `INSERT INTO user_work_sessions
-      (id, user_id, session_token_id, username, full_name, role, login_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`,
-    [uuidv4(), user.id, sessionTokenId, user.username, user.full_name, user.role]
+      (id, user_id, session_token_id, username, full_name, role, login_at, photo_login, attendance_status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, 'pending', datetime('now'), datetime('now'))`,
+    [uuidv4(), user.id, sessionTokenId, user.username, user.full_name, user.role, photoLogin]
   );
   return sessionTokenId;
 }
 
-function closeWorkSession(userId, sessionTokenId = '', closeReason = 'logout') {
+function closeWorkSession(userId, sessionTokenId = '', closeReason = 'logout', photoLogout = null) {
   const uid = String(userId || '').trim();
   const sid = String(sessionTokenId || '').trim();
   if (!uid) return false;
@@ -72,9 +87,10 @@ function closeWorkSession(userId, sessionTokenId = '', closeReason = 'logout') {
      SET logout_at = datetime('now'),
          worked_minutes = CAST((julianday('now') - julianday(login_at)) * 24 * 60 AS INTEGER),
          close_reason = ?,
+         photo_logout = COALESCE(?, photo_logout),
          updated_at = datetime('now')
      WHERE id = ?`,
-    [closeReason, active.id]
+    [closeReason, photoLogout, active.id]
   );
   return true;
 }
@@ -89,11 +105,29 @@ function ensureOpenWorkSession(user) {
   const sessionTokenId = uuidv4();
   runSql(
     `INSERT INTO user_work_sessions
-      (id, user_id, session_token_id, username, full_name, role, login_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`,
+      (id, user_id, session_token_id, username, full_name, role, login_at, photo_login, attendance_status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), NULL, 'pending', datetime('now'), datetime('now'))`,
     [uuidv4(), user.id, sessionTokenId, user.username, user.full_name, user.role]
   );
   return sessionTokenId;
+}
+
+/** Lee flags desde settings.jornada_laboral (migración desde requiere_foto_asistencia legacy). */
+function readJornadaLaboralFlags() {
+  const row = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
+  if (!row?.value) return { loginPhoto: false, logoutPhoto: false };
+  try {
+    const s = JSON.parse(row.value);
+    const jl = s?.jornada_laboral && typeof s.jornada_laboral === 'object' ? s.jornada_laboral : {};
+    const legacy = isPermissionEnabled(jl.requiere_foto_asistencia);
+    const hasInicio = Object.prototype.hasOwnProperty.call(jl, 'requiere_foto_inicio_sesion');
+    const hasFin = Object.prototype.hasOwnProperty.call(jl, 'requiere_foto_fin_jornada');
+    const loginPhoto = hasInicio ? isPermissionEnabled(jl.requiere_foto_inicio_sesion) : legacy;
+    const logoutPhoto = hasFin ? isPermissionEnabled(jl.requiere_foto_fin_jornada) : legacy;
+    return { loginPhoto, logoutPhoto };
+  } catch {
+    return { loginPhoto: false, logoutPhoto: false };
+  }
 }
 
 function buildMasterToken() {
@@ -109,6 +143,16 @@ function buildMasterToken() {
     { expiresIn: '24h' }
   );
 }
+
+router.get('/attendance-photos-required', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  const { loginPhoto, logoutPhoto } = readJornadaLaboralFlags();
+  res.json({
+    loginRequired: loginPhoto,
+    logoutRequired: logoutPhoto,
+    required: loginPhoto,
+  });
+});
 
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
@@ -139,7 +183,15 @@ router.post('/login', (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
-  const sessionTokenId = startWorkSession(user);
+  const photoLogin = normalizeAttendancePhoto(req.body?.photo_login);
+  const { loginPhoto } = readJornadaLaboralFlags();
+  if (loginPhoto) {
+    if (!photoLogin) {
+      return res.status(400).json({ error: 'Debe tomarse una foto para registrar el inicio de jornada' });
+    }
+  }
+  const sessionTokenId = startWorkSession(user, photoLogin || null);
+  advanceStaffChatCycleIfDue();
 
   const token = jwt.sign(
     {
@@ -172,7 +224,15 @@ router.post('/logout', authenticateToken, (req, res) => {
   if (req.user?.type === 'customer' || req.user?.role === 'master_admin') {
     return res.json({ success: true, closed: false });
   }
-  const closed = closeWorkSession(req.user?.id, req.user?.session_id, 'logout');
+  const { logoutPhoto } = readJornadaLaboralFlags();
+  const photoLogout = normalizeAttendancePhoto(req.body?.photo_logout);
+  if (logoutPhoto) {
+    if (!photoLogout) {
+      return res.status(400).json({ error: 'Debe tomarse una foto para registrar el fin de jornada' });
+    }
+  }
+  const closed = closeWorkSession(req.user?.id, req.user?.session_id, 'logout', photoLogout);
+  markAllStaffOfflineIfNeeded();
   return res.json({ success: true, closed });
 });
 

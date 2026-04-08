@@ -1,11 +1,25 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
+import { getSocketOrigin } from '../utils/api';
 
 let socket = null;
 
-function getSocket() {
+export function getSocket() {
   if (!socket) {
-    socket = io(window.location.origin, { transports: ['websocket', 'polling'] });
+    socket = io(getSocketOrigin(), {
+      path: '/socket.io/',
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+    });
+    socket.on('connect', () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) socket.emit('join-staff', { token });
+      } catch (_) {
+        /* noop */
+      }
+    });
   }
   return socket;
 }

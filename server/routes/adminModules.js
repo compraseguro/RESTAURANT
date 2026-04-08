@@ -77,6 +77,47 @@ router.get('/config/app', requireRole('admin'), (req, res) => {
   res.json(readAppSettingsObject());
 });
 
+router.get('/auto-pedido/cartas', (req, res) => {
+  const settingsObj = parseJsonSafe(queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings'])?.value, {});
+  const raw = settingsObj.auto_pedido_cartas;
+  res.json({ cartas: Array.isArray(raw) ? raw : [] });
+});
+
+router.put('/auto-pedido/cartas', requireRole('admin'), (req, res) => {
+  try {
+    const cartasIn = req.body?.cartas;
+    if (!Array.isArray(cartasIn)) return res.status(400).json({ error: 'Se esperaba cartas: []' });
+    const normalized = cartasIn
+      .map((c, i) => ({
+        id: String(c.id || '').trim() || uuidv4(),
+        name: String(c.name || '').trim() || `Carta ${i + 1}`,
+        url: String(c.url || '').trim(),
+        sort: Number.isFinite(Number(c.sort)) ? Number(c.sort) : i,
+      }))
+      .filter((c) => c.url);
+    const prevRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
+    const settingsObj = parseJsonSafe(prevRow?.value, {});
+    settingsObj.auto_pedido_cartas = normalized;
+    runSql(
+      `INSERT INTO app_settings (key, value, updated_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+      ['settings', JSON.stringify(settingsObj)]
+    );
+    logAudit({
+      actorUserId: req.user.id,
+      actorName: req.user.full_name || req.user.username || '',
+      action: 'app_settings.auto_pedido_cartas',
+      resourceType: 'app_settings',
+      resourceId: 'settings',
+      details: { count: normalized.length },
+    });
+    res.json({ cartas: normalized });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'No se pudo guardar' });
+  }
+});
+
 router.get('/config/app/history', requireRole('admin'), (req, res) => {
   const limit = Math.min(Math.max(Number(req.query?.limit || 20), 1), 100);
   const offset = Math.max(Number(req.query?.offset || 0), 0);

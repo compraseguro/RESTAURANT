@@ -38,6 +38,13 @@ Thumbs.db
 .vercel/
 .render/
 
+# Cartas del menú (auto-pedido): no versionar; súbelas en el servidor o usa Admin → Subir.
+client/public/cartas/*
+!client/public/cartas/.gitkeep
+
+# Raíz del repo (fotos sueltas de cartas)
+IMG_20*.png
+
 # Local archives/backups
 *.zip
 *.7z

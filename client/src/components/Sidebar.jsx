@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../utils/api';
+import EndShiftModal from './EndShiftModal';
+import AdminAttendanceReviewModal from './AdminAttendanceReviewModal';
 import {
   MdDashboard, MdAttachMoney, MdPointOfSale, MdEventSeat,
   MdCreditCard, MdPeopleAlt, MdRestaurantMenu, MdLocalOffer,
   MdDiscount, MdWarehouse, MdDeliveryDining, MdAssessment,
-  MdInsights, MdStorefront, MdSettings, MdLogout, MdTableBar, MdAccessTime, MdKitchen, MdLocalBar
+  MdInsights, MdStorefront, MdSettings, MdLogout, MdTableBar, MdAccessTime, MdKitchen, MdLocalBar, MdQrCode2
 } from 'react-icons/md';
 
 const allLinks = [
@@ -16,6 +19,7 @@ const allLinks = [
   { to: '/admin/bar', icon: MdLocalBar, label: 'Bar', roles: ['admin'], moduleId: 'bar' },
   { to: '/admin/delivery', icon: MdDeliveryDining, label: 'Delivery', roles: ['admin', 'cajero', 'mozo'], moduleId: 'delivery' },
   { to: '/admin/reservas', icon: MdEventSeat, label: 'Reservas', roles: ['admin', 'cajero', 'mozo'], moduleId: 'reservas' },
+  { to: '/admin/auto-pedido', icon: MdQrCode2, label: 'Cartas y QR (config.)', roles: ['admin'], moduleId: 'auto_pedido' },
   { to: '/admin/clientes', icon: MdPeopleAlt, label: 'Clientes', roles: ['admin', 'cajero'], moduleId: 'clientes' },
   { to: '/admin/creditos', icon: MdCreditCard, label: 'Créditos', roles: ['admin', 'cajero'], moduleId: 'creditos' },
   { to: '/admin/ofertas', icon: MdLocalOffer, label: 'Ofertas', roles: ['admin'], moduleId: 'ofertas' },
@@ -62,13 +66,38 @@ function isPermissionEnabled(value) {
 }
 
 export default function Sidebar({ collapsed, isMobile = false, mobileOpen = false, onClose = () => {} }) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
+  const [endShiftOpen, setEndShiftOpen] = useState(false);
+  const [attendanceReviewOpen, setAttendanceReviewOpen] = useState(false);
+
+  const onAttendanceReviewComplete = useCallback(() => {
+    setAttendanceReviewOpen(false);
+    setEndShiftOpen(true);
+  }, []);
+
+  const handleFinalizarJornadaClick = async () => {
+    if (user?.role !== 'admin') {
+      setEndShiftOpen(true);
+      return;
+    }
+    try {
+      const data = await api.get('/users/attendance-review/today');
+      if (Array.isArray(data?.pending) && data.pending.length > 0) {
+        setAttendanceReviewOpen(true);
+        return;
+      }
+    } catch (_) {
+      /* si falla la comprobación, permitimos abrir cierre para no bloquear */
+    }
+    setEndShiftOpen(true);
+  };
   const [isCajaExpanded, setIsCajaExpanded] = useState(location.pathname.startsWith('/admin/caja'));
   const [isMiRestaurantExpanded, setIsMiRestaurantExpanded] = useState(location.pathname.startsWith('/admin/mi-restaurant'));
   const [isAlmacenExpanded, setIsAlmacenExpanded] = useState(location.pathname.startsWith('/admin/almacen'));
   const hasLinkPermission = (link) => {
     if (user?.role === 'admin') return true;
+    if (Array.isArray(link.roles) && link.roles.length > 0 && !link.roles.includes(user?.role)) return false;
     if (!link.moduleId) return link.roles.includes(user?.role);
     if (!user || typeof user.permissions !== 'object' || user.permissions === null) return false;
     return isPermissionEnabled(user.permissions[link.moduleId]);
@@ -217,11 +246,17 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
       </nav>
 
       <div className="p-2 border-t border-[#3B82F6]/30">
-        <button onClick={logout} className="flex items-center gap-3 px-3 py-2 rounded-lg text-[#F9FAFB] hover:bg-[#3B82F6]/15 hover:text-white w-full transition-colors text-sm" title="Finalizar jornada">
+        <button type="button" onClick={() => void handleFinalizarJornadaClick()} className="flex items-center gap-3 px-3 py-2 rounded-lg text-[#F9FAFB] hover:bg-[#3B82F6]/15 hover:text-white w-full transition-colors text-sm" title="Finalizar jornada">
           <MdLogout className="text-lg flex-shrink-0" />
           {!isCollapsed && <span>Finalizar jornada</span>}
         </button>
       </div>
+      <AdminAttendanceReviewModal
+        isOpen={attendanceReviewOpen}
+        onClose={() => setAttendanceReviewOpen(false)}
+        onComplete={onAttendanceReviewComplete}
+      />
+      <EndShiftModal isOpen={endShiftOpen} onClose={() => setEndShiftOpen(false)} />
     </aside>
   );
 }

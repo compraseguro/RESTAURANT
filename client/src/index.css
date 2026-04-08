@@ -56,6 +56,26 @@
   .badge-cancelled {
     @apply bg-[#1E40AF] text-white;
   }
+
+  /* Texto legible dentro de modales oscuros (evita labels slate sobre fondo oscuro / forzado por SO) */
+  .modal-sheet-body {
+    @apply text-[#F9FAFB];
+  }
+  .modal-sheet-body label {
+    color: #e5e7eb !important;
+  }
+  .modal-sheet-body .text-slate-900,
+  .modal-sheet-body .text-slate-800,
+  .modal-sheet-body .text-slate-700 {
+    color: #e5e7eb !important;
+  }
+  .modal-sheet-body .text-slate-600 {
+    color: #d1d5db !important;
+  }
+  .modal-sheet-body .text-slate-500,
+  .modal-sheet-body .text-slate-400 {
+    color: #9ca3af !important;
+  }
 }
 
 @keyframes pulse-ring {

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api, formatDateTime } from '../../utils/api';
 import toast from 'react-hot-toast';
-import { MdAccessTime } from 'react-icons/md';
+import { MdAccessTime, MdPhotoCamera } from 'react-icons/md';
+import Modal from '../../components/Modal';
 
 const ROLE_LABEL = {
   admin: 'Administrador',
@@ -10,6 +11,13 @@ const ROLE_LABEL = {
   cocina: 'Cocina',
   bar: 'Bar',
   delivery: 'Delivery',
+};
+
+const ATT_LABEL = {
+  pending: 'Pendiente',
+  asistente: 'Asistente',
+  justificado: 'Justificado',
+  ausente: 'Ausente',
 };
 
 function formatMinutes(value) {
@@ -27,6 +35,16 @@ export default function WorkTime() {
   const [sessions, setSessions] = useState([]);
   const [summary, setSummary] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [photoModal, setPhotoModal] = useState(null);
+
+  const openSessionPhotos = async (sessionId) => {
+    try {
+      const data = await api.get(`/users/work-sessions/${sessionId}/photos`);
+      setPhotoModal(data);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -66,7 +84,10 @@ export default function WorkTime() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Tiempo trabajado</h1>
-        <p className="text-sm text-slate-500 mt-1">Control de jornada por inicio y cierre de sesión</p>
+        <p className="text-sm text-slate-500 mt-1">
+          El tiempo computable solo cuenta sesiones marcadas como <strong>Asistente</strong> por el administrador.
+          Justificado y ausente suman 0 minutos.
+        </p>
       </div>
 
       <div className="card">
@@ -155,6 +176,36 @@ export default function WorkTime() {
                         <p className="text-sm font-medium text-slate-800">{row.full_name}</p>
                         <p className="text-xs text-slate-500">Inicio: {formatDateTime(row.login_at)}</p>
                         <p className="text-xs text-slate-500">Fin: {row.logout_at ? formatDateTime(row.logout_at) : 'Jornada activa'}</p>
+                        <p className="text-xs mt-1">
+                          <span className="text-slate-500">Asistencia: </span>
+                          <span
+                            className={
+                              row.attendance_status === 'asistente' || !row.attendance_status
+                                ? 'text-emerald-700 font-medium'
+                                : row.attendance_status === 'pending'
+                                  ? 'text-amber-600 font-medium'
+                                  : 'text-slate-600 font-medium'
+                            }
+                          >
+                            {ATT_LABEL[row.attendance_status] || ATT_LABEL.pending}
+                          </span>
+                          {Number(row.raw_worked_minutes) !== Number(row.worked_minutes) ? (
+                            <span className="text-slate-400 ml-1">
+                              (bruto {formatMinutes(row.raw_worked_minutes)})
+                            </span>
+                          ) : null}
+                        </p>
+                        {(row.has_photo_login || row.has_photo_logout) ? (
+                          <button
+                            type="button"
+                            onClick={() => openSessionPhotos(row.id)}
+                            className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+                          >
+                            <MdPhotoCamera className="text-sm" /> Ver fotos de asistencia
+                          </button>
+                        ) : (
+                          <p className="text-xs text-slate-400 mt-1">Sin fotos registradas</p>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-slate-800">{formatMinutes(row.worked_minutes)}</p>
@@ -170,6 +221,35 @@ export default function WorkTime() {
           </div>
         </div>
       </div>
+
+      <Modal
+        isOpen={!!photoModal}
+        onClose={() => setPhotoModal(null)}
+        title="Fotos de asistencia"
+        variant="light"
+        size="lg"
+      >
+        {photoModal && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <p className="text-xs font-semibold text-slate-600 mb-2">Inicio de jornada</p>
+              {photoModal.photo_login ? (
+                <img src={photoModal.photo_login} alt="" className="rounded-lg max-h-72 w-full object-contain bg-slate-100 border border-slate-200" />
+              ) : (
+                <p className="text-sm text-slate-400">Sin foto</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-600 mb-2">Fin de jornada</p>
+              {photoModal.photo_logout ? (
+                <img src={photoModal.photo_logout} alt="" className="rounded-lg max-h-72 w-full object-contain bg-slate-100 border border-slate-200" />
+              ) : (
+                <p className="text-sm text-slate-400">Sin foto</p>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

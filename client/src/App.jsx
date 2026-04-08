@@ -8,6 +8,8 @@ import Ventas from './pages/admin/Ventas';
 import POSPanel from './pages/pos/POSPanel';
 import Tables from './pages/admin/Tables';
 import Reservas from './pages/admin/Reservas';
+import AutoPedidoAdmin from './pages/admin/AutoPedidoAdmin';
+import SelfOrder from './pages/public/SelfOrder';
 import Creditos from './pages/admin/Creditos';
 import Clientes from './pages/admin/Clientes';
 import Productos from './pages/admin/Productos';
@@ -37,6 +39,7 @@ const ADMIN_MODULE_PATHS = [
   { path: '/admin/bar', moduleId: 'bar', roles: ['admin'] },
   { path: '/admin/delivery', moduleId: 'delivery', roles: ['admin', 'cajero', 'mozo'] },
   { path: '/admin/reservas', moduleId: 'reservas', roles: ['admin', 'cajero', 'mozo'] },
+  { path: '/admin/auto-pedido', moduleId: 'auto_pedido', roles: ['admin'] },
   { path: '/admin/clientes', moduleId: 'clientes', roles: ['admin', 'cajero'] },
   { path: '/admin/creditos', moduleId: 'creditos', roles: ['admin', 'cajero'] },
   { path: '/admin/ofertas', moduleId: 'ofertas', roles: ['admin'] },
@@ -108,6 +111,13 @@ function LegacyTrackingRedirect() {
   return <Navigate to={`/customer/orders/${id}`} replace />;
 }
 
+/** Configuración de cartas y QR: solo rol `admin` (vista pública del QR en `/auto-pedido`). */
+function AdminOnlyAutoPedido() {
+  const { user } = useAuth();
+  if (user?.role !== 'admin') return <Navigate to="/admin" replace />;
+  return <AutoPedidoAdmin />;
+}
+
 export default function App() {
   const { user, loading } = useAuth();
 
@@ -124,6 +134,7 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/auto-pedido" element={<SelfOrder />} />
       <Route path="/" element={user && user.type === 'staff' ? <Navigate to={
         getDefaultStaffPath(user)
       } /> : <Login />} />
@@ -135,6 +146,7 @@ export default function App() {
         <Route path="tiempo-trabajado" element={<ProtectedRoute roles={['admin']} moduleId="tiempo_trabajado"><WorkTime /></ProtectedRoute>} />
         <Route path="mesas" element={<ProtectedRoute roles={['admin', 'mozo']} moduleId="mesas"><Tables /></ProtectedRoute>} />
         <Route path="reservas" element={<ProtectedRoute roles={['admin', 'cajero', 'mozo']} moduleId="reservas"><Reservas /></ProtectedRoute>} />
+        <Route path="auto-pedido" element={<AdminOnlyAutoPedido />} />
         <Route path="creditos" element={<ProtectedRoute roles={['admin', 'cajero']} moduleId="creditos"><Creditos /></ProtectedRoute>} />
         <Route path="clientes" element={<ProtectedRoute roles={['admin', 'cajero']} moduleId="clientes"><Clientes /></ProtectedRoute>} />
         <Route path="productos" element={<ProtectedRoute roles={['admin']} moduleId="productos"><Productos /></ProtectedRoute>} />

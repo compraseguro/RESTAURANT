@@ -7,7 +7,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const router = express.Router();
 const VALID_ROLES = new Set(['admin', 'cajero', 'mozo', 'cocina', 'bar', 'delivery']);
 const MODULE_IDS = [
-  'escritorio', 'ventas', 'caja', 'mesas', 'reservas', 'creditos', 'clientes',
+  'escritorio', 'ventas', 'caja', 'mesas', 'reservas', 'auto_pedido', 'creditos', 'clientes',
   'productos', 'ofertas', 'descuentos', 'almacen', 'delivery', 'informes',
   'indicadores', 'mi_restaurant', 'configuracion', 'cocina', 'bar', 'tiempo_trabajado',
 ];
@@ -20,6 +20,28 @@ function parseDateKey(input) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
 }
 
+/** Minutos brutos según login/logout (sin regla de asistencia). */
+function rawWorkedMinutesExpr(alias = 's') {
+  return `CASE
+      WHEN ${alias}.logout_at IS NULL THEN CAST((julianday('now') - julianday(${alias}.login_at)) * 24 * 60 AS INTEGER)
+      ELSE COALESCE(${alias}.worked_minutes, CAST((julianday(${alias}.logout_at) - julianday(${alias}.login_at)) * 24 * 60 AS INTEGER), 0)
+    END`;
+}
+
+/** Minutos que cuentan en informes: solo asistente confirmado; pending/justificado/ausente → 0. */
+function effectiveWorkedMinutesExpr(alias = 's') {
+  const raw = rawWorkedMinutesExpr(alias);
+  return `CASE COALESCE(${alias}.attendance_status, 'asistente')
+    WHEN 'justificado' THEN 0
+    WHEN 'ausente' THEN 0
+    WHEN 'pending' THEN 0
+    WHEN 'asistente' THEN (${raw})
+    ELSE (${raw})
+  END`;
+}
+
+const FINAL_ATTENDANCE = new Set(['asistente', 'justificado', 'ausente']);
+
 function ensureOpenWorkSession(user) {
   const trackableRoles = new Set(['admin', 'cajero', 'mozo', 'cocina', 'bar', 'delivery']);
   if (!user?.id || !trackableRoles.has(user.role)) return;
@@ -30,8 +52,8 @@ function ensureOpenWorkSession(user) {
   if (existing?.id) return;
   runSql(
     `INSERT INTO user_work_sessions
-      (id, user_id, session_token_id, username, full_name, role, login_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`,
+      (id, user_id, session_token_id, username, full_name, role, login_at, photo_login, attendance_status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), NULL, 'pending', datetime('now'), datetime('now'))`,
     [uuidv4(), user.id, uuidv4(), user.username || '', user.full_name || '', user.role || '']
   );
 }
@@ -158,12 +180,8 @@ router.get('/work-sessions', authenticateToken, requireRole('admin'), (req, res)
   }
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const minutesExpr = `
-    CASE
-      WHEN s.logout_at IS NULL THEN CAST((julianday('now') - julianday(s.login_at)) * 24 * 60 AS INTEGER)
-      ELSE COALESCE(s.worked_minutes, CAST((julianday(s.logout_at) - julianday(s.login_at)) * 24 * 60 AS INTEGER), 0)
-    END
-  `;
+  const rawEx = rawWorkedMinutesExpr('s');
+  const effEx = effectiveWorkedMinutesExpr('s');
 
   const sessions = queryAll(
     `SELECT
@@ -174,7 +192,11 @@ router.get('/work-sessions', authenticateToken, requireRole('admin'), (req, res)
       COALESCE(NULLIF(u.role, ''), s.role) AS role,
       s.login_at,
       s.logout_at,
-      ${minutesExpr} AS worked_minutes
+      COALESCE(s.attendance_status, 'pending') AS attendance_status,
+      ${rawEx} AS raw_worked_minutes,
+      ${effEx} AS worked_minutes,
+      CASE WHEN length(COALESCE(s.photo_login, '')) > 10 THEN 1 ELSE 0 END AS has_photo_login,
+      CASE WHEN length(COALESCE(s.photo_logout, '')) > 10 THEN 1 ELSE 0 END AS has_photo_logout
      FROM user_work_sessions s
      LEFT JOIN users u ON u.id = s.user_id
      ${whereSql}
@@ -190,7 +212,7 @@ router.get('/work-sessions', authenticateToken, requireRole('admin'), (req, res)
       COALESCE(NULLIF(u.username, ''), s.username) AS username,
       COALESCE(NULLIF(u.role, ''), s.role) AS role,
       COUNT(*) AS sessions_count,
-      SUM(${minutesExpr}) AS total_minutes
+      COALESCE(SUM(${effEx}), 0) AS total_minutes
      FROM user_work_sessions s
      LEFT JOIN users u ON u.id = s.user_id
      ${whereSql}
@@ -208,6 +230,90 @@ router.get('/work-sessions', authenticateToken, requireRole('admin'), (req, res)
     sessions,
     summary,
   });
+});
+
+router.get('/work-sessions/:sessionId/photos', authenticateToken, requireRole('admin'), (req, res) => {
+  const sessionId = String(req.params.sessionId || '').trim();
+  if (!sessionId) return res.status(400).json({ error: 'Sesión inválida' });
+  const row = queryOne(
+    'SELECT photo_login, photo_logout FROM user_work_sessions WHERE id = ? LIMIT 1',
+    [sessionId]
+  );
+  if (!row) return res.status(404).json({ error: 'Sesión no encontrada' });
+  res.json({
+    photo_login: row.photo_login || null,
+    photo_logout: row.photo_logout || null,
+  });
+});
+
+/** Galería del día actual (hora local del servidor) por usuario. */
+router.get('/attendance-gallery/:userId', authenticateToken, requireRole('admin'), (req, res) => {
+  const userId = String(req.params.userId || '').trim();
+  if (!userId) return res.status(400).json({ error: 'Usuario requerido' });
+  const target = queryOne('SELECT id FROM users WHERE id = ?', [userId]);
+  if (!target) return res.status(404).json({ error: 'Usuario no encontrado' });
+  const day = parseDateKey(req.query?.date) || null;
+  const dayFilter = day
+    ? 'date(datetime(s.login_at, \'localtime\')) = date(?)'
+    : "date(datetime(s.login_at, 'localtime')) = date('now', 'localtime')";
+  const params = day ? [userId, day] : [userId];
+  const sessions = queryAll(
+    `SELECT s.id, s.login_at, s.logout_at, s.photo_login, s.photo_logout,
+            COALESCE(s.attendance_status, 'pending') AS attendance_status
+     FROM user_work_sessions s
+     WHERE s.user_id = ? AND ${dayFilter}
+     ORDER BY datetime(s.login_at) DESC
+     LIMIT 50`,
+    params
+  );
+  res.json({ sessions: sessions || [], date: day || 'today' });
+});
+
+/** Sesiones del día con asistencia pendiente de clasificar (solo admin). */
+router.get('/attendance-review/today', authenticateToken, requireRole('admin'), (req, res) => {
+  const rows = queryAll(
+    `SELECT s.id, s.user_id, s.login_at, s.logout_at,
+            COALESCE(s.attendance_status, 'pending') AS attendance_status,
+            ${rawWorkedMinutesExpr('s')} AS raw_worked_minutes,
+            COALESCE(NULLIF(u.full_name, ''), s.full_name) AS full_name,
+            COALESCE(NULLIF(u.username, ''), s.username) AS username,
+            COALESCE(NULLIF(u.role, ''), s.role) AS role
+     FROM user_work_sessions s
+     LEFT JOIN users u ON u.id = s.user_id
+     WHERE date(datetime(s.login_at, 'localtime')) = date('now', 'localtime')
+       AND COALESCE(s.attendance_status, 'pending') = 'pending'
+     ORDER BY datetime(s.login_at) ASC`
+  );
+  res.json({
+    pending: rows || [],
+    complete: !rows || rows.length === 0,
+  });
+});
+
+/** Aplicar estado de asistencia por sesión (cierra revisión del día). */
+router.post('/attendance-review/apply', authenticateToken, requireRole('admin'), (req, res) => {
+  const items = req.body?.items;
+  if (!Array.isArray(items) || !items.length) {
+    return res.status(400).json({ error: 'Debe enviar items: [{ session_id, status }]' });
+  }
+  let n = 0;
+  for (const it of items) {
+    const sid = String(it.session_id || it.id || '').trim();
+    const status = String(it.status || '').trim();
+    if (!sid || !FINAL_ATTENDANCE.has(status)) continue;
+    const row = queryOne(
+      `SELECT id FROM user_work_sessions
+       WHERE id = ? AND date(datetime(login_at, 'localtime')) = date('now', 'localtime')`,
+      [sid]
+    );
+    if (!row?.id) continue;
+    runSql(
+      `UPDATE user_work_sessions SET attendance_status = ?, updated_at = datetime('now') WHERE id = ?`,
+      [status, sid]
+    );
+    n += 1;
+  }
+  res.json({ success: true, updated: n });
 });
 
 router.get('/:id/permissions', authenticateToken, requireRole('admin'), (req, res) => {

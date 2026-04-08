@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -7,7 +8,8 @@ const multer = require('multer');
 const fs = require('fs');
 const crypto = require('crypto');
 const { initDatabase, getDbPath } = require('./database');
-const { authenticateToken, requireRole } = require('./middleware/auth');
+const jwt = require('jsonwebtoken');
+const { authenticateToken, requireRole, JWT_SECRET } = require('./middleware/auth');
 const { createRateLimiter } = require('./middleware/rateLimit');
 
 const app = express();
@@ -48,7 +50,7 @@ const io = new Server(server, {
 
 app.set('io', io);
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   const requestId = req.headers['x-request-id'] || crypto.randomUUID();
@@ -88,7 +90,7 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
     if (!allowed.includes(file.mimetype)) {
       return cb(new Error('Tipo de archivo no permitido'));
     }
@@ -118,6 +120,7 @@ const authLimiter = createRateLimiter({
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/customer/login', authLimiter);
 
+app.use('/api/public/self-order', require('./routes/publicSelfOrder'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/restaurant', require('./routes/restaurant'));
 app.use('/api/categories', require('./routes/categories'));
@@ -125,6 +128,7 @@ app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/staff-chat', require('./routes/staffChat'));
 app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/pos', require('./routes/pos'));
 app.use('/api/delivery', require('./routes/delivery'));
@@ -155,6 +159,19 @@ if (fs.existsSync(clientBuild)) {
 
 io.on('connection', (socket) => {
   console.log(`Cliente conectado: ${socket.id}`);
+  socket.on('join-staff', (payload) => {
+    try {
+      const token = payload?.token;
+      if (!token) return;
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded.type === 'customer' || decoded.role === 'master_admin') return;
+      if (!decoded.id) return;
+      socket.join(`staff-${decoded.id}`);
+      socket.join('staff-broadcast');
+    } catch (_) {
+      /* token inválido: ignorar */
+    }
+  });
   socket.on('join-kitchen', () => { socket.join('kitchen'); });
   socket.on('join-bar', () => { socket.join('bar'); });
   socket.on('join-delivery', (driverId) => { socket.join(`delivery-${driverId}`); });

@@ -3,12 +3,12 @@ import { api, formatCurrency } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
+import { useStaffOrderCart } from '../../hooks/useStaffOrderCart';
 import Modal from '../../components/Modal';
+import StaffDineInOrderUI from '../../components/StaffDineInOrderUI';
+import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
 import toast from 'react-hot-toast';
-import {
-  MdTableRestaurant, MdAdd, MdRemove, MdDelete, MdReceipt,
-  MdSearch, MdClose, MdRestaurantMenu, MdShoppingCart, MdEditNote
-} from 'react-icons/md';
+import { MdTableRestaurant, MdReceipt, MdClose } from 'react-icons/md';
 
 export default function Tables() {
   const { user } = useAuth();
@@ -18,8 +18,7 @@ export default function Tables() {
   const [showMenu, setShowMenu] = useState(false);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [noteEditorProductId, setNoteEditorProductId] = useState('');
+  const [modifiers, setModifiers] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedCat, setSelectedCat] = useState('all');
   const [selectedSalon, setSelectedSalon] = useState('all');
@@ -27,6 +26,22 @@ export default function Tables() {
   const [actionType, setActionType] = useState('');
   const [sourceTableId, setSourceTableId] = useState('');
   const [targetTableId, setTargetTableId] = useState('');
+
+  const {
+    cart,
+    noteEditorLineKey,
+    setNoteEditorLineKey,
+    modifierPrompt,
+    setModifierPrompt,
+    addToCart,
+    confirmModifierForCart,
+    addProductWithoutOptionalModifier,
+    updateQty,
+    removeFromCart,
+    updateItemNote,
+    cartTotal,
+    resetCart,
+  } = useStaffOrderCart(modifiers);
 
   const loadTables = () => {
     api.get('/tables').then(data => {
@@ -39,9 +54,11 @@ export default function Tables() {
     Promise.all([
       api.get('/products?active_only=true'),
       api.get('/categories/active'),
-    ]).then(([prods, cats, cfg]) => {
+      api.get('/admin-modules/modifiers').catch(() => []),
+    ]).then(([prods, cats, mods]) => {
       setProducts(prods);
       setCategories(cats);
+      setModifiers(Array.isArray(mods) ? mods : []);
     }).catch(console.error);
   };
 
@@ -56,16 +73,14 @@ export default function Tables() {
   const openMenuForTable = (table) => {
     setSelectedTable(table);
     setShowMenu(true);
-    setCart([]);
-    setNoteEditorProductId('');
+    resetCart();
     setSearch('');
     setSelectedCat('all');
   };
 
   const closeMenuPanel = () => {
     setShowMenu(false);
-    setCart([]);
-    setNoteEditorProductId('');
+    resetCart();
     setSearch('');
     setSelectedCat('all');
   };
@@ -111,52 +126,22 @@ export default function Tables() {
     }
   };
 
-  const addToCart = (product) => {
-    setCart(prev => {
-      const existing = prev.find(i => i.product_id === product.id);
-      if (existing) return prev.map(i => i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [
-        ...prev,
-        {
-          product_id: product.id,
-          name: product.name,
-          price: product.price,
-          quantity: 1,
-          note_required: Number(product.note_required || 0) === 1 ? 1 : 0,
-          notes: '',
-        },
-      ];
-    });
-  };
-
-  const updateQty = (productId, delta) => {
-    setCart(prev => prev.map(i => {
-      if (i.product_id !== productId) return i;
-      const newQty = i.quantity + delta;
-      return newQty > 0 ? { ...i, quantity: newQty } : i;
-    }).filter(i => i.quantity > 0));
-  };
-
-  const removeFromCart = (productId) => setCart(prev => prev.filter(i => i.product_id !== productId));
-  const updateItemNote = (productId, nextNote) => {
-    setCart(prev => prev.map(i => (i.product_id === productId ? { ...i, notes: String(nextNote || '') } : i)));
-  };
-
-  const cartTotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
-
   const submitOrder = async () => {
     if (!selectedTable) return toast.error('Selecciona una mesa');
     if (cart.length === 0) return toast.error('Agrega productos al pedido');
     const missingRequiredNote = cart.find(i => Number(i.note_required || 0) === 1 && !String(i.notes || '').trim());
     if (missingRequiredNote) {
-      setNoteEditorProductId(missingRequiredNote.product_id);
+      setNoteEditorLineKey(missingRequiredNote.line_key);
       return toast.error(`"${missingRequiredNote.name}" requiere nota obligatoria`);
     }
+    const tid = toast.loading('Enviando pedido…');
     try {
       await api.post('/orders', {
         items: cart.map(i => ({
           product_id: i.product_id,
           quantity: i.quantity,
+          modifier_id: i.modifier_id || '',
+          modifier_option: i.modifier_option || '',
           notes: String(i.notes || '').trim(),
         })),
         type: 'dine_in',
@@ -164,10 +149,12 @@ export default function Tables() {
         customer_name: `Mesa ${selectedTable.number}`,
         payment_method: 'efectivo',
       });
-      toast.success(`Pedido enviado a Mesa ${selectedTable.number}`);
+      toast.success(`Pedido enviado a Mesa ${selectedTable.number}`, { id: tid });
       closeMenuPanel();
       loadTables();
-    } catch (err) { toast.error(err.message); }
+    } catch (err) {
+      toast.error(err.message || 'No se pudo enviar el pedido', { id: tid });
+    }
   };
 
   const salonOptions = useMemo(() => {
@@ -308,136 +295,70 @@ export default function Tables() {
               </button>
             </div>
 
-            <div className="p-4 flex-1 overflow-hidden">
-              <div className="flex flex-col lg:flex-row gap-4 h-full">
-                <div className="flex-1 flex flex-col min-w-0">
-                  <div className="mb-3">
-                    <div className="relative">
-                      <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#BFDBFE]" />
-                      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar producto..." className="w-full px-3 py-2.5 pl-10 bg-[#1E3A8A]/30 border border-[#3B82F6]/30 rounded-lg focus:ring-2 focus:ring-[#3B82F6] focus:border-[#3B82F6] outline-none text-white placeholder:text-[#93C5FD]" />
-                    </div>
-                  </div>
-                  <div className="flex gap-2 flex-wrap mb-3">
-                    <button onClick={() => setSelectedCat('all')} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${selectedCat === 'all' ? 'bg-[#BFDBFE] text-[#1E3A8A]' : 'bg-[#1E3A8A]/30 text-[#DBEAFE] hover:bg-[#1E3A8A]/50 border border-[#3B82F6]/20'}`}>Todos</button>
-                    {categories.map(c => (
-                      <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${selectedCat === c.id ? 'bg-[#BFDBFE] text-[#1E3A8A]' : 'bg-[#1E3A8A]/30 text-[#DBEAFE] hover:bg-[#1E3A8A]/50 border border-[#3B82F6]/20'}`}>{c.name}</button>
-                    ))}
-                  </div>
-                  <div className="flex-1 overflow-y-auto">
-                    {filteredProducts.length === 0 ? (
-                      <div className="text-center py-12 text-[#BFDBFE]">
-                        <MdRestaurantMenu className="text-5xl mx-auto mb-3 opacity-40" />
-                        <p>No hay productos para este filtro</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 xl:grid-cols-3 gap-2">
-                        {filteredProducts.map((p) => (
-                          <button key={p.id} onClick={() => addToCart(p)} className="bg-[#1D4ED8]/25 rounded-xl p-3 text-left hover:shadow-md transition-shadow border border-[#3B82F6]/20 hover:border-[#93C5FD]/60">
-                            <p className="font-medium text-sm truncate text-white">{p.name}</p>
-                            <p className="text-[#DBEAFE] font-bold text-sm mt-1">{formatCurrency(p.price)}</p>
-                            <p className="text-xs text-[#BFDBFE]">Stock: {p.stock}</p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-[#3B82F6]/30 pt-4 lg:pt-0 lg:pl-4 flex flex-col">
-                  <h3 className="font-bold text-white mb-3 flex items-center gap-2">
-                    <MdShoppingCart /> Pedido
-                    {cart.length > 0 && <span className="text-xs bg-[#BFDBFE] text-[#1E3A8A] px-2 py-0.5 rounded-full">{cart.length}</span>}
-                  </h3>
-
-                  <div className="flex-1 overflow-y-auto space-y-2">
-                    {activeOrdersForTable.length > 0 && (
-                      <div className="space-y-2 mb-3">
-                        <p className="text-xs uppercase tracking-wide text-[#BFDBFE] font-semibold">Pedidos actuales de la mesa</p>
-                        {activeOrdersForTable.map((order) => (
-                          <div key={order.id} className="bg-[#1D4ED8]/20 border border-[#3B82F6]/20 rounded-lg p-2">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <p className="text-xs font-semibold text-white">#{order.order_number || '-'}</p>
-                              <p className="text-xs font-semibold text-[#DBEAFE]">{formatCurrency(order.total || 0)}</p>
-                            </div>
-                            <div className="space-y-1">
-                              {(order.items || []).map((it) => (
-                                <p key={it.id} className="text-xs text-[#DBEAFE] truncate">
-                                  {it.quantity}x {it.product_name}
-                                </p>
-                              ))}
-                            </div>
-                            <div className="flex justify-end mt-2">
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${getOrderStatusUi(order.status).classes}`}>
-                                {getOrderStatusUi(order.status).label}
-                              </span>
-                            </div>
+            <div className="p-4 flex-1 overflow-hidden min-h-0 flex flex-col">
+              <StaffDineInOrderUI
+                search={search}
+                onSearchChange={setSearch}
+                selectedCat={selectedCat}
+                onSelectedCatChange={setSelectedCat}
+                categories={categories}
+                filteredProducts={filteredProducts}
+                onProductPick={addToCart}
+                cart={cart}
+                noteEditorLineKey={noteEditorLineKey}
+                setNoteEditorLineKey={setNoteEditorLineKey}
+                updateQty={updateQty}
+                removeFromCart={removeFromCart}
+                updateItemNote={updateItemNote}
+                cartTotal={cartTotal}
+                formatCurrency={formatCurrency}
+                minHeightClass="min-h-0 flex-1"
+                className="flex-1 min-h-0"
+                sidebarPreCart={
+                  activeOrdersForTable.length > 0 ? (
+                    <div className="space-y-2 mb-3">
+                      <p className="text-xs uppercase tracking-wide text-[#BFDBFE] font-semibold">Pedidos actuales de la mesa</p>
+                      {activeOrdersForTable.map((order) => (
+                        <div key={order.id} className="bg-[#1D4ED8]/20 border border-[#3B82F6]/20 rounded-lg p-2">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <p className="text-xs font-semibold text-white">#{order.order_number || '-'}</p>
+                            <p className="text-xs font-semibold text-[#DBEAFE]">{formatCurrency(order.total || 0)}</p>
                           </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="border-t border-[#3B82F6]/20 pt-3 mt-1" />
-                    <p className="text-xs uppercase tracking-wide text-[#BFDBFE] font-semibold">Agregar al pedido</p>
-
-                    {cart.length === 0 ? (
-                      <p className="text-center text-[#BFDBFE] text-sm py-4">Selecciona productos</p>
-                    ) : cart.map(item => (
-                      <div key={item.product_id} className="bg-[#1D4ED8]/25 border border-[#3B82F6]/20 rounded-lg p-2">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate text-white">{item.name}</p>
-                            {Number(item.note_required || 0) === 1 && (
-                              <p className="text-[11px] text-[#FCA5A5] font-semibold">Nota obligatoria</p>
-                            )}
-                            <p className="text-xs text-[#BFDBFE]">{formatCurrency(item.price)}</p>
+                          <div className="space-y-1">
+                            {(order.items || []).map((it) => (
+                              <p key={it.id} className="text-xs text-[#DBEAFE] truncate">
+                                {it.quantity}x {it.product_name}
+                              </p>
+                            ))}
                           </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setNoteEditorProductId(prev => (prev === item.product_id ? '' : item.product_id))}
-                              className={`w-7 h-7 rounded flex items-center justify-center border ${
-                                item.notes?.trim()
-                                  ? 'bg-amber-100 border-amber-300 text-amber-700'
-                                  : 'bg-[#1E3A8A]/50 border-[#93C5FD]/30 text-[#DBEAFE] hover:bg-[#1E3A8A]/70'
-                              }`}
-                              title="Agregar nota"
-                            >
-                              <MdEditNote className="text-sm" />
-                            </button>
-                            <button onClick={() => updateQty(item.product_id, -1)} className="w-6 h-6 bg-[#1E3A8A]/50 border border-[#93C5FD]/30 rounded flex items-center justify-center hover:bg-[#1E3A8A]/70 text-[#DBEAFE]"><MdRemove className="text-xs" /></button>
-                            <span className="w-6 text-center text-sm font-bold text-white">{item.quantity}</span>
-                            <button onClick={() => updateQty(item.product_id, 1)} className="w-6 h-6 bg-[#1E3A8A]/50 border border-[#93C5FD]/30 rounded flex items-center justify-center hover:bg-[#1E3A8A]/70 text-[#DBEAFE]"><MdAdd className="text-xs" /></button>
+                          <div className="flex justify-end mt-2">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${getOrderStatusUi(order.status).classes}`}>
+                              {getOrderStatusUi(order.status).label}
+                            </span>
                           </div>
-                          <button onClick={() => removeFromCart(item.product_id)} className="text-[#93C5FD] hover:text-white"><MdDelete className="text-sm" /></button>
                         </div>
-                        {(noteEditorProductId === item.product_id || item.notes?.trim()) && (
-                          <div className="mt-2">
-                            <textarea
-                              value={item.notes || ''}
-                              onChange={(e) => updateItemNote(item.product_id, e.target.value)}
-                              placeholder="Escribe una nota para cocina..."
-                              className="w-full rounded border border-[#60A5FA] bg-white px-2 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
-                              rows={2}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {cart.length > 0 ? (
-                    <div className="border-t border-[#3B82F6]/30 pt-3 mt-3 space-y-2">
+                      ))}
+                    </div>
+                  ) : null
+                }
+                footer={
+                  cart.length > 0 ? (
+                    <>
                       <div className="flex justify-between font-bold text-lg text-white">
                         <span>Total</span>
                         <span className="text-[#DBEAFE]">{formatCurrency(cartTotal)}</span>
                       </div>
-                      <button onClick={submitOrder} className="w-full py-3 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-base hover:from-[#1D4ED8] hover:to-[#1E40AF] transition-all shadow-lg shadow-[#1D4ED8]/30 flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={submitOrder}
+                        className="w-full py-3 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-base hover:from-[#1D4ED8] hover:to-[#1E40AF] transition-all shadow-lg shadow-[#1D4ED8]/30 flex items-center justify-center gap-2"
+                      >
                         <MdReceipt /> Enviar Pedido
                       </button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+                    </>
+                  ) : null
+                }
+              />
             </div>
           </aside>
         </>
@@ -493,6 +414,15 @@ export default function Tables() {
           </div>
         </div>
       </Modal>
+
+      <StaffModifierPromptModal
+        open={modifierPrompt.open}
+        onClose={() => setModifierPrompt({ open: false, product: null, modifier: null, selectedOption: '' })}
+        modifierPrompt={modifierPrompt}
+        setModifierPrompt={setModifierPrompt}
+        onConfirm={confirmModifierForCart}
+        onSkipOptional={addProductWithoutOptionalModifier}
+      />
     </div>
   );
 }

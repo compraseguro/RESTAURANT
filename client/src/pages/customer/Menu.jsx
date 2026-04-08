@@ -152,7 +152,7 @@ export default function Menu() {
         )}
       </div>
 
-      <Modal isOpen={!!selectedProduct} onClose={() => setSelectedProduct(null)} title={selectedProduct?.name} size="md">
+      <Modal variant="light" isOpen={!!selectedProduct} onClose={() => setSelectedProduct(null)} title={selectedProduct?.name} size="md">
         {selectedProduct && (
           <div>
             <div className="aspect-video bg-gray-100 rounded-xl mb-4 flex items-center justify-center overflow-hidden">

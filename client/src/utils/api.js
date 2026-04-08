@@ -1,5 +1,34 @@
-const API_ORIGIN = String(import.meta.env.VITE_API_URL || 'https://resto-fadey-api.onrender.com').trim().replace(/\/$/, '');
+/**
+ * Origen del API:
+ * - Si defines VITE_API_URL (p. ej. en .env), se usa siempre.
+ * - En desarrollo (npm run dev) sin variable: `/api` → proxy de Vite al backend local (p. ej. :3001).
+ * - En build de producción sin variable: URL por defecto en la nube (despliegue clásico).
+ */
+const rawApi = import.meta.env.VITE_API_URL;
+const hasExplicitApi = rawApi !== undefined && rawApi !== null && String(rawApi).trim() !== '';
+let API_ORIGIN = '';
+if (hasExplicitApi) {
+  API_ORIGIN = String(rawApi).trim().replace(/\/$/, '');
+} else if (import.meta.env.PROD) {
+  API_ORIGIN = 'https://resto-fadey-api.onrender.com';
+}
 const API_BASE = API_ORIGIN ? `${API_ORIGIN}/api` : '/api';
+
+/** URL absoluta para `/uploads/...` cuando el front y la API están en hosts distintos. */
+export function resolveMediaUrl(url) {
+  if (!url) return '';
+  const s = String(url).trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith('/uploads/') && API_ORIGIN) return `${API_ORIGIN}${s}`;
+  return s;
+}
+
+/** Mismo host que la API REST, para Socket.IO (sin `/api`). Si la página y la API están en hosts distintos, debe coincidir con `VITE_API_URL`. */
+export function getSocketOrigin() {
+  if (API_ORIGIN) return API_ORIGIN;
+  if (typeof window !== 'undefined') return window.location.origin;
+  return '';
+}
 
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('token');
@@ -17,14 +46,22 @@ async function request(endpoint, options = {}) {
 
   if (!res.ok) {
     if (data?.error) throw new Error(data.error);
-    throw new Error(`Error ${res.status}: respuesta no JSON del servidor`);
+    if (res.status === 404) {
+      throw new Error(
+        'No se encontró el servicio (404). En local, ejecute el backend en el puerto 3001 y use npm run dev sin VITE_API_URL, o despliegue la API con las rutas actualizadas.'
+      );
+    }
+    throw new Error(
+      data?.message || `Error ${res.status}: el servidor no devolvió JSON válido`
+    );
   }
 
   return data;
 }
 
 export const api = {
-  get: (endpoint) => request(endpoint),
+  /** `options` se fusiona con fetch (p. ej. `{ cache: 'no-store' }`). */
+  get: (endpoint, options = {}) => request(endpoint, { method: 'GET', cache: 'no-store', ...options }),
   post: (endpoint, body) => request(endpoint, { method: 'POST', body: JSON.stringify(body) }),
   put: (endpoint, body) => request(endpoint, { method: 'PUT', body: JSON.stringify(body) }),
   patch: (endpoint, body) => request(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),

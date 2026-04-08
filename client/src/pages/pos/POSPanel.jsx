@@ -4,14 +4,17 @@ import { api, formatCurrency, getPaymentMethodOptions } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
+import { useStaffOrderCart } from '../../hooks/useStaffOrderCart';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
+import StaffDineInOrderUI from '../../components/StaffDineInOrderUI';
+import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
 import {
   MdPointOfSale, MdTableRestaurant, MdReceipt, MdPrint,
   MdCheckCircle, MdAttachMoney, MdPeople, MdClose,
   MdAccountBalanceWallet, MdTrendingUp, MdTrendingDown,
-  MdAdd, MdRemove, MdDelete, MdSearch, MdShoppingCart, MdRestaurantMenu,
-  MdAccessTime, MdPersonAdd, MdEmail, MdEditNote
+  MdRestaurantMenu,
+  MdAccessTime, MdPersonAdd, MdEmail
 } from 'react-icons/md';
 
 const CAJA_OPTIONS = [
@@ -79,8 +82,6 @@ export default function POSPanel() {
   const [products, setProducts] = useState([]);
   const [modifiers, setModifiers] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [noteEditorLineKey, setNoteEditorLineKey] = useState('');
   const [search, setSearch] = useState('');
   const [selectedCat, setSelectedCat] = useState('all');
   const [paymentMethod, setPaymentMethod] = useState('efectivo');
@@ -88,12 +89,21 @@ export default function POSPanel() {
   const [amountReceived, setAmountReceived] = useState('');
   const [billingForm, setBillingForm] = useState(DEFAULT_BILLING_FORM);
   const [billingResult, setBillingResult] = useState(null);
-  const [modifierPrompt, setModifierPrompt] = useState({
-    open: false,
-    product: null,
-    modifier: null,
-    selectedOption: '',
-  });
+  const {
+    cart,
+    noteEditorLineKey,
+    setNoteEditorLineKey,
+    modifierPrompt,
+    setModifierPrompt,
+    addToCart,
+    confirmModifierForCart,
+    addProductWithoutOptionalModifier,
+    updateQty,
+    removeFromCart,
+    updateItemNote,
+    cartTotal,
+    resetCart,
+  } = useStaffOrderCart(modifiers);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [customerForm, setCustomerForm] = useState(EMPTY_CUSTOMER_FORM);
   const [savingCustomer, setSavingCustomer] = useState(false);
@@ -652,12 +662,10 @@ export default function POSPanel() {
     setQuickSaleMode(false);
     setSelectedTable(table);
     setShowMenu(true);
-    setCart([]);
-    setNoteEditorLineKey('');
+    resetCart();
     setSearch('');
     setSelectedCat('all');
     setAmountReceived('');
-    setModifierPrompt({ open: false, product: null, modifier: null, selectedOption: '' });
     resetBillingForm();
   };
 
@@ -666,107 +674,13 @@ export default function POSPanel() {
     setSelectedTable(null);
     setPaymentMethod('efectivo');
     setShowMenu(true);
-    setCart([]);
-    setNoteEditorLineKey('');
+    resetCart();
     setSearch('');
     setSelectedCat('all');
     setAmountReceived('');
-    setModifierPrompt({ open: false, product: null, modifier: null, selectedOption: '' });
     resetBillingForm();
   };
 
-  const appendToCart = (product, { modifierId = '', modifierName = '', modifierOption = '' } = {}) => {
-    const lineKey = `${product.id}::${modifierId}::${modifierOption}`;
-    setCart(prev => {
-      const existing = prev.find(i => i.line_key === lineKey);
-      if (existing) return prev.map(i => i.line_key === lineKey ? { ...i, quantity: i.quantity + 1 } : i);
-      return [
-        ...prev,
-        {
-          line_key: lineKey,
-          product_id: product.id,
-          name: product.name,
-          price: product.price,
-          quantity: 1,
-          modifier_id: modifierId,
-          modifier_name: modifierName,
-          modifier_option: modifierOption,
-          note_required: Number(product.note_required || 0) === 1 ? 1 : 0,
-          notes: '',
-        },
-      ];
-    });
-  };
-
-  const addToCart = (product) => {
-    const modifierId = String(product?.modifier_id || '').trim();
-    if (!modifierId) {
-      appendToCart(product);
-      return;
-    }
-    const modifier = (modifiers || []).find(m => m.id === modifierId && Number(m.active ?? 1) === 1);
-    if (!modifier) {
-      appendToCart(product);
-      return;
-    }
-    const options = Array.isArray(modifier.options) ? modifier.options.filter(Boolean) : [];
-    if (options.length === 0) {
-      if (Number(modifier.required || 0) === 1) {
-        toast.error(`El modificador "${modifier.name}" no tiene opciones configuradas`);
-        return;
-      }
-      appendToCart(product);
-      return;
-    }
-    setModifierPrompt({
-      open: true,
-      product,
-      modifier,
-      selectedOption: '',
-    });
-  };
-
-  const confirmModifierForCart = () => {
-    const modifier = modifierPrompt.modifier;
-    const product = modifierPrompt.product;
-    if (!modifier || !product) return;
-    const required = Number(modifier.required || 0) === 1;
-    const option = String(modifierPrompt.selectedOption || '').trim();
-    if (required && !option) {
-      toast.error(`Debes seleccionar ${modifier.name}`);
-      return;
-    }
-    appendToCart(product, {
-      modifierId: modifier.id,
-      modifierName: modifier.name,
-      modifierOption: option,
-    });
-    setModifierPrompt({ open: false, product: null, modifier: null, selectedOption: '' });
-  };
-
-  const addProductWithoutOptionalModifier = () => {
-    const modifier = modifierPrompt.modifier;
-    const product = modifierPrompt.product;
-    if (!modifier || !product) return;
-    const required = Number(modifier.required || 0) === 1;
-    if (required) return;
-    appendToCart(product);
-    setModifierPrompt({ open: false, product: null, modifier: null, selectedOption: '' });
-  };
-
-  const updateQty = (lineKey, delta) => {
-    setCart(prev => prev.map(i => {
-      if (i.line_key !== lineKey) return i;
-      const newQty = i.quantity + delta;
-      return newQty > 0 ? { ...i, quantity: newQty } : i;
-    }).filter(i => i.quantity > 0));
-  };
-
-  const removeFromCart = (lineKey) => setCart(prev => prev.filter(i => i.line_key !== lineKey));
-  const updateItemNote = (lineKey, nextNote) => {
-    setCart(prev => prev.map(i => (i.line_key === lineKey ? { ...i, notes: String(nextNote || '') } : i)));
-  };
-  const cartTotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const receivedAmount = Math.max(0, parseFloat(amountReceived) || 0);
   const quickSaleChange = Math.max(0, receivedAmount - cartTotal);
   const quickSaleMissing = Math.max(0, cartTotal - receivedAmount);
@@ -785,6 +699,7 @@ export default function POSPanel() {
       const billingError = validateBillingData();
       if (billingError) return toast.error(billingError);
     }
+    const tid = toast.loading(quickSaleMode ? 'Registrando venta…' : 'Enviando pedido…');
     try {
       const createdOrder = await api.post('/orders', {
         items: cart.map(i => ({
@@ -807,24 +722,22 @@ export default function POSPanel() {
         await api.put(`/orders/${createdOrder.id}/status`, { status: 'delivered' });
         if (billingForm.enabled) {
           const doc = await issueElectronicDocument(createdOrder.id);
-          toast.success(`Venta rápida cobrada · ${doc.full_number || 'Comprobante generado'}`);
+          toast.success(`Venta rápida cobrada · ${doc.full_number || 'Comprobante generado'}`, { id: tid });
           if (doc?.pdf_url) window.open(doc.pdf_url, '_blank');
         } else {
-          toast.success('Venta rápida cobrada');
+          toast.success('Venta rápida cobrada', { id: tid });
         }
       } else {
-        toast.success(`Pedido agregado a ${selectedTable.name}`);
+        toast.success(`Pedido agregado a ${selectedTable.name}`, { id: tid });
       }
       setShowMenu(false);
       setQuickSaleMode(false);
-      setCart([]);
-      setNoteEditorLineKey('');
-      setModifierPrompt({ open: false, product: null, modifier: null, selectedOption: '' });
+      resetCart();
       setAmountReceived('');
       resetBillingForm();
       loadData();
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err.message || 'No se pudo completar la operación', { id: tid });
     }
   };
 
@@ -1140,19 +1053,6 @@ export default function POSPanel() {
             <p className="text-xl font-bold text-gold-600">{formatCurrency((tableDetail.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}</p>
           </div>
 
-          {tableDetail.orders?.length ? (
-            <div className="space-y-1 mb-3">
-              {tableDetail.orders.flatMap(o => o.items || []).map((item, i) => (
-                <div key={i} className="flex justify-between text-sm text-slate-600">
-                  <span>{item.quantity}x {item.product_name}</span>
-                  <span>{formatCurrency(item.subtotal)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500 mb-3">Esta mesa está libre por ahora.</p>
-          )}
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <button
               onClick={() => openMenuForTable(tableDetail)}
@@ -1390,7 +1290,7 @@ export default function POSPanel() {
       )}
       </div>
 
-      {/* Modal Cobrar Mesa */}
+      {/* Modal tomar pedido / venta rápida */}
       <Modal
         isOpen={showMenu}
         onClose={() => {
@@ -1398,89 +1298,80 @@ export default function POSPanel() {
           setQuickSaleMode(false);
           setAmountReceived('');
           resetBillingForm();
+          resetCart();
         }}
         title={quickSaleMode ? 'Venta rápida' : `Agregar Pedido — ${selectedTable?.name || ''}`}
         size="xl"
       >
-        <div className="flex gap-4" style={{ minHeight: '60vh' }}>
-          <div className="flex-1 flex flex-col">
-            <div className="mb-3">
-              <div className="relative">
-                <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar producto..." className="input-field pl-10" />
-              </div>
-            </div>
-            <div className="flex gap-2 flex-wrap mb-3">
-              <button onClick={() => setSelectedCat('all')} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${selectedCat === 'all' ? 'bg-gold-600 text-white' : 'bg-slate-100 text-slate-600'}`}>Todos</button>
-              {categories.map(c => (
-                <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${selectedCat === c.id ? 'bg-gold-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{c.name}</button>
-              ))}
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {filteredProducts.map(p => (
-                  <button key={p.id} onClick={() => addToCart(p)} className="bg-slate-50 rounded-xl p-3 text-left hover:shadow-md transition-shadow border border-slate-100 hover:border-gold-300">
-                    <p className="font-medium text-sm truncate">{p.name}</p>
-                    <p className="text-gold-600 font-bold text-sm mt-1">{formatCurrency(p.price)}</p>
-                    <p className="text-xs text-slate-400">Stock: {p.stock}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="w-72 border-l pl-4 flex flex-col">
-            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-              <MdShoppingCart /> Pedido
-              {cart.length > 0 && <span className="text-xs bg-gold-100 text-gold-600 px-2 py-0.5 rounded-full">{cart.length}</span>}
-            </h3>
-
-            {quickSaleMode && (
-              <div className="mb-3 space-y-2">
+        <StaffDineInOrderUI
+          search={search}
+          onSearchChange={setSearch}
+          selectedCat={selectedCat}
+          onSelectedCatChange={setSelectedCat}
+          categories={categories}
+          filteredProducts={filteredProducts}
+          onProductPick={addToCart}
+          cart={cart}
+          noteEditorLineKey={noteEditorLineKey}
+          setNoteEditorLineKey={setNoteEditorLineKey}
+          updateQty={updateQty}
+          removeFromCart={removeFromCart}
+          updateItemNote={updateItemNote}
+          cartTotal={cartTotal}
+          formatCurrency={formatCurrency}
+          minHeightClass="min-h-[60vh]"
+          sidebarTop={
+            quickSaleMode ? (
+              <div className="space-y-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Método de pago</label>
-                  <select className="input-field" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-                    {paymentOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Método de pago</label>
+                  <select className="input-field" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                    {paymentOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
                     ))}
                   </select>
                 </div>
                 {paymentMethod === 'efectivo' && (
                   <>
                     <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Paga con</label>
+                      <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Paga con</label>
                       <input
                         type="number"
                         min="0"
                         step="0.01"
                         className="input-field"
                         value={amountReceived}
-                        onChange={e => setAmountReceived(e.target.value)}
+                        onChange={(e) => setAmountReceived(e.target.value)}
                         placeholder="0.00"
                       />
                     </div>
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-sm">
-                      <p className="text-slate-600">Vuelto: <span className="font-bold text-emerald-700">{formatCurrency(quickSaleChange)}</span></p>
+                    <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/35 p-2 text-sm">
+                      <p className="text-[#9CA3AF]">
+                        Vuelto: <span className="font-bold text-emerald-300">{formatCurrency(quickSaleChange)}</span>
+                      </p>
                       {quickSaleMissing > 0 && (
-                        <p className="text-xs text-red-600 mt-1">Falta: {formatCurrency(quickSaleMissing)}</p>
+                        <p className="text-xs text-red-400 mt-1">Falta: {formatCurrency(quickSaleMissing)}</p>
                       )}
                     </div>
                   </>
                 )}
-                <div className="rounded-lg border border-slate-200 p-2 space-y-2">
+                <div className="rounded-lg border border-[#3B82F6]/30 bg-[#111827] p-2 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                    <label className="flex items-center gap-2 text-xs font-medium text-[#F9FAFB]">
                       <input
                         type="checkbox"
                         checked={billingForm.enabled}
-                        onChange={e => setBillingForm(prev => ({ ...prev, enabled: e.target.checked }))}
+                        onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+                        className="rounded border-[#3B82F6]/50"
                       />
                       Emitir comprobante de pago
                     </label>
                     <button
                       type="button"
                       onClick={openCustomerModal}
-                      className="px-2 py-1 rounded border border-[#2563EB] text-[#2563EB] text-xs font-medium hover:bg-[#2563EB]/10 flex items-center gap-1"
+                      className="px-2 py-1 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1"
                     >
                       <MdPersonAdd className="text-sm" />
                       Agregar cliente
@@ -1492,7 +1383,7 @@ export default function POSPanel() {
                         <select
                           className="input-field"
                           value={billingForm.doc_type}
-                          onChange={e => setBillingForm(prev => ({ ...prev, doc_type: e.target.value }))}
+                          onChange={(e) => setBillingForm((prev) => ({ ...prev, doc_type: e.target.value }))}
                         >
                           <option value="boleta">Boleta</option>
                           <option value="factura">Factura</option>
@@ -1500,7 +1391,7 @@ export default function POSPanel() {
                         <select
                           className="input-field"
                           value={billingForm.customer_doc_type}
-                          onChange={e => setBillingForm(prev => ({ ...prev, customer_doc_type: e.target.value }))}
+                          onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_type: e.target.value }))}
                           disabled={billingForm.doc_type === 'factura'}
                         >
                           <option value="1">DNI</option>
@@ -1512,146 +1403,52 @@ export default function POSPanel() {
                         className="input-field"
                         placeholder="N° documento"
                         value={billingForm.customer_doc_number}
-                        onChange={e => setBillingForm(prev => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))}
+                        onChange={(e) =>
+                          setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
+                        }
                       />
                       <input
                         className="input-field"
                         placeholder={billingForm.doc_type === 'factura' ? 'Razón social' : 'Nombre cliente'}
                         value={billingForm.customer_name}
-                        onChange={e => setBillingForm(prev => ({ ...prev, customer_name: e.target.value }))}
+                        onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_name: e.target.value }))}
                       />
-                      {searchingCustomer && (
-                        <p className="text-[11px] text-slate-500">Buscando cliente por DNI/RUC...</p>
-                      )}
+                      {searchingCustomer && <p className="text-[11px] text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
                       {matchedCustomer && (
-                        <p className="text-[11px] text-emerald-700">Cliente encontrado: {matchedCustomer.name}</p>
+                        <p className="text-[11px] text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
                       )}
                     </div>
                   )}
                 </div>
               </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto space-y-2">
-              {cart.length === 0 ? (
-                <p className="text-center text-slate-400 text-sm py-8">Selecciona productos</p>
-              ) : cart.map(item => (
-                <div key={item.line_key} className="bg-slate-50 rounded-lg p-2 border border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{item.name}</p>
-                      {Number(item.note_required || 0) === 1 && (
-                        <p className="text-[11px] text-red-600 font-medium">Nota obligatoria</p>
-                      )}
-                      {item.modifier_name && item.modifier_option && (
-                        <p className="text-[11px] text-slate-500 truncate">{item.modifier_name}: {item.modifier_option}</p>
-                      )}
-                      <p className="text-xs text-slate-400">{formatCurrency(item.price)}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setNoteEditorLineKey(prev => (prev === item.line_key ? '' : item.line_key))}
-                        className={`w-7 h-7 rounded flex items-center justify-center border ${
-                          item.notes?.trim()
-                            ? 'bg-amber-100 border-amber-300 text-amber-700'
-                            : 'bg-white hover:bg-slate-200'
-                        }`}
-                        title="Agregar nota al producto"
-                      >
-                        <MdEditNote className="text-sm" />
-                      </button>
-                      <button onClick={() => updateQty(item.line_key, -1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdRemove className="text-xs" /></button>
-                      <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
-                      <button onClick={() => updateQty(item.line_key, 1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdAdd className="text-xs" /></button>
-                    </div>
-                    <button onClick={() => removeFromCart(item.line_key)} className="text-red-400 hover:text-red-600"><MdDelete className="text-sm" /></button>
-                  </div>
-                  {(noteEditorLineKey === item.line_key || item.notes?.trim()) && (
-                    <div className="mt-2">
-                      <textarea
-                        value={item.notes || ''}
-                        onChange={(e) => updateItemNote(item.line_key, e.target.value)}
-                        placeholder="Escribe una nota para cocina..."
-                        className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
-                        rows={2}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {cart.length > 0 && (
-              <div className="border-t pt-3 mt-3 space-y-2">
-                <div className="flex justify-between font-bold text-lg">
+            ) : null
+          }
+          footer={
+            cart.length > 0 ? (
+              <>
+                <div className="flex justify-between font-bold text-lg text-white">
                   <span>Total</span>
-                  <span className="text-gold-600">{formatCurrency(cartTotal)}</span>
+                  <span className="text-[#BFDBFE]">{formatCurrency(cartTotal)}</span>
                 </div>
-                <button onClick={submitOrder} className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
+                <button type="button" onClick={submitOrder} className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
                   <MdReceipt /> {quickSaleMode ? 'Cobrar venta rápida' : 'Enviar Pedido'}
                 </button>
-              </div>
-            )}
-          </div>
-        </div>
+              </>
+            ) : null
+          }
+        />
       </Modal>
 
-      <Modal
-        isOpen={modifierPrompt.open}
+      <StaffModifierPromptModal
+        open={modifierPrompt.open}
         onClose={() => setModifierPrompt({ open: false, product: null, modifier: null, selectedOption: '' })}
-        title={`Seleccionar ${modifierPrompt.modifier?.name || 'modificador'}`}
-        size="sm"
-      >
-        <div className="space-y-3">
-          <p className="text-sm text-slate-600">
-            {modifierPrompt.product?.name || 'Producto'} · {Number(modifierPrompt.modifier?.required || 0) === 1 ? 'Obligatorio' : 'Opcional'}
-          </p>
-          <div className="space-y-2 max-h-56 overflow-y-auto">
-            {(modifierPrompt.modifier?.options || []).map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => setModifierPrompt(prev => ({ ...prev, selectedOption: opt }))}
-                className={`w-full px-3 py-2 rounded-lg border text-left text-sm ${
-                  modifierPrompt.selectedOption === opt
-                    ? 'border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB]'
-                    : 'border-slate-200 hover:border-slate-300 text-slate-700'
-                }`}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setModifierPrompt({ open: false, product: null, modifier: null, selectedOption: '' })}
-              className="btn-secondary flex-1"
-            >
-              Cancelar
-            </button>
-            {Number(modifierPrompt.modifier?.required || 0) !== 1 && (
-              <button
-                type="button"
-                onClick={addProductWithoutOptionalModifier}
-                className="px-3 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-100"
-              >
-                Sin modificador
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={confirmModifierForCart}
-              className="btn-primary flex-1"
-            >
-              Confirmar
-            </button>
-          </div>
-        </div>
-      </Modal>
+        modifierPrompt={modifierPrompt}
+        setModifierPrompt={setModifierPrompt}
+        onConfirm={confirmModifierForCart}
+        onSkipOptional={addProductWithoutOptionalModifier}
+      />
 
-      {/* Modal Cobrar Mesa */}
+      {/* Modal cuenta / cobro mesa */}
       <Modal
         isOpen={showBill}
         onClose={() => {
@@ -1659,56 +1456,72 @@ export default function POSPanel() {
           setAmountReceived('');
           resetBillingForm();
         }}
-        title={`COBRAR-MESA ${selectedTable?.number || selectedTable?.name}`}
+        title={`COBRAR MESA ${selectedTable?.number || selectedTable?.name}`}
         size="md"
-        headerClassName="bg-red-600 border-b-red-700 rounded-t-2xl"
-        titleClassName="text-white font-extrabold tracking-wide"
-        closeButtonClassName="hover:bg-red-500"
-        closeIconClassName="text-white"
+        headerClassName="bg-[#1D4ED8]/40 border-b border-[#3B82F6]/30"
+        titleClassName="text-[#F9FAFB] font-extrabold tracking-wide"
+        closeButtonClassName="hover:bg-[#1E3A8A]/50"
+        closeIconClassName="text-[#BFDBFE]"
       >
         {selectedTable && (
-          <div className="border border-red-300 rounded-lg p-3 bg-[#FEE2E2]">
-            <p className="text-red-800 font-bold mb-2">COBRAR-MESA {selectedTable.number || selectedTable.name}</p>
-            <div className="flex items-end justify-between mb-3">
+          <div className="rounded-xl border border-[#3B82F6]/30 bg-[#111827] p-4 space-y-3">
+            <p className="text-[#F9FAFB] font-bold">COBRAR-MESA {selectedTable.number || selectedTable.name}</p>
+            <div className="flex flex-wrap items-end justify-between gap-2 mb-1">
               <div>
-                <p className="inline-flex px-3 py-1 rounded-lg bg-red-600 text-white text-sm font-bold">MESA {selectedTable.name}</p>
-                <p className="text-xs text-slate-700">Busca un producto</p>
+                <p className="inline-flex px-3 py-1 rounded-lg bg-[#2563EB] text-white text-sm font-bold">
+                  MESA {selectedTable.name}
+                </p>
+                <p className="text-xs text-[#9CA3AF] mt-1">Revisa pedidos y total antes de cobrar</p>
               </div>
-              <div className="text-sm text-slate-800">
-                <span className="font-semibold">Detalles de mesa:</span> Sin detalles
+              <div className="text-sm text-[#BFDBFE]">
+                <span className="font-semibold text-[#F9FAFB]">Detalles de mesa:</span> Sin detalles
               </div>
             </div>
 
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-2 mb-1">
               <button
+                type="button"
                 onClick={() => setBillTab('pedidos')}
-                className={`px-4 py-2 rounded-t-lg text-sm ${billTab === 'pedidos' ? 'bg-[#ffffff] border border-b-0 border-red-200 font-semibold text-red-800' : 'bg-red-200 text-red-800'}`}
+                className={`px-4 py-2 rounded-t-lg text-sm transition-colors ${
+                  billTab === 'pedidos'
+                    ? 'bg-[#BFDBFE] text-[#1E3A8A] font-semibold border border-b-0 border-[#3B82F6]/50'
+                    : 'bg-[#1E3A8A]/45 text-[#DBEAFE] hover:bg-[#1E3A8A]/60'
+                }`}
               >
                 Pedidos
               </button>
               <button
+                type="button"
                 onClick={() => setBillTab('cuenta')}
-                className={`px-4 py-2 rounded-t-lg text-sm ${billTab === 'cuenta' ? 'bg-[#ffffff] border border-b-0 border-red-200 font-semibold text-red-800' : 'bg-red-200 text-red-800'}`}
+                className={`px-4 py-2 rounded-t-lg text-sm transition-colors ${
+                  billTab === 'cuenta'
+                    ? 'bg-[#BFDBFE] text-[#1E3A8A] font-semibold border border-b-0 border-[#3B82F6]/50'
+                    : 'bg-[#1E3A8A]/45 text-[#DBEAFE] hover:bg-[#1E3A8A]/60'
+                }`}
               >
                 $ Cuenta
               </button>
             </div>
 
             {billTab === 'pedidos' ? (
-              <div className="border border-slate-200 rounded-lg p-3 mb-3 space-y-3 bg-[#ffffff]">
+              <div className="rounded-lg border border-[#3B82F6]/25 bg-[#1F2937] p-3 mb-2 space-y-3">
                 {(selectedTable.orders || []).length === 0 ? (
-                  <p className="text-sm text-slate-600 text-center py-6">Sin pedidos activos</p>
+                  <p className="text-sm text-[#9CA3AF] text-center py-6">Sin pedidos activos</p>
                 ) : (
-                  (selectedTable.orders || []).map(order => (
-                    <div key={order.id} className="border border-slate-200 rounded-lg p-3">
+                  (selectedTable.orders || []).map((order) => (
+                    <div key={order.id} className="rounded-lg border border-[#3B82F6]/20 bg-[#1D4ED8]/15 p-3">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-bold bg-slate-100 px-2 py-1 rounded">Pedido #{order.order_number}</p>
-                        <p className="font-bold text-slate-700">{formatCurrency(getOrderChargeTotal(order))}</p>
+                        <p className="text-xs font-bold bg-[#1E3A8A]/50 text-[#BFDBFE] px-2 py-1 rounded">
+                          Pedido #{order.order_number}
+                        </p>
+                        <p className="font-bold text-[#F9FAFB]">{formatCurrency(getOrderChargeTotal(order))}</p>
                       </div>
                       <div className="space-y-1">
-                        {(order.items || []).map(item => (
-                          <div key={item.id} className="flex justify-between text-sm text-slate-600">
-                            <span>{item.quantity}x {item.product_name}</span>
+                        {(order.items || []).map((item) => (
+                          <div key={item.id} className="flex justify-between text-sm text-[#D1D5DB]">
+                            <span>
+                              {item.quantity}x {item.product_name}
+                            </span>
                             <span>{formatCurrency(item.subtotal)}</span>
                           </div>
                         ))}
@@ -1718,75 +1531,82 @@ export default function POSPanel() {
                 )}
               </div>
             ) : (
-              <div className="border border-slate-200 rounded-lg p-3 mb-3 bg-[#ffffff]">
+              <div className="rounded-lg border border-[#3B82F6]/25 bg-[#1F2937] p-3 mb-2">
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-sm font-medium text-slate-800">Cobro completo</span>
-                  <span className="text-xs text-slate-600">{selectedOrderIds.length} pedido(s) seleccionados</span>
+                  <span className="text-sm font-medium text-[#F9FAFB]">Cobro completo</span>
+                  <span className="text-xs text-[#9CA3AF]">{selectedOrderIds.length} pedido(s) seleccionados</span>
                 </div>
-                <div className="flex items-end justify-between border-t border-slate-200 pt-3">
+                <div className="flex items-end justify-between border-t border-[#3B82F6]/20 pt-3">
                   <div>
-                    <p className="text-xs text-slate-600">Pedidos</p>
-                    <p className="text-2xl font-bold text-slate-900">{selectedOrderIds.length}</p>
+                    <p className="text-xs text-[#9CA3AF]">Pedidos</p>
+                    <p className="text-2xl font-bold text-[#F9FAFB]">{selectedOrderIds.length}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-slate-600">Total</p>
-                    <p className="text-4xl font-bold text-slate-900">S/ {payableTotal.toFixed(2)}</p>
+                    <p className="text-xs text-[#9CA3AF]">Total</p>
+                    <p className="text-4xl font-bold text-[#BFDBFE]">S/ {payableTotal.toFixed(2)}</p>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="border border-slate-200 rounded-lg p-3 mb-3 bg-[#ffffff]">
+            <div className="rounded-lg border border-[#3B82F6]/25 bg-[#1F2937] p-3 mb-2">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-800 mb-1">Método de pago</label>
-                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] outline-none" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-                    {paymentOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Método de pago</label>
+                  <select
+                    className="input-field"
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  >
+                    {paymentOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-800 mb-1">Paga con</label>
+                  <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Paga con</label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB] outline-none"
+                    className="input-field"
                     value={amountReceived}
-                    onChange={e => setAmountReceived(e.target.value)}
+                    onChange={(e) => setAmountReceived(e.target.value)}
                     placeholder="0.00"
                     disabled={paymentMethod !== 'efectivo'}
                   />
                 </div>
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 flex flex-col justify-center">
-                  <p className="text-xs text-slate-600">Vuelto</p>
-                  <p className="text-lg font-bold text-emerald-700">
+                <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/35 px-3 py-2 flex flex-col justify-center">
+                  <p className="text-xs text-[#9CA3AF]">Vuelto</p>
+                  <p className="text-lg font-bold text-emerald-300">
                     {paymentMethod === 'efectivo'
                       ? formatCurrency(Math.max(0, receivedAmount - payableTotal))
                       : formatCurrency(0)}
                   </p>
                   {paymentMethod === 'efectivo' && receivedAmount < payableTotal && (
-                    <p className="text-xs text-red-600">Falta: {formatCurrency(payableTotal - receivedAmount)}</p>
+                    <p className="text-xs text-red-400">Falta: {formatCurrency(payableTotal - receivedAmount)}</p>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="border border-slate-200 rounded-lg p-3 mb-3 bg-[#ffffff]">
+            <div className="rounded-lg border border-[#3B82F6]/25 bg-[#1F2937] p-3 mb-2">
               <div className="flex items-center justify-between gap-2 mb-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                <label className="flex items-center gap-2 text-sm font-medium text-[#F9FAFB]">
                   <input
                     type="checkbox"
                     checked={billingForm.enabled}
-                    onChange={e => setBillingForm(prev => ({ ...prev, enabled: e.target.checked }))}
+                    onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+                    className="rounded border-[#3B82F6]/50"
                   />
                   Emitir comprobante de pago
                 </label>
                 <button
                   type="button"
                   onClick={openCustomerModal}
-                  className="px-2.5 py-1.5 rounded border border-[#2563EB] text-[#2563EB] text-xs font-medium hover:bg-[#2563EB]/10 flex items-center gap-1"
+                  className="px-2.5 py-1.5 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1"
                 >
                   <MdPersonAdd className="text-sm" />
                   Agregar cliente
@@ -1795,17 +1615,17 @@ export default function POSPanel() {
               {billingForm.enabled && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <select
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 focus:ring-2 focus:ring-[#2563EB] outline-none"
+                    className="input-field"
                     value={billingForm.doc_type}
-                    onChange={e => setBillingForm(prev => ({ ...prev, doc_type: e.target.value }))}
+                    onChange={(e) => setBillingForm((prev) => ({ ...prev, doc_type: e.target.value }))}
                   >
                     <option value="boleta">Boleta</option>
                     <option value="factura">Factura</option>
                   </select>
                   <select
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 focus:ring-2 focus:ring-[#2563EB] outline-none"
+                    className="input-field"
                     value={billingForm.customer_doc_type}
-                    onChange={e => setBillingForm(prev => ({ ...prev, customer_doc_type: e.target.value }))}
+                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_type: e.target.value }))}
                     disabled={billingForm.doc_type === 'factura'}
                   >
                     <option value="1">DNI</option>
@@ -1813,40 +1633,42 @@ export default function POSPanel() {
                     <option value="0">Sin documento</option>
                   </select>
                   <input
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-[#2563EB] outline-none"
+                    className="input-field"
                     placeholder="N° documento"
                     value={billingForm.customer_doc_number}
-                    onChange={e => setBillingForm(prev => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))}
+                    onChange={(e) =>
+                      setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
+                    }
                   />
                   <input
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-[#2563EB] outline-none"
+                    className="input-field"
                     placeholder={billingForm.doc_type === 'factura' ? 'Razón social' : 'Nombre cliente'}
                     value={billingForm.customer_name}
-                    onChange={e => setBillingForm(prev => ({ ...prev, customer_name: e.target.value }))}
+                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_name: e.target.value }))}
                   />
                   <input
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-[#F8FAFC] text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-[#2563EB] outline-none md:col-span-2"
+                    className="input-field md:col-span-2"
                     placeholder="Dirección (opcional)"
                     value={billingForm.customer_address}
-                    onChange={e => setBillingForm(prev => ({ ...prev, customer_address: e.target.value }))}
+                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_address: e.target.value }))}
                   />
                   <div className="md:col-span-2">
-                    {searchingCustomer && (
-                      <p className="text-xs text-slate-500">Buscando cliente por DNI/RUC...</p>
-                    )}
+                    {searchingCustomer && <p className="text-xs text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
                     {matchedCustomer && (
-                      <p className="text-xs text-emerald-700">Cliente encontrado: {matchedCustomer.name}</p>
+                      <p className="text-xs text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
                     )}
                   </div>
                 </div>
               )}
               {billingResult && (
-                <div className="mt-2 text-xs rounded bg-emerald-50 border border-emerald-200 px-2 py-1 text-emerald-700 flex items-center justify-between gap-2">
-                  <span>{billingResult.full_number} · {billingResult.provider_status}</span>
+                <div className="mt-2 text-xs rounded-lg border border-emerald-500/40 bg-emerald-950/40 px-2 py-2 text-emerald-200 flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    {billingResult.full_number} · {billingResult.provider_status}
+                  </span>
                   {billingResult.pdf_url && (
                     <button
                       type="button"
-                      className="px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700"
+                      className="px-2 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500"
                       onClick={() => window.open(billingResult.pdf_url, '_blank')}
                     >
                       Ver PDF
@@ -1857,33 +1679,46 @@ export default function POSPanel() {
             </div>
 
             {billTab === 'pedidos' ? (
-              <div className="mb-3">
-                <button onClick={cobrarMesa} className="w-full py-3 bg-red-400 hover:bg-red-500 text-white font-bold text-3xl rounded-lg">
+              <div className="mb-1">
+                <button
+                  type="button"
+                  onClick={cobrarMesa}
+                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white font-bold text-2xl sm:text-3xl hover:from-[#1D4ED8] hover:to-[#1E40AF] shadow-lg shadow-[#1D4ED8]/25"
+                >
                   COBRAR MESA
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-1">
                 <div className="flex gap-2 flex-wrap">
                   <button
+                    type="button"
                     onClick={togglePartialSelection}
-                    className="px-3 py-2 rounded bg-red-400 hover:bg-red-500 text-white text-sm"
+                    className="px-3 py-2 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm border border-[#3B82F6]/40"
                   >
                     {splitMode ? 'Cerrar dividir cuentas' : 'Dividir cuentas'}
                   </button>
                   <button
+                    type="button"
                     onClick={handleDiscountButton}
-                    className="px-3 py-2 rounded bg-red-400 hover:bg-red-500 text-white text-sm"
+                    className="px-3 py-2 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm border border-[#3B82F6]/40"
                   >
-                    {discountConfig.applied ? 'Anular descuento' : (discountConfig.active ? 'Aplicar descuento' : 'Agregar descuento')}
+                    {discountConfig.applied
+                      ? 'Anular descuento'
+                      : discountConfig.active
+                        ? 'Aplicar descuento'
+                        : 'Agregar descuento'}
                   </button>
                 </div>
-                <button onClick={cobrarMesa} className="w-full py-3 bg-red-400 hover:bg-red-500 text-white font-bold text-3xl rounded-lg">
+                <button
+                  type="button"
+                  onClick={cobrarMesa}
+                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white font-bold text-2xl sm:text-3xl hover:from-[#1D4ED8] hover:to-[#1E40AF] shadow-lg shadow-[#1D4ED8]/25"
+                >
                   COBRAR MESA
                 </button>
               </div>
             )}
-
           </div>
         )}
       </Modal>

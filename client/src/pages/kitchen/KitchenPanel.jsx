@@ -3,6 +3,8 @@ import { api, ORDER_TYPES, formatTime } from '../../utils/api';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
+import EndShiftModal from '../../components/EndShiftModal';
+import NotificationCenter from '../../components/NotificationCenter';
 import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime, MdPrint } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -12,7 +14,8 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const [filter, setFilter] = useState('all');
   const [printConfig, setPrintConfig] = useState({ cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const [endShiftOpen, setEndShiftOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const emit = useSocketEmit();
@@ -216,11 +219,13 @@ export default function KitchenPanel({ station = 'cocina' }) {
               Volver al Centro Operativo
             </button>
           )}
-          <button onClick={logout} className="px-3 py-2 hover:bg-[#1F2937] rounded-lg text-[#9CA3AF] hover:text-[#F9FAFB] border border-[#3B82F6]/25 text-sm font-medium inline-flex items-center gap-2">
+          <NotificationCenter />
+          <button type="button" onClick={() => setEndShiftOpen(true)} className="px-3 py-2 hover:bg-[#1F2937] rounded-lg text-[#9CA3AF] hover:text-[#F9FAFB] border border-[#3B82F6]/25 text-sm font-medium inline-flex items-center gap-2">
             <MdLogout className="text-lg" /> Finalizar jornada
           </button>
         </div>
       </header>
+      <EndShiftModal isOpen={endShiftOpen} onClose={() => setEndShiftOpen(false)} />
 
       <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {orders.map(order => {

@@ -118,7 +118,7 @@ export default function CustomerLayout() {
         <Outlet />
       </main>
 
-      <Modal isOpen={showAuth} onClose={() => setShowAuth(false)} title={authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}>
+      <Modal variant="light" isOpen={showAuth} onClose={() => setShowAuth(false)} title={authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}>
         {authMode === 'login' ? (
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
