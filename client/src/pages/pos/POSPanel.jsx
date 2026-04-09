@@ -1462,7 +1462,7 @@ export default function POSPanel() {
         onSkipOptional={addProductWithoutOptionalModifier}
       />
 
-      {/* Modal cobro mesa: pedidos | cuenta | cobro; barra fija abajo (dividir / descuento + mesa) */}
+      {/* Modal cobro mesa: pedidos o boleta/factura (izq) | cuenta | cobro (mesa arriba del total) */}
       <Modal
         isOpen={showBill}
         onClose={() => {
@@ -1487,7 +1487,7 @@ export default function POSPanel() {
                     {billingForm.enabled ? (
                       <div className="flex flex-col gap-3 overflow-y-auto max-h-[min(50vh,400px)] pr-1">
                         <div className="flex items-center justify-between gap-2 shrink-0">
-                          <h4 className="text-sm font-semibold text-[#F9FAFB]">Datos del comprobante</h4>
+                          <h4 className="text-sm font-semibold text-[#F9FAFB]">Boleta o factura</h4>
                           <button
                             type="button"
                             onClick={openCustomerModal}
@@ -1695,7 +1695,13 @@ export default function POSPanel() {
                 {/* Cobro */}
                 <div className="lg:col-span-4 lg:border-l lg:border-[#3B82F6]/25 lg:pl-5">
                   <div className="rounded-xl border border-[#3B82F6]/35 bg-[#111827]/70 backdrop-blur-md p-4 space-y-4">
-                    <div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-[#9CA3AF] uppercase tracking-wider mb-1">Mesa</p>
+                      <p className="text-xl sm:text-2xl font-extrabold text-[#F9FAFB] tracking-wide">
+                        {selectedTable.name ?? selectedTable.number ?? '—'}
+                      </p>
+                    </div>
+                    <div className="border-t border-[#3B82F6]/25 pt-3">
                       <p className="text-xs text-[#9CA3AF] mb-1">Total a pagar</p>
                       <p className="text-3xl sm:text-4xl font-bold text-[#BFDBFE] tabular-nums">{formatCurrency(payableTotal)}</p>
                     </div>
@@ -1748,7 +1754,7 @@ export default function POSPanel() {
                           onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
                           className="rounded border-[#3B82F6]/50"
                         />
-                        Emitir comprobante de pago
+                        Emitir comprobante (boleta o factura)
                       </label>
                       {billingForm.enabled && (
                         <button
@@ -1791,8 +1797,8 @@ export default function POSPanel() {
               </div>
             </div>
 
-            {/* Barra fija inferior: acciones siempre visibles + mesa a la derecha */}
-            <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 py-3 px-1 mt-1 border-t border-[#3B82F6]/40 bg-[#0f172a]/95 backdrop-blur-md rounded-b-lg">
+            {/* Barra fija inferior: solo dividir / descuento (la mesa va arriba del total a pagar) */}
+            <div className="shrink-0 flex flex-wrap items-center gap-3 py-3 px-1 mt-1 border-t border-[#3B82F6]/40 bg-[#0f172a]/95 backdrop-blur-md rounded-b-lg">
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -1812,12 +1818,6 @@ export default function POSPanel() {
                       ? 'Aplicar descuento'
                       : 'Agregar descuento'}
                 </button>
-              </div>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2563EB]/30 border border-[#3B82F6]/50">
-                <span className="text-xs text-[#9CA3AF] uppercase tracking-wide">Mesa</span>
-                <span className="text-base font-extrabold text-[#F9FAFB] tracking-wide">
-                  {selectedTable.name ?? selectedTable.number ?? '—'}
-                </span>
               </div>
             </div>
           </div>
