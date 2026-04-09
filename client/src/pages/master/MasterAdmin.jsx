@@ -271,7 +271,7 @@ export default function MasterAdmin() {
   const control = dashboard?.control || {};
   const notifications = dashboard?.notifications || [];
   const adminUsers = dashboard?.admin_users || [];
-  const creds = dashboard?.master_credentials || { username: 'Romero2587903042007' };
+  const creds = dashboard?.master_credentials || { username: 'Romero25879' };
   const lockEnabled = Number(control.global_lock_enabled || 0) === 1;
 
   return (

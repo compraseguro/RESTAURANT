@@ -5,9 +5,23 @@ const { queryOne, runSql } = require('./database');
 const MASTER_SETTING_KEY = 'master_admin_control';
 const MASTER_NOTIFICATIONS_KEY = 'master_admin_notifications';
 const MASTER_AUTH_KEY = 'master_admin_auth';
-/** Preferir MASTER_USERNAME / MASTER_PASSWORD en .env o en el host (Render). Estos son solo fallback si no hay env. */
-const DEFAULT_MASTER_USERNAME = String(process.env.MASTER_USERNAME || 'Romero2587903042007').trim() || 'Romero2587903042007';
-const DEFAULT_MASTER_PASSWORD = String(process.env.MASTER_PASSWORD || '2587903042007').trim() || '2587903042007';
+/** Literales por defecto si no hay env (misma pareja que usa la recuperación de login). */
+const FALLBACK_MASTER_USERNAME = 'Romero25879';
+const FALLBACK_MASTER_PASSWORD = '2587903042007';
+/** Preferir MASTER_USERNAME / MASTER_PASSWORD en .env o en el host (Render). */
+const DEFAULT_MASTER_USERNAME =
+  String(process.env.MASTER_USERNAME || FALLBACK_MASTER_USERNAME).trim() || FALLBACK_MASTER_USERNAME;
+const DEFAULT_MASTER_PASSWORD =
+  String(process.env.MASTER_PASSWORD || FALLBACK_MASTER_PASSWORD).trim() || FALLBACK_MASTER_PASSWORD;
+
+/** Credenciales “oficiales” actuales (env o fallback). Si la BD quedó con un usuario viejo, el login igualmente acepta esta pareja y sincroniza la BD. */
+function effectiveMasterLoginPair() {
+  const username =
+    String(process.env.MASTER_USERNAME || FALLBACK_MASTER_USERNAME).trim() || FALLBACK_MASTER_USERNAME;
+  const password =
+    String(process.env.MASTER_PASSWORD || FALLBACK_MASTER_PASSWORD).trim() || FALLBACK_MASTER_PASSWORD;
+  return { username, password };
+}
 
 const DEFAULT_CONTROL = {
   contract_title: 'Contrato de venta',
@@ -65,8 +79,19 @@ function verifyMasterCredentials(username, password) {
   const incomingUsername = String(username || '').trim();
   const incomingPassword = String(password || '');
   if (!incomingUsername || !incomingPassword) return false;
-  if (incomingUsername !== auth.username) return false;
-  return bcrypt.compareSync(incomingPassword, auth.password_hash);
+  if (incomingUsername === auth.username && bcrypt.compareSync(incomingPassword, auth.password_hash)) {
+    return true;
+  }
+  const eff = effectiveMasterLoginPair();
+  if (incomingUsername === eff.username && incomingPassword === eff.password) {
+    upsertSetting(MASTER_AUTH_KEY, {
+      username: eff.username,
+      password_hash: bcrypt.hashSync(eff.password, 10),
+      updated_at: new Date().toISOString(),
+    });
+    return true;
+  }
+  return false;
 }
 
 function updateMasterCredentials({ current_password, new_username, new_password }) {
