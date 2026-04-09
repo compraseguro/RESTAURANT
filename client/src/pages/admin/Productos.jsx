@@ -131,7 +131,7 @@ export default function Productos() {
       name: p.name,
       description: p.description || '',
       price: p.price,
-      category_id: p.category_id,
+      category_id: p.category_id || '',
       stock: p.stock,
       is_active: p.is_active,
       process_type: p.process_type === 'non_transformed' ? 'non_transformed' : 'transformed',
@@ -163,6 +163,10 @@ export default function Productos() {
 
       if (isNonTransformed && !warehouseId) {
         toast.error('Selecciona un almacén destino');
+        return;
+      }
+      if (!String(productForm.category_id || '').trim()) {
+        toast.error('Selecciona una categoría para el producto');
         return;
       }
 
@@ -532,9 +536,16 @@ export default function Productos() {
                 disabled={productForm.process_type === 'transformed'}
               />
             </div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
-              <select value={productForm.category_id} onChange={e => setProductForm({ ...productForm, category_id: e.target.value })} className="input-field">
-                <option value="">Sin categoría</option>
+            <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría *</label>
+              <select
+                required
+                value={productForm.category_id}
+                onChange={e => setProductForm({ ...productForm, category_id: e.target.value })}
+                className="input-field"
+              >
+                <option value="" disabled>
+                  {visibleCategories.length ? '— Elija categoría —' : 'Cree una categoría primero'}
+                </option>
                 {visibleCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>

@@ -59,6 +59,14 @@ function resolveWarehouseId(preferredWarehouseId) {
   return fallback?.id || '';
 }
 
+function assertProductCategory(categoryIdRaw) {
+  const id = String(categoryIdRaw ?? '').trim();
+  if (!id) return { ok: false, error: 'Debe seleccionar una categoría' };
+  const row = queryOne('SELECT id FROM categories WHERE id = ?', [id]);
+  if (!row) return { ok: false, error: 'La categoría no existe' };
+  return { ok: true, id };
+}
+
 function upsertWarehouseStock(productId, warehouseId, quantity) {
   if (!warehouseId) return false;
   ensureWarehouseInfrastructure();
@@ -139,6 +147,9 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
   } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error: 'Nombre y precio son requeridos' });
 
+  const catPost = assertProductCategory(category_id);
+  if (!catPost.ok) return res.status(400).json({ error: catPost.error });
+
   const restaurant = queryOne('SELECT id FROM restaurants LIMIT 1');
   const id = uuidv4();
   const safeProcessType = process_type === 'non_transformed' ? 'non_transformed' : 'transformed';
@@ -161,7 +172,7 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
       description || '',
       price,
       image || '',
-      category_id || null,
+      catPost.id,
       restaurant?.id,
       safeStock,
       safeProcessType,
@@ -223,7 +234,12 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
   const safeDescription = description === undefined ? null : description;
   const safePrice = price === undefined ? null : price;
   const safeImage = image === undefined ? null : image;
-  const safeCategoryId = category_id === undefined ? null : category_id;
+  let safeCategoryId = null;
+  if (category_id !== undefined) {
+    const catPut = assertProductCategory(category_id);
+    if (!catPut.ok) return res.status(400).json({ error: catPut.error });
+    safeCategoryId = catPut.id;
+  }
   const safeIsActive = is_active === undefined ? null : is_active;
   runSql(
     `UPDATE products SET
