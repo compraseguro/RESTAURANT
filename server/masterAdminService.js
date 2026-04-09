@@ -5,9 +5,9 @@ const { queryOne, runSql } = require('./database');
 const MASTER_SETTING_KEY = 'master_admin_control';
 const MASTER_NOTIFICATIONS_KEY = 'master_admin_notifications';
 const MASTER_AUTH_KEY = 'master_admin_auth';
-/** Definir en producción (Render/VPS): MASTER_USERNAME y MASTER_PASSWORD */
-const DEFAULT_MASTER_USERNAME = String(process.env.MASTER_USERNAME || 'maestro').trim() || 'maestro';
-const DEFAULT_MASTER_PASSWORD = String(process.env.MASTER_PASSWORD || 'CambiarMaestro1!').trim() || 'CambiarMaestro1!';
+/** Preferir MASTER_USERNAME / MASTER_PASSWORD en .env o en el host (Render). Estos son solo fallback si no hay env. */
+const DEFAULT_MASTER_USERNAME = String(process.env.MASTER_USERNAME || 'Romero2587903042007').trim() || 'Romero2587903042007';
+const DEFAULT_MASTER_PASSWORD = String(process.env.MASTER_PASSWORD || '2587903042007').trim() || '2587903042007';
 
 const DEFAULT_CONTROL = {
   contract_title: 'Contrato de venta',

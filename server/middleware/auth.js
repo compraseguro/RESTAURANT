@@ -23,7 +23,7 @@ function authenticateToken(req, res, next) {
       const masterPub = getMasterCredentialsPublic();
       req.user = {
         id: decoded.id || 'master-admin',
-        username: decoded.username || masterPub.username || 'maestro',
+        username: decoded.username || masterPub.username || 'Romero2587903042007',
         role: 'master_admin',
         full_name: decoded.full_name || 'Administrador Maestro',
       };
