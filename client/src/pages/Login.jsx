@@ -65,7 +65,7 @@ export default function Login() {
         setAttendancePolicy((p) => ({ ...p, loading: false, loginRequired: true }));
         setPhotoLogin(null);
         setStep(2);
-        toast.error('Se requiere foto de asistencia. Captúrela abajo y pulse «Ingresar al sistema».');
+        toast.error('Se requiere foto de asistencia.');
       } else {
         toast.error(msg || 'Error al iniciar sesión');
       }
@@ -112,11 +112,6 @@ export default function Login() {
             <>
               <h2 className="text-xl font-bold text-white mb-1">Iniciar Sesión</h2>
               <p className="text-sm text-[#9CA3AF] mb-6">Ingresa tus credenciales</p>
-              {photosRequired && policyReady && (
-                <p className="text-xs text-[#93C5FD] bg-[#1D4ED8]/20 border border-[#3B82F6]/30 rounded-lg px-3 py-2 mb-4">
-                  El siguiente paso será tomar una foto para registrar el inicio de jornada. Pulse «Continuar».
-                </p>
-              )}
               <form onSubmit={handleContinue} className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-[#F9FAFB] mb-1.5">Usuario</label>
@@ -198,7 +193,6 @@ export default function Login() {
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
                     <MdCameraAlt className="text-[#93C5FD]" /> Foto de asistencia
                   </h2>
-                  <p className="text-sm text-[#9CA3AF]">Capture su rostro y luego ingrese al sistema</p>
                 </div>
               </div>
               <div className="rounded-xl border border-[#3B82F6]/25 bg-[#111827]/50 p-4 mb-5">
