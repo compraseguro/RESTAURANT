@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api, formatCurrency, PAYMENT_METHODS } from '../../utils/api';
+import { useSearchParams } from 'react-router-dom';
+import { api, formatCurrency, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { MdCalendarToday, MdCalendarMonth, MdEmojiEvents, MdTrendingUp, MdReceipt, MdAttachMoney, MdVisibility, MdRefresh, MdPointOfSale, MdDownload } from 'react-icons/md';
 import Modal from '../../components/Modal';
@@ -24,6 +25,7 @@ const formatDateTime = (dateValue) => {
 };
 
 export default function Reports() {
+  const [searchParams] = useSearchParams();
   const [reportSection, setReportSection] = useState('ventas');
   const [tab, setTab] = useState('daily');
   const [dailyData, setDailyData] = useState(null);
@@ -39,6 +41,7 @@ export default function Reports() {
   const [billingSearch, setBillingSearch] = useState('');
   const [retryingDocId, setRetryingDocId] = useState('');
   const [retryingFailed, setRetryingFailed] = useState(false);
+  const [billingPdfPreview, setBillingPdfPreview] = useState(null);
   const [selectedClosedRegister, setSelectedClosedRegister] = useState(null);
   const [loadingClosedRegister, setLoadingClosedRegister] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -52,12 +55,12 @@ export default function Reports() {
     search = billingSearch,
   } = {}) => {
     const params = new URLSearchParams();
-    params.set('limit', '100');
+    params.set('limit', '150');
     if (status && status !== 'all') params.set('status', status);
     if (docType && docType !== 'all') params.set('doc_type', docType);
     if (search.trim()) params.set('search', search.trim());
     const docs = await api.get(`/billing/documents?${params.toString()}`);
-    setBillingDocuments(docs);
+    setBillingDocuments(Array.isArray(docs) ? docs : []);
   };
 
   useEffect(() => {
@@ -72,6 +75,12 @@ export default function Reports() {
     ])
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('seccion') === 'facturacion') {
+      setReportSection('facturacion');
+    }
+  }, [searchParams]);
 
   useEffect(() => { loadRanking(rankingPeriod); }, [rankingPeriod]);
   useEffect(() => {
@@ -715,7 +724,7 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {billingDocuments.slice(0, 50).map(doc => (
+                {billingDocuments.map(doc => (
                   <tr key={doc.id} className="border-b border-slate-50">
                     <td className="py-2 px-3 font-medium">{doc.full_number}</td>
                     <td className="py-2 px-3">{doc.customer_name || 'CLIENTE VARIOS'}</td>
@@ -745,18 +754,22 @@ export default function Reports() {
                         <span className="text-xs text-slate-400">OK</span>
                       )}
                     </td>
-                    <td className="py-2 px-3 text-right">
+                    <td className="py-2 px-3 text-right align-middle">
                       {doc.pdf_url ? (
-                        <a
-                          href={doc.pdf_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 inline-flex items-center gap-1"
-                        >
-                          <MdVisibility /> Ver PDF
-                        </a>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setBillingPdfPreview({
+                              url: doc.pdf_url,
+                              title: doc.full_number ? `PDF — ${doc.full_number}` : 'Vista previa del comprobante',
+                            })
+                          }
+                          className="inline-block h-3 w-3 rounded-full bg-white border border-slate-300 shadow-sm hover:ring-2 hover:ring-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                          title="Ver PDF"
+                          aria-label="Ver PDF del comprobante"
+                        />
                       ) : (
-                        <span className="text-xs text-slate-400">Sin PDF</span>
+                        <span className="text-xs text-slate-400">—</span>
                       )}
                     </td>
                   </tr>
@@ -797,6 +810,22 @@ export default function Reports() {
           )}
         </div>
       )}
+
+      <Modal
+        isOpen={!!billingPdfPreview}
+        onClose={() => setBillingPdfPreview(null)}
+        title={billingPdfPreview?.title || 'Vista previa del PDF'}
+        size="full"
+        variant="light"
+      >
+        {billingPdfPreview?.url && (
+          <iframe
+            title="PDF del comprobante"
+            src={resolveMediaUrl(billingPdfPreview.url)}
+            className="w-full h-[min(80vh,720px)] rounded-lg border border-slate-200 bg-slate-100"
+          />
+        )}
+      </Modal>
 
       <Modal
         isOpen={!!selectedClosedRegister}
