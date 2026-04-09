@@ -158,21 +158,21 @@ function resetOperationalData({ keepAdminUserId = '' } = {}) {
              delivery_radius_km = 10,
              company_ruc = '',
              legal_name = '',
-             billing_enabled = 0,
-             billing_provider = 'nubefact',
-             billing_api_url = 'https://api.nubefact.com/api/v1/9c66b892-4f9e-4f4f-b6ba-95bb89ee7b82',
+             billing_enabled = 1,
+             billing_provider = 'restaurant_efact',
+             billing_api_url = '',
              billing_api_token = '',
-             billing_series_boleta = 'B001',
-             billing_series_factura = 'F001',
+             billing_series_boleta = '',
+             billing_series_factura = '',
              billing_offline_mode = 1,
              billing_auto_retry_enabled = 1,
              billing_auto_retry_interval_sec = 120,
              billing_nombre_comercial = '',
-             billing_emisor_ubigeo = '150101',
+             billing_emisor_ubigeo = '',
              billing_emisor_direccion = '',
-             billing_emisor_provincia = 'LIMA',
-             billing_emisor_departamento = 'LIMA',
-             billing_emisor_distrito = 'LIMA',
+             billing_emisor_provincia = '',
+             billing_emisor_departamento = '',
+             billing_emisor_distrito = '',
              schedule = ?,
              updated_at = datetime('now')
          WHERE id = ?`,
@@ -310,21 +310,21 @@ async function initDatabase() {
         delivery_radius_km REAL DEFAULT 10.0,
         company_ruc TEXT DEFAULT '',
         legal_name TEXT DEFAULT '',
-        billing_enabled INTEGER DEFAULT 0,
-        billing_provider TEXT DEFAULT 'nubefact',
-        billing_api_url TEXT DEFAULT 'https://api.nubefact.com/api/v1/9c66b892-4f9e-4f4f-b6ba-95bb89ee7b82',
+        billing_enabled INTEGER DEFAULT 1,
+        billing_provider TEXT DEFAULT 'restaurant_efact',
+        billing_api_url TEXT DEFAULT '',
         billing_api_token TEXT DEFAULT '',
-        billing_series_boleta TEXT DEFAULT 'B001',
-        billing_series_factura TEXT DEFAULT 'F001',
+        billing_series_boleta TEXT DEFAULT '',
+        billing_series_factura TEXT DEFAULT '',
         billing_offline_mode INTEGER DEFAULT 1,
         billing_auto_retry_enabled INTEGER DEFAULT 1,
         billing_auto_retry_interval_sec INTEGER DEFAULT 120,
         billing_nombre_comercial TEXT DEFAULT '',
-        billing_emisor_ubigeo TEXT DEFAULT '150101',
+        billing_emisor_ubigeo TEXT DEFAULT '',
         billing_emisor_direccion TEXT DEFAULT '',
-        billing_emisor_provincia TEXT DEFAULT 'LIMA',
-        billing_emisor_departamento TEXT DEFAULT 'LIMA',
-        billing_emisor_distrito TEXT DEFAULT 'LIMA',
+        billing_emisor_provincia TEXT DEFAULT '',
+        billing_emisor_departamento TEXT DEFAULT '',
+        billing_emisor_distrito TEXT DEFAULT '',
         schedule TEXT DEFAULT '{}',
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
@@ -942,6 +942,29 @@ async function initDatabase() {
     }
     if (!restaurantColumns.some(col => col.name === 'billing_emisor_distrito')) {
       db.run("ALTER TABLE restaurants ADD COLUMN billing_emisor_distrito TEXT DEFAULT 'LIMA'");
+    }
+
+    const billingBotDefaultsMigrated = queryOne(
+      'SELECT 1 AS ok FROM app_settings WHERE key = ?',
+      ['billing_sunat_bot_defaults_v1']
+    );
+    if (!billingBotDefaultsMigrated) {
+      db.run(`
+        UPDATE restaurants SET
+          billing_enabled = 1,
+          billing_provider = 'restaurant_efact',
+          billing_api_url = CASE
+            WHEN billing_api_url LIKE '%nubefact%' OR billing_api_url LIKE '%9c66b892%' THEN ''
+            ELSE billing_api_url
+          END
+        WHERE billing_provider = 'nubefact'
+           OR billing_api_url LIKE '%nubefact%'
+           OR billing_api_url LIKE '%9c66b892%'
+           OR trim(coalesce(billing_provider, '')) = ''
+      `);
+      db.run(
+        "INSERT OR IGNORE INTO app_settings (key, value) VALUES ('billing_sunat_bot_defaults_v1', '\"1\"')"
+      );
     }
 
     const workSessionCols = queryAll('PRAGMA table_info(user_work_sessions)');

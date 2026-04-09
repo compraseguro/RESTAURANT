@@ -58,6 +58,11 @@ function buildEfactSaleJson({
   const docNum = String(customer.customerDocNumber || '').trim();
   const tipoDoc = String(customer.customerDocType || '1').trim();
 
+  const ubigeo = String(restaurant.billing_emisor_ubigeo || '').trim() || '150101';
+  const provincia = String(restaurant.billing_emisor_provincia || '').trim() || 'LIMA';
+  const departamento = String(restaurant.billing_emisor_departamento || '').trim() || 'LIMA';
+  const distrito = String(restaurant.billing_emisor_distrito || '').trim() || 'LIMA';
+
   return {
     tipo: docType === 'factura' ? '01' : '03',
     serie: series,
@@ -71,11 +76,11 @@ function buildEfactSaleJson({
       ruc,
       razon_social: razon,
       nombre_comercial: String(restaurant.billing_nombre_comercial || restaurant.name || '').trim() || razon,
-      ubigeo: String(restaurant.billing_emisor_ubigeo || '150101').trim(),
+      ubigeo,
       direccion: direccionFiscal,
-      provincia: String(restaurant.billing_emisor_provincia || 'LIMA').trim(),
-      departamento: String(restaurant.billing_emisor_departamento || 'LIMA').trim(),
-      distrito: String(restaurant.billing_emisor_distrito || 'LIMA').trim(),
+      provincia,
+      departamento,
+      distrito,
     },
     cliente: {
       tipo_doc: tipoDoc,

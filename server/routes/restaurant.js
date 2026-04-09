@@ -18,16 +18,40 @@ router.get('/', (req, res) => {
 });
 
 router.put('/', authenticateToken, requireRole('admin'), (req, res) => {
-  const { name, address, phone, email, logo, tax_rate, currency, currency_symbol, delivery_enabled, delivery_fee, delivery_min_order, delivery_radius_km, schedule } = req.body;
+  const b = req.body || {};
+  const {
+    name, address, phone, email, logo, tax_rate, currency, currency_symbol,
+    delivery_enabled, delivery_fee, delivery_min_order, delivery_radius_km, schedule,
+    company_ruc, legal_name, billing_nombre_comercial, billing_emisor_ubigeo,
+    billing_emisor_direccion, billing_emisor_provincia, billing_emisor_departamento,
+    billing_emisor_distrito, billing_series_boleta, billing_series_factura,
+  } = b;
 
   runSql(`UPDATE restaurants SET 
     name = COALESCE(?, name), address = COALESCE(?, address), phone = COALESCE(?, phone), email = COALESCE(?, email), logo = COALESCE(?, logo),
     tax_rate = COALESCE(?, tax_rate), currency = COALESCE(?, currency), currency_symbol = COALESCE(?, currency_symbol),
     delivery_enabled = COALESCE(?, delivery_enabled), delivery_fee = COALESCE(?, delivery_fee),
     delivery_min_order = COALESCE(?, delivery_min_order), delivery_radius_km = COALESCE(?, delivery_radius_km),
-    schedule = COALESCE(?, schedule), updated_at = datetime('now')
+    schedule = COALESCE(?, schedule),
+    company_ruc = COALESCE(?, company_ruc), legal_name = COALESCE(?, legal_name),
+    billing_nombre_comercial = COALESCE(?, billing_nombre_comercial),
+    billing_emisor_ubigeo = COALESCE(?, billing_emisor_ubigeo),
+    billing_emisor_direccion = COALESCE(?, billing_emisor_direccion),
+    billing_emisor_provincia = COALESCE(?, billing_emisor_provincia),
+    billing_emisor_departamento = COALESCE(?, billing_emisor_departamento),
+    billing_emisor_distrito = COALESCE(?, billing_emisor_distrito),
+    billing_series_boleta = COALESCE(?, billing_series_boleta),
+    billing_series_factura = COALESCE(?, billing_series_factura),
+    updated_at = datetime('now')
     WHERE id = (SELECT id FROM restaurants LIMIT 1)`,
-    [name, address, phone, email, logo, tax_rate, currency, currency_symbol, delivery_enabled, delivery_fee, delivery_min_order, delivery_radius_km, schedule ? JSON.stringify(schedule) : null]
+    [
+      name, address, phone, email, logo, tax_rate, currency, currency_symbol,
+      delivery_enabled, delivery_fee, delivery_min_order, delivery_radius_km,
+      schedule ? JSON.stringify(schedule) : null,
+      company_ruc, legal_name, billing_nombre_comercial, billing_emisor_ubigeo,
+      billing_emisor_direccion, billing_emisor_provincia, billing_emisor_departamento,
+      billing_emisor_distrito, billing_series_boleta, billing_series_factura,
+    ]
   );
 
   const updated = queryOne('SELECT * FROM restaurants LIMIT 1');

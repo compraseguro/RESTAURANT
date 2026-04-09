@@ -9,7 +9,7 @@ const DAY_NAMES = { lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', j
 const MI_RESTAURANT_VIEWS = [
   { id: 'mi_empresa', label: 'Mi empresa' },
   { id: 'pagos_sistema', label: 'Pagos del sistema' },
-  { id: 'facturacion_electronica', label: 'Facturación Electrónica' },
+  { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
   { id: 'series_contingencia', label: 'Series de contingencia' },
   { id: 'contrato', label: 'Contrato' },
   { id: 'informacion', label: 'Información' },
@@ -21,24 +21,12 @@ export default function MiRestaurant() {
   const restoreInputRef = useRef(null);
   const [restaurant, setRestaurant] = useState(null);
   const [billingConfig, setBillingConfig] = useState({
-    company_ruc: '',
-    legal_name: '',
-    billing_enabled: 0,
-    billing_provider: 'nubefact',
     billing_api_url: '',
     billing_api_token: '',
     has_billing_api_token: false,
-    billing_series_boleta: 'B001',
-    billing_series_factura: 'F001',
     billing_offline_mode: 1,
     billing_auto_retry_enabled: 1,
     billing_auto_retry_interval_sec: 120,
-    billing_nombre_comercial: '',
-    billing_emisor_ubigeo: '150101',
-    billing_emisor_direccion: '',
-    billing_emisor_provincia: 'LIMA',
-    billing_emisor_departamento: 'LIMA',
-    billing_emisor_distrito: 'LIMA',
   });
   const [tab, setTab] = useState('info');
   const [activeView, setActiveView] = useState(searchParams.get('view') || 'mi_empresa');
@@ -76,7 +64,11 @@ export default function MiRestaurant() {
         if (billingData) {
           setBillingConfig(prev => ({
             ...prev,
-            ...billingData,
+            billing_api_url: billingData.billing_api_url || '',
+            has_billing_api_token: Boolean(billingData.has_billing_api_token),
+            billing_offline_mode: Number(billingData.billing_offline_mode ?? 1),
+            billing_auto_retry_enabled: Number(billingData.billing_auto_retry_enabled ?? 1),
+            billing_auto_retry_interval_sec: Number(billingData.billing_auto_retry_interval_sec || 120),
             billing_api_token: '',
           }));
         }
@@ -110,9 +102,23 @@ export default function MiRestaurant() {
   const save = async () => {
     try {
       if (activeView === 'facturacion_electronica') {
-        const saved = await api.put('/billing/config', billingConfig);
-        setBillingConfig(prev => ({ ...prev, ...saved, billing_api_token: '' }));
-        toast.success('Configuración de facturación guardada');
+        const saved = await api.put('/billing/config', {
+          billing_api_url: billingConfig.billing_api_url,
+          billing_api_token: billingConfig.billing_api_token,
+          billing_offline_mode: billingConfig.billing_offline_mode,
+          billing_auto_retry_enabled: billingConfig.billing_auto_retry_enabled,
+          billing_auto_retry_interval_sec: billingConfig.billing_auto_retry_interval_sec,
+        });
+        setBillingConfig(prev => ({
+          ...prev,
+          billing_api_url: saved.billing_api_url || '',
+          has_billing_api_token: Boolean(saved.has_billing_api_token),
+          billing_offline_mode: Number(saved.billing_offline_mode ?? 1),
+          billing_auto_retry_enabled: Number(saved.billing_auto_retry_enabled ?? 1),
+          billing_auto_retry_interval_sec: Number(saved.billing_auto_retry_interval_sec || 120),
+          billing_api_token: '',
+        }));
+        toast.success('Conexión al bot guardada');
         return;
       }
       if (activeView !== 'mi_empresa') {
@@ -297,6 +303,52 @@ export default function MiRestaurant() {
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Email</label><input value={restaurant.email} onChange={e => update('email', e.target.value)} className="input-field" /></div>
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Dirección</label><input value={restaurant.address} onChange={e => update('address', e.target.value)} className="input-field" /></div>
           </div>
+          <div className="mt-8 pt-6 border-t border-slate-100">
+            <h4 className="font-semibold text-slate-800 mb-1">Empresa y ubicación (SUNAT / comprobantes)</h4>
+            <p className="text-sm text-slate-500 mb-4">Completa según tu RUC y establecimiento. Se usa al emitir boletas y facturas con el bot.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">RUC emisor</label>
+                <input className="input-field" value={restaurant.company_ruc ?? ''} onChange={e => update('company_ruc', e.target.value)} placeholder="" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Razón social</label>
+                <input className="input-field" value={restaurant.legal_name ?? ''} onChange={e => update('legal_name', e.target.value)} placeholder="" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre comercial (SUNAT)</label>
+                <input className="input-field" value={restaurant.billing_nombre_comercial ?? ''} onChange={e => update('billing_nombre_comercial', e.target.value)} placeholder="" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Ubigeo</label>
+                <input className="input-field" value={restaurant.billing_emisor_ubigeo ?? ''} onChange={e => update('billing_emisor_ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Dirección fiscal (si queda vacío se usa la dirección de arriba)</label>
+                <input className="input-field" value={restaurant.billing_emisor_direccion ?? ''} onChange={e => update('billing_emisor_direccion', e.target.value)} placeholder="" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Departamento</label>
+                <input className="input-field" value={restaurant.billing_emisor_departamento ?? ''} onChange={e => update('billing_emisor_departamento', e.target.value)} placeholder="" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Provincia</label>
+                <input className="input-field" value={restaurant.billing_emisor_provincia ?? ''} onChange={e => update('billing_emisor_provincia', e.target.value)} placeholder="" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Distrito</label>
+                <input className="input-field" value={restaurant.billing_emisor_distrito ?? ''} onChange={e => update('billing_emisor_distrito', e.target.value)} placeholder="" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Serie boleta</label>
+                <input className="input-field" value={restaurant.billing_series_boleta ?? ''} onChange={e => update('billing_series_boleta', (e.target.value || '').toUpperCase())} placeholder="" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Serie factura</label>
+                <input className="input-field" value={restaurant.billing_series_factura ?? ''} onChange={e => update('billing_series_factura', (e.target.value || '').toUpperCase())} placeholder="" />
+              </div>
+            </div>
+          </div>
         </div>
           )}
 
@@ -344,147 +396,36 @@ export default function MiRestaurant() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <MdReceipt className="text-red-600 text-2xl" />
-                <h3 className="font-bold text-slate-800 text-lg">Facturación electrónica (Nubefact / bot SUNAT local)</h3>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-lg">Conexión al bot SUNAT</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    La emisión electrónica está activa y el proveedor es solo el bot. RUC, dirección y series se configuran en <strong>Mi empresa → Información</strong>.
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Activar emisión electrónica</label>
-                  <select
-                    className="input-field"
-                    value={billingConfig.billing_enabled ? '1' : '0'}
-                    onChange={e => updateBilling('billing_enabled', Number(e.target.value))}
-                  >
-                    <option value="1">Sí, emitir comprobantes</option>
-                    <option value="0">No, solo registro interno</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Proveedor</label>
-                  <select
-                    className="input-field"
-                    value={billingConfig.billing_provider}
-                    onChange={e => updateBilling('billing_provider', e.target.value)}
-                  >
-                    <option value="nubefact">Nubefact</option>
-                    <option value="restaurant_efact">Bot SUNAT local (carpeta BOT DE FACTURACION)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">RUC emisor</label>
-                  <input
-                    className="input-field"
-                    value={billingConfig.company_ruc}
-                    onChange={e => updateBilling('company_ruc', e.target.value)}
-                    placeholder="20123456789"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Razón social</label>
-                  <input
-                    className="input-field"
-                    value={billingConfig.legal_name}
-                    onChange={e => updateBilling('legal_name', e.target.value)}
-                    placeholder="MI EMPRESA SAC"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nombre comercial (SUNAT)</label>
-                  <input
-                    className="input-field"
-                    value={billingConfig.billing_nombre_comercial}
-                    onChange={e => updateBilling('billing_nombre_comercial', e.target.value)}
-                    placeholder="Vitrina o marca frente al cliente"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Ubigeo emisor</label>
-                  <input
-                    className="input-field"
-                    value={billingConfig.billing_emisor_ubigeo}
-                    onChange={e => updateBilling('billing_emisor_ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="150101"
-                  />
-                </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Dirección fiscal emisor</label>
-                  <input
-                    className="input-field"
-                    value={billingConfig.billing_emisor_direccion}
-                    onChange={e => updateBilling('billing_emisor_direccion', e.target.value)}
-                    placeholder='Si queda vacío se usa la dirección de "Mi empresa"'
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Departamento</label>
-                  <input
-                    className="input-field"
-                    value={billingConfig.billing_emisor_departamento}
-                    onChange={e => updateBilling('billing_emisor_departamento', e.target.value)}
-                    placeholder="LIMA"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Provincia</label>
-                  <input
-                    className="input-field"
-                    value={billingConfig.billing_emisor_provincia}
-                    onChange={e => updateBilling('billing_emisor_provincia', e.target.value)}
-                    placeholder="LIMA"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Distrito</label>
-                  <input
-                    className="input-field"
-                    value={billingConfig.billing_emisor_distrito}
-                    onChange={e => updateBilling('billing_emisor_distrito', e.target.value)}
-                    placeholder="LIMA"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Serie boleta</label>
-                  <input
-                    className="input-field"
-                    value={billingConfig.billing_series_boleta}
-                    onChange={e => updateBilling('billing_series_boleta', e.target.value.toUpperCase())}
-                    placeholder="B001"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Serie factura</label>
-                  <input
-                    className="input-field"
-                    value={billingConfig.billing_series_factura}
-                    onChange={e => updateBilling('billing_series_factura', e.target.value.toUpperCase())}
-                    placeholder="F001"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {billingConfig.billing_provider === 'restaurant_efact' ? 'URL del API del bot (Node → Python)' : 'URL API proveedor'}
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">URL del API del bot (Node → Python)</label>
                   <input
                     className="input-field"
                     value={billingConfig.billing_api_url}
                     onChange={e => updateBilling('billing_api_url', e.target.value)}
-                    placeholder={billingConfig.billing_provider === 'restaurant_efact' ? 'http://127.0.0.1:8765' : 'https://api.nubefact.com/api/v1/...'}
+                    placeholder="http://127.0.0.1:8765"
                   />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {billingConfig.billing_provider === 'restaurant_efact'
-                      ? `Secreto HTTP (X-EFACT-SECRET) ${billingConfig.has_billing_api_token ? '(ya configurado)' : ''}`
-                      : `Token API ${billingConfig.has_billing_api_token ? '(ya configurado)' : ''}`}
+                    Secreto HTTP (X-EFACT-SECRET) {billingConfig.has_billing_api_token ? '(ya configurado)' : ''}
                   </label>
                   <input
                     className="input-field"
                     value={billingConfig.billing_api_token}
                     onChange={e => updateBilling('billing_api_token', e.target.value)}
                     placeholder={
-                      billingConfig.billing_provider === 'restaurant_efact'
-                        ? (billingConfig.has_billing_api_token ? 'Vacío = mantener; debe coincidir con EFACT_HTTP_SECRET en .env del bot' : 'Mismo valor que EFACT_HTTP_SECRET en el .env del bot')
-                        : (billingConfig.has_billing_api_token ? 'Deja vacío para mantener el token actual' : 'Pega aquí el token')
+                      billingConfig.has_billing_api_token
+                        ? 'Vacío = mantener; debe coincidir con EFACT_HTTP_SECRET en .env del bot'
+                        : 'Opcional: mismo valor que EFACT_HTTP_SECRET en el .env del bot'
                     }
                     type="password"
                   />
@@ -524,14 +465,11 @@ export default function MiRestaurant() {
                 </div>
               </div>
 
-              {billingConfig.billing_provider === 'restaurant_efact' && (
-                <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-900">
-                  Con el bot local debe estar en ejecución <code className="text-xs bg-amber-100 px-1 rounded">python api_server.py</code> dentro de
-                  {' '}<code className="text-xs bg-amber-100 px-1 rounded">BOT DE FACTURACION</code>.
-                  Certificado .pfx y credenciales SOL van en el <code className="text-xs bg-amber-100 px-1 rounded">.env</code> del bot (no en este panel).
-                  En la nube (p. ej. Render) hace falta un servicio aparte con Python o Docker; este modo encaja en PC/servidor propio.
-                </div>
-              )}
+              <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-900">
+                Debe estar en ejecución <code className="text-xs bg-amber-100 px-1 rounded">python api_server.py</code> en la carpeta
+                {' '}<code className="text-xs bg-amber-100 px-1 rounded">BOT DE FACTURACION</code>
+                (o Docker con Node+Python). Certificado .pfx y credenciales SOL van en el <code className="text-xs bg-amber-100 px-1 rounded">.env</code> del bot.
+              </div>
               <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-red-800">
                 Al emitir facturas, el cliente debe tener RUC válido (11 dígitos) y razón social.
               </div>
