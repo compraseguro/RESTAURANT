@@ -174,6 +174,9 @@ router.get('/config/app/history', requireRole('admin'), (req, res) => {
 
 router.put('/config/app', requireRole('admin'), (req, res) => {
   const payload = req.body || {};
+  if (payload.contrato !== undefined && req.user?.role !== 'master_admin') {
+    return res.status(403).json({ error: 'Solo el administrador maestro puede modificar el contrato del servicio.' });
+  }
   const beforeState = readAppSettingsObject();
   const changedKeys = [];
   const updatedKeys = [];

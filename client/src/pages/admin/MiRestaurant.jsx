@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { api, resolveMediaUrl } from '../../utils/api';
 import toast from 'react-hot-toast';
 import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt } from 'react-icons/md';
@@ -17,6 +18,8 @@ const MI_RESTAURANT_VIEWS = [
 ];
 
 export default function MiRestaurant() {
+  const { user } = useAuth();
+  const canEditContrato = user?.role === 'master_admin';
   const [searchParams, setSearchParams] = useSearchParams();
   const logoInputRef = useRef(null);
   const restoreInputRef = useRef(null);
@@ -123,6 +126,10 @@ export default function MiRestaurant() {
 
   const save = async () => {
     try {
+      if (activeView === 'contrato' && !canEditContrato) {
+        toast.error('Solo el administrador maestro puede guardar el contrato.');
+        return;
+      }
       if (activeView === 'facturacion_electronica') {
         const saved = await api.put('/billing/config', {
           billing_api_url: billingConfig.billing_api_url,
@@ -244,6 +251,10 @@ export default function MiRestaurant() {
 
   const uploadFirmaContrato = async (file, field, inputRef) => {
     if (!file) return;
+    if (!canEditContrato) {
+      toast.error('Solo el administrador maestro puede subir firmas.');
+      return;
+    }
     try {
       const uploaded = await api.upload(file);
       const url = uploaded?.url || '';
@@ -326,12 +337,15 @@ export default function MiRestaurant() {
 
   if (!restaurant) return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
   const activeViewLabel = MI_RESTAURANT_VIEWS.find(option => option.id === activeView)?.label || 'Mi empresa';
+  const showSaveButton = activeView !== 'contrato' || canEditContrato;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-bold text-slate-800">Mi Restaurante · {activeViewLabel}</h1>
-        <button onClick={save} className="btn-primary flex items-center gap-2"><MdSave /> Guardar Cambios</button>
+        {showSaveButton ? (
+          <button type="button" onClick={save} className="btn-primary flex items-center gap-2"><MdSave /> Guardar Cambios</button>
+        ) : null}
       </div>
 
       {activeView === 'mi_empresa' && (
@@ -710,39 +724,30 @@ export default function MiRestaurant() {
             </div>
           ) : activeView === 'contrato' ? (
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
-              <div>
-                <h3 className="font-bold text-slate-800 text-lg">Contrato del servicio</h3>
-                <p className="text-sm text-slate-500 mt-1">
-                  Redacta el contrato y, al final, registra las imágenes de las firmas del comprador (tu negocio) y del vendedor del sistema.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Texto del contrato</label>
-                <textarea
-                  className="input-field min-h-[280px] font-sans text-sm leading-relaxed"
-                  rows={12}
-                  placeholder="Escribe aquí el contrato completo…"
-                  value={appConfig.contrato?.texto_contrato || ''}
-                  onChange={(e) => updateAppCfg('contrato', 'texto_contrato', e.target.value)}
-                />
-              </div>
-              <div className="pt-2 border-t border-slate-100">
-                <h4 className="text-sm font-semibold text-slate-800 mb-3">Firmas</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-slate-700">Firma del comprador</label>
-                    <p className="text-xs text-slate-500">Imagen de la firma quien adquiere el software (restaurante).</p>
-                    <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 min-h-[120px] flex items-center justify-center overflow-hidden">
-                      {appConfig.contrato?.firma_comprador_url ? (
-                        <img
-                          src={resolveMediaUrl(appConfig.contrato.firma_comprador_url)}
-                          alt="Firma comprador"
-                          className="max-h-32 max-w-full object-contain p-2"
-                        />
-                      ) : (
-                        <span className="text-xs text-slate-400 px-4 text-center">Sin imagen</span>
-                      )}
-                    </div>
+              <h3 className="font-bold text-slate-800 text-lg">Contrato del servicio</h3>
+              <textarea
+                className={`input-field min-h-[280px] font-sans text-sm leading-relaxed ${!canEditContrato ? 'bg-slate-100 cursor-default' : ''}`}
+                rows={12}
+                readOnly={!canEditContrato}
+                placeholder={canEditContrato ? 'Escribe aquí el contrato completo…' : ''}
+                value={appConfig.contrato?.texto_contrato || ''}
+                onChange={(e) => updateAppCfg('contrato', 'texto_contrato', e.target.value)}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-slate-800">Firma del comprador</p>
+                  <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 min-h-[120px] flex items-center justify-center overflow-hidden">
+                    {appConfig.contrato?.firma_comprador_url ? (
+                      <img
+                        src={resolveMediaUrl(appConfig.contrato.firma_comprador_url)}
+                        alt="Firma comprador"
+                        className="max-h-32 max-w-full object-contain p-2"
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 px-4 text-center">Sin imagen</span>
+                    )}
+                  </div>
+                  {canEditContrato ? (
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -768,21 +773,22 @@ export default function MiRestaurant() {
                         </button>
                       ) : null}
                     </div>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-slate-800">Firma del vendedor</p>
+                  <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 min-h-[120px] flex items-center justify-center overflow-hidden">
+                    {appConfig.contrato?.firma_vendedor_url ? (
+                      <img
+                        src={resolveMediaUrl(appConfig.contrato.firma_vendedor_url)}
+                        alt="Firma vendedor"
+                        className="max-h-32 max-w-full object-contain p-2"
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 px-4 text-center">Sin imagen</span>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-slate-700">Firma del vendedor</label>
-                    <p className="text-xs text-slate-500">Imagen de la firma del proveedor del sistema.</p>
-                    <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 min-h-[120px] flex items-center justify-center overflow-hidden">
-                      {appConfig.contrato?.firma_vendedor_url ? (
-                        <img
-                          src={resolveMediaUrl(appConfig.contrato.firma_vendedor_url)}
-                          alt="Firma vendedor"
-                          className="max-h-32 max-w-full object-contain p-2"
-                        />
-                      ) : (
-                        <span className="text-xs text-slate-400 px-4 text-center">Sin imagen</span>
-                      )}
-                    </div>
+                  {canEditContrato ? (
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -808,7 +814,7 @@ export default function MiRestaurant() {
                         </button>
                       ) : null}
                     </div>
-                  </div>
+                  ) : null}
                 </div>
               </div>
             </div>
