@@ -1,0 +1,35 @@
+# Uso rápido:
+#   1) Crear archivo .env junto a este YAML con al menos: JWT_SECRET=tu_secreto_largo
+#   2) (Recomendado) Montar credenciales del bot — ver volumen comentado bot.env y certificado .pfx
+#   3) docker compose up --build
+#
+# En el panel: proveedor "Bot SUNAT local", URL API = http://127.0.0.1:8765
+# (desde el mismo contenedor Node alcanza al Python por localhost).
+
+services:
+  app:
+    build: .
+    ports:
+      - "${HOST_PORT:-3001}:3001"
+      # Descomenta para depurar el API del bot desde tu PC:
+      # - "8765:8765"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET en .env}
+      PORT: "3001"
+      DB_PATH: /data/restaurant.db
+      NODE_ENV: production
+      # Heredan al proceso Python vía entrypoint (dotenv del bot puede sobrescribir)
+      EFACT_HTTP_HOST: "0.0.0.0"
+      EFACT_HTTP_PORT: "8765"
+      OUTPUT_DIR: /data/efact-output
+      # Opcional: mismo valor que "Secreto HTTP" en Facturación electrónica
+      EFACT_HTTP_SECRET: ${EFACT_HTTP_SECRET:-}
+    volumes:
+      - restaurant_data:/data
+      # Bot: copia BOT DE FACTURACION/.env.example a docker/bot.env, completa y descomenta:
+      # - ./docker/bot.env:/app/bot/.env:ro
+      # - ./docker/certs:/data/certs:ro
+    restart: unless-stopped
+
+volumes:
+  restaurant_data:

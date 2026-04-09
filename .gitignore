@@ -45,6 +45,14 @@ client/public/cartas/*
 # Raíz del repo (fotos sueltas de cartas)
 IMG_20*.png
 
+# Docker: credenciales locales (no subir)
+docker/bot.env
+docker/certs/
+
+# Bot de facturación: certificados y salida local (no subir)
+BOT DE FACTURACION/certs/
+BOT DE FACTURACION/output/
+
 # Local archives/backups
 *.zip
 *.7z

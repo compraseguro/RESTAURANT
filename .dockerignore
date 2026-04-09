@@ -1,0 +1,17 @@
+node_modules
+client/node_modules
+client/dist
+.git
+.gitignore
+*.md
+.env
+.env.*
+!.env.example
+!BOT DE FACTURACION/.env.example
+BOT DE FACTURACION/.env
+**/__pycache__
+**/*.pyc
+BOT DE FACTURACION/output
+BOT DE FACTURACION/**/output
+*.zip
+Resto-*.zip

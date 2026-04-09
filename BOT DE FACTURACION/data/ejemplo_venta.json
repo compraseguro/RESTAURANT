@@ -1,0 +1,40 @@
+{
+  "tipo": "01",
+  "serie": "F001",
+  "correlativo": 1,
+  "fecha_emision": "2026-04-09",
+  "hora_emision": "14:30:00",
+  "moneda": "PEN",
+  "porcentaje_igv": "18",
+  "observaciones": "Venta desde sistema restaurante (ejemplo).",
+  "emisor": {
+    "ruc": "20123456789",
+    "razon_social": "MI RESTAURANTE SAC",
+    "nombre_comercial": "Mi Restaurante",
+    "ubigeo": "150101",
+    "direccion": "Av. Los Insurgentes 999",
+    "provincia": "LIMA",
+    "departamento": "LIMA",
+    "distrito": "LIMA"
+  },
+  "cliente": {
+    "tipo_doc": "6",
+    "numero_doc": "20987654321",
+    "razon_social": "CLIENTE CORPORATIVO SAC",
+    "direccion": "Calle Industrial 200"
+  },
+  "lineas": [
+    {
+      "descripcion": "Servicio de catering (almuerzo)",
+      "cantidad": "10",
+      "precio_unitario_sin_igv": "45.00",
+      "codigo_afectacion_igv": "10"
+    },
+    {
+      "descripcion": "Delivery",
+      "cantidad": "1",
+      "precio_unitario_sin_igv": "15.00",
+      "codigo_afectacion_igv": "10"
+    }
+  ]
+}
