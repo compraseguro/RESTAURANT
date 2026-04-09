@@ -88,36 +88,36 @@ export default function AdminAttendanceReviewModal({ isOpen, onClose, onComplete
       onClose={saving ? () => {} : onClose}
       title="Revisión de asistencia del día"
       size="lg"
-      variant="light"
+      variant="dark"
     >
-      <p className="text-sm text-slate-700 mb-4 leading-relaxed">
-        Debe indicar para cada jornada del día si el trabajador fue <strong className="text-slate-900">asistente</strong>,{' '}
-        <strong className="text-slate-900">justificado</strong> o <strong className="text-slate-900">ausente</strong>. Solo &quot;Asistente&quot; suma tiempo en el
+      <p className="text-sm text-[#E5E7EB] mb-4 leading-relaxed">
+        Debe indicar para cada jornada del día si el trabajador fue <strong className="text-white font-semibold">asistente</strong>,{' '}
+        <strong className="text-white font-semibold">justificado</strong> o <strong className="text-white font-semibold">ausente</strong>. Solo &quot;Asistente&quot; suma tiempo en el
         informe de tiempo trabajado. Después podrá finalizar su propia jornada.
       </p>
       {loading ? (
-        <p className="text-sm text-slate-500 py-6">Cargando…</p>
+        <p className="text-sm text-[#9CA3AF] py-6">Cargando…</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-slate-500 py-4">No hay sesiones pendientes de clasificar hoy.</p>
+        <p className="text-sm text-[#9CA3AF] py-4">No hay sesiones pendientes de clasificar hoy.</p>
       ) : (
         <div className="space-y-3 max-h-[min(60vh,420px)] overflow-y-auto pr-1">
           {rows.map((r) => (
             <div
               key={r.id}
-              className="flex flex-wrap items-center gap-3 justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+              className="flex flex-wrap items-center gap-3 justify-between rounded-lg border border-[#3B82F6]/35 bg-[#111827]/90 px-3 py-2"
             >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-800">{r.full_name}</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-sm font-medium text-[#F9FAFB]">{r.full_name}</p>
+                <p className="text-xs text-[#93C5FD]">
                   @{r.username} · {ROLE_LABEL[r.role] || r.role}
                 </p>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-[#BFDBFE] mt-0.5">
                   Inicio: {r.login_at ? formatDateTime(r.login_at) : '—'} · Fin:{' '}
                   {r.logout_at ? formatDateTime(r.logout_at) : 'En curso'}
                 </p>
               </div>
               <select
-                className="w-44 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
+                className="input-field w-44 text-sm"
                 value={draft[r.id] || 'asistente'}
                 onChange={(e) => setStatus(r.id, e.target.value)}
                 disabled={saving}
@@ -130,7 +130,7 @@ export default function AdminAttendanceReviewModal({ isOpen, onClose, onComplete
           ))}
         </div>
       )}
-      <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-200">
+      <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-[#3B82F6]/30">
         <button type="button" className="btn-secondary text-sm" disabled={saving} onClick={onClose}>
           Cancelar
         </button>
