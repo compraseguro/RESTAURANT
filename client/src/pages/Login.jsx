@@ -41,7 +41,10 @@ export default function Login() {
           loginRequired: !!(data?.loginRequired ?? data?.required),
         })
       )
-      .catch(() => setAttendancePolicy({ loading: false, loginRequired: false }));
+      .catch(() => {
+        /* Si falla la lectura de política, no bloqueamos; si el servidor exige foto, lo recuperamos en el error de login. */
+        setAttendancePolicy({ loading: false, loginRequired: false });
+      });
   }, []);
 
   const submitLogin = async () => {
@@ -57,7 +60,15 @@ export default function Login() {
       toast.success(`Bienvenido, ${user.full_name}`);
       navigate(getRoleRoute(user.role), { replace: true });
     } catch (err) {
-      toast.error(err.message);
+      const msg = String(err?.message || '');
+      if (/foto|inicio de jornada|jornada/i.test(msg)) {
+        setAttendancePolicy((p) => ({ ...p, loading: false, loginRequired: true }));
+        setPhotoLogin(null);
+        setStep(2);
+        toast.error('Se requiere foto de asistencia. Captúrela abajo y pulse «Ingresar al sistema».');
+      } else {
+        toast.error(msg || 'Error al iniciar sesión');
+      }
     } finally {
       setLoading(false);
     }
@@ -101,6 +112,11 @@ export default function Login() {
             <>
               <h2 className="text-xl font-bold text-white mb-1">Iniciar Sesión</h2>
               <p className="text-sm text-[#9CA3AF] mb-6">Ingresa tus credenciales</p>
+              {photosRequired && policyReady && (
+                <p className="text-xs text-[#93C5FD] bg-[#1D4ED8]/20 border border-[#3B82F6]/30 rounded-lg px-3 py-2 mb-4">
+                  El siguiente paso será tomar una foto para registrar el inicio de jornada. Pulse «Continuar».
+                </p>
+              )}
               <form onSubmit={handleContinue} className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-[#F9FAFB] mb-1.5">Usuario</label>
