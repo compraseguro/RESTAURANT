@@ -51,6 +51,7 @@ const miRestaurantSubOptions = [
   { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
   { id: 'series_contingencia', label: 'Series de contingencia' },
   { id: 'contrato', label: 'Contrato' },
+  { id: 'pago_uso_sistema', label: 'Pago por uso del sistema' },
   { id: 'informacion', label: 'Información' },
 ];
 

@@ -203,6 +203,13 @@ function resetOperationalData({ keepAdminUserId = '' } = {}) {
         notificar_mora: 1,
         texto_politica_cobro: 'Todo crédito debe regularizarse dentro del plazo acordado.',
       },
+      pago_uso_sistema: {
+        periodo_facturacion: 'mensual',
+        fecha_proxima_facturacion: '',
+        numero_cuenta: '',
+        nombre_empresa_cobro: '',
+        comprobante_pago_url: '',
+      },
       settings: {
         regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
         locales: [{ name: 'Principal', address: '', phone: '', active: 1 }],
@@ -1064,6 +1071,13 @@ async function initDatabase() {
       monto_max_credito: 500,
       notificar_mora: 1,
       texto_politica_cobro: 'Todo crédito debe regularizarse dentro del plazo acordado.',
+    })]);
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['pago_uso_sistema', JSON.stringify({
+      periodo_facturacion: 'mensual',
+      fecha_proxima_facturacion: '',
+      numero_cuenta: '',
+      nombre_empresa_cobro: '',
+      comprobante_pago_url: '',
     })]);
     db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['settings', JSON.stringify({
       regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },

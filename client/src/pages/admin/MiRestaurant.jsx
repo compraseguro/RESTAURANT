@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api } from '../../utils/api';
+import { api, resolveMediaUrl } from '../../utils/api';
 import toast from 'react-hot-toast';
 import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt } from 'react-icons/md';
 
@@ -12,6 +12,7 @@ const MI_RESTAURANT_VIEWS = [
   { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
   { id: 'series_contingencia', label: 'Series de contingencia' },
   { id: 'contrato', label: 'Contrato' },
+  { id: 'pago_uso_sistema', label: 'Pago por uso del sistema' },
   { id: 'informacion', label: 'Información' },
 ];
 
@@ -19,6 +20,7 @@ export default function MiRestaurant() {
   const [searchParams, setSearchParams] = useSearchParams();
   const logoInputRef = useRef(null);
   const restoreInputRef = useRef(null);
+  const comprobanteUsoInputRef = useRef(null);
   const [restaurant, setRestaurant] = useState(null);
   const [billingConfig, setBillingConfig] = useState({
     billing_api_url: '',
@@ -47,6 +49,13 @@ export default function MiRestaurant() {
     },
     series_contingencia: { boleta: 'BC01', factura: 'FC01', enabled: 1 },
     contrato: { plan: 'pro', renewal_date: '', observations: '' },
+    pago_uso_sistema: {
+      periodo_facturacion: 'mensual',
+      fecha_proxima_facturacion: '',
+      numero_cuenta: '',
+      nombre_empresa_cobro: '',
+      comprobante_pago_url: '',
+    },
   });
 
   const loadInitialData = () => {
@@ -147,6 +156,21 @@ export default function MiRestaurant() {
           toast.success('Configuración de pagos guardada');
           return;
         }
+        if (key === 'pago_uso_sistema') {
+          const raw = appConfig.pago_uso_sistema || {};
+          const periodo = raw.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
+          const payload = {
+            periodo_facturacion: periodo,
+            fecha_proxima_facturacion: String(raw.fecha_proxima_facturacion || '').trim().slice(0, 32),
+            numero_cuenta: String(raw.numero_cuenta || '').trim(),
+            nombre_empresa_cobro: String(raw.nombre_empresa_cobro || '').trim(),
+            comprobante_pago_url: String(raw.comprobante_pago_url || '').trim(),
+          };
+          const saved = await api.put('/admin-modules/config/app', { pago_uso_sistema: payload });
+          setAppConfig(prev => ({ ...prev, ...saved }));
+          toast.success('Datos de pago por uso del sistema guardados');
+          return;
+        }
         const saved = await api.put('/admin-modules/config/app', { [key]: appConfig[key] || {} });
         setAppConfig(prev => ({ ...prev, ...saved }));
         toast.success('Configuración guardada');
@@ -176,6 +200,20 @@ export default function MiRestaurant() {
       toast.success('Logo cargado correctamente. Guarda para aplicar cambios.');
     } catch (err) {
       toast.error(err.message || 'No se pudo subir el logo');
+    }
+  };
+
+  const uploadComprobantePagoUso = async (file) => {
+    if (!file) return;
+    try {
+      const uploaded = await api.upload(file);
+      const url = uploaded?.url || '';
+      updateAppCfg('pago_uso_sistema', 'comprobante_pago_url', url);
+      toast.success('Comprobante cargado. Pulsa Guardar cambios para conservarlo.');
+    } catch (err) {
+      toast.error(err.message || 'No se pudo subir el comprobante');
+    } finally {
+      if (comprobanteUsoInputRef.current) comprobanteUsoInputRef.current.value = '';
     }
   };
 
@@ -651,6 +689,110 @@ export default function MiRestaurant() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Observaciones</label>
                   <textarea className="input-field" rows="3" value={appConfig.contrato?.observations || ''} onChange={e => updateAppCfg('contrato', 'observations', e.target.value)} />
                 </div>
+              </div>
+            </div>
+          ) : activeView === 'pago_uso_sistema' ? (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
+              <div className="flex items-center gap-2">
+                <MdReceipt className="text-blue-600 text-2xl" />
+                <h3 className="font-bold text-slate-800 text-lg">Pago por uso del sistema</h3>
+              </div>
+              <p className="text-sm text-slate-500">
+                Registra los datos que te indique el proveedor del software para abonar la licencia o suscripción: periodicidad, cuenta de destino y, si ya pagaste, adjunta el comprobante.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Frecuencia de facturación</label>
+                  <select
+                    className="input-field"
+                    value={appConfig.pago_uso_sistema?.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual'}
+                    onChange={(e) => updateAppCfg('pago_uso_sistema', 'periodo_facturacion', e.target.value)}
+                  >
+                    <option value="mensual">Mensual</option>
+                    <option value="semestral">Semestral</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Próxima fecha de facturación (opcional)</label>
+                  <input
+                    type="date"
+                    className="input-field"
+                    value={appConfig.pago_uso_sistema?.fecha_proxima_facturacion || ''}
+                    onChange={(e) => updateAppCfg('pago_uso_sistema', 'fecha_proxima_facturacion', e.target.value)}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Número de cuenta</label>
+                  <input
+                    className="input-field"
+                    placeholder="CCI, número de cuenta o datos de transferencia"
+                    value={appConfig.pago_uso_sistema?.numero_cuenta || ''}
+                    onChange={(e) => updateAppCfg('pago_uso_sistema', 'numero_cuenta', e.target.value)}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de la empresa a la que debes pagar</label>
+                  <input
+                    className="input-field"
+                    placeholder="Razón social o nombre del beneficiario"
+                    value={appConfig.pago_uso_sistema?.nombre_empresa_cobro || ''}
+                    onChange={(e) => updateAppCfg('pago_uso_sistema', 'nombre_empresa_cobro', e.target.value)}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Comprobante de pago</label>
+                  <p className="text-xs text-slate-500 mb-2">Sube una imagen (o PDF) del voucher o transferencia.</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => comprobanteUsoInputRef.current?.click()}
+                      className="btn-secondary flex items-center gap-2 text-sm"
+                    >
+                      <MdUpload /> Cargar comprobante
+                    </button>
+                    <input
+                      ref={comprobanteUsoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+                      className="hidden"
+                      onChange={(e) => uploadComprobantePagoUso(e.target.files?.[0])}
+                    />
+                    {appConfig.pago_uso_sistema?.comprobante_pago_url ? (
+                      <>
+                        <a
+                          href={resolveMediaUrl(appConfig.pago_uso_sistema.comprobante_pago_url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          Ver archivo
+                        </a>
+                        <button
+                          type="button"
+                          className="text-sm text-red-600 hover:underline"
+                          onClick={() => updateAppCfg('pago_uso_sistema', 'comprobante_pago_url', '')}
+                        >
+                          Quitar
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                  {appConfig.pago_uso_sistema?.comprobante_pago_url &&
+                  !String(appConfig.pago_uso_sistema.comprobante_pago_url).toLowerCase().endsWith('.pdf') ? (
+                    <div className="mt-3 rounded-lg border border-slate-200 overflow-hidden max-w-xs bg-slate-50">
+                      <img
+                        src={resolveMediaUrl(appConfig.pago_uso_sistema.comprobante_pago_url)}
+                        alt="Vista previa del comprobante"
+                        className="w-full max-h-48 object-contain"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
+                Tras cargar el archivo, pulsa <strong>Guardar cambios</strong> para guardar la URL del comprobante junto al resto de datos.
               </div>
             </div>
           ) : activeView === 'informacion' ? (
