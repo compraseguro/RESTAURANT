@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, formatCurrency } from '../../utils/api';
+import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import {
@@ -367,11 +368,9 @@ export default function Productos() {
                       <td className="p-3"><span className="text-xs px-2 py-0.5 bg-slate-100 rounded-full text-slate-600">{getCatName(p.category_id)}</span></td>
                       <td className="p-3 text-right font-bold text-slate-800">{formatCurrency(p.price)}</td>
                       <td className="p-3 text-center">
-                        {p.process_type === 'transformed' ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-500">Sin stock</span>
-                        ) : (
+                        {showStockInOrderingUI(p) ? (
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.stock > 10 ? 'bg-emerald-100 text-emerald-700' : p.stock > 0 ? 'bg-gold-100 text-gold-700' : 'bg-red-100 text-red-700'}`}>{p.stock}</span>
-                        )}
+                        ) : null}
                       </td>
                       <td className="p-3 text-center">
                         <button onClick={() => toggleProductActive(p)}>

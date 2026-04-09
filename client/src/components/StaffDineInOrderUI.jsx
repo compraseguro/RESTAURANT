@@ -7,6 +7,7 @@ import {
   MdDelete,
   MdEditNote,
 } from 'react-icons/md';
+import { showStockInOrderingUI } from '../utils/productStockDisplay';
 
 /**
  * UI unificada “Tomar pedido” (Mesas / Caja / Reservas): buscador, categorías, grilla y carrito.
@@ -102,7 +103,9 @@ export default function StaffDineInOrderUI({
                 >
                   <p className="font-medium text-sm truncate text-white">{p.name}</p>
                   <p className="text-[#DBEAFE] font-bold text-sm mt-1">{formatCurrency(p.price)}</p>
-                  <p className="text-xs text-[#BFDBFE]">Stock: {p.stock}</p>
+                  {showStockInOrderingUI(p) ? (
+                    <p className="text-xs text-[#BFDBFE]">Stock: {p.stock}</p>
+                  ) : null}
                 </button>
               ))}
             </div>

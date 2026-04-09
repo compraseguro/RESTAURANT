@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, formatCurrency, formatDate, formatDateTime, getPaymentMethodOptions } from '../../utils/api';
+import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import Modal from '../../components/Modal';
@@ -274,7 +275,9 @@ export default function Delivery() {
                   <button key={p.id} onClick={() => addToCart(p)} className="bg-slate-50 rounded-xl p-3 text-left hover:shadow-md transition-shadow border border-slate-100 hover:border-gold-300">
                     <p className="font-medium text-sm truncate">{p.name}</p>
                     <p className="text-gold-600 font-bold text-sm mt-1">{formatCurrency(p.price)}</p>
-                    <p className="text-xs text-slate-400">Stock: {p.stock}</p>
+                    {showStockInOrderingUI(p) ? (
+                      <p className="text-xs text-slate-400">Stock: {p.stock}</p>
+                    ) : null}
                   </button>
                 ))}
               </div>

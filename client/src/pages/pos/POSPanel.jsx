@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions } from '../../utils/api';
+import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -1280,7 +1281,7 @@ export default function POSPanel() {
                     <td className="py-2">{p.name}</td>
                     <td className="py-2 text-slate-500">{p.category_name || '-'}</td>
                     <td className="py-2 text-right font-semibold">{formatCurrency(p.price)}</td>
-                    <td className="py-2 text-right">{p.stock}</td>
+                    <td className="py-2 text-right">{showStockInOrderingUI(p) ? p.stock : ''}</td>
                   </tr>
                 ))}
               </tbody>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, formatCurrency } from '../../utils/api';
+import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { useCart } from '../../context/CartContext';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -169,7 +170,9 @@ export default function Menu() {
               <span className="text-2xl font-bold text-primary-600">
                 {formatCurrency(selectedProduct.price + (selectedVariant?.price_modifier || 0))}
               </span>
-              {selectedProduct.stock <= 10 && (
+              {showStockInOrderingUI(selectedProduct) &&
+                selectedProduct.stock > 0 &&
+                selectedProduct.stock <= 10 && (
                 <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">Pocas unidades</span>
               )}
             </div>
