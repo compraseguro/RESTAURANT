@@ -17,6 +17,7 @@ import {
   MdRestaurantMenu,
   MdAccessTime, MdPersonAdd, MdEmail,
   MdPayments, MdCreditCard, MdSmartphone,
+  MdExpandMore, MdExpandLess,
 } from 'react-icons/md';
 
 const POS_CHECKOUT_PAYMENT_ICONS = {
@@ -97,6 +98,7 @@ export default function POSPanel() {
   const [paymentOptions, setPaymentOptions] = useState(getPaymentMethodOptions(null, { includeOnline: false }));
   const [amountReceived, setAmountReceived] = useState('');
   const [billingForm, setBillingForm] = useState(DEFAULT_BILLING_FORM);
+  const [billingSectionOpen, setBillingSectionOpen] = useState(false);
   const [billingResult, setBillingResult] = useState(null);
   const {
     cart,
@@ -458,6 +460,7 @@ export default function POSPanel() {
 
   const resetBillingForm = () => {
     setBillingForm(DEFAULT_BILLING_FORM);
+    setBillingSectionOpen(false);
     setBillingResult(null);
     setMatchedCustomer(null);
     setSearchingCustomer(false);
@@ -1480,283 +1483,228 @@ export default function POSPanel() {
           resetBillingForm();
         }}
         title="COBRAR MESA"
-        size="full"
+        size="xl"
         headerClassName="bg-[#1D4ED8]/40 border-b border-[#3B82F6]/30"
         titleClassName="text-[#F9FAFB] font-extrabold tracking-wide uppercase"
         closeButtonClassName="hover:bg-[#1E3A8A]/50"
         closeIconClassName="text-[#BFDBFE]"
       >
         {selectedTable && (
-          <div className="flex flex-col -m-1 min-h-0 max-h-[min(82vh,760px)]">
-            <div className="flex-1 overflow-y-auto min-h-0 pb-3">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 items-start">
-                {/* Pedidos, cuenta y descuento */}
-                <div className="flex flex-col gap-3 min-h-0">
-                  <div className="rounded-xl border border-[#3B82F6]/35 bg-[#111827]/70 backdrop-blur-md shadow-lg shadow-black/20 p-4 flex flex-col min-h-0 overflow-hidden">
-                    {billingForm.enabled ? (
-                      <>
-                        <div className="flex flex-col gap-3 overflow-y-auto max-h-[min(50vh,400px)] pr-1">
-                          <div className="flex items-center justify-between gap-2 shrink-0">
-                            <h4 className="text-sm font-semibold text-[#F9FAFB]">Boleta o factura</h4>
+          <div className="flex flex-col -m-1 min-h-0 max-h-[min(78vh,560px)]">
+            <div className="flex-1 overflow-y-auto min-h-0 pb-2">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 items-start">
+                {/* Pedidos + facturación desplegable */}
+                <div className="flex flex-col gap-2 min-h-0">
+                  <div className="rounded-xl border border-[#3B82F6]/35 bg-[#111827]/70 backdrop-blur-md shadow-lg shadow-black/20 p-3 sm:p-4 flex flex-col min-h-0 overflow-hidden">
+                    <div className="flex flex-col flex-1 min-h-0 gap-2">
+                      <h3 className="text-base font-bold text-[#F9FAFB] shrink-0">Pedidos</h3>
+                      <div className="overflow-y-auto flex-1 space-y-2 max-h-[min(28vh,220px)] pr-1">
+                        {splitMode ? (
+                          (selectedTable.orders || []).map((order) => {
+                            const sel = selectedOrderIds.includes(order.id);
+                            return (
+                              <div
+                                key={order.id}
+                                className={`rounded-lg border p-2 ${
+                                  sel ? 'border-[#3B82F6]/50 bg-[#1D4ED8]/10' : 'border-[#3B82F6]/20 bg-[#111827]/40 opacity-70'
+                                }`}
+                              >
+                                <label className="flex items-center gap-2 cursor-pointer mb-1.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={sel}
+                                    onChange={() => toggleOrderSelection(order.id)}
+                                    className="rounded border-[#3B82F6]/50"
+                                  />
+                                  <span className="text-xs font-bold text-[#BFDBFE]">Pedido #{order.order_number}</span>
+                                </label>
+                                <div className="space-y-0.5 pl-6">
+                                  {(order.items || []).map((item) => (
+                                    <div key={item.id} className="text-sm text-[#D1D5DB]">
+                                      {item.quantity}x {item.product_name}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : billLineItems.length === 0 ? (
+                          <p className="text-sm text-[#9CA3AF] text-center py-6">Sin ítems</p>
+                        ) : (
+                          billLineItems.map((row) => (
+                            <div
+                              key={row.key}
+                              className="text-sm text-[#D1D5DB] py-1 border-b border-[#3B82F6]/10 last:border-0"
+                            >
+                              {row.qty}x {row.name}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      {splitMode && (
+                        <p className="text-[11px] text-[#9CA3AF] shrink-0">Desmarca los pedidos que no vas a cobrar en esta operación.</p>
+                      )}
+                      {discountConfig.active && !discountConfig.applied && (
+                        <div className="p-2.5 rounded-lg border border-amber-500/35 bg-amber-950/20 space-y-2 shrink-0">
+                          <p className="text-xs font-medium text-amber-200/90">Definir descuento</p>
+                          <select
+                            className="input-field text-sm"
+                            value={discountConfig.type}
+                            onChange={(e) => setDiscountConfig((prev) => ({ ...prev, type: e.target.value }))}
+                          >
+                            <option value="amount">Monto fijo (S/)</option>
+                            <option value="percent">Porcentaje (%)</option>
+                          </select>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="input-field text-sm"
+                            placeholder={discountConfig.type === 'percent' ? 'Ej. 10' : 'Ej. 5.00'}
+                            value={discountConfig.value}
+                            onChange={(e) => setDiscountConfig((prev) => ({ ...prev, value: e.target.value }))}
+                          />
+                          <input
+                            className="input-field text-sm"
+                            placeholder="Motivo (obligatorio)"
+                            value={discountConfig.reason}
+                            onChange={(e) => setDiscountConfig((prev) => ({ ...prev, reason: e.target.value }))}
+                          />
+                          <div className="flex gap-2">
                             <button
                               type="button"
-                              onClick={openCustomerModal}
-                              className="px-2.5 py-1.5 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1 shrink-0"
+                              onClick={handleDiscountButton}
+                              className="flex-1 py-2 rounded-lg bg-amber-600/90 text-white text-xs font-semibold hover:bg-amber-600"
                             >
-                              <MdPersonAdd className="text-sm" />
-                              Agregar cliente
+                              Aplicar descuento
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDiscountConfig((prev) => ({ ...prev, active: false, value: '', reason: '' }))}
+                              className="px-3 py-2 rounded-lg border border-[#3B82F6]/40 text-[#BFDBFE] text-xs"
+                            >
+                              Cancelar
                             </button>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <select
-                              className="input-field"
-                              value={billingForm.doc_type}
-                              onChange={(e) => setBillingForm((prev) => ({ ...prev, doc_type: e.target.value }))}
-                            >
-                              <option value="boleta">Boleta</option>
-                              <option value="factura">Factura</option>
-                            </select>
-                            <select
-                              className="input-field"
-                              value={billingForm.customer_doc_type}
-                              onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_type: e.target.value }))}
-                              disabled={billingForm.doc_type === 'factura'}
-                            >
-                              <option value="1">DNI</option>
-                              <option value="6">RUC</option>
-                              <option value="0">Sin documento</option>
-                            </select>
-                            <input
-                              className="input-field"
-                              placeholder="N° documento"
-                              value={billingForm.customer_doc_number}
-                              onChange={(e) =>
-                                setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
-                              }
-                            />
-                            <input
-                              className="input-field"
-                              placeholder={billingForm.doc_type === 'factura' ? 'Razón social' : 'Nombre cliente'}
-                              value={billingForm.customer_name}
-                              onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_name: e.target.value }))}
-                            />
-                            <input
-                              className="input-field sm:col-span-2"
-                              placeholder="Dirección (opcional)"
-                              value={billingForm.customer_address}
-                              onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_address: e.target.value }))}
-                            />
-                            <div className="sm:col-span-2">
-                              {searchingCustomer && <p className="text-xs text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
-                              {matchedCustomer && (
-                                <p className="text-xs text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
-                              )}
-                            </div>
-                          </div>
                         </div>
-                        {discountConfig.active && !discountConfig.applied && (
-                          <div className="mt-2 p-3 rounded-lg border border-amber-500/35 bg-amber-950/20 space-y-2">
-                            <p className="text-xs font-medium text-amber-200/90">Definir descuento</p>
-                            <select
-                              className="input-field text-sm"
-                              value={discountConfig.type}
-                              onChange={(e) => setDiscountConfig((prev) => ({ ...prev, type: e.target.value }))}
-                            >
-                              <option value="amount">Monto fijo (S/)</option>
-                              <option value="percent">Porcentaje (%)</option>
-                            </select>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className="input-field text-sm"
-                              placeholder={discountConfig.type === 'percent' ? 'Ej. 10' : 'Ej. 5.00'}
-                              value={discountConfig.value}
-                              onChange={(e) => setDiscountConfig((prev) => ({ ...prev, value: e.target.value }))}
-                            />
-                            <input
-                              className="input-field text-sm"
-                              placeholder="Motivo (obligatorio)"
-                              value={discountConfig.reason}
-                              onChange={(e) => setDiscountConfig((prev) => ({ ...prev, reason: e.target.value }))}
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={handleDiscountButton}
-                                className="flex-1 py-2 rounded-lg bg-amber-600/90 text-white text-xs font-semibold hover:bg-amber-600"
-                              >
-                                Aplicar descuento
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDiscountConfig((prev) => ({ ...prev, active: false, value: '', reason: '' }))}
-                                className="px-3 py-2 rounded-lg border border-[#3B82F6]/40 text-[#BFDBFE] text-xs"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="flex flex-col flex-1 min-h-0 gap-3">
-                        <h3 className="text-lg font-bold text-[#F9FAFB] shrink-0">Pedidos</h3>
-                        <div>
-                          <label className="block text-xs font-medium text-[#E5E7EB] mb-1">N° documento o celular del cliente</label>
-                          <input
-                            className="input-field w-full"
-                            placeholder="Opcional — DNI, RUC o celular"
-                            value={billingForm.customer_doc_number}
-                            onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_number: e.target.value }))}
-                          />
-                        </div>
-                        <div className="grid grid-cols-[1fr_auto] gap-3 text-xs font-semibold text-[#9CA3AF] border-b border-[#3B82F6]/25 pb-2 shrink-0">
-                          <span>Pedidos</span>
-                          <span className="text-right">Total a pagar</span>
-                        </div>
-                        <div className="overflow-y-auto flex-1 space-y-3 max-h-[min(42vh,340px)] pr-1">
-                          {splitMode ? (
-                            (selectedTable.orders || []).map((order) => {
-                              const sel = selectedOrderIds.includes(order.id);
-                              const oTotal = getOrderChargeTotal(order);
-                              return (
-                                <div
-                                  key={order.id}
-                                  className={`rounded-lg border p-2 ${
-                                    sel ? 'border-[#3B82F6]/50 bg-[#1D4ED8]/10' : 'border-[#3B82F6]/20 bg-[#111827]/40 opacity-70'
-                                  }`}
-                                >
-                                  <label className="flex items-center gap-2 cursor-pointer mb-2">
-                                    <input
-                                      type="checkbox"
-                                      checked={sel}
-                                      onChange={() => toggleOrderSelection(order.id)}
-                                      className="rounded border-[#3B82F6]/50"
-                                    />
-                                    <span className="text-xs font-bold text-[#BFDBFE]">Pedido #{order.order_number}</span>
-                                    <span className="ml-auto text-sm font-semibold text-[#F9FAFB]">{formatCurrency(oTotal)}</span>
-                                  </label>
-                                  <div className="space-y-1 pl-6">
-                                    {(order.items || []).map((item) => (
-                                      <div key={item.id} className="flex justify-between text-sm text-[#D1D5DB]">
-                                        <span>
-                                          {item.quantity}x {item.product_name}
-                                        </span>
-                                        <span className="tabular-nums">{formatCurrency(item.subtotal)}</span>
-                                      </div>
-                                    ))}
+                      )}
+
+                      <div className="mt-1 pt-2 border-t border-[#3B82F6]/30 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setBillingSectionOpen((o) => !o)}
+                          className="w-full flex items-center justify-between gap-2 py-2 px-1 rounded-lg text-left text-sm font-semibold text-[#BFDBFE] hover:bg-[#1D4ED8]/15 border border-transparent hover:border-[#3B82F6]/30 transition-colors"
+                        >
+                          <span>Emitir facturas (boleta o factura)</span>
+                          {billingSectionOpen ? <MdExpandLess className="text-xl shrink-0" /> : <MdExpandMore className="text-xl shrink-0" />}
+                        </button>
+                        {billingSectionOpen && (
+                          <div className="mt-2 space-y-3 pb-1">
+                            <label className="flex items-start gap-2 text-sm font-medium text-[#F9FAFB] cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={billingForm.enabled}
+                                onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+                                className="rounded border-[#3B82F6]/50 mt-0.5"
+                              />
+                              <span>Emitir comprobante (boleta o factura) en esta cobranza</span>
+                            </label>
+                            {!billingForm.enabled && (
+                              <div>
+                                <label className="block text-xs font-medium text-[#E5E7EB] mb-1">N° documento o celular del cliente</label>
+                                <input
+                                  className="input-field w-full text-sm"
+                                  placeholder="Opcional — DNI, RUC o celular"
+                                  value={billingForm.customer_doc_number}
+                                  onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_number: e.target.value }))}
+                                />
+                              </div>
+                            )}
+                            {billingForm.enabled && (
+                              <div className="flex flex-col gap-3 overflow-y-auto max-h-[min(36vh,280px)] pr-1">
+                                <div className="flex items-center justify-between gap-2 shrink-0">
+                                  <h4 className="text-xs font-semibold text-[#F9FAFB]">Datos del comprobante</h4>
+                                  <button
+                                    type="button"
+                                    onClick={openCustomerModal}
+                                    className="px-2 py-1 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1 shrink-0"
+                                  >
+                                    <MdPersonAdd className="text-sm" />
+                                    Agregar cliente
+                                  </button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  <select
+                                    className="input-field text-sm"
+                                    value={billingForm.doc_type}
+                                    onChange={(e) => setBillingForm((prev) => ({ ...prev, doc_type: e.target.value }))}
+                                  >
+                                    <option value="boleta">Boleta</option>
+                                    <option value="factura">Factura</option>
+                                  </select>
+                                  <select
+                                    className="input-field text-sm"
+                                    value={billingForm.customer_doc_type}
+                                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_type: e.target.value }))}
+                                    disabled={billingForm.doc_type === 'factura'}
+                                  >
+                                    <option value="1">DNI</option>
+                                    <option value="6">RUC</option>
+                                    <option value="0">Sin documento</option>
+                                  </select>
+                                  <input
+                                    className="input-field text-sm"
+                                    placeholder="N° documento"
+                                    value={billingForm.customer_doc_number}
+                                    onChange={(e) =>
+                                      setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
+                                    }
+                                  />
+                                  <input
+                                    className="input-field text-sm"
+                                    placeholder={billingForm.doc_type === 'factura' ? 'Razón social' : 'Nombre cliente'}
+                                    value={billingForm.customer_name}
+                                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_name: e.target.value }))}
+                                  />
+                                  <input
+                                    className="input-field text-sm sm:col-span-2"
+                                    placeholder="Dirección (opcional)"
+                                    value={billingForm.customer_address}
+                                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_address: e.target.value }))}
+                                  />
+                                  <div className="sm:col-span-2">
+                                    {searchingCustomer && <p className="text-xs text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
+                                    {matchedCustomer && (
+                                      <p className="text-xs text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
+                                    )}
                                   </div>
                                 </div>
-                              );
-                            })
-                          ) : billLineItems.length === 0 ? (
-                            <p className="text-sm text-[#9CA3AF] text-center py-8">Sin ítems</p>
-                          ) : (
-                            billLineItems.map((row) => (
-                              <div
-                                key={row.key}
-                                className="grid grid-cols-[1fr_auto] gap-3 text-sm text-[#D1D5DB] py-1.5 border-b border-[#3B82F6]/10 last:border-0"
-                              >
-                                <span>
-                                  {row.qty}x {row.name}
-                                </span>
-                                <span className="text-right tabular-nums text-[#F9FAFB]">{formatCurrency(row.subtotal)}</span>
                               </div>
-                            ))
-                          )}
-                        </div>
-                        {splitMode && (
-                          <p className="text-[11px] text-[#9CA3AF] shrink-0">Desmarca los pedidos que no vas a cobrar en esta operación.</p>
-                        )}
-                        {discountConfig.active && !discountConfig.applied && (
-                          <div className="p-3 rounded-lg border border-amber-500/35 bg-amber-950/20 space-y-2 shrink-0">
-                            <p className="text-xs font-medium text-amber-200/90">Definir descuento</p>
-                            <select
-                              className="input-field text-sm"
-                              value={discountConfig.type}
-                              onChange={(e) => setDiscountConfig((prev) => ({ ...prev, type: e.target.value }))}
-                            >
-                              <option value="amount">Monto fijo (S/)</option>
-                              <option value="percent">Porcentaje (%)</option>
-                            </select>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className="input-field text-sm"
-                              placeholder={discountConfig.type === 'percent' ? 'Ej. 10' : 'Ej. 5.00'}
-                              value={discountConfig.value}
-                              onChange={(e) => setDiscountConfig((prev) => ({ ...prev, value: e.target.value }))}
-                            />
-                            <input
-                              className="input-field text-sm"
-                              placeholder="Motivo (obligatorio)"
-                              value={discountConfig.reason}
-                              onChange={(e) => setDiscountConfig((prev) => ({ ...prev, reason: e.target.value }))}
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={handleDiscountButton}
-                                className="flex-1 py-2 rounded-lg bg-amber-600/90 text-white text-xs font-semibold hover:bg-amber-600"
-                              >
-                                Aplicar descuento
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDiscountConfig((prev) => ({ ...prev, active: false, value: '', reason: '' }))}
-                                className="px-3 py-2 rounded-lg border border-[#3B82F6]/40 text-[#BFDBFE] text-xs"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
+                            )}
                           </div>
                         )}
-                        <div className="mt-1 pt-3 border-t border-[#3B82F6]/30 space-y-2 text-sm shrink-0">
-                          <div className="flex justify-between text-[#9CA3AF] text-xs">
-                            <span>Pedidos en cobro</span>
-                            <span className="text-[#F9FAFB] font-medium">
-                              {splitMode ? selectedOrderIds.length : (selectedTable.orders || []).length} / {(selectedTable.orders || []).length}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-[#9CA3AF]">
-                            <span>Subtotal</span>
-                            <span className="text-[#F9FAFB] tabular-nums">{formatCurrency(selectionBaseTotal)}</span>
-                          </div>
-                          {discountConfig.applied && discountPreview > 0 && (
-                            <div className="flex justify-between text-amber-300/90">
-                              <span>Descuento</span>
-                              <span className="tabular-nums">−{formatCurrency(discountPreview)}</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between items-center pt-2 border-t border-[#3B82F6]/25 font-bold text-lg text-[#F9FAFB]">
-                            <span>Total</span>
-                            <span className="tabular-nums text-[#BFDBFE]">{formatCurrency(payableTotal)}</span>
-                          </div>
-                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Cobro */}
-                <div className="lg:border-l lg:border-[#3B82F6]/25 lg:pl-5">
-                  <div className="rounded-xl border border-[#3B82F6]/35 bg-[#111827]/70 backdrop-blur-md p-4 space-y-4">
-                    <h3 className="text-lg font-bold text-[#F9FAFB]">Cobro</h3>
+                <div className="lg:border-l lg:border-[#3B82F6]/25 lg:pl-4">
+                  <div className="rounded-xl border border-[#3B82F6]/35 bg-[#111827]/70 backdrop-blur-md p-3 sm:p-4 space-y-3">
+                    <h3 className="text-base font-bold text-[#F9FAFB]">Cobro</h3>
                     <div className="text-right">
                       <p className="text-[10px] text-[#9CA3AF] uppercase tracking-wider mb-1">Mesa</p>
-                      <p className="text-xl sm:text-2xl font-extrabold text-[#F9FAFB] tracking-wide">
+                      <p className="text-lg sm:text-xl font-extrabold text-[#F9FAFB] tracking-wide">
                         {selectedTable.name ?? selectedTable.number ?? '—'}
                       </p>
                     </div>
-                    <div className="text-right border-b border-[#3B82F6]/25 pb-4">
-                      <p className="text-3xl sm:text-5xl font-bold text-white tabular-nums">{formatCurrency(payableTotal)}</p>
-                      <p className="text-xs text-[#9CA3AF] mt-1">Total a pagar</p>
+                    <div className="text-right border-b border-[#3B82F6]/25 pb-3">
+                      <p className="text-2xl sm:text-3xl font-bold text-[#BFDBFE] tabular-nums">{formatCurrency(payableTotal)}</p>
+                      <p className="text-xs text-[#9CA3AF] mt-0.5">Total a pagar</p>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-[#E5E7EB] mb-2">Método de pago</label>
-                      <div className="flex flex-col gap-2">
+                      <label className="block text-xs font-medium text-[#E5E7EB] mb-1.5">Método de pago</label>
+                      <div className="flex flex-col gap-1.5">
                         {paymentOptions.map((opt) => {
                           const PayIcon = POS_CHECKOUT_PAYMENT_ICONS[opt.value] || MdAccountBalanceWallet;
                           const sel = paymentMethod === opt.value;
@@ -1765,14 +1713,14 @@ export default function POSPanel() {
                               key={opt.value}
                               type="button"
                               onClick={() => setPaymentMethod(opt.value)}
-                              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors ${
+                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-colors ${
                                 sel
-                                  ? 'border-emerald-500/70 bg-emerald-950/45 text-emerald-50 shadow-md shadow-emerald-900/25'
+                                  ? 'border-[#3B82F6] bg-[#1D4ED8]/30 text-[#F9FAFB] shadow-md shadow-[#1D4ED8]/20'
                                   : 'border-[#3B82F6]/30 bg-[#1e293b]/60 text-[#E5E7EB] hover:border-[#3B82F6]/55 hover:bg-[#1e293b]'
                               }`}
                             >
-                              <PayIcon className={`text-2xl shrink-0 ${sel ? 'text-emerald-400' : 'text-[#94a3b8]'}`} />
-                              <span className="font-semibold">{opt.label}</span>
+                              <PayIcon className={`text-xl shrink-0 ${sel ? 'text-[#93C5FD]' : 'text-[#94a3b8]'}`} />
+                              <span className="font-semibold text-sm">{opt.label}</span>
                             </button>
                           );
                         })}
@@ -1805,28 +1753,6 @@ export default function POSPanel() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#3B82F6]/20">
-                      <label className="flex items-center gap-2 text-sm font-medium text-[#F9FAFB] cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={billingForm.enabled}
-                          onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
-                          className="rounded border-[#3B82F6]/50"
-                        />
-                        Emitir comprobante (boleta o factura)
-                      </label>
-                      {billingForm.enabled && (
-                        <button
-                          type="button"
-                          onClick={openCustomerModal}
-                          className="px-2.5 py-1.5 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1 shrink-0"
-                        >
-                          <MdPersonAdd className="text-sm" />
-                          Cliente
-                        </button>
-                      )}
-                    </div>
-
                     {billingResult && (
                       <div className="text-xs rounded-lg border border-emerald-500/40 bg-emerald-950/40 px-2 py-2 text-emerald-200 flex flex-wrap items-center justify-between gap-2">
                         <span>
@@ -1847,7 +1773,7 @@ export default function POSPanel() {
                     <button
                       type="button"
                       onClick={cobrarMesa}
-                      className="w-full py-3.5 rounded-xl bg-gradient-to-b from-emerald-500 to-emerald-600 text-white font-bold text-xl sm:text-2xl hover:from-emerald-400 hover:to-emerald-500 shadow-lg shadow-emerald-900/40 uppercase tracking-wide border border-emerald-400/30"
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white font-bold text-lg sm:text-xl hover:from-[#1D4ED8] hover:to-[#1E40AF] shadow-lg shadow-[#1D4ED8]/25 uppercase tracking-wide"
                     >
                       COBRAR MESA
                     </button>
