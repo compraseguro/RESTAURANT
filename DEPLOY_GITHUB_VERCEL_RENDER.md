@@ -45,14 +45,18 @@ Flujo: tu código vive en **GitHub**; cada `git push` a la rama conectada vuelve
 
 ### 1b) Que los datos no se borren en cada deploy (Render)
 
-En el plan gratuito el sistema de archivos del contenedor **se pierde** al redesplegar: sin disco persistente, `restaurant.db` vuelve a crearse vacía.
+**Importante:** El código del proyecto **no borra** tu base al hacer `git push`. Lo que ocurre es que, en Render, el disco del contenedor es **efímero**: si `restaurant.db` no está en un **Disk** persistente, cada nuevo deploy arranca **sin** ese archivo y el servidor **crea otra base vacía** (parece un “reset”).
 
 1. En el servicio web → **Disks** (Discos) → **Add disk**.
-2. Montaje sugerido: **Mount path** = `/data`, tamaño según plan.
-3. Variables: `DB_PATH` = `/data/restaurant.db`
-4. Redeploy. La base queda en el disco y **sobrevive** a nuevos deploys del código.
+2. Montaje sugerido: **Mount path** = `/data`, tamaño según plan (p. ej. 1 GB).
+3. **Environment** → variable **`DB_PATH`** = **`/data/restaurant.db`** (ruta absoluta, coincidente con el mount).
+4. **Save** y luego **Manual Deploy** (o un push) para que arranque ya con el disco montado.
+
+**Comprobar que quedó bien:** abre **Logs** del servicio al iniciar. Si falta el Disk o `DB_PATH`, verás un bloque **`[CRÍTICO] Riesgo de PERDER DATOS`**. Si está bien, verás **`DB_PATH parece volumen persistente`**.
 
 El **reinicio completo** de datos del programa sigue siendo solo el que configures en **Configuración** del panel (no el deploy normal).
+
+**Si ya perdiste datos:** no están en el deploy anterior del contenedor; la recuperación solo es posible si tenías **copia** del archivo `.db` o backup exportado desde el panel.
 
 6. **Create Web Service**. Espera a que el deploy termine y copia la URL pública del servicio, por ejemplo:  
    `https://resto-api-xxxx.onrender.com`

@@ -9,6 +9,16 @@ const DB_PATH = path.resolve(process.env.DB_PATH || DEFAULT_DB_PATH);
 
 let db = null;
 let dbReady = null;
+/** Si false, en este arranque se creó un archivo .db nuevo (vacío). */
+let dbFileExistedBeforeInit = false;
+
+function getDatabasePersistenceInfo() {
+  return {
+    path: DB_PATH,
+    fileExistedBeforeInit: dbFileExistedBeforeInit,
+    dbPathFromEnv: !!process.env.DB_PATH,
+  };
+}
 
 function getDb() {
   if (!db) throw new Error('Database not initialized');
@@ -267,7 +277,8 @@ async function initDatabase() {
   dbReady = (async () => {
     const SQL = await initSqlJs();
 
-    if (fs.existsSync(DB_PATH)) {
+    dbFileExistedBeforeInit = fs.existsSync(DB_PATH);
+    if (dbFileExistedBeforeInit) {
       const fileBuffer = fs.readFileSync(DB_PATH);
       db = new SQL.Database(fileBuffer);
     } else {
@@ -1268,6 +1279,7 @@ function seedWarehouses() {
 module.exports = {
   getDb,
   initDatabase,
+  getDatabasePersistenceInfo,
   getNextOrderNumber,
   queryAll,
   queryOne,

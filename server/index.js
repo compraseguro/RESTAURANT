@@ -7,7 +7,7 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const crypto = require('crypto');
-const { initDatabase, getDbPath } = require('./database');
+const { initDatabase, getDbPath, getDatabasePersistenceInfo } = require('./database');
 const jwt = require('jsonwebtoken');
 const { authenticateToken, requireRole, JWT_SECRET } = require('./middleware/auth');
 const { createRateLimiter } = require('./middleware/rateLimit');
@@ -181,8 +181,49 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001;
 
+function logSqlitePersistenceWarnings() {
+  const info = getDatabasePersistenceInfo();
+  const normalized = String(info.path || '').replace(/\\/g, '/');
+  const onRender = String(process.env.RENDER || '').toLowerCase() === 'true';
+  const onRailway = !!process.env.RAILWAY_ENVIRONMENT;
+  const cloudEphemeralHost = onRender || onRailway;
+
+  const persistentMount =
+    normalized.startsWith('/data/') ||
+    normalized === '/data/restaurant.db' ||
+    normalized.startsWith('/mnt/') ||
+    normalized.startsWith('/var/persistent/');
+
+  if (!info.fileExistedBeforeInit) {
+    console.warn(`
+********************************************************************************
+* [SQLite] Se creó o encontró una base NUEVA (vacía) en: ${info.path}
+* Si ya tenías productos/usuarios y desaparecieron: no los borró el código del
+* deploy; estás usando otra ruta o un disco EFÍMERO (típico en Render sin Disk).
+********************************************************************************
+`);
+  }
+
+  if (cloudEphemeralHost && !persistentMount) {
+    console.error(`
+********************************************************************************
+* [CRÍTICO] Riesgo de PERDER DATOS en cada deploy / rebuild
+* El archivo SQLite está fuera de un volumen persistente (${info.path}).
+* Sin Disk + DB_PATH, Render/Railway recrean el contenedor y el .db desaparece.
+*
+* Render: Service → Disks → Add disk → Mount path: /data
+* Environment: DB_PATH=/data/restaurant.db  (sin comillas, ruta absoluta)
+* Luego Manual Deploy. Guía: DEPLOY_GITHUB_VERCEL_RENDER.md sección 1b
+********************************************************************************
+`);
+  } else if (cloudEphemeralHost && persistentMount) {
+    console.log(`[SQLite] DB_PATH parece volumen persistente: ${info.path}`);
+  }
+}
+
 async function start() {
   await initDatabase();
+  logSqlitePersistenceWarnings();
   console.log(`[DB] SQLite path: ${getDbPath()}`);
   if (typeof billingRoutes.startBillingAutoRetryJob === 'function') {
     billingRoutes.startBillingAutoRetryJob();
