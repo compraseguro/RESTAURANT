@@ -16,7 +16,6 @@ import {
   MdAccountBalanceWallet, MdTrendingUp, MdTrendingDown,
   MdRestaurantMenu,
   MdAccessTime, MdPersonAdd, MdEmail,
-  MdExpandMore, MdExpandLess,
 } from 'react-icons/md';
 
 const CAJA_OPTIONS = [
@@ -90,7 +89,6 @@ export default function POSPanel() {
   const [paymentOptions, setPaymentOptions] = useState(getPaymentMethodOptions(null, { includeOnline: false }));
   const [amountReceived, setAmountReceived] = useState('');
   const [billingForm, setBillingForm] = useState(DEFAULT_BILLING_FORM);
-  const [billingSectionOpen, setBillingSectionOpen] = useState(false);
   const [billingResult, setBillingResult] = useState(null);
   const {
     cart,
@@ -322,10 +320,6 @@ export default function POSPanel() {
     };
   }, [billingForm.enabled, billingForm.customer_doc_number, billingForm.customer_doc_type, billingForm.doc_type]);
 
-  useEffect(() => {
-    if (billingForm.enabled) setBillingSectionOpen(true);
-  }, [billingForm.enabled]);
-
   const denomDefs = [
     { key: 'b200', label: 'Billete S/200', value: 200 },
     { key: 'b100', label: 'Billete S/100', value: 100 },
@@ -456,7 +450,6 @@ export default function POSPanel() {
 
   const resetBillingForm = () => {
     setBillingForm(DEFAULT_BILLING_FORM);
-    setBillingSectionOpen(false);
     setBillingResult(null);
     setMatchedCustomer(null);
     setSearchingCustomer(false);
@@ -1507,56 +1500,135 @@ export default function POSPanel() {
           <div className="flex flex-col -m-1 min-h-0 max-h-[min(78vh,560px)]">
             <div className="flex-1 overflow-y-auto min-h-0 pb-2">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 items-start">
-                {/* Pedidos + facturación desplegable */}
+                {/* Pedidos o formulario de facturación (reemplazo al activar emitir comprobante) */}
                 <div className="flex flex-col gap-2 min-h-0">
                   <div className="rounded-xl border border-[#3B82F6]/35 bg-[#111827]/70 backdrop-blur-md shadow-lg shadow-black/20 p-3 sm:p-4 flex flex-col min-h-0 overflow-hidden">
                     <div className="flex flex-col flex-1 min-h-0 gap-2">
-                      <h3 className="text-base font-bold text-[#F9FAFB] shrink-0">Pedidos</h3>
-                      <div className="overflow-y-auto flex-1 space-y-2 max-h-[min(28vh,220px)] pr-1">
-                        {splitMode ? (
-                          (selectedTable.orders || []).map((order) => {
-                            const sel = selectedOrderIds.includes(order.id);
-                            return (
-                              <div
-                                key={order.id}
-                                className={`rounded-lg border p-2 ${
-                                  sel ? 'border-[#3B82F6]/50 bg-[#1D4ED8]/10' : 'border-[#3B82F6]/20 bg-[#111827]/40 opacity-70'
-                                }`}
-                              >
-                                <label className="flex items-center gap-2 cursor-pointer mb-1.5">
-                                  <input
-                                    type="checkbox"
-                                    checked={sel}
-                                    onChange={() => toggleOrderSelection(order.id)}
-                                    className="rounded border-[#3B82F6]/50"
-                                  />
-                                  <span className="text-xs font-bold text-[#BFDBFE]">Pedido #{order.order_number}</span>
-                                </label>
-                                <div className="space-y-0.5 pl-6">
-                                  {(order.items || []).map((item) => (
-                                    <div key={item.id} className="text-sm text-[#D1D5DB]">
-                                      {item.quantity}x {item.product_name}
+                      {!billingForm.enabled ? (
+                        <>
+                          <h3 className="text-base font-bold text-[#F9FAFB] shrink-0">Pedidos</h3>
+                          <div className="grid grid-cols-[1fr_auto] gap-3 text-xs font-semibold text-[#9CA3AF] border-b border-[#3B82F6]/25 pb-2 shrink-0">
+                            <span>Producto</span>
+                            <span className="text-right tabular-nums">Cant.</span>
+                          </div>
+                          <div className="overflow-y-auto flex-1 space-y-2 max-h-[min(28vh,220px)] pr-1">
+                            {splitMode ? (
+                              (selectedTable.orders || []).map((order) => {
+                                const sel = selectedOrderIds.includes(order.id);
+                                return (
+                                  <div
+                                    key={order.id}
+                                    className={`rounded-lg border p-2 ${
+                                      sel ? 'border-[#3B82F6]/50 bg-[#1D4ED8]/10' : 'border-[#3B82F6]/20 bg-[#111827]/40 opacity-70'
+                                    }`}
+                                  >
+                                    <label className="flex items-center gap-2 cursor-pointer mb-1.5">
+                                      <input
+                                        type="checkbox"
+                                        checked={sel}
+                                        onChange={() => toggleOrderSelection(order.id)}
+                                        className="rounded border-[#3B82F6]/50"
+                                      />
+                                      <span className="text-xs font-bold text-[#BFDBFE]">Pedido #{order.order_number}</span>
+                                    </label>
+                                    <div className="space-y-0.5 pl-6">
+                                      {(order.items || []).map((item) => (
+                                        <div key={item.id} className="flex justify-between gap-2 text-sm text-[#D1D5DB]">
+                                          <span className="min-w-0 truncate">{item.product_name}</span>
+                                          <span className="tabular-nums shrink-0 text-[#F9FAFB]">{item.quantity}</span>
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
+                                  </div>
+                                );
+                              })
+                            ) : billLineItems.length === 0 ? (
+                              <p className="text-sm text-[#9CA3AF] text-center py-6">Sin ítems</p>
+                            ) : (
+                              billLineItems.map((row) => (
+                                <div
+                                  key={row.key}
+                                  className="grid grid-cols-[1fr_auto] gap-3 text-sm text-[#D1D5DB] py-1 border-b border-[#3B82F6]/10 last:border-0"
+                                >
+                                  <span className="min-w-0">{row.name}</span>
+                                  <span className="text-right tabular-nums text-[#F9FAFB]">{row.qty}</span>
                                 </div>
-                              </div>
-                            );
-                          })
-                        ) : billLineItems.length === 0 ? (
-                          <p className="text-sm text-[#9CA3AF] text-center py-6">Sin ítems</p>
-                        ) : (
-                          billLineItems.map((row) => (
-                            <div
-                              key={row.key}
-                              className="text-sm text-[#D1D5DB] py-1 border-b border-[#3B82F6]/10 last:border-0"
+                              ))
+                            )}
+                          </div>
+                          {splitMode && (
+                            <p className="text-[11px] text-[#9CA3AF] shrink-0">Desmarca los pedidos que no vas a cobrar en esta operación.</p>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex flex-col gap-3 overflow-y-auto max-h-[min(50vh,400px)] pr-1">
+                          <h3 className="text-base font-bold text-[#F9FAFB] shrink-0">Datos del comprobante</h3>
+                          <div className="flex items-center justify-end gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={openCustomerModal}
+                              className="px-2 py-1 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1 shrink-0"
                             >
-                              {row.qty}x {row.name}
+                              <MdPersonAdd className="text-sm" />
+                              Agregar cliente
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <select
+                              className="input-field text-sm"
+                              value={billingForm.doc_type}
+                              onChange={(e) => setBillingForm((prev) => ({ ...prev, doc_type: e.target.value }))}
+                            >
+                              <option value="boleta">Boleta</option>
+                              <option value="factura">Factura</option>
+                            </select>
+                            <select
+                              className="input-field text-sm"
+                              value={billingForm.customer_doc_type}
+                              onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_type: e.target.value }))}
+                              disabled={billingForm.doc_type === 'factura'}
+                            >
+                              <option value="1">DNI</option>
+                              <option value="6">RUC</option>
+                              <option value="0">Sin documento</option>
+                            </select>
+                            <input
+                              className="input-field text-sm"
+                              placeholder="N° documento"
+                              value={billingForm.customer_doc_number}
+                              onChange={(e) =>
+                                setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
+                              }
+                            />
+                            <input
+                              className="input-field text-sm"
+                              placeholder={billingForm.doc_type === 'factura' ? 'Razón social' : 'Nombre cliente'}
+                              value={billingForm.customer_name}
+                              onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_name: e.target.value }))}
+                            />
+                            <input
+                              className="input-field text-sm sm:col-span-2"
+                              placeholder="Dirección (opcional)"
+                              value={billingForm.customer_address}
+                              onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_address: e.target.value }))}
+                            />
+                            <div className="sm:col-span-2">
+                              <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Celular del cliente</label>
+                              <input
+                                className="input-field text-sm w-full"
+                                placeholder="Para enviar el PDF del comprobante por WhatsApp"
+                                value={billingForm.customer_phone}
+                                onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_phone: e.target.value }))}
+                              />
                             </div>
-                          ))
-                        )}
-                      </div>
-                      {splitMode && (
-                        <p className="text-[11px] text-[#9CA3AF] shrink-0">Desmarca los pedidos que no vas a cobrar en esta operación.</p>
+                            <div className="sm:col-span-2">
+                              {searchingCustomer && <p className="text-xs text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
+                              {matchedCustomer && (
+                                <p className="text-xs text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       )}
                       {discountConfig.active && !discountConfig.applied && (
                         <div className="p-2.5 rounded-lg border border-amber-500/35 bg-amber-950/20 space-y-2 shrink-0">
@@ -1602,96 +1674,6 @@ export default function POSPanel() {
                           </div>
                         </div>
                       )}
-
-                      <div className="mt-1 pt-2 border-t border-[#3B82F6]/30 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => setBillingSectionOpen((o) => !o)}
-                          className="w-full flex items-center justify-between gap-2 py-2 px-1 rounded-lg text-left text-sm font-semibold text-[#BFDBFE] hover:bg-[#1D4ED8]/15 border border-transparent hover:border-[#3B82F6]/30 transition-colors"
-                        >
-                          <span>Emitir facturas (boleta o factura)</span>
-                          {billingSectionOpen ? <MdExpandLess className="text-xl shrink-0" /> : <MdExpandMore className="text-xl shrink-0" />}
-                        </button>
-                        {billingSectionOpen && (
-                          <div className="mt-2 space-y-3 pb-1">
-                            {!billingForm.enabled && (
-                              <p className="text-xs text-[#9CA3AF]">
-                                Activa <span className="text-[#BFDBFE]">Emitir comprobante</span> en la columna Cobro para completar boleta o factura.
-                              </p>
-                            )}
-                            {billingForm.enabled && (
-                              <div className="flex flex-col gap-3 overflow-y-auto max-h-[min(36vh,280px)] pr-1">
-                                <div className="flex items-center justify-between gap-2 shrink-0">
-                                  <h4 className="text-xs font-semibold text-[#F9FAFB]">Datos del comprobante</h4>
-                                  <button
-                                    type="button"
-                                    onClick={openCustomerModal}
-                                    className="px-2 py-1 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1 shrink-0"
-                                  >
-                                    <MdPersonAdd className="text-sm" />
-                                    Agregar cliente
-                                  </button>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  <select
-                                    className="input-field text-sm"
-                                    value={billingForm.doc_type}
-                                    onChange={(e) => setBillingForm((prev) => ({ ...prev, doc_type: e.target.value }))}
-                                  >
-                                    <option value="boleta">Boleta</option>
-                                    <option value="factura">Factura</option>
-                                  </select>
-                                  <select
-                                    className="input-field text-sm"
-                                    value={billingForm.customer_doc_type}
-                                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_type: e.target.value }))}
-                                    disabled={billingForm.doc_type === 'factura'}
-                                  >
-                                    <option value="1">DNI</option>
-                                    <option value="6">RUC</option>
-                                    <option value="0">Sin documento</option>
-                                  </select>
-                                  <input
-                                    className="input-field text-sm"
-                                    placeholder="N° documento"
-                                    value={billingForm.customer_doc_number}
-                                    onChange={(e) =>
-                                      setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
-                                    }
-                                  />
-                                  <input
-                                    className="input-field text-sm"
-                                    placeholder={billingForm.doc_type === 'factura' ? 'Razón social' : 'Nombre cliente'}
-                                    value={billingForm.customer_name}
-                                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_name: e.target.value }))}
-                                  />
-                                  <input
-                                    className="input-field text-sm sm:col-span-2"
-                                    placeholder="Dirección (opcional)"
-                                    value={billingForm.customer_address}
-                                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_address: e.target.value }))}
-                                  />
-                                  <div className="sm:col-span-2">
-                                    <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Celular del cliente</label>
-                                    <input
-                                      className="input-field text-sm w-full"
-                                      placeholder="Para enviar el PDF del comprobante por WhatsApp"
-                                      value={billingForm.customer_phone}
-                                      onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_phone: e.target.value }))}
-                                    />
-                                  </div>
-                                  <div className="sm:col-span-2">
-                                    {searchingCustomer && <p className="text-xs text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
-                                    {matchedCustomer && (
-                                      <p className="text-xs text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1699,11 +1681,13 @@ export default function POSPanel() {
                 {/* Cobro */}
                 <div className="lg:border-l lg:border-[#3B82F6]/25 lg:pl-4">
                   <div className="rounded-xl border border-[#3B82F6]/35 bg-[#111827]/70 backdrop-blur-md p-3 sm:p-4 space-y-3">
-                    <h3 className="text-base font-bold text-[#F9FAFB]">Cobro</h3>
-                    <div className="text-right">
-                      <p className="text-[10px] text-[#9CA3AF] uppercase tracking-wider mb-1">Mesa</p>
-                      <p className="text-lg sm:text-xl font-extrabold text-[#F9FAFB] tracking-wide">
-                        {selectedTable.name ?? selectedTable.number ?? '—'}
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-base font-bold text-[#F9FAFB] shrink-0">Cobro</h3>
+                      <p className="text-base sm:text-lg font-extrabold text-[#F9FAFB] tracking-wide text-right leading-tight">
+                        {selectedTable?.name?.trim()
+                          || (selectedTable?.number != null && selectedTable?.number !== ''
+                            ? `Mesa ${selectedTable.number}`
+                            : '—')}
                       </p>
                     </div>
                     <div className="text-right border-b border-[#3B82F6]/25 pb-3">
