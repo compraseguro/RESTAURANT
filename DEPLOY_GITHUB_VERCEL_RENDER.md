@@ -21,7 +21,8 @@ Flujo: tu código vive en **GitHub**; cada `git push` a la rama conectada vuelve
    - **Branch:** `main` (o la que uses).
    - **Root directory:** déjalo **vacío** (raíz del repo; ahí está `package.json` y `server/`).
    - **Runtime:** Node.
-   - **Build command:** `npm install`
+   - **Build command:** `npm install && npm run build`  
+     (el script `build` del repo instala dependencias en `client` **incluyendo devDependencies** para que exista `vite` en Render, donde `NODE_ENV=production` suele omitirlas.)
    - **Start command:** `npm start`  
      (equivale a `node server/index.js` según el `package.json` del proyecto).
 4. Elige plan (Free tiene “sleep” tras inactividad; el primer request puede tardar).

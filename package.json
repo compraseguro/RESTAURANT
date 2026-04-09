@@ -7,7 +7,7 @@
     "client": "cd client && npm run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "install-all": "npm install && cd client && npm install",
-    "build": "cd client && npm run build",
+    "build": "cd client && npm install --include=dev && npm run build",
     "start": "node server/index.js",
     "smoke": "node scripts/smoke-test.js",
     "verify:roles": "node scripts/verify-roles.js",
