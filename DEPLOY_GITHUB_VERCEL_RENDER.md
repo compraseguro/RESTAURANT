@@ -35,10 +35,24 @@ Flujo: tu código vive en **GitHub**; cada `git push` a la rama conectada vuelve
      `https://tu-app.vercel.app,http://localhost:5173` |
    | *(opcional)* `PORT` | Render suele inyectar `PORT` solo; no hace falta definirla salvo que tu plantilla lo exija. |
 
+   | `MASTER_USERNAME` | Usuario del **administrador maestro** (primer acceso a `/master`). |
+   | `MASTER_PASSWORD` | Contraseña del maestro (**cámbiala** en producción). |
+   | `DB_PATH` | **Imprescindible** para no perder datos: ruta en un **disco persistente**. Ver sección **1b** abajo. |
+
    Opcionales (ver `/.env.example`):
 
    - `NODE_ENV` = `production`
-   - `DB_PATH` = ruta del SQLite si usas disco persistente en Render (recomendado si no quieres perder datos al redeploy).
+
+### 1b) Que los datos no se borren en cada deploy (Render)
+
+En el plan gratuito el sistema de archivos del contenedor **se pierde** al redesplegar: sin disco persistente, `restaurant.db` vuelve a crearse vacía.
+
+1. En el servicio web → **Disks** (Discos) → **Add disk**.
+2. Montaje sugerido: **Mount path** = `/data`, tamaño según plan.
+3. Variables: `DB_PATH` = `/data/restaurant.db`
+4. Redeploy. La base queda en el disco y **sobrevive** a nuevos deploys del código.
+
+El **reinicio completo** de datos del programa sigue siendo solo el que configures en **Configuración** del panel (no el deploy normal).
 
 6. **Create Web Service**. Espera a que el deploy termine y copia la URL pública del servicio, por ejemplo:  
    `https://resto-api-xxxx.onrender.com`

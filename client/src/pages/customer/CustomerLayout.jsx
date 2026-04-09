@@ -134,9 +134,6 @@ export default function CustomerLayout() {
               ¿No tienes cuenta?{' '}
               <button type="button" onClick={() => setAuthMode('register')} className="text-primary-600 font-medium hover:underline">Regístrate</button>
             </p>
-            <div className="border-t pt-3">
-              <p className="text-xs text-gray-400 text-center mb-2">Demo: cliente@email.com / cliente123</p>
-            </div>
           </form>
         ) : (
           <form onSubmit={handleRegister} className="space-y-4">

@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { queryOne, runSql } = require('../database');
-const { getLockState } = require('../masterAdminService');
+const { getLockState, getMasterCredentialsPublic } = require('../masterAdminService');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -20,9 +20,10 @@ function authenticateToken(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     if (decoded.role === 'master_admin') {
+      const masterPub = getMasterCredentialsPublic();
       req.user = {
         id: decoded.id || 'master-admin',
-        username: decoded.username || 'Romero25879',
+        username: decoded.username || masterPub.username || 'maestro',
         role: 'master_admin',
         full_name: decoded.full_name || 'Administrador Maestro',
       };

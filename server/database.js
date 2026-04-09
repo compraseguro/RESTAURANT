@@ -984,13 +984,10 @@ async function initDatabase() {
       lock_enabled_at: '',
       billing_alert_sent_for: '',
     })]);
-    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['master_admin_auth', JSON.stringify({
-      username: 'Romero25879',
-      password_hash: bcrypt.hashSync('2587903042007', 10),
-      updated_at: new Date().toISOString(),
-    })]);
+    /* master_admin_auth: lo crea/ajusta masterAdminService al primer uso (ver MASTER_USERNAME / MASTER_PASSWORD en .env). */
     db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['master_admin_notifications', JSON.stringify([])]);
-    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['bootstrap_mode', JSON.stringify({ mode: 'demo' })]);
+    /* production: sin usuarios ni mesas demo; el maestro crea el administrador desde /master */
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['bootstrap_mode', JSON.stringify({ mode: 'sale_ready' })]);
     db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['pagos_sistema', JSON.stringify({
       acepta_efectivo: 1,
       acepta_tarjeta: 1,
@@ -1177,41 +1174,28 @@ function seedData() {
   const restaurantId = uuidv4();
   db.run(
     'INSERT INTO restaurants (id, name, address, phone, email, schedule) VALUES (?, ?, ?, ?, ?, ?)',
-    [restaurantId, 'Sabor Peruano', 'Av. Larco 345, Miraflores, Lima', '+51 999 888 777', 'info@saborperuano.pe',
-      JSON.stringify({
-        lunes: { open: '11:00', close: '23:00', enabled: true },
-        martes: { open: '11:00', close: '23:00', enabled: true },
-        miercoles: { open: '11:00', close: '23:00', enabled: true },
-        jueves: { open: '11:00', close: '23:00', enabled: true },
-        viernes: { open: '11:00', close: '00:00', enabled: true },
-        sabado: { open: '11:00', close: '00:00', enabled: true },
-        domingo: { open: '11:00', close: '22:00', enabled: true },
-      })
+    [
+      restaurantId,
+      'Mi Restaurante',
+      '',
+      '',
+      '',
+      JSON.stringify(getDefaultSchedule()),
     ]
   );
-
-  const adminHash = bcrypt.hashSync('admin123', 10);
-  const cajeroHash = bcrypt.hashSync('cajero123', 10);
-  const mozoHash = bcrypt.hashSync('mozo123', 10);
-
-  const adminId = uuidv4(), cajeroId = uuidv4(), mozoId = uuidv4();
-  const insertUser = 'INSERT INTO users (id, username, email, password_hash, full_name, role, restaurant_id) VALUES (?, ?, ?, ?, ?, ?, ?)';
-  db.run(insertUser, [adminId, 'admin', 'admin@saborperuano.pe', adminHash, 'Administrador', 'admin', restaurantId]);
-  db.run(insertUser, [cajeroId, 'cajero', 'cajero@saborperuano.pe', cajeroHash, 'María García', 'cajero', restaurantId]);
-  db.run(insertUser, [mozoId, 'mozo', 'mozo@saborperuano.pe', mozoHash, 'Carlos Mesero', 'mozo', restaurantId]);
-
-  // El catalogo arranca vacio: sin categorias ni productos precargados.
+  /* Sin usuarios por defecto: el administrador maestro crea el primer admin en /master */
 }
 
 function ensureOperationalUsers() {
   const bootstrapModeRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['bootstrap_mode']);
-  let bootstrapMode = 'demo';
+  let bootstrapMode = 'sale_ready';
   try {
-    bootstrapMode = JSON.parse(bootstrapModeRow?.value || '{}')?.mode || 'demo';
+    bootstrapMode = JSON.parse(bootstrapModeRow?.value || '{}')?.mode || 'sale_ready';
   } catch (_) {
-    bootstrapMode = 'demo';
+    bootstrapMode = 'sale_ready';
   }
-  if (bootstrapMode === 'sale_ready') return;
+  /* Solo en modo explícito "demo" se crean usuarios cocina/bar/delivery automáticos */
+  if (bootstrapMode !== 'demo') return;
 
   const restaurant = queryOne('SELECT id FROM restaurants LIMIT 1');
   if (!restaurant?.id) return;
@@ -1237,13 +1221,13 @@ function ensureOperationalUsers() {
 
 function seedTables() {
   const bootstrapModeRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['bootstrap_mode']);
-  let bootstrapMode = 'demo';
+  let bootstrapMode = 'sale_ready';
   try {
-    bootstrapMode = JSON.parse(bootstrapModeRow?.value || '{}')?.mode || 'demo';
+    bootstrapMode = JSON.parse(bootstrapModeRow?.value || '{}')?.mode || 'sale_ready';
   } catch (_) {
-    bootstrapMode = 'demo';
+    bootstrapMode = 'sale_ready';
   }
-  if (bootstrapMode === 'sale_ready') return;
+  if (bootstrapMode !== 'demo') return;
 
   const tableCount = queryOne('SELECT COUNT(*) as c FROM tables');
   if (tableCount.c > 0) return;
@@ -1261,13 +1245,13 @@ function seedTables() {
 
 function seedWarehouses() {
   const bootstrapModeRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['bootstrap_mode']);
-  let bootstrapMode = 'demo';
+  let bootstrapMode = 'sale_ready';
   try {
-    bootstrapMode = JSON.parse(bootstrapModeRow?.value || '{}')?.mode || 'demo';
+    bootstrapMode = JSON.parse(bootstrapModeRow?.value || '{}')?.mode || 'sale_ready';
   } catch (_) {
-    bootstrapMode = 'demo';
+    bootstrapMode = 'sale_ready';
   }
-  if (bootstrapMode === 'sale_ready') return;
+  if (bootstrapMode !== 'demo') return;
 
   const defaults = [
     { id: uuidv4(), name: 'Almacen Principal', description: 'Almacen principal de ventas directas' },

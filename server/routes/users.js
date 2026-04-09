@@ -65,6 +65,13 @@ function createEmptyPermissions() {
   }, {});
 }
 
+function createFullPermissions() {
+  return MODULE_IDS.reduce((acc, id) => {
+    acc[id] = true;
+    return acc;
+  }, {});
+}
+
 router.get('/', authenticateToken, requireRole('admin'), (req, res) => {
   res.json(queryAll('SELECT id, username, email, full_name, role, is_active, phone, avatar, created_at FROM users ORDER BY created_at DESC'));
 });
@@ -94,9 +101,13 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
       'INSERT INTO users (id, username, email, password_hash, full_name, role, restaurant_id, phone, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [id, username, email, hash, fullName, role, restaurant?.id, phone, isActive]
     );
+    const permissionsObj =
+      req.user?.role === 'master_admin' && role === 'admin'
+        ? createFullPermissions()
+        : createEmptyPermissions();
     runSql(
       'INSERT INTO user_permissions (id, user_id, permissions) VALUES (?, ?, ?)',
-      [uuidv4(), id, JSON.stringify(createEmptyPermissions())]
+      [uuidv4(), id, JSON.stringify(permissionsObj)]
     );
     return res.status(201).json(
       queryOne('SELECT id, username, email, full_name, role, is_active, phone, created_at FROM users WHERE id = ?', [id])

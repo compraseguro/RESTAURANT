@@ -192,15 +192,10 @@ async function start() {
 ======================================================
    RESTAURANT PLATFORM - SERVIDOR ACTIVO
    Puerto: ${PORT}
-   URL: http://localhost:${PORT}
-
-   Usuarios de prueba:
-   Admin:    admin / admin123
-   Cajero:   cajero / cajero123
-   Cocina:   cocina / cocina123
-   Bar:      bar / bar123
-   Delivery: delivery / delivery123
-   Cliente:  cliente@email.com / cliente123
+   Base de datos: ${getDbPath()}
+   Maestro: use MASTER_USERNAME / MASTER_PASSWORD (.env) o credenciales ya guardadas.
+   Staff: sin usuarios demo; el maestro crea el administrador en /master.
+   Datos: en la nube use disco persistente y DB_PATH (ver .env.example).
 ======================================================
     `);
   });
