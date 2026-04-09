@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { api } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
+import RestaurantServiceContractForm, { normalizeContratoFromApi } from '../../components/RestaurantServiceContractForm';
 import {
   MdAdminPanelSettings,
   MdReceiptLong,
@@ -23,7 +24,7 @@ import {
 
 const TABS = [
   { id: 'usuarios', label: 'Usuario administrador', icon: MdAdminPanelSettings },
-  { id: 'contrato', label: 'Contrato de venta', icon: MdReceiptLong },
+  { id: 'contrato', label: 'Contrato del servicio', icon: MdReceiptLong },
   { id: 'facturacion', label: 'Fecha de facturación', icon: MdEventAvailable },
   { id: 'notificaciones', label: 'Notificaciones', icon: MdNotifications },
   { id: 'bloqueo', label: 'Bloqueo por falta de pago', icon: MdLock },
@@ -54,6 +55,9 @@ export default function MasterAdmin() {
   const [editingBuyer, setEditingBuyer] = useState(null);
   const [editBuyerForm, setEditBuyerForm] = useState({ username: '', full_name: '', email: '', password: '' });
   const [showEditBuyerPassword, setShowEditBuyerPassword] = useState(false);
+  const [serviceContrato, setServiceContrato] = useState(() => normalizeContratoFromApi(null));
+  const [serviceContratoLoading, setServiceContratoLoading] = useState(false);
+  const [serviceContratoSaving, setServiceContratoSaving] = useState(false);
 
   const loadDashboard = async () => {
     try {
@@ -67,6 +71,43 @@ export default function MasterAdmin() {
   };
 
   useEffect(() => { loadDashboard(); }, []);
+
+  useEffect(() => {
+    if (tab !== 'contrato') return;
+    let cancelled = false;
+    (async () => {
+      setServiceContratoLoading(true);
+      try {
+        const appCfg = await api.get('/admin-modules/config/app');
+        if (cancelled) return;
+        setServiceContrato(normalizeContratoFromApi(appCfg?.contrato));
+      } catch (err) {
+        if (!cancelled) toast.error(err.message || 'No se pudo cargar el contrato del servicio');
+      } finally {
+        if (!cancelled) setServiceContratoLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tab]);
+
+  const saveServiceContrato = async () => {
+    const c = serviceContrato || {};
+    const payload = {
+      texto_contrato: String(c.texto_contrato || ''),
+      firma_comprador_url: String(c.firma_comprador_url || '').trim(),
+      firma_vendedor_url: String(c.firma_vendedor_url || '').trim(),
+    };
+    try {
+      setServiceContratoSaving(true);
+      const saved = await api.put('/admin-modules/config/app', { contrato: payload });
+      setServiceContrato(normalizeContratoFromApi(saved?.contrato));
+      toast.success('Contrato del servicio guardado');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setServiceContratoSaving(false);
+    }
+  };
 
   const resolveDurationHours = (formState) => {
     if (formState?.no_expiry) return null;
@@ -341,15 +382,30 @@ export default function MasterAdmin() {
         )}
 
         {tab === 'contrato' && (
-          <div className="card">
-            <h2 className="font-semibold text-slate-800 mb-3">Contrato de venta</h2>
-            <div className="grid grid-cols-1 gap-3">
-              <input className="input-field" placeholder="Nombre o título del contrato" value={control.contract_title || ''} onChange={(e) => setDashboard((p) => ({ ...p, control: { ...(p?.control || {}), contract_title: e.target.value } }))} />
-              <textarea className="input-field" rows={4} placeholder="Condiciones comerciales, alcance, observaciones..." value={control.contract_notes || ''} onChange={(e) => setDashboard((p) => ({ ...p, control: { ...(p?.control || {}), contract_notes: e.target.value } }))} />
-              <div className="flex justify-end">
-                <button className="btn-primary flex items-center gap-2" onClick={() => updateControl({ contract_title: control.contract_title || '', contract_notes: control.contract_notes || '' }, 'Contrato actualizado')}><MdSave /> Guardar contrato</button>
+          <div className="space-y-3">
+            {serviceContratoLoading ? (
+              <div className="card py-12 flex justify-center">
+                <div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" />
               </div>
-            </div>
+            ) : (
+              <>
+                <RestaurantServiceContractForm
+                  contrato={serviceContrato}
+                  canEdit
+                  onChange={setServiceContrato}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className="btn-primary flex items-center gap-2"
+                    disabled={serviceContratoSaving}
+                    onClick={saveServiceContrato}
+                  >
+                    <MdSave /> {serviceContratoSaving ? 'Guardando…' : 'Guardar cambios'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import RestaurantServiceContractForm, { normalizeContratoFromApi } from '../../components/RestaurantServiceContractForm';
 import { api, resolveMediaUrl } from '../../utils/api';
 import toast from 'react-hot-toast';
 import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt } from 'react-icons/md';
@@ -12,7 +13,7 @@ const MI_RESTAURANT_VIEWS = [
   { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
   { id: 'series_contingencia', label: 'Series de contingencia' },
   { id: 'pagos_sistema', label: 'Pagos de créditos' },
-  { id: 'contrato', label: 'Contrato' },
+  { id: 'contrato', label: 'Contrato del servicio' },
   { id: 'pago_uso_sistema', label: 'Pago por uso del sistema' },
   { id: 'informacion', label: 'Información' },
 ];
@@ -24,8 +25,6 @@ export default function MiRestaurant() {
   const logoInputRef = useRef(null);
   const restoreInputRef = useRef(null);
   const comprobanteUsoInputRef = useRef(null);
-  const firmaCompradorInputRef = useRef(null);
-  const firmaVendedorInputRef = useRef(null);
   const [restaurant, setRestaurant] = useState(null);
   const [billingConfig, setBillingConfig] = useState({
     billing_api_url: '',
@@ -90,12 +89,7 @@ export default function MiRestaurant() {
           setAppConfig((prev) => {
             const next = { ...prev, ...appCfg };
             if (appCfg.contrato && typeof appCfg.contrato === 'object') {
-              const c = appCfg.contrato;
-              next.contrato = {
-                texto_contrato: String(c.texto_contrato ?? c.observations ?? '').trim(),
-                firma_comprador_url: String(c.firma_comprador_url || '').trim(),
-                firma_vendedor_url: String(c.firma_vendedor_url || '').trim(),
-              };
+              next.contrato = normalizeContratoFromApi(appCfg.contrato);
             }
             return next;
           });
@@ -246,24 +240,6 @@ export default function MiRestaurant() {
       toast.error(err.message || 'No se pudo subir el comprobante');
     } finally {
       if (comprobanteUsoInputRef.current) comprobanteUsoInputRef.current.value = '';
-    }
-  };
-
-  const uploadFirmaContrato = async (file, field, inputRef) => {
-    if (!file) return;
-    if (!canEditContrato) {
-      toast.error('Solo el administrador maestro puede subir firmas.');
-      return;
-    }
-    try {
-      const uploaded = await api.upload(file);
-      const url = uploaded?.url || '';
-      updateAppCfg('contrato', field, url);
-      toast.success('Firma cargada. Pulsa Guardar cambios para conservarla.');
-    } catch (err) {
-      toast.error(err.message || 'No se pudo subir la imagen');
-    } finally {
-      if (inputRef?.current) inputRef.current.value = '';
     }
   };
 
@@ -723,101 +699,11 @@ export default function MiRestaurant() {
               </div>
             </div>
           ) : activeView === 'contrato' ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
-              <h3 className="font-bold text-slate-800 text-lg">Contrato del servicio</h3>
-              <textarea
-                className={`input-field min-h-[280px] font-sans text-sm leading-relaxed ${!canEditContrato ? 'bg-slate-100 cursor-default' : ''}`}
-                rows={12}
-                readOnly={!canEditContrato}
-                placeholder={canEditContrato ? 'Escribe aquí el contrato completo…' : ''}
-                value={appConfig.contrato?.texto_contrato || ''}
-                onChange={(e) => updateAppCfg('contrato', 'texto_contrato', e.target.value)}
-              />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-slate-800">Firma del comprador</p>
-                  <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 min-h-[120px] flex items-center justify-center overflow-hidden">
-                    {appConfig.contrato?.firma_comprador_url ? (
-                      <img
-                        src={resolveMediaUrl(appConfig.contrato.firma_comprador_url)}
-                        alt="Firma comprador"
-                        className="max-h-32 max-w-full object-contain p-2"
-                      />
-                    ) : (
-                      <span className="text-xs text-slate-400 px-4 text-center">Sin imagen</span>
-                    )}
-                  </div>
-                  {canEditContrato ? (
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="btn-secondary text-sm py-2"
-                        onClick={() => firmaCompradorInputRef.current?.click()}
-                      >
-                        Cargar imagen
-                      </button>
-                      <input
-                        ref={firmaCompradorInputRef}
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/gif"
-                        className="hidden"
-                        onChange={(e) => uploadFirmaContrato(e.target.files?.[0], 'firma_comprador_url', firmaCompradorInputRef)}
-                      />
-                      {appConfig.contrato?.firma_comprador_url ? (
-                        <button
-                          type="button"
-                          className="text-sm text-red-600 hover:underline"
-                          onClick={() => updateAppCfg('contrato', 'firma_comprador_url', '')}
-                        >
-                          Quitar
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-slate-800">Firma del vendedor</p>
-                  <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 min-h-[120px] flex items-center justify-center overflow-hidden">
-                    {appConfig.contrato?.firma_vendedor_url ? (
-                      <img
-                        src={resolveMediaUrl(appConfig.contrato.firma_vendedor_url)}
-                        alt="Firma vendedor"
-                        className="max-h-32 max-w-full object-contain p-2"
-                      />
-                    ) : (
-                      <span className="text-xs text-slate-400 px-4 text-center">Sin imagen</span>
-                    )}
-                  </div>
-                  {canEditContrato ? (
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="btn-secondary text-sm py-2"
-                        onClick={() => firmaVendedorInputRef.current?.click()}
-                      >
-                        Cargar imagen
-                      </button>
-                      <input
-                        ref={firmaVendedorInputRef}
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/gif"
-                        className="hidden"
-                        onChange={(e) => uploadFirmaContrato(e.target.files?.[0], 'firma_vendedor_url', firmaVendedorInputRef)}
-                      />
-                      {appConfig.contrato?.firma_vendedor_url ? (
-                        <button
-                          type="button"
-                          className="text-sm text-red-600 hover:underline"
-                          onClick={() => updateAppCfg('contrato', 'firma_vendedor_url', '')}
-                        >
-                          Quitar
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
+            <RestaurantServiceContractForm
+              contrato={appConfig.contrato}
+              canEdit={canEditContrato}
+              onChange={(next) => setAppConfig((prev) => ({ ...prev, contrato: next }))}
+            />
           ) : activeView === 'pago_uso_sistema' ? (
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
               <div className="flex items-center gap-2">
