@@ -16,17 +16,8 @@ import {
   MdAccountBalanceWallet, MdTrendingUp, MdTrendingDown,
   MdRestaurantMenu,
   MdAccessTime, MdPersonAdd, MdEmail,
-  MdPayments, MdCreditCard, MdSmartphone,
   MdExpandMore, MdExpandLess,
 } from 'react-icons/md';
-
-const POS_CHECKOUT_PAYMENT_ICONS = {
-  efectivo: MdPayments,
-  tarjeta: MdCreditCard,
-  yape: MdSmartphone,
-  plin: MdSmartphone,
-  online: MdAccountBalanceWallet,
-};
 
 const CAJA_OPTIONS = [
   { id: 'cobrar', label: 'Cobrar' },
@@ -48,6 +39,7 @@ const DEFAULT_BILLING_FORM = {
   customer_doc_number: '',
   customer_name: '',
   customer_address: '',
+  customer_phone: '',
 };
 const EMPTY_CUSTOMER_FORM = {
   doc_type: '1',
@@ -330,6 +322,10 @@ export default function POSPanel() {
     };
   }, [billingForm.enabled, billingForm.customer_doc_number, billingForm.customer_doc_type, billingForm.doc_type]);
 
+  useEffect(() => {
+    if (billingForm.enabled) setBillingSectionOpen(true);
+  }, [billingForm.enabled]);
+
   const denomDefs = [
     { key: 'b200', label: 'Billete S/200', value: 200 },
     { key: 'b100', label: 'Billete S/100', value: 100 },
@@ -478,6 +474,7 @@ export default function POSPanel() {
       customer_doc_number: String(customer.doc_number || prev.customer_doc_number || ''),
       customer_name: String(customer.name || prev.customer_name || ''),
       customer_address: String(customer.address || prev.customer_address || ''),
+      customer_phone: String(customer.phone || prev.customer_phone || ''),
     }));
   };
 
@@ -507,6 +504,7 @@ export default function POSPanel() {
         doc_number: billingForm.customer_doc_number,
         name: billingForm.customer_name,
         address: billingForm.customer_address,
+        phone: billingForm.customer_phone,
       },
     });
     setBillingResult(doc);
@@ -520,6 +518,7 @@ export default function POSPanel() {
       doc_type: initialDocType === '0' ? '1' : initialDocType,
       doc_number: normalizeDocNumber(billingForm.customer_doc_number),
       name: String(billingForm.customer_name || ''),
+      phone: String(billingForm.customer_phone || ''),
       address: String(billingForm.customer_address || ''),
     });
     setShowCustomerModal(true);
@@ -547,6 +546,10 @@ export default function POSPanel() {
         email: normalizeCustomerEmail(customerForm.email),
       });
       applyCustomerToBilling(created);
+      setBillingForm((prev) => ({
+        ...prev,
+        customer_phone: String(customerForm.phone || created?.phone || prev.customer_phone || ''),
+      }));
       setMatchedCustomer(created);
       setShowCustomerModal(false);
       setCustomerForm(EMPTY_CUSTOMER_FORM);
@@ -1384,27 +1387,21 @@ export default function POSPanel() {
                   </>
                 )}
                 <div className="rounded-lg border border-[#3B82F6]/30 bg-[#111827] p-2 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-xs font-medium text-[#F9FAFB]">
-                      <input
-                        type="checkbox"
-                        checked={billingForm.enabled}
-                        onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
-                        className="rounded border-[#3B82F6]/50"
-                      />
-                      Emitir comprobante de pago
-                    </label>
-                    <button
-                      type="button"
-                      onClick={openCustomerModal}
-                      className="px-2 py-1 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1"
-                    >
-                      <MdPersonAdd className="text-sm" />
-                      Agregar cliente
-                    </button>
-                  </div>
+                  {!billingForm.enabled && (
+                    <p className="text-[11px] text-[#9CA3AF]">Activa «Emitir comprobante» debajo del total para completar boleta o factura.</p>
+                  )}
                   {billingForm.enabled && (
                     <div className="space-y-2">
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={openCustomerModal}
+                          className="px-2 py-1 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1"
+                        >
+                          <MdPersonAdd className="text-sm" />
+                          Agregar cliente
+                        </button>
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         <select
                           className="input-field"
@@ -1439,6 +1436,12 @@ export default function POSPanel() {
                         value={billingForm.customer_name}
                         onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_name: e.target.value }))}
                       />
+                      <input
+                        className="input-field"
+                        placeholder="Celular del cliente (para enviar comprobante por WhatsApp)"
+                        value={billingForm.customer_phone}
+                        onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_phone: e.target.value }))}
+                      />
                       {searchingCustomer && <p className="text-[11px] text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
                       {matchedCustomer && (
                         <p className="text-[11px] text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
@@ -1456,6 +1459,17 @@ export default function POSPanel() {
                   <span>Total</span>
                   <span className="text-[#BFDBFE]">{formatCurrency(cartTotal)}</span>
                 </div>
+                {quickSaleMode && (
+                  <label className="flex items-center gap-2 text-xs font-medium text-[#F9FAFB] mb-1">
+                    <input
+                      type="checkbox"
+                      checked={billingForm.enabled}
+                      onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+                      className="rounded border-[#3B82F6]/50"
+                    />
+                    Emitir comprobante (boleta o factura)
+                  </label>
+                )}
                 <button type="button" onClick={submitOrder} className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
                   <MdReceipt /> {quickSaleMode ? 'Cobrar venta rápida' : 'Enviar Pedido'}
                 </button>
@@ -1600,25 +1614,10 @@ export default function POSPanel() {
                         </button>
                         {billingSectionOpen && (
                           <div className="mt-2 space-y-3 pb-1">
-                            <label className="flex items-start gap-2 text-sm font-medium text-[#F9FAFB] cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={billingForm.enabled}
-                                onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
-                                className="rounded border-[#3B82F6]/50 mt-0.5"
-                              />
-                              <span>Emitir comprobante (boleta o factura) en esta cobranza</span>
-                            </label>
                             {!billingForm.enabled && (
-                              <div>
-                                <label className="block text-xs font-medium text-[#E5E7EB] mb-1">N° documento o celular del cliente</label>
-                                <input
-                                  className="input-field w-full text-sm"
-                                  placeholder="Opcional — DNI, RUC o celular"
-                                  value={billingForm.customer_doc_number}
-                                  onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_number: e.target.value }))}
-                                />
-                              </div>
+                              <p className="text-xs text-[#9CA3AF]">
+                                Activa <span className="text-[#BFDBFE]">Emitir comprobante</span> en la columna Cobro para completar boleta o factura.
+                              </p>
                             )}
                             {billingForm.enabled && (
                               <div className="flex flex-col gap-3 overflow-y-auto max-h-[min(36vh,280px)] pr-1">
@@ -1673,6 +1672,15 @@ export default function POSPanel() {
                                     onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_address: e.target.value }))}
                                   />
                                   <div className="sm:col-span-2">
+                                    <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Celular del cliente</label>
+                                    <input
+                                      className="input-field text-sm w-full"
+                                      placeholder="Para enviar el PDF del comprobante por WhatsApp"
+                                      value={billingForm.customer_phone}
+                                      onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_phone: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div className="sm:col-span-2">
                                     {searchingCustomer && <p className="text-xs text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
                                     {matchedCustomer && (
                                       <p className="text-xs text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
@@ -1703,28 +1711,18 @@ export default function POSPanel() {
                       <p className="text-xs text-[#9CA3AF] mt-0.5">Total a pagar</p>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-[#E5E7EB] mb-1.5">Método de pago</label>
-                      <div className="flex flex-col gap-1.5">
-                        {paymentOptions.map((opt) => {
-                          const PayIcon = POS_CHECKOUT_PAYMENT_ICONS[opt.value] || MdAccountBalanceWallet;
-                          const sel = paymentMethod === opt.value;
-                          return (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => setPaymentMethod(opt.value)}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-colors ${
-                                sel
-                                  ? 'border-[#3B82F6] bg-[#1D4ED8]/30 text-[#F9FAFB] shadow-md shadow-[#1D4ED8]/20'
-                                  : 'border-[#3B82F6]/30 bg-[#1e293b]/60 text-[#E5E7EB] hover:border-[#3B82F6]/55 hover:bg-[#1e293b]'
-                              }`}
-                            >
-                              <PayIcon className={`text-xl shrink-0 ${sel ? 'text-[#93C5FD]' : 'text-[#94a3b8]'}`} />
-                              <span className="font-semibold text-sm">{opt.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Método de pago</label>
+                      <select
+                        className="input-field w-full"
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                      >
+                        {paymentOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
@@ -1769,6 +1767,16 @@ export default function POSPanel() {
                         )}
                       </div>
                     )}
+
+                    <label className="flex items-start gap-2 text-sm font-medium text-[#F9FAFB] cursor-pointer pt-1 border-t border-[#3B82F6]/20">
+                      <input
+                        type="checkbox"
+                        checked={billingForm.enabled}
+                        onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+                        className="rounded border-[#3B82F6]/50 mt-0.5"
+                      />
+                      <span>Emitir comprobante (boleta o factura) en esta cobranza</span>
+                    </label>
 
                     <button
                       type="button"

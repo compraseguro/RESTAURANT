@@ -438,8 +438,9 @@ router.get('/documents', authenticateToken, requireRole('admin', 'cajero'), (req
         d.full_number LIKE ?
         OR d.customer_name LIKE ?
         OR d.customer_doc_number LIKE ?
+        OR IFNULL(d.customer_phone, '') LIKE ?
       )`;
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     sql += ' ORDER BY d.created_at DESC LIMIT ?';
@@ -513,6 +514,7 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
     name: customer?.name || existingDoc?.customer_name || order.customer_name || 'CLIENTE VARIOS',
     address: customer?.address || existingDoc?.customer_address || 'LIMA',
   };
+  const customerPhone = String(customer?.phone ?? existingDoc?.customer_phone ?? '').trim();
   const normalizedCustomer = normalizeCustomerForDoc(docType, sourceCustomer);
   const series = normalizeSeries(
     docType === 'factura' ? restaurant.billing_series_factura : restaurant.billing_series_boleta,
@@ -561,12 +563,12 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
   runSql(
     `INSERT INTO electronic_documents (
       id, order_id, order_number, doc_type, series, correlative, full_number,
-      customer_doc_type, customer_doc_number, customer_name, customer_address,
+      customer_doc_type, customer_doc_number, customer_name, customer_address, customer_phone,
       subtotal, tax, total, currency, payment_method,
       provider, provider_status, provider_message, hash_code, sunat_description,
       xml_url, cdr_url, pdf_url, provider_payload, provider_response,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
     [
       docId,
       order.id,
@@ -579,6 +581,7 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
       normalizedCustomer.customerDocNumber,
       normalizedCustomer.customerName,
       normalizedCustomer.customerAddress,
+      customerPhone,
       round2(order.subtotal),
       round2(order.tax),
       round2(order.total),

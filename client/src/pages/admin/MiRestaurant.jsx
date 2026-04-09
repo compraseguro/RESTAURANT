@@ -8,9 +8,9 @@ const DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'do
 const DAY_NAMES = { lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo' };
 const MI_RESTAURANT_VIEWS = [
   { id: 'mi_empresa', label: 'Mi empresa' },
-  { id: 'pagos_sistema', label: 'Pagos del sistema' },
   { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
   { id: 'series_contingencia', label: 'Series de contingencia' },
+  { id: 'pagos_sistema', label: 'Pagos de créditos' },
   { id: 'contrato', label: 'Contrato' },
   { id: 'pago_uso_sistema', label: 'Pago por uso del sistema' },
   { id: 'informacion', label: 'Información' },
@@ -153,7 +153,7 @@ export default function MiRestaurant() {
           };
           const saved = await api.put('/admin-modules/config/app', { [key]: payload });
           setAppConfig(prev => ({ ...prev, ...saved }));
-          toast.success('Configuración de pagos guardada');
+          toast.success('Configuración de pagos de crédito guardada');
           return;
         }
         if (key === 'pago_uso_sistema') {

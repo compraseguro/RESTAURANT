@@ -690,6 +690,7 @@ async function initDatabase() {
         customer_doc_number TEXT DEFAULT '',
         customer_name TEXT DEFAULT '',
         customer_address TEXT DEFAULT '',
+        customer_phone TEXT DEFAULT '',
         subtotal REAL DEFAULT 0,
         tax REAL DEFAULT 0,
         total REAL DEFAULT 0,
@@ -1035,6 +1036,12 @@ async function initDatabase() {
     db.run('CREATE INDEX IF NOT EXISTS idx_delivery_assignments_driver ON delivery_assignments(driver_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_inventory_logs_product_created ON inventory_logs(product_id, created_at)');
     db.run('CREATE INDEX IF NOT EXISTS idx_documents_order ON electronic_documents(order_id)');
+
+    const electronicDocCols = queryAll('PRAGMA table_info(electronic_documents)');
+    const electronicDocColNames = new Set((electronicDocCols || []).map((c) => c.name));
+    if (!electronicDocColNames.has('customer_phone')) {
+      db.run("ALTER TABLE electronic_documents ADD COLUMN customer_phone TEXT DEFAULT ''");
+    }
     db.run('CREATE INDEX IF NOT EXISTS idx_customers_doc_number ON customers(doc_number)');
     db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_doc_number_unique ON customers(doc_number) WHERE COALESCE(doc_number, '') != ''");
     db.run('CREATE INDEX IF NOT EXISTS idx_app_settings_history_created_at ON app_settings_history(created_at)');

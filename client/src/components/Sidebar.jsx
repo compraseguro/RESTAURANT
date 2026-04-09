@@ -8,7 +8,8 @@ import {
   MdDashboard, MdAttachMoney, MdPointOfSale, MdEventSeat,
   MdCreditCard, MdPeopleAlt, MdRestaurantMenu, MdLocalOffer,
   MdDiscount, MdWarehouse, MdDeliveryDining, MdAssessment,
-  MdInsights, MdStorefront, MdSettings, MdLogout, MdTableBar, MdAccessTime, MdKitchen, MdLocalBar, MdQrCode2
+  MdInsights, MdStorefront, MdSettings, MdLogout, MdTableBar, MdAccessTime, MdKitchen, MdLocalBar, MdQrCode2,
+  MdReceipt,
 } from 'react-icons/md';
 
 const allLinks = [
@@ -29,6 +30,7 @@ const allLinks = [
   { to: '/admin/informes', icon: MdAssessment, label: 'Informes', roles: ['admin', 'cajero'], moduleId: 'informes' },
   { to: '/admin/ventas', icon: MdAttachMoney, label: 'Ventas', roles: ['admin', 'cajero'], moduleId: 'ventas' },
   { to: '/admin/indicadores', icon: MdInsights, label: 'Indicadores', roles: ['admin'], moduleId: 'indicadores' },
+  { to: '/admin/comprobantes-emitidos', icon: MdReceipt, label: 'Comprobantes', roles: ['admin', 'cajero'], moduleId: 'comprobantes_emitidos' },
   { to: '/admin/mi-restaurant', icon: MdStorefront, label: 'Mi Restaurante', roles: ['admin'], moduleId: 'mi_restaurant' },
   { to: '/admin/tiempo-trabajado', icon: MdAccessTime, label: 'Tiempo trabajado', roles: ['admin'], moduleId: 'tiempo_trabajado' },
   { to: '/admin/configuracion', icon: MdSettings, label: 'Configuración', roles: ['admin'], moduleId: 'configuracion' },
@@ -47,9 +49,9 @@ const cajaSubOptions = [
 
 const miRestaurantSubOptions = [
   { id: 'mi_empresa', label: 'Mi empresa' },
-  { id: 'pagos_sistema', label: 'Pagos del sistema' },
   { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
   { id: 'series_contingencia', label: 'Series de contingencia' },
+  { id: 'pagos_sistema', label: 'Pagos de créditos' },
   { id: 'contrato', label: 'Contrato' },
   { id: 'pago_uso_sistema', label: 'Pago por uso del sistema' },
   { id: 'informacion', label: 'Información' },

@@ -20,6 +20,7 @@ import Delivery from './pages/admin/Delivery';
 import Reports from './pages/admin/Reports';
 import Indicadores from './pages/admin/Indicadores';
 import MiRestaurant from './pages/admin/MiRestaurant';
+import ComprobantesEmitidos from './pages/admin/ComprobantesEmitidos';
 import Settings from './pages/admin/Settings';
 import WorkTime from './pages/admin/WorkTime';
 import KitchenPanel from './pages/kitchen/KitchenPanel';
@@ -49,6 +50,7 @@ const ADMIN_MODULE_PATHS = [
   { path: '/admin/informes', moduleId: 'informes', roles: ['admin', 'cajero'] },
   { path: '/admin/ventas', moduleId: 'ventas', roles: ['admin', 'cajero'] },
   { path: '/admin/indicadores', moduleId: 'indicadores', roles: ['admin'] },
+  { path: '/admin/comprobantes-emitidos', moduleId: 'comprobantes_emitidos', roles: ['admin', 'cajero'] },
   { path: '/admin/mi-restaurant', moduleId: 'mi_restaurant', roles: ['admin'] },
   { path: '/admin/tiempo-trabajado', moduleId: 'tiempo_trabajado', roles: ['admin'] },
   { path: '/admin/configuracion', moduleId: 'configuracion', roles: ['admin'] },
@@ -158,6 +160,7 @@ export default function App() {
         <Route path="bar" element={<ProtectedRoute roles={['admin']} moduleId="bar"><KitchenPanel station="bar" /></ProtectedRoute>} />
         <Route path="informes" element={<ProtectedRoute roles={['admin', 'cajero']} moduleId="informes"><Reports /></ProtectedRoute>} />
         <Route path="indicadores" element={<ProtectedRoute roles={['admin']} moduleId="indicadores"><Indicadores /></ProtectedRoute>} />
+        <Route path="comprobantes-emitidos" element={<ProtectedRoute roles={['admin', 'cajero']} moduleId="comprobantes_emitidos"><ComprobantesEmitidos /></ProtectedRoute>} />
         <Route path="mi-restaurant" element={<ProtectedRoute roles={['admin']} moduleId="mi_restaurant"><MiRestaurant /></ProtectedRoute>} />
         <Route path="configuracion" element={<ProtectedRoute roles={['admin']} moduleId="configuracion"><Settings /></ProtectedRoute>} />
       </Route>
