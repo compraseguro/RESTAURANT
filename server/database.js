@@ -189,7 +189,7 @@ function resetOperationalData({ keepAdminUserId = '' } = {}) {
     const defaultSettings = {
       regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
       series_contingencia: { boleta: 'BC01', factura: 'FC01', enabled: 1 },
-      contrato: { plan: 'pro', renewal_date: '', observations: '' },
+      contrato: { texto_contrato: '', firma_comprador_url: '', firma_vendedor_url: '' },
       pagos_sistema: {
         acepta_efectivo: 1,
         acepta_tarjeta: 1,
@@ -1049,7 +1049,7 @@ async function initDatabase() {
 
     db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['regional', JSON.stringify({ country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' })]);
     db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['series_contingencia', JSON.stringify({ boleta: 'BC01', factura: 'FC01', enabled: 1 })]);
-    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['contrato', JSON.stringify({ plan: 'pro', renewal_date: '', observations: '' })]);
+    db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['contrato', JSON.stringify({ texto_contrato: '', firma_comprador_url: '', firma_vendedor_url: '' })]);
     db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['master_admin_control', JSON.stringify({
       contract_title: 'Contrato de venta',
       contract_notes: '',

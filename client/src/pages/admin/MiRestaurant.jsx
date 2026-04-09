@@ -21,6 +21,8 @@ export default function MiRestaurant() {
   const logoInputRef = useRef(null);
   const restoreInputRef = useRef(null);
   const comprobanteUsoInputRef = useRef(null);
+  const firmaCompradorInputRef = useRef(null);
+  const firmaVendedorInputRef = useRef(null);
   const [restaurant, setRestaurant] = useState(null);
   const [billingConfig, setBillingConfig] = useState({
     billing_api_url: '',
@@ -48,7 +50,7 @@ export default function MiRestaurant() {
       texto_politica_cobro: 'Todo crédito debe regularizarse dentro del plazo acordado.',
     },
     series_contingencia: { boleta: 'BC01', factura: 'FC01', enabled: 1 },
-    contrato: { plan: 'pro', renewal_date: '', observations: '' },
+    contrato: { texto_contrato: '', firma_comprador_url: '', firma_vendedor_url: '' },
     pago_uso_sistema: {
       periodo_facturacion: 'mensual',
       fecha_proxima_facturacion: '',
@@ -82,7 +84,18 @@ export default function MiRestaurant() {
           }));
         }
         if (appCfg && typeof appCfg === 'object') {
-          setAppConfig(prev => ({ ...prev, ...appCfg }));
+          setAppConfig((prev) => {
+            const next = { ...prev, ...appCfg };
+            if (appCfg.contrato && typeof appCfg.contrato === 'object') {
+              const c = appCfg.contrato;
+              next.contrato = {
+                texto_contrato: String(c.texto_contrato ?? c.observations ?? '').trim(),
+                firma_comprador_url: String(c.firma_comprador_url || '').trim(),
+                firma_vendedor_url: String(c.firma_vendedor_url || '').trim(),
+              };
+            }
+            return next;
+          });
         }
       })
       .catch(console.error);
@@ -171,6 +184,18 @@ export default function MiRestaurant() {
           toast.success('Datos de pago por uso del sistema guardados');
           return;
         }
+        if (key === 'contrato') {
+          const c = appConfig.contrato || {};
+          const payload = {
+            texto_contrato: String(c.texto_contrato || ''),
+            firma_comprador_url: String(c.firma_comprador_url || '').trim(),
+            firma_vendedor_url: String(c.firma_vendedor_url || '').trim(),
+          };
+          const saved = await api.put('/admin-modules/config/app', { contrato: payload });
+          setAppConfig(prev => ({ ...prev, ...saved }));
+          toast.success('Contrato guardado');
+          return;
+        }
         const saved = await api.put('/admin-modules/config/app', { [key]: appConfig[key] || {} });
         setAppConfig(prev => ({ ...prev, ...saved }));
         toast.success('Configuración guardada');
@@ -214,6 +239,20 @@ export default function MiRestaurant() {
       toast.error(err.message || 'No se pudo subir el comprobante');
     } finally {
       if (comprobanteUsoInputRef.current) comprobanteUsoInputRef.current.value = '';
+    }
+  };
+
+  const uploadFirmaContrato = async (file, field, inputRef) => {
+    if (!file) return;
+    try {
+      const uploaded = await api.upload(file);
+      const url = uploaded?.url || '';
+      updateAppCfg('contrato', field, url);
+      toast.success('Firma cargada. Pulsa Guardar cambios para conservarla.');
+    } catch (err) {
+      toast.error(err.message || 'No se pudo subir la imagen');
+    } finally {
+      if (inputRef?.current) inputRef.current.value = '';
     }
   };
 
@@ -670,24 +709,106 @@ export default function MiRestaurant() {
               </div>
             </div>
           ) : activeView === 'contrato' ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-4">
-              <h3 className="font-bold text-slate-800">Contrato del servicio</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Plan</label>
-                  <select className="input-field" value={appConfig.contrato?.plan || 'pro'} onChange={e => updateAppCfg('contrato', 'plan', e.target.value)}>
-                    <option value="starter">Starter</option>
-                    <option value="pro">Pro</option>
-                    <option value="enterprise">Enterprise</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Renovación</label>
-                  <input type="date" className="input-field" value={appConfig.contrato?.renewal_date || ''} onChange={e => updateAppCfg('contrato', 'renewal_date', e.target.value)} />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Observaciones</label>
-                  <textarea className="input-field" rows="3" value={appConfig.contrato?.observations || ''} onChange={e => updateAppCfg('contrato', 'observations', e.target.value)} />
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Contrato del servicio</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Redacta el contrato y, al final, registra las imágenes de las firmas del comprador (tu negocio) y del vendedor del sistema.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Texto del contrato</label>
+                <textarea
+                  className="input-field min-h-[280px] font-sans text-sm leading-relaxed"
+                  rows={12}
+                  placeholder="Escribe aquí el contrato completo…"
+                  value={appConfig.contrato?.texto_contrato || ''}
+                  onChange={(e) => updateAppCfg('contrato', 'texto_contrato', e.target.value)}
+                />
+              </div>
+              <div className="pt-2 border-t border-slate-100">
+                <h4 className="text-sm font-semibold text-slate-800 mb-3">Firmas</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-slate-700">Firma del comprador</label>
+                    <p className="text-xs text-slate-500">Imagen de la firma quien adquiere el software (restaurante).</p>
+                    <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 min-h-[120px] flex items-center justify-center overflow-hidden">
+                      {appConfig.contrato?.firma_comprador_url ? (
+                        <img
+                          src={resolveMediaUrl(appConfig.contrato.firma_comprador_url)}
+                          alt="Firma comprador"
+                          className="max-h-32 max-w-full object-contain p-2"
+                        />
+                      ) : (
+                        <span className="text-xs text-slate-400 px-4 text-center">Sin imagen</span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="btn-secondary text-sm py-2"
+                        onClick={() => firmaCompradorInputRef.current?.click()}
+                      >
+                        Cargar imagen
+                      </button>
+                      <input
+                        ref={firmaCompradorInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        onChange={(e) => uploadFirmaContrato(e.target.files?.[0], 'firma_comprador_url', firmaCompradorInputRef)}
+                      />
+                      {appConfig.contrato?.firma_comprador_url ? (
+                        <button
+                          type="button"
+                          className="text-sm text-red-600 hover:underline"
+                          onClick={() => updateAppCfg('contrato', 'firma_comprador_url', '')}
+                        >
+                          Quitar
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-slate-700">Firma del vendedor</label>
+                    <p className="text-xs text-slate-500">Imagen de la firma del proveedor del sistema.</p>
+                    <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 min-h-[120px] flex items-center justify-center overflow-hidden">
+                      {appConfig.contrato?.firma_vendedor_url ? (
+                        <img
+                          src={resolveMediaUrl(appConfig.contrato.firma_vendedor_url)}
+                          alt="Firma vendedor"
+                          className="max-h-32 max-w-full object-contain p-2"
+                        />
+                      ) : (
+                        <span className="text-xs text-slate-400 px-4 text-center">Sin imagen</span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="btn-secondary text-sm py-2"
+                        onClick={() => firmaVendedorInputRef.current?.click()}
+                      >
+                        Cargar imagen
+                      </button>
+                      <input
+                        ref={firmaVendedorInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        onChange={(e) => uploadFirmaContrato(e.target.files?.[0], 'firma_vendedor_url', firmaVendedorInputRef)}
+                      />
+                      {appConfig.contrato?.firma_vendedor_url ? (
+                        <button
+                          type="button"
+                          className="text-sm text-red-600 hover:underline"
+                          onClick={() => updateAppCfg('contrato', 'firma_vendedor_url', '')}
+                        >
+                          Quitar
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
