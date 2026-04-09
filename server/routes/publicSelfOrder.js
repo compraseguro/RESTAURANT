@@ -43,6 +43,13 @@ function findTableByMesa(mesaRaw) {
   return queryOne('SELECT * FROM tables WHERE TRIM(CAST(number AS TEXT)) = ?', [mesa]);
 }
 
+function normalizeProductForClient(p) {
+  if (!p || typeof p !== 'object') return p;
+  const pt = String(p.process_type ?? '').trim();
+  if (!pt) p.process_type = 'transformed';
+  return p;
+}
+
 function loadProductsMenu() {
   const query =
     'SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.is_active = 1 AND COALESCE(TRIM(p.category_id), \'\') <> \'\' ORDER BY c.sort_order, p.name';
@@ -54,6 +61,7 @@ function loadProductsMenu() {
     variantMap[v.product_id].push(v);
   });
   products.forEach((p) => {
+    normalizeProductForClient(p);
     p.variants = variantMap[p.id] || [];
   });
   return products;

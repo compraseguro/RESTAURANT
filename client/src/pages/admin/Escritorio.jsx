@@ -345,8 +345,8 @@ export default function Escritorio() {
     <div className="space-y-4">
       <div className="card p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-slate-800">Centro Operativo</h3>
-          <p className="text-xs text-slate-500">Acceso rápido a módulos críticos</p>
+          <h3 className="text-lg font-semibold text-slate-100">Centro Operativo</h3>
+          <p className="text-xs text-slate-400">Acceso rápido a módulos críticos</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
           <div
@@ -400,25 +400,31 @@ export default function Escritorio() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
-        <button className="input-field text-left flex items-center justify-between text-sm text-slate-600">
-          Cantidad de ventas <MdKeyboardArrowDown />
+        <button
+          type="button"
+          className="w-full rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] px-3 py-2 text-left flex items-center justify-between text-sm text-[#F9FAFB] hover:border-[#3B82F6]/60"
+        >
+          Cantidad de ventas <MdKeyboardArrowDown className="text-[#93C5FD]" />
         </button>
-        <button className="input-field text-left flex items-center justify-between text-sm text-slate-600">
-          Caja: Caja 01 <MdKeyboardArrowDown />
+        <button
+          type="button"
+          className="w-full rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] px-3 py-2 text-left flex items-center justify-between text-sm text-[#F9FAFB] hover:border-[#3B82F6]/60"
+        >
+          Caja: Caja 01 <MdKeyboardArrowDown className="text-[#93C5FD]" />
         </button>
-        <div className="input-field text-left text-sm text-slate-600 flex flex-col gap-2">
+        <div className="rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] px-3 py-2 text-left text-sm flex flex-col gap-2">
           <div className="grid grid-cols-12 gap-2">
             <button
               type="button"
               onClick={startRangeSelection}
-              className="col-span-7 rounded-md border border-slate-300 bg-white/70 px-2 py-1.5 text-left hover:border-[#3B82F6] transition-colors"
+              className="col-span-7 rounded-md border border-[#3B82F6]/40 bg-[#111827] px-2 py-1.5 text-left hover:border-[#60A5FA] transition-colors"
             >
-              <div className="flex items-center gap-2 text-slate-500 text-xs">
-                <MdDateRange />
+              <div className="flex items-center gap-2 text-[#94A3B8] text-xs">
+                <MdDateRange className="shrink-0 text-[#93C5FD]" />
                 <span>{datePickStep === 'end' ? 'Selecciona FIN' : 'Selecciona INICIO'}</span>
-                <MdKeyboardArrowDown className="ml-auto" />
+                <MdKeyboardArrowDown className="ml-auto shrink-0 text-[#93C5FD]" />
               </div>
-              <div className="mt-0.5 leading-tight text-[13px] font-medium text-slate-700">
+              <div className="mt-0.5 leading-snug text-[13px] font-medium text-[#F9FAFB]">
                 <div>{formatDateForLabel(startDate)}</div>
                 <div>{datePreset === 'total' ? 'Hoy' : formatDateForLabel(endDate)}</div>
               </div>
@@ -431,8 +437,8 @@ export default function Escritorio() {
               }}
               className={`col-span-2 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
                 datePreset === 'month'
-                  ? 'bg-[#DBEAFE] border-[#3B82F6] text-[#1D4ED8]'
-                  : 'bg-white border-slate-300 text-slate-700 hover:border-[#3B82F6] hover:text-[#2563EB]'
+                  ? 'bg-[#2563EB] border-[#3B82F6] text-white'
+                  : 'bg-[#111827] border-[#3B82F6]/35 text-[#E2E8F0] hover:border-[#60A5FA] hover:text-white'
               }`}
             >
               Mes
@@ -446,7 +452,7 @@ export default function Escritorio() {
               className={`col-span-3 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
                 datePreset === 'total'
                   ? 'bg-[#2563EB] border-[#2563EB] text-white'
-                  : 'bg-white border-slate-300 text-slate-700 hover:border-[#3B82F6] hover:text-[#2563EB]'
+                  : 'bg-[#111827] border-[#3B82F6]/35 text-[#E2E8F0] hover:border-[#60A5FA] hover:text-white'
               }`}
             >
               Todo
@@ -479,22 +485,29 @@ export default function Escritorio() {
             />
           </div>
         </div>
-        <button className="input-field text-left flex items-center justify-between text-sm text-slate-600">
-          Local: Principal <MdKeyboardArrowDown />
+        <button
+          type="button"
+          className="w-full rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] px-3 py-2 text-left flex items-center justify-between text-sm text-[#F9FAFB] hover:border-[#3B82F6]/60"
+        >
+          Local: Principal <MdKeyboardArrowDown className="text-[#93C5FD]" />
         </button>
       </div>
 
       <div className="card p-4">
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-          <div className="xl:col-span-2">
-            <p className="text-xs text-slate-500">Hora punta</p>
-            <p className="text-3xl font-light text-slate-700">{peakHour.hour}</p>
-            <p className="text-xs text-slate-500 mt-3">Hora más libre</p>
-            <p className="text-3xl font-light text-slate-700">{lowHour.hour}</p>
+          <div className="xl:col-span-2 min-w-0 self-start overflow-visible">
+            <p className="text-xs text-slate-400">Hora punta</p>
+            <p className="text-3xl font-light text-slate-100 leading-normal tabular-nums py-1 min-h-[2.5rem] flex items-center">
+              {peakHour.hour}
+            </p>
+            <p className="text-xs text-slate-400 mt-3">Hora más libre</p>
+            <p className="text-3xl font-light text-slate-100 leading-normal tabular-nums py-1 min-h-[2.5rem] flex items-center">
+              {lowHour.hour}
+            </p>
           </div>
 
           <div className="xl:col-span-10">
-            <h3 className="text-center text-slate-600 mb-2">
+            <h3 className="text-center text-slate-300 mb-2">
               Gráfico por cantidad de ventas / Dinero por ventas
             </h3>
             <ResponsiveContainer width="100%" height={170}>

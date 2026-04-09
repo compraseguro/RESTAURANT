@@ -90,9 +90,9 @@ export default function AdminAttendanceReviewModal({ isOpen, onClose, onComplete
       size="lg"
       variant="light"
     >
-      <p className="text-sm text-slate-600 mb-4">
-        Debe indicar para cada jornada del día si el trabajador fue <strong>asistente</strong>,{' '}
-        <strong>justificado</strong> o <strong>ausente</strong>. Solo &quot;Asistente&quot; suma tiempo en el
+      <p className="text-sm text-slate-700 mb-4 leading-relaxed">
+        Debe indicar para cada jornada del día si el trabajador fue <strong className="text-slate-900">asistente</strong>,{' '}
+        <strong className="text-slate-900">justificado</strong> o <strong className="text-slate-900">ausente</strong>. Solo &quot;Asistente&quot; suma tiempo en el
         informe de tiempo trabajado. Después podrá finalizar su propia jornada.
       </p>
       {loading ? (
@@ -117,7 +117,7 @@ export default function AdminAttendanceReviewModal({ isOpen, onClose, onComplete
                 </p>
               </div>
               <select
-                className="input-field w-44 text-sm"
+                className="w-44 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-[#2563EB]"
                 value={draft[r.id] || 'asistente'}
                 onChange={(e) => setStatus(r.id, e.target.value)}
                 disabled={saving}

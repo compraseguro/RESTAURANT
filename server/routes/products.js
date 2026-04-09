@@ -80,6 +80,14 @@ function upsertWarehouseStock(productId, warehouseId, quantity) {
   return true;
 }
 
+/** Respuesta API: filas antiguas pueden tener process_type NULL → tratarlas como transformado en el cliente. */
+function normalizeProductForClient(p) {
+  if (!p || typeof p !== 'object') return p;
+  const pt = String(p.process_type ?? '').trim();
+  if (!pt) p.process_type = 'transformed';
+  return p;
+}
+
 router.get('/', (req, res) => {
   const { category_id, active_only, search } = req.query;
   let query = 'SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE 1=1';
@@ -98,13 +106,17 @@ router.get('/', (req, res) => {
   const variants = queryAll('SELECT * FROM product_variants WHERE is_active = 1');
   const variantMap = {};
   variants.forEach(v => { if (!variantMap[v.product_id]) variantMap[v.product_id] = []; variantMap[v.product_id].push(v); });
-  products.forEach(p => { p.variants = variantMap[p.id] || []; });
+  products.forEach((p) => {
+    normalizeProductForClient(p);
+    p.variants = variantMap[p.id] || [];
+  });
   res.json(products);
 });
 
 router.get('/:id', (req, res) => {
   const product = queryOne('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.id = ?', [req.params.id]);
   if (!product) return res.status(404).json({ error: 'Producto no encontrado' });
+  normalizeProductForClient(product);
   product.variants = queryAll('SELECT * FROM product_variants WHERE product_id = ? AND is_active = 1', [req.params.id]);
   res.json(product);
 });

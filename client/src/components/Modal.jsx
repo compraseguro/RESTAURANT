@@ -35,21 +35,21 @@ export default function Modal({
   const overlayClass = isLight ? 'bg-slate-900/70' : 'bg-black/75';
 
   const panelClass = isLight
-    ? 'border border-slate-300 bg-[#F1F5F9] shadow-xl'
+    ? 'border border-slate-300 bg-[#F1F5F9] shadow-xl text-slate-900'
     : 'border border-[#3B82F6]/40 bg-[#1F2937] shadow-2xl shadow-black/50';
 
   const headerDefault = isLight
-    ? 'border-b border-slate-200 bg-[#F8FAFC]'
+    ? 'border-b border-slate-200 bg-[#F8FAFC] text-slate-900'
     : 'border-b border-[#3B82F6]/30 bg-[#111827]';
 
-  const titleDefault = isLight ? 'text-slate-800' : 'text-[#F9FAFB]';
+  const titleDefault = isLight ? 'text-slate-900' : 'text-[#F9FAFB]';
 
   const closeDefault = isLight ? 'hover:bg-slate-200' : 'hover:bg-[#374151]';
 
   const closeIconDefault = isLight ? 'text-slate-500' : 'text-[#9CA3AF]';
 
   const bodyClass = isLight
-    ? 'overflow-y-auto p-6 flex-1 bg-[#F1F5F9]'
+    ? 'overflow-y-auto p-6 flex-1 bg-[#F1F5F9] text-slate-800 [&_strong]:text-slate-900'
     : 'overflow-y-auto p-6 flex-1 bg-[#1F2937] modal-sheet-body';
 
   return (
