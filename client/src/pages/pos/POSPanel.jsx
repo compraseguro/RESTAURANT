@@ -852,6 +852,19 @@ export default function POSPanel() {
       ? Math.min(selectionBaseTotal, selectionBaseTotal * (discountValue / 100))
       : Math.min(selectionBaseTotal, discountValue));
   const payableTotal = Math.max(0, selectionBaseTotal - discountPreview);
+  const payableOrdersForBill = !selectedTable
+    ? []
+    : splitMode
+      ? (selectedTable.orders || []).filter((o) => selectedOrderIds.includes(o.id))
+      : (selectedTable.orders || []);
+  const billLineItems = payableOrdersForBill.flatMap((o) =>
+    (o.items || []).map((item) => ({
+      key: `${o.id}-${item.id}`,
+      qty: item.quantity,
+      name: item.product_name,
+      subtotal: item.subtotal,
+    }))
+  );
   const occupiedHours = (() => {
     const timestamps = (selectedTable?.orders || [])
       .map(o => o.created_at)
@@ -1449,7 +1462,7 @@ export default function POSPanel() {
         onSkipOptional={addProductWithoutOptionalModifier}
       />
 
-      {/* Modal cuenta / cobro mesa */}
+      {/* Modal cuenta / cobro mesa: dos columnas (pedidos o datos comprobante | cobro) */}
       <Modal
         isOpen={showBill}
         onClose={() => {
@@ -1457,269 +1470,302 @@ export default function POSPanel() {
           setAmountReceived('');
           resetBillingForm();
         }}
-        title={`COBRAR MESA ${selectedTable?.number || selectedTable?.name}`}
-        size="md"
+        title={`Cobrar mesa ${selectedTable?.number ?? selectedTable?.name ?? ''}`}
+        size="full"
         headerClassName="bg-[#1D4ED8]/40 border-b border-[#3B82F6]/30"
         titleClassName="text-[#F9FAFB] font-extrabold tracking-wide"
         closeButtonClassName="hover:bg-[#1E3A8A]/50"
         closeIconClassName="text-[#BFDBFE]"
       >
         {selectedTable && (
-          <div className="rounded-xl border border-[#3B82F6]/30 bg-[#111827] p-4 space-y-3">
-            <p className="text-[#F9FAFB] font-bold">COBRAR-MESA {selectedTable.number || selectedTable.name}</p>
-            <div className="flex flex-wrap items-end justify-between gap-2 mb-1">
-              <div>
-                <p className="inline-flex px-3 py-1 rounded-lg bg-[#2563EB] text-white text-sm font-bold">
-                  MESA {selectedTable.name}
-                </p>
-                <p className="text-xs text-[#9CA3AF] mt-1">Revisa pedidos y total antes de cobrar</p>
-              </div>
-              <div className="text-sm text-[#BFDBFE]">
-                <span className="font-semibold text-[#F9FAFB]">Detalles de mesa:</span> Sin detalles
-              </div>
+          <div className="space-y-4 -m-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-[#9CA3AF]">Revisa pedidos antes de cobrar</p>
+              <span className="inline-flex px-3 py-1 rounded-lg bg-[#2563EB] text-white text-xs font-bold">
+                MESA {selectedTable.name}
+              </span>
             </div>
 
-            <div className="flex gap-2 mb-1">
-              <button
-                type="button"
-                onClick={() => setBillTab('pedidos')}
-                className={`px-4 py-2 rounded-t-lg text-sm transition-colors ${
-                  billTab === 'pedidos'
-                    ? 'bg-[#BFDBFE] text-[#1E3A8A] font-semibold border border-b-0 border-[#3B82F6]/50'
-                    : 'bg-[#1E3A8A]/45 text-[#DBEAFE] hover:bg-[#1E3A8A]/60'
-                }`}
-              >
-                Pedidos
-              </button>
-              <button
-                type="button"
-                onClick={() => setBillTab('cuenta')}
-                className={`px-4 py-2 rounded-t-lg text-sm transition-colors ${
-                  billTab === 'cuenta'
-                    ? 'bg-[#BFDBFE] text-[#1E3A8A] font-semibold border border-b-0 border-[#3B82F6]/50'
-                    : 'bg-[#1E3A8A]/45 text-[#DBEAFE] hover:bg-[#1E3A8A]/60'
-                }`}
-              >
-                $ Cuenta
-              </button>
-            </div>
-
-            {billTab === 'pedidos' ? (
-              <div className="rounded-lg border border-[#3B82F6]/25 bg-[#1F2937] p-3 mb-2 space-y-3">
-                {(selectedTable.orders || []).length === 0 ? (
-                  <p className="text-sm text-[#9CA3AF] text-center py-6">Sin pedidos activos</p>
-                ) : (
-                  (selectedTable.orders || []).map((order) => (
-                    <div key={order.id} className="rounded-lg border border-[#3B82F6]/20 bg-[#1D4ED8]/15 p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-bold bg-[#1E3A8A]/50 text-[#BFDBFE] px-2 py-1 rounded">
-                          Pedido #{order.order_number}
-                        </p>
-                        <p className="font-bold text-[#F9FAFB]">{formatCurrency(getOrderChargeTotal(order))}</p>
-                      </div>
-                      <div className="space-y-1">
-                        {(order.items || []).map((item) => (
-                          <div key={item.id} className="flex justify-between text-sm text-[#D1D5DB]">
-                            <span>
-                              {item.quantity}x {item.product_name}
-                            </span>
-                            <span>{formatCurrency(item.subtotal)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            ) : (
-              <div className="rounded-lg border border-[#3B82F6]/25 bg-[#1F2937] p-3 mb-2">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-sm font-medium text-[#F9FAFB]">Cobro completo</span>
-                  <span className="text-xs text-[#9CA3AF]">{selectedOrderIds.length} pedido(s) seleccionados</span>
-                </div>
-                <div className="flex items-end justify-between border-t border-[#3B82F6]/20 pt-3">
-                  <div>
-                    <p className="text-xs text-[#9CA3AF]">Pedidos</p>
-                    <p className="text-2xl font-bold text-[#F9FAFB]">{selectedOrderIds.length}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-[#9CA3AF]">Total</p>
-                    <p className="text-4xl font-bold text-[#BFDBFE]">S/ {payableTotal.toFixed(2)}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="rounded-lg border border-[#3B82F6]/25 bg-[#1F2937] p-3 mb-2">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Método de pago</label>
-                  <select
-                    className="input-field"
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                  >
-                    {paymentOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Paga con</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="input-field"
-                    value={amountReceived}
-                    onChange={(e) => setAmountReceived(e.target.value)}
-                    placeholder="0.00"
-                    disabled={paymentMethod !== 'efectivo'}
-                  />
-                </div>
-                <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/35 px-3 py-2 flex flex-col justify-center">
-                  <p className="text-xs text-[#9CA3AF]">Vuelto</p>
-                  <p className="text-lg font-bold text-emerald-300">
-                    {paymentMethod === 'efectivo'
-                      ? formatCurrency(Math.max(0, receivedAmount - payableTotal))
-                      : formatCurrency(0)}
-                  </p>
-                  {paymentMethod === 'efectivo' && receivedAmount < payableTotal && (
-                    <p className="text-xs text-red-400">Falta: {formatCurrency(payableTotal - receivedAmount)}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-[#3B82F6]/25 bg-[#1F2937] p-3 mb-2">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-[#F9FAFB]">
-                  <input
-                    type="checkbox"
-                    checked={billingForm.enabled}
-                    onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
-                    className="rounded border-[#3B82F6]/50"
-                  />
-                  Emitir comprobante de pago
-                </label>
-                <button
-                  type="button"
-                  onClick={openCustomerModal}
-                  className="px-2.5 py-1.5 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1"
-                >
-                  <MdPersonAdd className="text-sm" />
-                  Agregar cliente
-                </button>
-              </div>
-              {billingForm.enabled && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <select
-                    className="input-field"
-                    value={billingForm.doc_type}
-                    onChange={(e) => setBillingForm((prev) => ({ ...prev, doc_type: e.target.value }))}
-                  >
-                    <option value="boleta">Boleta</option>
-                    <option value="factura">Factura</option>
-                  </select>
-                  <select
-                    className="input-field"
-                    value={billingForm.customer_doc_type}
-                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_type: e.target.value }))}
-                    disabled={billingForm.doc_type === 'factura'}
-                  >
-                    <option value="1">DNI</option>
-                    <option value="6">RUC</option>
-                    <option value="0">Sin documento</option>
-                  </select>
-                  <input
-                    className="input-field"
-                    placeholder="N° documento"
-                    value={billingForm.customer_doc_number}
-                    onChange={(e) =>
-                      setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
-                    }
-                  />
-                  <input
-                    className="input-field"
-                    placeholder={billingForm.doc_type === 'factura' ? 'Razón social' : 'Nombre cliente'}
-                    value={billingForm.customer_name}
-                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_name: e.target.value }))}
-                  />
-                  <input
-                    className="input-field md:col-span-2"
-                    placeholder="Dirección (opcional)"
-                    value={billingForm.customer_address}
-                    onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_address: e.target.value }))}
-                  />
-                  <div className="md:col-span-2">
-                    {searchingCustomer && <p className="text-xs text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
-                    {matchedCustomer && (
-                      <p className="text-xs text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-              {billingResult && (
-                <div className="mt-2 text-xs rounded-lg border border-emerald-500/40 bg-emerald-950/40 px-2 py-2 text-emerald-200 flex flex-wrap items-center justify-between gap-2">
-                  <span>
-                    {billingResult.full_number} · {billingResult.provider_status}
-                  </span>
-                  {billingResult.pdf_url && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6 items-stretch">
+              {/* Izquierda: pedidos (tabla) o datos del comprobante */}
+              <div className="flex flex-col gap-3 min-h-0">
+                {!billingForm.enabled && (
+                  <div className="flex gap-2 shrink-0">
                     <button
                       type="button"
-                      className="px-2 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500"
-                      onClick={() => window.open(billingResult.pdf_url, '_blank')}
+                      onClick={() => setBillTab('pedidos')}
+                      className={`px-4 py-2 rounded-t-lg text-sm transition-colors ${
+                        billTab === 'pedidos'
+                          ? 'bg-[#BFDBFE] text-[#1E3A8A] font-semibold border border-b-0 border-[#3B82F6]/50'
+                          : 'bg-[#1E3A8A]/45 text-[#DBEAFE] hover:bg-[#1E3A8A]/60'
+                      }`}
                     >
-                      Ver PDF
+                      Pedidos
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setBillTab('cuenta')}
+                      className={`px-4 py-2 rounded-t-lg text-sm transition-colors ${
+                        billTab === 'cuenta'
+                          ? 'bg-[#BFDBFE] text-[#1E3A8A] font-semibold border border-b-0 border-[#3B82F6]/50'
+                          : 'bg-[#1E3A8A]/45 text-[#DBEAFE] hover:bg-[#1E3A8A]/60'
+                      }`}
+                    >
+                      $ Cuenta
+                    </button>
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-[#3B82F6]/35 bg-[#111827]/70 backdrop-blur-md shadow-lg shadow-black/20 p-4 flex-1 flex flex-col min-h-0 overflow-hidden">
+                  {billingForm.enabled ? (
+                    <div className="flex flex-col gap-3 overflow-y-auto max-h-[min(52vh,420px)] pr-1">
+                      <div className="flex items-center justify-between gap-2 shrink-0">
+                        <h4 className="text-sm font-semibold text-[#F9FAFB]">Datos del comprobante</h4>
+                        <button
+                          type="button"
+                          onClick={openCustomerModal}
+                          className="px-2.5 py-1.5 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1 shrink-0"
+                        >
+                          <MdPersonAdd className="text-sm" />
+                          Agregar cliente
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <select
+                          className="input-field"
+                          value={billingForm.doc_type}
+                          onChange={(e) => setBillingForm((prev) => ({ ...prev, doc_type: e.target.value }))}
+                        >
+                          <option value="boleta">Boleta</option>
+                          <option value="factura">Factura</option>
+                        </select>
+                        <select
+                          className="input-field"
+                          value={billingForm.customer_doc_type}
+                          onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_type: e.target.value }))}
+                          disabled={billingForm.doc_type === 'factura'}
+                        >
+                          <option value="1">DNI</option>
+                          <option value="6">RUC</option>
+                          <option value="0">Sin documento</option>
+                        </select>
+                        <input
+                          className="input-field"
+                          placeholder="N° documento"
+                          value={billingForm.customer_doc_number}
+                          onChange={(e) =>
+                            setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
+                          }
+                        />
+                        <input
+                          className="input-field"
+                          placeholder={billingForm.doc_type === 'factura' ? 'Razón social' : 'Nombre cliente'}
+                          value={billingForm.customer_name}
+                          onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_name: e.target.value }))}
+                        />
+                        <input
+                          className="input-field sm:col-span-2"
+                          placeholder="Dirección (opcional)"
+                          value={billingForm.customer_address}
+                          onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_address: e.target.value }))}
+                        />
+                        <div className="sm:col-span-2">
+                          {searchingCustomer && <p className="text-xs text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
+                          {matchedCustomer && (
+                            <p className="text-xs text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : billTab === 'pedidos' ? (
+                    <div className="flex flex-col flex-1 min-h-0">
+                      <div className="grid grid-cols-[1fr_auto] gap-3 text-xs font-semibold text-[#9CA3AF] border-b border-[#3B82F6]/25 pb-2 mb-2 shrink-0">
+                        <span>Pedidos</span>
+                        <span className="text-right">Total a pagar</span>
+                      </div>
+                      <div className="overflow-y-auto flex-1 space-y-2 max-h-[min(48vh,380px)] pr-1">
+                        {billLineItems.length === 0 ? (
+                          <p className="text-sm text-[#9CA3AF] text-center py-8">Sin ítems en la selección</p>
+                        ) : (
+                          billLineItems.map((row) => (
+                            <div
+                              key={row.key}
+                              className="grid grid-cols-[1fr_auto] gap-3 text-sm text-[#D1D5DB] py-1.5 border-b border-[#3B82F6]/10 last:border-0"
+                            >
+                              <span>
+                                {row.qty}x {row.name}
+                              </span>
+                              <span className="text-right tabular-nums text-[#F9FAFB]">{formatCurrency(row.subtotal)}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-[#3B82F6]/30 flex justify-between items-center font-bold text-[#F9FAFB] shrink-0">
+                        <span>Total</span>
+                        <span className="text-[#BFDBFE] text-lg">{formatCurrency(payableTotal)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-[#F9FAFB]">Cobro completo</span>
+                        <span className="text-xs text-[#9CA3AF]">{selectedOrderIds.length} pedido(s) seleccionados</span>
+                      </div>
+                      <div className="flex items-end justify-between border-t border-[#3B82F6]/20 pt-3">
+                        <div>
+                          <p className="text-xs text-[#9CA3AF]">Pedidos</p>
+                          <p className="text-2xl font-bold text-[#F9FAFB]">{selectedOrderIds.length}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-[#9CA3AF]">Total</p>
+                          <p className="text-2xl font-bold text-[#BFDBFE]">{formatCurrency(payableTotal)}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 flex-wrap pt-2">
+                        <button
+                          type="button"
+                          onClick={togglePartialSelection}
+                          className="px-3 py-2 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm border border-[#3B82F6]/40"
+                        >
+                          {splitMode ? 'Cerrar dividir cuentas' : 'Dividir cuentas'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDiscountButton}
+                          className="px-3 py-2 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm border border-[#3B82F6]/40"
+                        >
+                          {discountConfig.applied
+                            ? 'Anular descuento'
+                            : discountConfig.active
+                              ? 'Aplicar descuento'
+                              : 'Agregar descuento'}
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            {billTab === 'pedidos' ? (
-              <div className="mb-1">
-                <button
-                  type="button"
-                  onClick={cobrarMesa}
-                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white font-bold text-2xl sm:text-3xl hover:from-[#1D4ED8] hover:to-[#1E40AF] shadow-lg shadow-[#1D4ED8]/25"
-                >
-                  COBRAR MESA
-                </button>
+                {!billingForm.enabled && billTab === 'pedidos' && (
+                  <div className="flex gap-2 flex-wrap shrink-0">
+                    <button
+                      type="button"
+                      onClick={togglePartialSelection}
+                      className="px-3 py-2 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm border border-[#3B82F6]/40"
+                    >
+                      {splitMode ? 'Cerrar dividir cuentas' : 'Dividir cuentas'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDiscountButton}
+                      className="px-3 py-2 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm border border-[#3B82F6]/40"
+                    >
+                      {discountConfig.applied
+                        ? 'Anular descuento'
+                        : discountConfig.active
+                          ? 'Aplicar descuento'
+                          : 'Agregar descuento'}
+                    </button>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-1">
-                <div className="flex gap-2 flex-wrap">
+
+              {/* Derecha: cobro */}
+              <div className="flex flex-col gap-4 lg:border-l lg:border-[#3B82F6]/25 lg:pl-6">
+                <div className="rounded-xl border border-[#3B82F6]/35 bg-[#111827]/70 backdrop-blur-md p-4 space-y-4">
+                  <div>
+                    <p className="text-xs text-[#9CA3AF] mb-1">Total a pagar</p>
+                    <p className="text-3xl sm:text-4xl font-bold text-[#BFDBFE] tabular-nums">{formatCurrency(payableTotal)}</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Método de pago</label>
+                    <select
+                      className="input-field w-full"
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                    >
+                      {paymentOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Paga con</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="input-field w-full"
+                        value={amountReceived}
+                        onChange={(e) => setAmountReceived(e.target.value)}
+                        placeholder="0.00"
+                        disabled={paymentMethod !== 'efectivo'}
+                      />
+                    </div>
+                    <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/35 px-3 py-2 flex flex-col justify-center">
+                      <p className="text-xs text-[#9CA3AF]">Vuelto</p>
+                      <p className="text-lg font-bold text-emerald-300 tabular-nums">
+                        {paymentMethod === 'efectivo'
+                          ? formatCurrency(Math.max(0, receivedAmount - payableTotal))
+                          : formatCurrency(0)}
+                      </p>
+                      {paymentMethod === 'efectivo' && receivedAmount < payableTotal && (
+                        <p className="text-xs text-red-400">Falta: {formatCurrency(payableTotal - receivedAmount)}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#3B82F6]/20">
+                    <label className="flex items-center gap-2 text-sm font-medium text-[#F9FAFB] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={billingForm.enabled}
+                        onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+                        className="rounded border-[#3B82F6]/50"
+                      />
+                      Emitir comprobante de pago
+                    </label>
+                    {billingForm.enabled && (
+                      <button
+                        type="button"
+                        onClick={openCustomerModal}
+                        className="px-2.5 py-1.5 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1 lg:hidden"
+                      >
+                        <MdPersonAdd className="text-sm" />
+                        Cliente
+                      </button>
+                    )}
+                  </div>
+
+                  {billingResult && (
+                    <div className="text-xs rounded-lg border border-emerald-500/40 bg-emerald-950/40 px-2 py-2 text-emerald-200 flex flex-wrap items-center justify-between gap-2">
+                      <span>
+                        {billingResult.full_number} · {billingResult.provider_status}
+                      </span>
+                      {billingResult.pdf_url && (
+                        <button
+                          type="button"
+                          className="px-2 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500"
+                          onClick={() => window.open(billingResult.pdf_url, '_blank')}
+                        >
+                          Ver PDF
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <button
                     type="button"
-                    onClick={togglePartialSelection}
-                    className="px-3 py-2 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm border border-[#3B82F6]/40"
+                    onClick={cobrarMesa}
+                    className="w-full py-3 rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white font-bold text-xl sm:text-2xl hover:from-[#1D4ED8] hover:to-[#1E40AF] shadow-lg shadow-[#1D4ED8]/25"
                   >
-                    {splitMode ? 'Cerrar dividir cuentas' : 'Dividir cuentas'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDiscountButton}
-                    className="px-3 py-2 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm border border-[#3B82F6]/40"
-                  >
-                    {discountConfig.applied
-                      ? 'Anular descuento'
-                      : discountConfig.active
-                        ? 'Aplicar descuento'
-                        : 'Agregar descuento'}
+                    COBRAR MESA
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={cobrarMesa}
-                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white font-bold text-2xl sm:text-3xl hover:from-[#1D4ED8] hover:to-[#1E40AF] shadow-lg shadow-[#1D4ED8]/25"
-                >
-                  COBRAR MESA
-                </button>
               </div>
-            )}
+            </div>
           </div>
         )}
       </Modal>
