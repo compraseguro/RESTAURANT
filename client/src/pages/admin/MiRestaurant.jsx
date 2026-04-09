@@ -33,6 +33,12 @@ export default function MiRestaurant() {
     billing_offline_mode: 1,
     billing_auto_retry_enabled: 1,
     billing_auto_retry_interval_sec: 120,
+    billing_nombre_comercial: '',
+    billing_emisor_ubigeo: '150101',
+    billing_emisor_direccion: '',
+    billing_emisor_provincia: 'LIMA',
+    billing_emisor_departamento: 'LIMA',
+    billing_emisor_distrito: 'LIMA',
   });
   const [tab, setTab] = useState('info');
   const [activeView, setActiveView] = useState(searchParams.get('view') || 'mi_empresa');
@@ -338,7 +344,7 @@ export default function MiRestaurant() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <MdReceipt className="text-red-600 text-2xl" />
-                <h3 className="font-bold text-slate-800 text-lg">Facturación electrónica (Nubefact / OSE)</h3>
+                <h3 className="font-bold text-slate-800 text-lg">Facturación electrónica (Nubefact / bot SUNAT local)</h3>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -361,6 +367,7 @@ export default function MiRestaurant() {
                     onChange={e => updateBilling('billing_provider', e.target.value)}
                   >
                     <option value="nubefact">Nubefact</option>
+                    <option value="restaurant_efact">Bot SUNAT local (carpeta BOT DE FACTURACION)</option>
                   </select>
                 </div>
                 <div>
@@ -382,6 +389,60 @@ export default function MiRestaurant() {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nombre comercial (SUNAT)</label>
+                  <input
+                    className="input-field"
+                    value={billingConfig.billing_nombre_comercial}
+                    onChange={e => updateBilling('billing_nombre_comercial', e.target.value)}
+                    placeholder="Vitrina o marca frente al cliente"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Ubigeo emisor</label>
+                  <input
+                    className="input-field"
+                    value={billingConfig.billing_emisor_ubigeo}
+                    onChange={e => updateBilling('billing_emisor_ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="150101"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Dirección fiscal emisor</label>
+                  <input
+                    className="input-field"
+                    value={billingConfig.billing_emisor_direccion}
+                    onChange={e => updateBilling('billing_emisor_direccion', e.target.value)}
+                    placeholder='Si queda vacío se usa la dirección de "Mi empresa"'
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Departamento</label>
+                  <input
+                    className="input-field"
+                    value={billingConfig.billing_emisor_departamento}
+                    onChange={e => updateBilling('billing_emisor_departamento', e.target.value)}
+                    placeholder="LIMA"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Provincia</label>
+                  <input
+                    className="input-field"
+                    value={billingConfig.billing_emisor_provincia}
+                    onChange={e => updateBilling('billing_emisor_provincia', e.target.value)}
+                    placeholder="LIMA"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Distrito</label>
+                  <input
+                    className="input-field"
+                    value={billingConfig.billing_emisor_distrito}
+                    onChange={e => updateBilling('billing_emisor_distrito', e.target.value)}
+                    placeholder="LIMA"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Serie boleta</label>
                   <input
                     className="input-field"
@@ -400,23 +461,31 @@ export default function MiRestaurant() {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">URL API proveedor</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    {billingConfig.billing_provider === 'restaurant_efact' ? 'URL del API del bot (Node → Python)' : 'URL API proveedor'}
+                  </label>
                   <input
                     className="input-field"
                     value={billingConfig.billing_api_url}
                     onChange={e => updateBilling('billing_api_url', e.target.value)}
-                    placeholder="https://api.nubefact.com/api/v1/..."
+                    placeholder={billingConfig.billing_provider === 'restaurant_efact' ? 'http://127.0.0.1:8765' : 'https://api.nubefact.com/api/v1/...'}
                   />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Token API {billingConfig.has_billing_api_token ? '(ya configurado)' : ''}
+                    {billingConfig.billing_provider === 'restaurant_efact'
+                      ? `Secreto HTTP (X-EFACT-SECRET) ${billingConfig.has_billing_api_token ? '(ya configurado)' : ''}`
+                      : `Token API ${billingConfig.has_billing_api_token ? '(ya configurado)' : ''}`}
                   </label>
                   <input
                     className="input-field"
                     value={billingConfig.billing_api_token}
                     onChange={e => updateBilling('billing_api_token', e.target.value)}
-                    placeholder={billingConfig.has_billing_api_token ? 'Deja vacío para mantener el token actual' : 'Pega aquí el token'}
+                    placeholder={
+                      billingConfig.billing_provider === 'restaurant_efact'
+                        ? (billingConfig.has_billing_api_token ? 'Vacío = mantener; debe coincidir con EFACT_HTTP_SECRET en .env del bot' : 'Mismo valor que EFACT_HTTP_SECRET en el .env del bot')
+                        : (billingConfig.has_billing_api_token ? 'Deja vacío para mantener el token actual' : 'Pega aquí el token')
+                    }
                     type="password"
                   />
                 </div>
@@ -455,6 +524,14 @@ export default function MiRestaurant() {
                 </div>
               </div>
 
+              {billingConfig.billing_provider === 'restaurant_efact' && (
+                <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-900">
+                  Con el bot local debe estar en ejecución <code className="text-xs bg-amber-100 px-1 rounded">python api_server.py</code> dentro de
+                  {' '}<code className="text-xs bg-amber-100 px-1 rounded">BOT DE FACTURACION</code>.
+                  Certificado .pfx y credenciales SOL van en el <code className="text-xs bg-amber-100 px-1 rounded">.env</code> del bot (no en este panel).
+                  En la nube (p. ej. Render) hace falta un servicio aparte con Python o Docker; este modo encaja en PC/servidor propio.
+                </div>
+              )}
               <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-red-800">
                 Al emitir facturas, el cliente debe tener RUC válido (11 dígitos) y razón social.
               </div>

@@ -167,6 +167,12 @@ function resetOperationalData({ keepAdminUserId = '' } = {}) {
              billing_offline_mode = 1,
              billing_auto_retry_enabled = 1,
              billing_auto_retry_interval_sec = 120,
+             billing_nombre_comercial = '',
+             billing_emisor_ubigeo = '150101',
+             billing_emisor_direccion = '',
+             billing_emisor_provincia = 'LIMA',
+             billing_emisor_departamento = 'LIMA',
+             billing_emisor_distrito = 'LIMA',
              schedule = ?,
              updated_at = datetime('now')
          WHERE id = ?`,
@@ -313,6 +319,12 @@ async function initDatabase() {
         billing_offline_mode INTEGER DEFAULT 1,
         billing_auto_retry_enabled INTEGER DEFAULT 1,
         billing_auto_retry_interval_sec INTEGER DEFAULT 120,
+        billing_nombre_comercial TEXT DEFAULT '',
+        billing_emisor_ubigeo TEXT DEFAULT '150101',
+        billing_emisor_direccion TEXT DEFAULT '',
+        billing_emisor_provincia TEXT DEFAULT 'LIMA',
+        billing_emisor_departamento TEXT DEFAULT 'LIMA',
+        billing_emisor_distrito TEXT DEFAULT 'LIMA',
         schedule TEXT DEFAULT '{}',
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
@@ -912,6 +924,24 @@ async function initDatabase() {
     }
     if (!restaurantColumns.some(col => col.name === 'billing_auto_retry_interval_sec')) {
       db.run("ALTER TABLE restaurants ADD COLUMN billing_auto_retry_interval_sec INTEGER DEFAULT 120");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_nombre_comercial')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_nombre_comercial TEXT DEFAULT ''");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_emisor_ubigeo')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_emisor_ubigeo TEXT DEFAULT '150101'");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_emisor_direccion')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_emisor_direccion TEXT DEFAULT ''");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_emisor_provincia')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_emisor_provincia TEXT DEFAULT 'LIMA'");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_emisor_departamento')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_emisor_departamento TEXT DEFAULT 'LIMA'");
+    }
+    if (!restaurantColumns.some(col => col.name === 'billing_emisor_distrito')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_emisor_distrito TEXT DEFAULT 'LIMA'");
     }
 
     const workSessionCols = queryAll('PRAGMA table_info(user_work_sessions)');

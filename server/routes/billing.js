@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { buildEfactSaleJson, sendEfactSale } = require('../efactBridge');
 
 const router = express.Router();
 
@@ -72,19 +73,31 @@ function getNextCorrelative(docType, series) {
   return Number(row?.max_number || 0) + 1;
 }
 
-function canSendToProvider(restaurant) {
-  return Number(restaurant.billing_enabled || 0) === 1
-    && String(restaurant.billing_provider || '').toLowerCase() === 'nubefact'
+function canSendToNubefact(restaurant) {
+  return String(restaurant.billing_provider || '').toLowerCase() === 'nubefact'
     && Boolean(String(restaurant.billing_api_url || '').trim())
     && Boolean(String(restaurant.billing_api_token || '').trim());
 }
 
+function canSendToEfact(restaurant) {
+  return String(restaurant.billing_provider || '').toLowerCase() === 'restaurant_efact'
+    && Boolean(String(restaurant.billing_api_url || '').trim());
+}
+
+function canSendToProvider(restaurant) {
+  return Number(restaurant.billing_enabled || 0) === 1
+    && (canSendToNubefact(restaurant) || canSendToEfact(restaurant));
+}
+
 async function checkProviderReachability(restaurant) {
-  if (!String(restaurant?.billing_api_url || '').trim()) return false;
+  const url = String(restaurant?.billing_api_url || '').trim();
+  if (!url) return false;
+  const prov = String(restaurant?.billing_provider || '').toLowerCase();
+  const healthUrl = prov === 'restaurant_efact' ? url.replace(/\/$/, '') + '/health' : url;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2500);
-    const response = await fetch(String(restaurant.billing_api_url).trim(), {
+    const response = await fetch(healthUrl, {
       method: 'GET',
       signal: controller.signal,
     });
@@ -128,19 +141,21 @@ function applyProviderResultToDocument(docId, result) {
   );
 }
 
-async function sendToProvider(restaurant, providerPayload) {
-  const initial = {
-    providerStatus: 'pending',
-    providerMessage: 'Comprobante generado localmente (pendiente de envío)',
-    hashCode: '',
-    sunatDescription: '',
-    xmlUrl: '',
-    cdrUrl: '',
-    pdfUrl: '',
-    providerResponse: {},
-  };
+const pendingLocalResult = () => ({
+  providerStatus: 'pending',
+  providerMessage: 'Comprobante generado localmente (pendiente de envío)',
+  hashCode: '',
+  sunatDescription: '',
+  xmlUrl: '',
+  cdrUrl: '',
+  pdfUrl: '',
+  providerResponse: {},
+});
 
-  if (!canSendToProvider(restaurant)) {
+async function sendToNubefactProvider(restaurant, providerPayload) {
+  const initial = pendingLocalResult();
+
+  if (!canSendToNubefact(restaurant)) {
     return initial;
   }
 
@@ -207,6 +222,45 @@ async function sendToProvider(restaurant, providerPayload) {
       providerResponse: { error: providerErr.message || 'No se pudo conectar con el proveedor' },
     };
   }
+}
+
+async function sendToEfactProvider(restaurant, saleJson) {
+  const initial = pendingLocalResult();
+
+  if (!canSendToEfact(restaurant)) {
+    return initial;
+  }
+
+  try {
+    const { response, providerResult } = await sendEfactSale(restaurant, saleJson);
+    if (!response.ok) {
+      return providerResult;
+    }
+    return providerResult;
+  } catch (providerErr) {
+    if (isOfflineModeEnabled(restaurant)) {
+      return {
+        ...initial,
+        providerStatus: 'pending',
+        providerMessage: 'Sin conexión: comprobante guardado en modo offline para sincronizar',
+        providerResponse: { offline: true, error: providerErr.message || 'Sin conexión' },
+      };
+    }
+    return {
+      ...initial,
+      providerStatus: 'error',
+      providerMessage: providerErr.message || 'No se pudo conectar con el bot de facturación',
+      providerResponse: { error: providerErr.message || 'No se pudo conectar con el bot de facturación' },
+    };
+  }
+}
+
+async function sendToProvider(restaurant, providerPayload) {
+  const prov = String(restaurant.billing_provider || '').toLowerCase();
+  if (prov === 'restaurant_efact') {
+    return sendToEfactProvider(restaurant, providerPayload);
+  }
+  return sendToNubefactProvider(restaurant, providerPayload);
 }
 
 function buildNubefactPayload({ restaurant, order, items, customer, docType, series, correlative }) {
@@ -285,6 +339,12 @@ router.get('/config', authenticateToken, requireRole('admin'), (req, res) => {
     billing_offline_mode: Number(restaurant.billing_offline_mode ?? 1),
     billing_auto_retry_enabled: Number(restaurant.billing_auto_retry_enabled ?? 1),
     billing_auto_retry_interval_sec: Number(restaurant.billing_auto_retry_interval_sec || 120),
+    billing_nombre_comercial: restaurant.billing_nombre_comercial || '',
+    billing_emisor_ubigeo: restaurant.billing_emisor_ubigeo || '150101',
+    billing_emisor_direccion: restaurant.billing_emisor_direccion || '',
+    billing_emisor_provincia: restaurant.billing_emisor_provincia || 'LIMA',
+    billing_emisor_departamento: restaurant.billing_emisor_departamento || 'LIMA',
+    billing_emisor_distrito: restaurant.billing_emisor_distrito || 'LIMA',
   });
 });
 
@@ -305,6 +365,12 @@ router.put('/config', authenticateToken, requireRole('admin'), (req, res) => {
       billing_offline_mode,
       billing_auto_retry_enabled,
       billing_auto_retry_interval_sec,
+      billing_nombre_comercial,
+      billing_emisor_ubigeo,
+      billing_emisor_direccion,
+      billing_emisor_provincia,
+      billing_emisor_departamento,
+      billing_emisor_distrito,
     } = req.body || {};
 
     const nextToken = String(billing_api_token || '').trim()
@@ -324,6 +390,12 @@ router.put('/config', authenticateToken, requireRole('admin'), (req, res) => {
         billing_offline_mode = ?,
         billing_auto_retry_enabled = ?,
         billing_auto_retry_interval_sec = ?,
+        billing_nombre_comercial = ?,
+        billing_emisor_ubigeo = ?,
+        billing_emisor_direccion = ?,
+        billing_emisor_provincia = ?,
+        billing_emisor_departamento = ?,
+        billing_emisor_distrito = ?,
         updated_at = datetime('now')
       WHERE id = ?`,
       [
@@ -338,6 +410,12 @@ router.put('/config', authenticateToken, requireRole('admin'), (req, res) => {
         Number(billing_offline_mode ? 1 : 0),
         Number(billing_auto_retry_enabled ? 1 : 0),
         Math.max(30, Math.min(3600, Number(billing_auto_retry_interval_sec || 120))),
+        String(billing_nombre_comercial || '').trim(),
+        String(billing_emisor_ubigeo || '150101').trim() || '150101',
+        String(billing_emisor_direccion || '').trim(),
+        String(billing_emisor_provincia || 'LIMA').trim() || 'LIMA',
+        String(billing_emisor_departamento || 'LIMA').trim() || 'LIMA',
+        String(billing_emisor_distrito || 'LIMA').trim() || 'LIMA',
         current.id,
       ]
     );
@@ -356,6 +434,12 @@ router.put('/config', authenticateToken, requireRole('admin'), (req, res) => {
       billing_offline_mode: Number(updated.billing_offline_mode ?? 1),
       billing_auto_retry_enabled: Number(updated.billing_auto_retry_enabled ?? 1),
       billing_auto_retry_interval_sec: Number(updated.billing_auto_retry_interval_sec || 120),
+      billing_nombre_comercial: updated.billing_nombre_comercial || '',
+      billing_emisor_ubigeo: updated.billing_emisor_ubigeo || '150101',
+      billing_emisor_direccion: updated.billing_emisor_direccion || '',
+      billing_emisor_provincia: updated.billing_emisor_provincia || 'LIMA',
+      billing_emisor_departamento: updated.billing_emisor_departamento || 'LIMA',
+      billing_emisor_distrito: updated.billing_emisor_distrito || 'LIMA',
     });
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo guardar la configuración de facturación' });
@@ -471,15 +555,26 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
   const correlative = getNextCorrelative(docType, series);
   const fullNumber = `${series}-${String(correlative).padStart(8, '0')}`;
 
-  const providerPayload = buildNubefactPayload({
-    restaurant,
-    order,
-    items,
-    customer: normalizedCustomer,
-    docType,
-    series,
-    correlative,
-  });
+  const useEfact = String(restaurant.billing_provider || '').toLowerCase() === 'restaurant_efact';
+  const providerPayload = useEfact
+    ? buildEfactSaleJson({
+      restaurant,
+      order,
+      items,
+      customer: normalizedCustomer,
+      docType,
+      series,
+      correlative,
+    })
+    : buildNubefactPayload({
+      restaurant,
+      order,
+      items,
+      customer: normalizedCustomer,
+      docType,
+      series,
+      correlative,
+    });
 
   const {
     providerStatus,
