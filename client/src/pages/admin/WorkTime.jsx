@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api, formatDateTime } from '../../utils/api';
 import toast from 'react-hot-toast';
 import { MdAccessTime, MdPhotoCamera } from 'react-icons/md';
@@ -36,6 +36,8 @@ export default function WorkTime() {
   const [summary, setSummary] = useState([]);
   const [loading, setLoading] = useState(false);
   const [photoModal, setPhotoModal] = useState(null);
+  const [classifyDraft, setClassifyDraft] = useState({});
+  const [classifySavingId, setClassifySavingId] = useState('');
 
   const openSessionPhotos = async (sessionId) => {
     try {
@@ -55,7 +57,7 @@ export default function WorkTime() {
     }
   };
 
-  const loadReport = async () => {
+  const loadReport = useCallback(async () => {
     setLoading(true);
     try {
       const qs = new URLSearchParams();
@@ -63,12 +65,32 @@ export default function WorkTime() {
       if (filters.to) qs.set('to', filters.to);
       if (filters.user_id !== 'all') qs.set('user_id', filters.user_id);
       const data = await api.get(`/users/work-sessions${qs.toString() ? `?${qs.toString()}` : ''}`);
-      setSessions(Array.isArray(data?.sessions) ? data.sessions : []);
+      const list = Array.isArray(data?.sessions) ? data.sessions : [];
+      setSessions(list);
       setSummary(Array.isArray(data?.summary) ? data.summary : []);
+      const draft = {};
+      list.forEach((r) => {
+        if (r.attendance_status === 'pending') draft[r.id] = 'asistente';
+      });
+      setClassifyDraft(draft);
     } catch (err) {
       toast.error(err.message);
     } finally {
       setLoading(false);
+    }
+  }, [filters.from, filters.to, filters.user_id]);
+
+  const applyClassification = async (sessionId) => {
+    const status = classifyDraft[sessionId] || 'asistente';
+    try {
+      setClassifySavingId(sessionId);
+      await api.patch(`/users/work-sessions/${encodeURIComponent(sessionId)}/attendance`, { status });
+      toast.success('Asistencia registrada');
+      await loadReport();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setClassifySavingId('');
     }
   };
 
@@ -78,15 +100,15 @@ export default function WorkTime() {
 
   useEffect(() => {
     loadReport();
-  }, [filters.from, filters.to, filters.user_id]);
+  }, [loadReport]);
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Tiempo trabajado</h1>
         <p className="text-sm text-slate-500 mt-1">
-          El tiempo computable solo cuenta sesiones marcadas como <strong>Asistente</strong> por el administrador.
-          Justificado y ausente suman 0 minutos.
+          Mientras la asistencia quede en <strong>Pendiente</strong>, el tiempo computable es <strong>0</strong> (aunque veas minutos &quot;brutos&quot;).
+          Cuando cierre la jornada, clasifique cada sesión como <strong>Asistente</strong> (cuenta tiempo), <strong>Justificado</strong> o <strong>Ausente</strong> (0 min) usando el listado de abajo o el aviso del menú.
         </p>
       </div>
 
@@ -180,7 +202,7 @@ export default function WorkTime() {
                           <span className="text-slate-500">Asistencia: </span>
                           <span
                             className={
-                              row.attendance_status === 'asistente' || !row.attendance_status
+                              row.attendance_status === 'asistente'
                                 ? 'text-emerald-700 font-medium'
                                 : row.attendance_status === 'pending'
                                   ? 'text-amber-600 font-medium'
@@ -206,10 +228,39 @@ export default function WorkTime() {
                         ) : (
                           <p className="text-xs text-slate-400 mt-1">Sin fotos registradas</p>
                         )}
+                        {row.attendance_status === 'pending' && row.logout_at ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <select
+                              className="input-field text-xs py-1.5 max-w-[11rem]"
+                              value={classifyDraft[row.id] || 'asistente'}
+                              onChange={(e) =>
+                                setClassifyDraft((prev) => ({ ...prev, [row.id]: e.target.value }))
+                              }
+                            >
+                              <option value="asistente">Asistente (cuenta tiempo)</option>
+                              <option value="justificado">Justificado (0 min)</option>
+                              <option value="ausente">Ausente (0 min)</option>
+                            </select>
+                            <button
+                              type="button"
+                              className="btn-primary text-xs py-1.5 px-2"
+                              disabled={classifySavingId === row.id}
+                              onClick={() => applyClassification(row.id)}
+                            >
+                              {classifySavingId === row.id ? 'Guardando…' : 'Guardar clasificación'}
+                            </button>
+                          </div>
+                        ) : null}
+                        {row.attendance_status === 'pending' && !row.logout_at ? (
+                          <p className="text-xs text-amber-700 mt-2">
+                            Jornada abierta: al cerrar sesión podrá clasificarla aquí o desde el aviso del menú.
+                          </p>
+                        ) : null}
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-slate-800">{formatMinutes(row.worked_minutes)}</p>
-                        <p className={`text-xs ${row.logout_at ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        <p className="text-xs text-slate-500">Computable</p>
+                        <p className={`text-xs mt-0.5 ${row.logout_at ? 'text-emerald-600' : 'text-amber-600'}`}>
                           {row.logout_at ? 'Cerrada' : 'En curso'}
                         </p>
                       </div>

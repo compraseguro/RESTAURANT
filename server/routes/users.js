@@ -31,12 +31,13 @@ function rawWorkedMinutesExpr(alias = 's') {
 /** Minutos que cuentan en informes: solo asistente confirmado; pending/justificado/ausente → 0. */
 function effectiveWorkedMinutesExpr(alias = 's') {
   const raw = rawWorkedMinutesExpr(alias);
-  return `CASE COALESCE(${alias}.attendance_status, 'asistente')
+  const st = `COALESCE(NULLIF(trim(${alias}.attendance_status), ''), 'pending')`;
+  return `CASE ${st}
     WHEN 'justificado' THEN 0
     WHEN 'ausente' THEN 0
     WHEN 'pending' THEN 0
     WHEN 'asistente' THEN (${raw})
-    ELSE (${raw})
+    ELSE 0
   END`;
 }
 
@@ -301,7 +302,7 @@ router.get('/attendance-review/today', authenticateToken, requireRole('admin'), 
   });
 });
 
-/** Aplicar estado de asistencia por sesión (cierra revisión del día). */
+/** Aplicar estado de asistencia por sesión (cualquier día, solo si sigue pendiente). */
 router.post('/attendance-review/apply', authenticateToken, requireRole('admin'), (req, res) => {
   const items = req.body?.items;
   if (!Array.isArray(items) || !items.length) {
@@ -314,7 +315,7 @@ router.post('/attendance-review/apply', authenticateToken, requireRole('admin'),
     if (!sid || !FINAL_ATTENDANCE.has(status)) continue;
     const row = queryOne(
       `SELECT id FROM user_work_sessions
-       WHERE id = ? AND date(datetime(login_at, 'localtime')) = date('now', 'localtime')`,
+       WHERE id = ? AND COALESCE(NULLIF(trim(attendance_status), ''), 'pending') = 'pending'`,
       [sid]
     );
     if (!row?.id) continue;
@@ -325,6 +326,28 @@ router.post('/attendance-review/apply', authenticateToken, requireRole('admin'),
     n += 1;
   }
   res.json({ success: true, updated: n });
+});
+
+/** Clasificar una jornada concreta (pendiente → asistente / justificado / ausente). */
+router.patch('/work-sessions/:sessionId/attendance', authenticateToken, requireRole('admin'), (req, res) => {
+  const sessionId = String(req.params.sessionId || '').trim();
+  const status = String(req.body?.status || '').trim();
+  if (!sessionId || !FINAL_ATTENDANCE.has(status)) {
+    return res.status(400).json({ error: 'Sesión o estado inválido' });
+  }
+  const row = queryOne(
+    `SELECT id FROM user_work_sessions
+     WHERE id = ? AND COALESCE(NULLIF(trim(attendance_status), ''), 'pending') = 'pending'`,
+    [sessionId]
+  );
+  if (!row?.id) {
+    return res.status(404).json({ error: 'Sesión no encontrada o ya clasificada' });
+  }
+  runSql(
+    `UPDATE user_work_sessions SET attendance_status = ?, updated_at = datetime('now') WHERE id = ?`,
+    [status, sessionId]
+  );
+  res.json({ success: true });
 });
 
 router.get('/:id/permissions', authenticateToken, requireRole('admin'), (req, res) => {
