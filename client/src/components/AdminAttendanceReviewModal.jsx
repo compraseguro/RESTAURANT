@@ -91,9 +91,10 @@ export default function AdminAttendanceReviewModal({ isOpen, onClose, onComplete
       variant="dark"
     >
       <p className="text-sm text-[#E5E7EB] mb-4 leading-relaxed">
-        Debe indicar para cada jornada del día si el trabajador fue <strong className="text-white font-semibold">asistente</strong>,{' '}
+        Las jornadas del <strong className="text-white font-semibold">administrador</strong> no aparecen aquí: quien gestiona la asistencia del personal no requiere esta clasificación.
+        Para el resto, indique si fue <strong className="text-white font-semibold">asistente</strong>,{' '}
         <strong className="text-white font-semibold">justificado</strong> o <strong className="text-white font-semibold">ausente</strong>. Solo &quot;Asistente&quot; suma tiempo en el
-        informe de tiempo trabajado. Después podrá finalizar su propia jornada.
+        informe. Después podrá finalizar su propia jornada.
       </p>
       {loading ? (
         <p className="text-sm text-[#9CA3AF] py-6">Cargando…</p>

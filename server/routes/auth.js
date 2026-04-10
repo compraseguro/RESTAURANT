@@ -53,6 +53,11 @@ function getUserPermissions(userId) {
   }, {});
 }
 
+/** El administrador no entra en el flujo de revisión de asistencia (es quien clasifica al resto). */
+function initialAttendanceStatusForRole(role) {
+  return String(role || '').toLowerCase() === 'admin' ? 'asistente' : 'pending';
+}
+
 function startWorkSession(user, photoLogin = null) {
   if (!user?.id) return '';
   const sessionTokenId = uuidv4();
@@ -65,11 +70,12 @@ function startWorkSession(user, photoLogin = null) {
      WHERE user_id = ? AND logout_at IS NULL`,
     [user.id]
   );
+  const att = initialAttendanceStatusForRole(user.role);
   runSql(
     `INSERT INTO user_work_sessions
       (id, user_id, session_token_id, username, full_name, role, login_at, photo_login, attendance_status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, 'pending', datetime('now'), datetime('now'))`,
-    [uuidv4(), user.id, sessionTokenId, user.username, user.full_name, user.role, photoLogin]
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, ?, datetime('now'), datetime('now'))`,
+    [uuidv4(), user.id, sessionTokenId, user.username, user.full_name, user.role, photoLogin, att]
   );
   return sessionTokenId;
 }
@@ -103,11 +109,12 @@ function ensureOpenWorkSession(user) {
   );
   if (existing?.id) return String(existing.session_token_id || '');
   const sessionTokenId = uuidv4();
+  const att = initialAttendanceStatusForRole(user.role);
   runSql(
     `INSERT INTO user_work_sessions
       (id, user_id, session_token_id, username, full_name, role, login_at, photo_login, attendance_status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), NULL, 'pending', datetime('now'), datetime('now'))`,
-    [uuidv4(), user.id, sessionTokenId, user.username, user.full_name, user.role]
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), NULL, ?, datetime('now'), datetime('now'))`,
+    [uuidv4(), user.id, sessionTokenId, user.username, user.full_name, user.role, att]
   );
   return sessionTokenId;
 }

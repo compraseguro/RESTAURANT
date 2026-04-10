@@ -993,6 +993,10 @@ async function initDatabase() {
         WHERE attendance_status IS NULL OR trim(attendance_status) = ''`);
     }
 
+    db.run(`UPDATE user_work_sessions SET attendance_status = 'asistente', updated_at = datetime('now')
+      WHERE lower(trim(coalesce(role, ''))) = 'admin'
+        AND COALESCE(NULLIF(trim(attendance_status), ''), 'pending') = 'pending'`);
+
     const usersTableSql = queryOne("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'");
     if (usersTableSql?.sql && !usersTableSql.sql.includes("'bar'")) {
       db.run('PRAGMA foreign_keys = OFF');

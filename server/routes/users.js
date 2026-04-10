@@ -28,17 +28,18 @@ function rawWorkedMinutesExpr(alias = 's') {
     END`;
 }
 
-/** Minutos que cuentan en informes: solo asistente confirmado; pending/justificado/ausente → 0. */
+/** Minutos que cuentan en informes: solo asistente confirmado; pending/justificado/ausente → 0. Administrador siempre por tiempo bruto (no revisión). */
 function effectiveWorkedMinutesExpr(alias = 's') {
   const raw = rawWorkedMinutesExpr(alias);
   const st = `COALESCE(NULLIF(trim(${alias}.attendance_status), ''), 'pending')`;
-  return `CASE ${st}
+  const roleIsAdmin = `lower(coalesce(nullif(u.role, ''), nullif(${alias}.role, ''), '')) = 'admin'`;
+  return `(CASE WHEN ${roleIsAdmin} THEN (${raw}) ELSE (CASE ${st}
     WHEN 'justificado' THEN 0
     WHEN 'ausente' THEN 0
     WHEN 'pending' THEN 0
     WHEN 'asistente' THEN (${raw})
     ELSE 0
-  END`;
+  END) END)`;
 }
 
 const FINAL_ATTENDANCE = new Set(['asistente', 'justificado', 'ausente']);
@@ -51,11 +52,12 @@ function ensureOpenWorkSession(user) {
     [user.id]
   );
   if (existing?.id) return;
+  const att = String(user.role || '').toLowerCase() === 'admin' ? 'asistente' : 'pending';
   runSql(
     `INSERT INTO user_work_sessions
       (id, user_id, session_token_id, username, full_name, role, login_at, photo_login, attendance_status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), NULL, 'pending', datetime('now'), datetime('now'))`,
-    [uuidv4(), user.id, uuidv4(), user.username || '', user.full_name || '', user.role || '']
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), NULL, ?, datetime('now'), datetime('now'))`,
+    [uuidv4(), user.id, uuidv4(), user.username || '', user.full_name || '', user.role || '', att]
   );
 }
 
@@ -294,6 +296,7 @@ router.get('/attendance-review/today', authenticateToken, requireRole('admin'), 
      LEFT JOIN users u ON u.id = s.user_id
      WHERE date(datetime(s.login_at, 'localtime')) = date('now', 'localtime')
        AND COALESCE(s.attendance_status, 'pending') = 'pending'
+       AND lower(coalesce(nullif(u.role, ''), nullif(s.role, ''), '')) != 'admin'
      ORDER BY datetime(s.login_at) ASC`
   );
   res.json({
@@ -314,8 +317,11 @@ router.post('/attendance-review/apply', authenticateToken, requireRole('admin'),
     const status = String(it.status || '').trim();
     if (!sid || !FINAL_ATTENDANCE.has(status)) continue;
     const row = queryOne(
-      `SELECT id FROM user_work_sessions
-       WHERE id = ? AND COALESCE(NULLIF(trim(attendance_status), ''), 'pending') = 'pending'`,
+      `SELECT s.id FROM user_work_sessions s
+       LEFT JOIN users u ON u.id = s.user_id
+       WHERE s.id = ?
+         AND COALESCE(NULLIF(trim(s.attendance_status), ''), 'pending') = 'pending'
+         AND lower(coalesce(nullif(u.role, ''), nullif(s.role, ''), '')) != 'admin'`,
       [sid]
     );
     if (!row?.id) continue;
@@ -328,7 +334,7 @@ router.post('/attendance-review/apply', authenticateToken, requireRole('admin'),
   res.json({ success: true, updated: n });
 });
 
-/** Clasificar una jornada concreta (pendiente → asistente / justificado / ausente). */
+/** Clasificar una jornada concreta (pendiente → asistente / justificado / ausente). No aplica al administrador. */
 router.patch('/work-sessions/:sessionId/attendance', authenticateToken, requireRole('admin'), (req, res) => {
   const sessionId = String(req.params.sessionId || '').trim();
   const status = String(req.body?.status || '').trim();
@@ -336,12 +342,15 @@ router.patch('/work-sessions/:sessionId/attendance', authenticateToken, requireR
     return res.status(400).json({ error: 'Sesión o estado inválido' });
   }
   const row = queryOne(
-    `SELECT id FROM user_work_sessions
-     WHERE id = ? AND COALESCE(NULLIF(trim(attendance_status), ''), 'pending') = 'pending'`,
+    `SELECT s.id FROM user_work_sessions s
+     LEFT JOIN users u ON u.id = s.user_id
+     WHERE s.id = ?
+       AND COALESCE(NULLIF(trim(s.attendance_status), ''), 'pending') = 'pending'
+       AND lower(coalesce(nullif(u.role, ''), nullif(s.role, ''), '')) != 'admin'`,
     [sessionId]
   );
   if (!row?.id) {
-    return res.status(404).json({ error: 'Sesión no encontrada o ya clasificada' });
+    return res.status(404).json({ error: 'Sesión no encontrada, ya clasificada o es de un administrador (no requiere clasificación)' });
   }
   runSql(
     `UPDATE user_work_sessions SET attendance_status = ?, updated_at = datetime('now') WHERE id = ?`,

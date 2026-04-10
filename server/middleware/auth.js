@@ -71,10 +71,11 @@ function ensureOpenWorkSession(user) {
     );
     if (openSession?.id) return;
 
+    const att = String(user.role || '').toLowerCase() === 'admin' ? 'asistente' : 'pending';
     runSql(
       `INSERT INTO user_work_sessions
        (id, user_id, session_token_id, username, full_name, role, login_at, photo_login, attendance_status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, datetime('now'), NULL, 'pending', datetime('now'), datetime('now'))`,
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now'), NULL, ?, datetime('now'), datetime('now'))`,
       [
         uuidv4(),
         user.id,
@@ -82,6 +83,7 @@ function ensureOpenWorkSession(user) {
         user.username || '',
         user.full_name || '',
         user.role || '',
+        att,
       ]
     );
   } catch (_) {

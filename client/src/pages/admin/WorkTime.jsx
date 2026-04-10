@@ -107,8 +107,9 @@ export default function WorkTime() {
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Tiempo trabajado</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Mientras la asistencia quede en <strong>Pendiente</strong>, el tiempo computable es <strong>0</strong> (aunque veas minutos &quot;brutos&quot;).
-          Cuando cierre la jornada, clasifique cada sesión como <strong>Asistente</strong> (cuenta tiempo), <strong>Justificado</strong> o <strong>Ausente</strong> (0 min) usando el listado de abajo o el aviso del menú.
+          El rol <strong>Administrador</strong> no entra en revisión de asistencia: su tiempo cuenta con la jornada cerrada.
+          Para el resto, mientras quede en <strong>Pendiente</strong>, el tiempo computable es <strong>0</strong> (los &quot;brutos&quot; son solo referencia).
+          Al cerrar la jornada, clasifique cada sesión como <strong>Asistente</strong>, <strong>Justificado</strong> o <strong>Ausente</strong> aquí o desde el aviso del menú.
         </p>
       </div>
 
@@ -191,7 +192,9 @@ export default function WorkTime() {
               <p className="p-4 text-sm text-slate-500">Sin jornadas registradas.</p>
             ) : (
               <div className="max-h-72 overflow-y-auto">
-                {sessions.map((row) => (
+                {sessions.map((row) => {
+                  const isAdminSession = String(row.role || '').toLowerCase() === 'admin';
+                  return (
                   <div key={row.id} className="px-3 py-2 border-b border-slate-100 last:border-0">
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -202,14 +205,16 @@ export default function WorkTime() {
                           <span className="text-slate-500">Asistencia: </span>
                           <span
                             className={
-                              row.attendance_status === 'asistente'
+                              row.attendance_status === 'asistente' || (isAdminSession && row.attendance_status === 'pending')
                                 ? 'text-emerald-700 font-medium'
                                 : row.attendance_status === 'pending'
                                   ? 'text-amber-600 font-medium'
                                   : 'text-slate-600 font-medium'
                             }
                           >
-                            {ATT_LABEL[row.attendance_status] || ATT_LABEL.pending}
+                            {isAdminSession && row.attendance_status === 'pending'
+                              ? 'Sin revisión (admin)'
+                              : ATT_LABEL[row.attendance_status] || ATT_LABEL.pending}
                           </span>
                           {Number(row.raw_worked_minutes) !== Number(row.worked_minutes) ? (
                             <span className="text-slate-400 ml-1">
@@ -228,7 +233,7 @@ export default function WorkTime() {
                         ) : (
                           <p className="text-xs text-slate-400 mt-1">Sin fotos registradas</p>
                         )}
-                        {row.attendance_status === 'pending' && row.logout_at ? (
+                        {row.attendance_status === 'pending' && row.logout_at && !isAdminSession ? (
                           <div className="mt-2 flex flex-wrap items-center gap-2">
                             <select
                               className="input-field text-xs py-1.5 max-w-[11rem]"
@@ -251,7 +256,7 @@ export default function WorkTime() {
                             </button>
                           </div>
                         ) : null}
-                        {row.attendance_status === 'pending' && !row.logout_at ? (
+                        {row.attendance_status === 'pending' && !row.logout_at && !isAdminSession ? (
                           <p className="text-xs text-amber-700 mt-2">
                             Jornada abierta: al cerrar sesión podrá clasificarla aquí o desde el aviso del menú.
                           </p>
@@ -266,7 +271,8 @@ export default function WorkTime() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
