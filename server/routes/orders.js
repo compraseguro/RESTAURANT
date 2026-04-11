@@ -1,4 +1,5 @@
 const express = require('express');
+const net = require('net');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql, withTransaction, logAudit } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
@@ -98,6 +99,7 @@ function isBarText(value = '') {
 function getOrderItemsWithArea(orderId) {
   return queryAll(
     `SELECT oi.*,
+            p.production_area,
             LOWER(COALESCE(c.name, '')) as category_name_lc
      FROM order_items oi
      LEFT JOIN products p ON p.id = oi.product_id
@@ -107,9 +109,114 @@ function getOrderItemsWithArea(orderId) {
   );
 }
 
+function isBarItemRow(item) {
+  if (String(item?.production_area || '').toLowerCase() === 'bar') return true;
+  return isBarText(item?.category_name_lc) || isBarText(item?.product_name);
+}
+
 function isBarOnlyOrder(items = []) {
   if (!Array.isArray(items) || items.length === 0) return false;
-  return items.every(item => isBarText(item.category_name_lc) || isBarText(item.product_name));
+  return items.every(isBarItemRow);
+}
+
+function readSettingsPrinters() {
+  const settingsRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
+  let settings = {};
+  try {
+    settings = settingsRow?.value ? JSON.parse(settingsRow.value) : {};
+  } catch (_) {
+    settings = {};
+  }
+  return Array.isArray(settings?.impresoras) ? settings.impresoras : [];
+}
+
+function buildPrinterOut(selected, kind, defaults) {
+  return {
+    name: selected?.name || defaults.name,
+    area: selected?.area || defaults.area,
+    station: kind,
+    width_mm: Number(selected?.width_mm || 80),
+    copies: Math.min(5, Math.max(1, Number(selected?.copies || 1))),
+    active: Number(selected?.active ?? 1),
+    connection: String(selected?.connection || 'browser').toLowerCase() === 'wifi' ? 'wifi' : 'browser',
+    ip_address: String(selected?.ip_address || '').trim(),
+    port: Math.min(65535, Math.max(1, Number(selected?.port || 9100) || 9100)),
+  };
+}
+
+function pickPrinterConfig(kind) {
+  const printers = readSettingsPrinters();
+  const k = String(kind || '').toLowerCase();
+  const byStation = printers.find(
+    (p) => String(p?.station || '').toLowerCase() === k && Number(p?.active ?? 1) === 1
+  );
+  const byName = printers.find((p) => String(p?.name || '').toLowerCase().includes(k));
+  const byArea = printers.find((p) => String(p?.area || '').toLowerCase().includes(k));
+  const selected = byStation || byName || byArea || null;
+  const defaults = {
+    cocina: { name: 'Impresora Cocina', area: 'Comandas' },
+    bar: { name: 'Impresora Bar', area: 'Comandas Bar' },
+    caja: { name: 'Impresora Caja', area: 'Comprobantes' },
+  }[k] || { name: 'Impresora', area: '' };
+  return buildPrinterOut(selected, k, defaults);
+}
+
+function isAllowedPrinterHost(ip) {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(String(ip || '').trim());
+  if (!m) return false;
+  const a = Number(m[1]);
+  const b = Number(m[2]);
+  if (a === 10) return true;
+  if (a === 127) return true; /* pruebas locales */
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  return false;
+}
+
+function sendEscPosToHost(host, port, text, copies) {
+  const init = Buffer.from([0x1b, 0x40]);
+  const cut = Buffer.from([0x1d, 0x56, 0x00]);
+  const body = Buffer.from(`${String(text || '')}\n\n`, 'utf8');
+  const n = Math.min(5, Math.max(1, Number(copies || 1)));
+  const chunks = [];
+  for (let i = 0; i < n; i += 1) {
+    chunks.push(init, body, cut);
+  }
+  const payload = Buffer.concat(chunks);
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host, port });
+    let settled = false;
+    const finish = (err) => {
+      if (settled) return;
+      settled = true;
+      try {
+        socket.destroy();
+      } catch (_) {
+        /* noop */
+      }
+      if (err) reject(err);
+      else resolve();
+    };
+    socket.setTimeout(10000);
+    socket.once('error', (e) => finish(e));
+    socket.once('timeout', () => finish(new Error('Tiempo de espera al contactar la impresora')));
+    socket.once('connect', () => {
+      socket.write(payload, (err) => {
+        if (err) return finish(err);
+        socket.end();
+      });
+    });
+    socket.once('close', () => finish());
+  });
+}
+
+function assertStationRole(req, station) {
+  const r = req.user?.role;
+  if (r === 'admin' || r === 'mozo') return true;
+  if (station === 'cocina' && r === 'cocina') return true;
+  if (station === 'bar' && r === 'bar') return true;
+  if (station === 'caja' && r === 'cajero') return true;
+  return false;
 }
 
 router.get('/', authenticateToken, (req, res) => {
@@ -142,7 +249,23 @@ router.get('/active', authenticateToken, (req, res) => {
     return res.status(403).json({ error: 'No tienes permisos para esta acción' });
   }
   const orders = queryAll(`SELECT * FROM orders WHERE status IN ('pending', 'preparing', 'ready') ORDER BY CASE status WHEN 'pending' THEN 1 WHEN 'preparing' THEN 2 WHEN 'ready' THEN 3 END, created_at ASC`);
-  orders.forEach(o => { o.items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [o.id]); });
+  if (orders.length > 0) {
+    const placeholders = orders.map(() => '?').join(',');
+    const ids = orders.map((o) => o.id);
+    const allItems = queryAll(
+      `SELECT oi.*, p.production_area
+       FROM order_items oi
+       LEFT JOIN products p ON p.id = oi.product_id
+       WHERE oi.order_id IN (${placeholders})`,
+      ids
+    );
+    const byOrder = new Map();
+    allItems.forEach((row) => {
+      if (!byOrder.has(row.order_id)) byOrder.set(row.order_id, []);
+      byOrder.get(row.order_id).push(row);
+    });
+    orders.forEach((o) => { o.items = byOrder.get(o.id) || []; });
+  }
   res.json(orders);
 });
 
@@ -180,34 +303,44 @@ router.get('/kitchen', authenticateToken, (req, res) => {
 });
 
 router.get('/print-config', authenticateToken, requireRole('admin', 'cajero', 'mozo', 'cocina', 'bar'), (req, res) => {
-  const settingsRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
-  let settings = {};
-  try {
-    settings = settingsRow?.value ? JSON.parse(settingsRow.value) : {};
-  } catch (_) {
-    settings = {};
-  }
   const restaurant = queryOne('SELECT name, address, phone, logo FROM restaurants LIMIT 1') || {};
-  const printers = Array.isArray(settings?.impresoras) ? settings.impresoras : [];
-  const pickPrinter = (kind) => {
-    const byName = printers.find((p) => String(p?.name || '').toLowerCase().includes(kind));
-    const byArea = printers.find((p) => String(p?.area || '').toLowerCase().includes(kind));
-    const selected = byName || byArea || null;
-    return {
-      name: selected?.name || (kind === 'bar' ? 'Impresora Bar' : 'Impresora Cocina'),
-      area: selected?.area || (kind === 'bar' ? 'Comandas Bar' : 'Comandas'),
-      width_mm: Number(selected?.width_mm || 80),
-      copies: Number(selected?.copies || 1),
-      active: Number(selected?.active ?? 1),
-    };
-  };
   res.json({
     restaurant,
     printers: {
-      cocina: pickPrinter('cocina'),
-      bar: pickPrinter('bar'),
+      cocina: pickPrinterConfig('cocina'),
+      bar: pickPrinterConfig('bar'),
+      caja: pickPrinterConfig('caja'),
     },
   });
+});
+
+/** Envío a impresora térmica en LAN (RAW TCP / ESC-POS). El servidor debe alcanzar la IP (misma red que el PC del servidor o VPN). */
+router.post('/print-network', authenticateToken, requireRole('admin', 'cajero', 'cocina', 'bar'), async (req, res) => {
+  try {
+    const station = String(req.body?.station || '').toLowerCase();
+    if (!['cocina', 'bar', 'caja'].includes(station)) {
+      return res.status(400).json({ error: 'Estación inválida' });
+    }
+    if (!assertStationRole(req, station)) {
+      return res.status(403).json({ error: 'No puedes enviar impresión para esta estación' });
+    }
+    const cfg = pickPrinterConfig(station);
+    if (cfg.connection !== 'wifi' || !cfg.ip_address) {
+      return res.status(400).json({ error: 'La impresora de esta estación no está configurada en modo WiFi con IP' });
+    }
+    if (!isAllowedPrinterHost(cfg.ip_address)) {
+      return res.status(400).json({ error: 'Solo se permiten IPs de red local (10.x, 192.168.x, 172.16-31.x o 127.0.0.1)' });
+    }
+    const text = String(req.body?.text || '').trim();
+    if (!text || text.length > 12000) {
+      return res.status(400).json({ error: 'Texto de impresión inválido o demasiado largo' });
+    }
+    const copies = Math.min(5, Math.max(1, Number(req.body?.copies ?? cfg.copies) || 1));
+    await sendEscPosToHost(cfg.ip_address, cfg.port, text, copies);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'No se pudo imprimir en red' });
+  }
 });
 
 router.get('/:id', authenticateToken, (req, res) => {
