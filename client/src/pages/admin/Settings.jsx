@@ -94,9 +94,9 @@ const DEFAULT_APP_SETTINGS = {
     { name: 'Nota de Venta', series: 'N001', active: 1 },
   ],
   impresoras: [
-    { name: 'Impresora Cocina', area: 'Comandas', width_mm: 80, copies: 1, active: 1 },
-    { name: 'Impresora Bar', area: 'Comandas Bar', width_mm: 80, copies: 1, active: 1 },
-    { name: 'Impresora Caja', area: 'Comprobantes', width_mm: 80, copies: 1, active: 1 },
+    { name: 'Impresora Cocina', area: 'Comandas', station: 'cocina', connection: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1 },
+    { name: 'Impresora Bar', area: 'Comandas Bar', station: 'bar', connection: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1 },
+    { name: 'Impresora Caja', area: 'Comprobantes', station: 'caja', connection: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1 },
   ],
   tarjetas: [
     { name: 'Visa', fee_percent: 2.5, active: 1 },
@@ -175,7 +175,30 @@ const SETTINGS_SECTION_FORMS = {
     title: 'Impresora',
     fields: [
       { key: 'name', label: 'Nombre', required: true },
-      { key: 'area', label: 'Área', required: true },
+      {
+        key: 'station',
+        label: 'Estación (cocina / bar / caja)',
+        required: true,
+        type: 'select',
+        options: [
+          { value: 'cocina', label: 'Cocina' },
+          { value: 'bar', label: 'Bar' },
+          { value: 'caja', label: 'Caja (POS / comprobantes)' },
+        ],
+      },
+      { key: 'area', label: 'Texto en ticket (área)', required: true },
+      {
+        key: 'connection',
+        label: 'Conexión',
+        required: true,
+        type: 'select',
+        options: [
+          { value: 'browser', label: 'Navegador (diálogo de impresión)' },
+          { value: 'wifi', label: 'Red local WiFi / Ethernet (IP + puerto 9100)' },
+        ],
+      },
+      { key: 'ip_address', label: 'IP de la impresora (solo modo red)' },
+      { key: 'port', label: 'Puerto TCP', type: 'number' },
       { key: 'width_mm', label: 'Ancho ticket (mm)', type: 'number' },
       { key: 'copies', label: 'Copias', type: 'number' },
     ],
@@ -366,8 +389,9 @@ export default function Settings() {
   };
 
   useEffect(() => {
+    if (activeSection === 'impresoras') return;
     loadAppSettingsHistory();
-  }, [historyOffset, historyFilterSection, historyFilterActor, historySearchDebounced, historyLimit]);
+  }, [activeSection, historyOffset, historyFilterSection, historyFilterActor, historySearchDebounced, historyLimit]);
   useEffect(() => {
     if (historySearchTimerRef.current) clearTimeout(historySearchTimerRef.current);
     historySearchTimerRef.current = setTimeout(() => {
@@ -493,7 +517,7 @@ export default function Settings() {
       const normalized = normalizeConfigPayload(saved);
       setAppSettings(normalized);
       setAppSettingsSnapshot(serializeAppSettings(normalized));
-      loadAppSettingsHistory();
+      if (activeSection !== 'impresoras') loadAppSettingsHistory();
       if (!silent) toast.success('Configuración guardada');
     } catch (err) {
       if (!silent) toast.error(err.message);
@@ -564,7 +588,10 @@ export default function Settings() {
         : (appSettings[section] || [])[index] || {};
     const nextForm = {};
     cfg.fields.forEach(f => {
-      if (f.type === 'number') nextForm[f.key] = source[f.key] ?? 0;
+      if (f.type === 'select') {
+        const defOpt = f.options?.[0]?.value ?? '';
+        nextForm[f.key] = source[f.key] ?? defOpt;
+      } else if (f.type === 'number') nextForm[f.key] = source[f.key] ?? 0;
       else nextForm[f.key] = source[f.key] ?? '';
     });
     if (section === 'impresoras') {
@@ -572,9 +599,15 @@ export default function Settings() {
         if (!nextForm.area) nextForm.area = 'Comandas';
         if (!nextForm.width_mm) nextForm.width_mm = 80;
         if (!nextForm.copies) nextForm.copies = 1;
+        if (!nextForm.port) nextForm.port = 9100;
+        if (!nextForm.station) nextForm.station = 'cocina';
+        if (!nextForm.connection) nextForm.connection = 'browser';
       } else {
         if (!nextForm.width_mm) nextForm.width_mm = Number(source.width_mm || 80);
         if (!nextForm.copies) nextForm.copies = Number(source.copies || 1);
+        if (!nextForm.port) nextForm.port = Number(source.port || 9100);
+        if (!nextForm.station) nextForm.station = String(source.station || 'cocina');
+        if (!nextForm.connection) nextForm.connection = String(source.connection || 'browser');
       }
     }
     setSettingsCrudForm(nextForm);
@@ -613,8 +646,17 @@ export default function Settings() {
     if (section === 'impresoras') {
       const width = Number(settingsCrudForm.width_mm || 80);
       const copies = Number(settingsCrudForm.copies || 1);
+      const port = Number(settingsCrudForm.port || 9100);
+      const conn = String(settingsCrudForm.connection || 'browser').toLowerCase();
+      const ip = String(settingsCrudForm.ip_address || '').trim();
       if (![58, 80].includes(width)) return toast.error('El ancho debe ser 58 u 80 mm');
       if (copies < 1 || copies > 5) return toast.error('Las copias deben estar entre 1 y 5');
+      if (port < 1 || port > 65535) return toast.error('Puerto TCP inválido');
+      if (conn === 'wifi') {
+        if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
+          return toast.error('Indica una IP válida (ej. 192.168.1.50) para impresora en red');
+        }
+      }
     }
     if (section === 'monedas') {
       const nextCode = String(settingsCrudForm.code || '').trim().toUpperCase();
@@ -623,9 +665,11 @@ export default function Settings() {
     }
     const payload = {};
     cfg.fields.forEach(f => {
-      payload[f.key] = f.type === 'number'
-        ? Number(settingsCrudForm[f.key] || 0)
-        : String(settingsCrudForm[f.key] || '').trim();
+      if (f.type === 'number') {
+        payload[f.key] = Number(settingsCrudForm[f.key] || 0);
+      } else {
+        payload[f.key] = String(settingsCrudForm[f.key] ?? '').trim();
+      }
     });
     if (section === 'monedas') {
       payload.code = String(payload.code || '').toUpperCase();
@@ -648,7 +692,7 @@ export default function Settings() {
       const normalized = normalizeConfigPayload(restored);
       setAppSettings(normalized);
       setAppSettingsSnapshot(serializeAppSettings(normalized));
-      loadAppSettingsHistory();
+      if (activeSection !== 'impresoras') loadAppSettingsHistory();
       toast.success('Configuración restaurada');
     } catch (err) {
       toast.error(err.message);
@@ -783,7 +827,7 @@ export default function Settings() {
             </p>
           </div>
         )}
-        {activeSection && PARTIAL_SECTIONS.has(activeSection) && (
+        {activeSection && PARTIAL_SECTIONS.has(activeSection) && activeSection !== 'impresoras' && (
           <div className="mb-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-semibold text-slate-700">Historial reciente de configuración</p>
@@ -1107,6 +1151,14 @@ export default function Settings() {
         {/* IMPRESORAS */}
         {activeSection === 'impresoras' && (
           <div className="space-y-4">
+            <div className="rounded-lg border border-sky-100 bg-sky-50/80 px-4 py-3 text-sm text-slate-700">
+              <p className="font-medium text-slate-800 mb-1">Control central de impresoras</p>
+              <p className="text-slate-600">
+                Defina aquí cocina, bar y caja. Modo <strong>Red local</strong>: IP y puerto (típico <strong>9100</strong>) de la impresora térmica en la misma red que el <strong>servidor</strong> de la aplicación.
+                Si el backend está en la nube (Render, etc.), no podrá abrir la IP de su WiFi: use <strong>Navegador</strong> o un servidor en el local.
+                Cocina y bar envían comandas desde su panel; la caja usa la impresora marcada como estación <strong>caja</strong> cuando imprima desde POS.
+              </p>
+            </div>
             <div className="flex justify-between items-center">
               <p className="text-sm text-slate-500">Impresoras configuradas en el sistema</p>
               <button className="btn-primary flex items-center gap-2 text-sm" onClick={() => openSettingsCrudModal('impresoras')}><MdAdd /> Nueva Impresora</button>
@@ -1114,23 +1166,31 @@ export default function Settings() {
             <div className="card">
               {(appSettings.impresoras || []).map((pr, i) => (
                 <div key={`${pr.name}-${i}`} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center"><MdPrint className="text-slate-600" /></div>
-                    <div>
-                      <p className="font-medium">{pr.name}</p>
-                      <p className="text-sm text-slate-500">{pr.area || 'Sin área asignada'} · {Number(pr.width_mm || 80)}mm · {Number(pr.copies || 1)} copia(s)</p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0"><MdPrint className="text-slate-600" /></div>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{pr.name}</p>
+                      <p className="text-sm text-slate-500">
+                        Estación <span className="font-medium text-slate-700">{pr.station || '—'}</span>
+                        {' · '}{pr.area || 'Sin área'} · {Number(pr.width_mm || 80)}mm · {Number(pr.copies || 1)} copia(s)
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {String(pr.connection || 'browser').toLowerCase() === 'wifi' && pr.ip_address
+                          ? <>WiFi <code className="bg-slate-100 px-1 rounded text-slate-800">{pr.ip_address}:{Number(pr.port || 9100)}</code></>
+                          : <>Navegador (diálogo de impresión en el PC)</>}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => toggleAppSection('impresoras', i)} className={`px-2 py-1 text-xs rounded-full ${pr.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{pr.active ? 'Conectada' : 'Inactiva'}</button>
-                    <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('impresoras', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]" onClick={() => deleteAppSectionItem('impresoras', i, `la impresora "${pr.name}"`)}><MdDelete /></button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button type="button" onClick={() => toggleAppSection('impresoras', i)} className={`px-2 py-1 text-xs rounded-full ${pr.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{pr.active ? 'Activa' : 'Inactiva'}</button>
+                    <button type="button" className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('impresoras', i)}><MdEdit /></button>
+                    <button type="button" className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]" onClick={() => deleteAppSectionItem('impresoras', i, `la impresora "${pr.name}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
             </div>
             <div className="flex justify-end">
-              <button onClick={saveAppSettings} className="btn-primary flex items-center gap-2"><MdSave /> Guardar</button>
+              <button type="button" onClick={saveAppSettings} className="btn-primary flex items-center gap-2"><MdSave /> Guardar</button>
             </div>
           </div>
         )}
@@ -1613,20 +1673,35 @@ export default function Settings() {
           isOpen={settingsCrudModal.isOpen}
           onClose={closeSettingsCrudModal}
           title={`${settingsCrudModal.index === null ? 'Nuevo' : 'Editar'} ${SETTINGS_SECTION_FORMS[settingsCrudModal.section]?.title || 'registro'}`}
-          size="sm"
+          size={settingsCrudModal.section === 'impresoras' ? 'md' : 'sm'}
         >
           <form onSubmit={submitSettingsCrudModal} className="space-y-4">
             {(SETTINGS_SECTION_FORMS[settingsCrudModal.section]?.fields || []).map(field => (
               <div key={field.key}>
                 <label className="block text-sm font-medium text-slate-700 mb-1">{field.label}</label>
-                <input
-                  type={field.type || 'text'}
-                  step={field.type === 'number' ? '0.1' : undefined}
-                  value={settingsCrudForm[field.key] ?? ''}
-                  onChange={e => setSettingsCrudForm(prev => ({ ...prev, [field.key]: field.type === 'number' ? e.target.value : e.target.value }))}
-                  className="input-field"
-                  required={!!field.required}
-                />
+                {field.type === 'select' && field.options ? (
+                  <select
+                    value={settingsCrudForm[field.key] ?? ''}
+                    onChange={e => setSettingsCrudForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    className="input-field"
+                    required={!!field.required}
+                  >
+                    {field.options.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={field.type === 'number' ? 'number' : 'text'}
+                    step={field.type === 'number' ? '1' : undefined}
+                    min={field.type === 'number' && field.key === 'port' ? 1 : undefined}
+                    max={field.type === 'number' && field.key === 'port' ? 65535 : undefined}
+                    value={settingsCrudForm[field.key] ?? ''}
+                    onChange={e => setSettingsCrudForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    className="input-field"
+                    required={!!field.required}
+                  />
+                )}
               </div>
             ))}
             <div className="flex gap-3">

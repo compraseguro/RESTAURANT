@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, ORDER_TYPES, formatTime } from '../../utils/api';
+import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
@@ -70,6 +71,22 @@ export default function KitchenPanel({ station = 'cocina' }) {
     const titleBase = isBar ? 'Comandas de Bar' : 'Comandas de Cocina';
     const scopeLabel = scope === 'delivery' ? 'Delivery' : scope === 'salon' ? 'Mesas/Salón' : 'Todas';
     const title = `${titleBase} - ${scopeLabel}`;
+    const stationKey = isBar ? 'bar' : 'cocina';
+    if (String(stationConfig?.connection || '').toLowerCase() === 'wifi' && String(stationConfig?.ip_address || '').trim()) {
+      const plain = buildKitchenTicketPlainText({
+        restaurant: restaurantInfo,
+        title,
+        orders: list,
+        copies: 1,
+      });
+      try {
+        await api.post('/orders/print-network', { station: stationKey, text: plain, copies });
+        toast.success('Enviado a impresora de red');
+        return;
+      } catch (err) {
+        toast.error(err.message || 'No se pudo imprimir por red; se abrirá el navegador');
+      }
+    }
     const htmlRows = list.map(order => {
       const orderTypeLabel = order.type === 'delivery' ? 'Delivery' : order.type === 'pickup' ? 'Recojo' : 'Mesa/Salón';
       const items = (order.items || []).map(item => (

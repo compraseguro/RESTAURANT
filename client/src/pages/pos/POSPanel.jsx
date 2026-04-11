@@ -146,6 +146,7 @@ export default function POSPanel() {
   const [priceQuery, setPriceQuery] = useState('');
   const [priceResults, setPriceResults] = useState([]);
   const printRef = useRef(null);
+  const [cajaPrintCfg, setCajaPrintCfg] = useState(null);
   const { user } = useAuth();
   const openCajaView = (view) => {
     setActiveCajaOption(view);
@@ -154,7 +155,7 @@ export default function POSPanel() {
 
   const loadData = async () => {
     try {
-      const [tablesData, reg, status, prods, cats, modifiersData, cfg, daily, reservationsData, ordersData] = await Promise.all([
+      const [tablesData, reg, status, prods, cats, modifiersData, cfg, daily, reservationsData, ordersData, printCfgRes] = await Promise.all([
         api.get('/tables'),
         api.get('/pos/current-register'),
         api.get('/pos/register-status'),
@@ -165,7 +166,9 @@ export default function POSPanel() {
         api.get('/reports/daily').catch(() => null),
         api.get('/admin-modules/reservations').catch(() => []),
         api.get('/orders?limit=600').catch(() => []),
+        api.get('/orders/print-config').catch(() => null),
       ]);
+      setCajaPrintCfg(printCfgRes?.printers?.caja || null);
       const visibleCategories = cats.filter(c => !WAREHOUSE_CATEGORY_NAMES.has((c.name || '').toUpperCase()));
       const visibleCategoryIds = new Set(visibleCategories.map(c => c.id));
       const visibleProducts = prods.filter(p => visibleCategoryIds.has(p.category_id));
@@ -421,9 +424,26 @@ export default function POSPanel() {
     }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const content = printRef.current;
     if (!content) return;
+    const caja = cajaPrintCfg;
+    if (String(caja?.connection || '').toLowerCase() === 'wifi' && String(caja?.ip_address || '').trim()) {
+      const text = String(content.innerText || content.textContent || '')
+        .replace(/\r\n/g, '\n')
+        .trim()
+        .slice(0, 12000);
+      if (text) {
+        try {
+          const copies = Math.min(5, Math.max(1, Number(caja.copies || 1)));
+          await api.post('/orders/print-network', { station: 'caja', text, copies });
+          toast.success('Enviado a impresora de caja (red)');
+          return;
+        } catch (err) {
+          toast.error(err.message || 'No se pudo imprimir por red; se abrirá el navegador');
+        }
+      }
+    }
     const printWin = window.open('', '_blank', 'width=400,height=700');
     printWin.document.write(`
       <html><head><title>Arqueo de Caja</title>

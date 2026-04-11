@@ -1138,15 +1138,28 @@ async function initDatabase() {
         parsed = {};
       }
       const printers = Array.isArray(parsed.impresoras) ? parsed.impresoras : [];
+      const inferPrinterStation = (p) => {
+        const s = String(p?.station || '').toLowerCase();
+        if (['cocina', 'bar', 'caja'].includes(s)) return s;
+        const n = String(p?.name || '').toLowerCase();
+        if (n.includes('caja')) return 'caja';
+        if (n.includes('bar')) return 'bar';
+        if (n.includes('cocina')) return 'cocina';
+        return 'cocina';
+      };
       const hasBarPrinter = printers.some(p => String(p?.name || '').toLowerCase().includes('bar'));
       const normalizedPrinters = printers.map((p) => ({
         ...p,
+        station: inferPrinterStation(p),
+        connection: String(p?.connection || 'browser').toLowerCase() === 'wifi' ? 'wifi' : 'browser',
+        ip_address: String(p?.ip_address || '').trim(),
+        port: Math.min(65535, Math.max(1, Number(p?.port || 9100) || 9100)),
         width_mm: [58, 80].includes(Number(p?.width_mm)) ? Number(p.width_mm) : 80,
         copies: Math.min(5, Math.max(1, Number(p?.copies || 1))),
       }));
       let nextPrinters = normalizedPrinters;
       if (!hasBarPrinter) {
-        nextPrinters = [...normalizedPrinters, { name: 'Impresora Bar', area: 'Comandas Bar', width_mm: 80, copies: 1, active: 1 }];
+        nextPrinters = [...normalizedPrinters, { name: 'Impresora Bar', area: 'Comandas Bar', station: 'bar', connection: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1 }];
       }
       const printersChanged = JSON.stringify(printers) !== JSON.stringify(nextPrinters);
       let next = { ...parsed };
