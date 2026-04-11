@@ -119,6 +119,26 @@ function isBarOnlyOrder(items = []) {
   return items.every(isBarItemRow);
 }
 
+/** Ítems con production_area (Escritorio, listados, etc.) */
+function attachOrderItemsWithProductArea(orders) {
+  if (!Array.isArray(orders) || orders.length === 0) return;
+  const placeholders = orders.map(() => '?').join(',');
+  const ids = orders.map((o) => o.id);
+  const allItems = queryAll(
+    `SELECT oi.*, p.production_area
+     FROM order_items oi
+     LEFT JOIN products p ON p.id = oi.product_id
+     WHERE oi.order_id IN (${placeholders})`,
+    ids
+  );
+  const byOrder = new Map();
+  allItems.forEach((row) => {
+    if (!byOrder.has(row.order_id)) byOrder.set(row.order_id, []);
+    byOrder.get(row.order_id).push(row);
+  });
+  orders.forEach((o) => { o.items = byOrder.get(o.id) || []; });
+}
+
 function readSettingsPrinters() {
   const settingsRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
   let settings = {};
@@ -237,7 +257,7 @@ router.get('/', authenticateToken, (req, res) => {
   if (lim) { query += ' LIMIT ?'; params.push(parseInt(lim)); }
 
   const orders = queryAll(query, params);
-  orders.forEach(o => { o.items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [o.id]); });
+  attachOrderItemsWithProductArea(orders);
   res.json(orders);
 });
 
@@ -249,23 +269,7 @@ router.get('/active', authenticateToken, (req, res) => {
     return res.status(403).json({ error: 'No tienes permisos para esta acción' });
   }
   const orders = queryAll(`SELECT * FROM orders WHERE status IN ('pending', 'preparing', 'ready') ORDER BY CASE status WHEN 'pending' THEN 1 WHEN 'preparing' THEN 2 WHEN 'ready' THEN 3 END, created_at ASC`);
-  if (orders.length > 0) {
-    const placeholders = orders.map(() => '?').join(',');
-    const ids = orders.map((o) => o.id);
-    const allItems = queryAll(
-      `SELECT oi.*, p.production_area
-       FROM order_items oi
-       LEFT JOIN products p ON p.id = oi.product_id
-       WHERE oi.order_id IN (${placeholders})`,
-      ids
-    );
-    const byOrder = new Map();
-    allItems.forEach((row) => {
-      if (!byOrder.has(row.order_id)) byOrder.set(row.order_id, []);
-      byOrder.get(row.order_id).push(row);
-    });
-    orders.forEach((o) => { o.items = byOrder.get(o.id) || []; });
-  }
+  attachOrderItemsWithProductArea(orders);
   res.json(orders);
 });
 

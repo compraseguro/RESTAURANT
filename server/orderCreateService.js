@@ -5,7 +5,13 @@ const { normalizePaymentMethod } = require('./businessRules');
 function getOrderWithItems(orderId) {
   const order = queryOne('SELECT * FROM orders WHERE id = ?', [orderId]);
   if (!order) return null;
-  order.items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
+  order.items = queryAll(
+    `SELECT oi.*, p.production_area
+     FROM order_items oi
+     LEFT JOIN products p ON p.id = oi.product_id
+     WHERE oi.order_id = ?`,
+    [orderId]
+  );
   return order;
 }
 

@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { api, formatCurrency, parseApiDate, toLocalDateKey } from '../../utils/api';
+import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useNavigate } from 'react-router-dom';
@@ -206,6 +208,7 @@ export default function Escritorio() {
   }, [rankingMode, paidOrdersInSchedule]);
 
   const isBarItem = (item) => {
+    if (String(item?.production_area || '').toLowerCase() === 'bar') return true;
     const text = `${item?.product_name || ''} ${item?.notes || ''}`.toLowerCase();
     return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some(token => text.includes(token));
   };
@@ -242,7 +245,7 @@ export default function Escritorio() {
     if (value >= 5) return { label: 'Alto', pill: 'bg-amber-100 text-amber-700', card: 'border-amber-300 bg-amber-50' };
     return { label: 'Normal', pill: 'bg-emerald-100 text-emerald-700', card: 'border-emerald-200 bg-emerald-50' };
   };
-  const printStationOrders = (station, scope = 'all') => {
+  const printStationOrders = async (station, scope = 'all') => {
     const sourceBase = station === 'bar' ? activeBarOrders : activeKitchenOrders;
     const source = sourceBase.filter((order) => {
       if (scope === 'delivery') return order.type === 'delivery';
@@ -255,6 +258,22 @@ export default function Escritorio() {
     const copies = Math.min(5, Math.max(1, Number(stationCfg?.copies || 1)));
     const ticketWidth = width === 58 ? '50mm' : '72mm';
     const title = `${station === 'bar' ? 'Comandas pendientes - Bar' : 'Comandas pendientes - Cocina'} · ${scope === 'delivery' ? 'Delivery' : scope === 'salon' ? 'Mesas/Salón' : 'Todas'}`;
+    const stationKey = station === 'bar' ? 'bar' : 'cocina';
+    if (String(stationCfg?.connection || '').toLowerCase() === 'wifi' && String(stationCfg?.ip_address || '').trim()) {
+      const plain = buildKitchenTicketPlainText({
+        restaurant: restaurantInfo,
+        title,
+        orders: source,
+        copies: 1,
+      });
+      try {
+        await api.post('/orders/print-network', { station: stationKey, text: plain, copies });
+        toast.success('Enviado a impresora de red');
+        return;
+      } catch (err) {
+        toast.error(err.message || 'No se pudo imprimir por red; se abrirá el navegador');
+      }
+    }
     const content = source.map(order => {
       const items = (order.items || []).map(item => `<li>${item.quantity}x ${item.product_name}${item.notes ? ` - ${item.notes}` : ''}</li>`).join('');
       return `
