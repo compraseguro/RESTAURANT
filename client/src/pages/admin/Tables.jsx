@@ -26,6 +26,10 @@ export default function Tables() {
   const [actionType, setActionType] = useState('');
   const [sourceTableId, setSourceTableId] = useState('');
   const [targetTableId, setTargetTableId] = useState('');
+  /** add = tomar pedido (por defecto); view = solo pedidos ya enviados a la mesa */
+  const [mesaPanel, setMesaPanel] = useState('add');
+  /** En vista pedidos: agrupar líneas con el mismo nombre de producto */
+  const [mesaUnirPorNombre, setMesaUnirPorNombre] = useState(false);
 
   const {
     cart,
@@ -73,6 +77,8 @@ export default function Tables() {
   const openMenuForTable = (table) => {
     setSelectedTable(table);
     setShowMenu(true);
+    setMesaPanel('add');
+    setMesaUnirPorNombre(false);
     resetCart();
     setSearch('');
     setSelectedCat('all');
@@ -80,6 +86,8 @@ export default function Tables() {
 
   const closeMenuPanel = () => {
     setShowMenu(false);
+    setMesaPanel('add');
+    setMesaUnirPorNombre(false);
     resetCart();
     setSearch('');
     setSelectedCat('all');
@@ -181,6 +189,52 @@ export default function Tables() {
     return true;
   });
   const activeOrdersForTable = selectedTable?.orders || [];
+
+  const mesaLineRows = useMemo(() => {
+    const rows = [];
+    for (const order of activeOrdersForTable) {
+      const st = order.status;
+      const on = order.order_number;
+      for (const it of order.items || []) {
+        const qty = Number(it.quantity || 0);
+        const unit = Number(it.unit_price ?? 0);
+        const sub = Number(it.subtotal != null ? it.subtotal : unit * qty);
+        rows.push({
+          key: it.id,
+          orderNumber: on,
+          name: String(it.product_name || '—').trim() || '—',
+          quantity: qty,
+          subtotal: sub,
+          status: st,
+        });
+      }
+    }
+    return rows;
+  }, [activeOrdersForTable]);
+
+  const mesaLineRowsMerged = useMemo(() => {
+    const m = new Map();
+    for (const r of mesaLineRows) {
+      const k = r.name.toLowerCase();
+      if (!m.has(k)) {
+        m.set(k, {
+          key: `agg-${k}`,
+          orderNumber: null,
+          name: r.name,
+          quantity: 0,
+          subtotal: 0,
+          status: r.status,
+        });
+      }
+      const a = m.get(k);
+      a.quantity += r.quantity;
+      a.subtotal += r.subtotal;
+    }
+    return [...m.values()];
+  }, [mesaLineRows]);
+
+  const mesaRowsToShow = mesaUnirPorNombre ? mesaLineRowsMerged : mesaLineRows;
+
   const getOrderStatusUi = (status) => {
     const value = String(status || '').toLowerCase();
     if (value === 'pending') return { label: 'Pendiente', classes: 'bg-[#3B82F6]/20 text-[#F9FAFB] border border-[#3B82F6]/40' };
@@ -295,70 +349,129 @@ export default function Tables() {
               </button>
             </div>
 
-            <div className="p-4 flex-1 overflow-hidden min-h-0 flex flex-col">
-              <StaffDineInOrderUI
-                search={search}
-                onSearchChange={setSearch}
-                selectedCat={selectedCat}
-                onSelectedCatChange={setSelectedCat}
-                categories={categories}
-                filteredProducts={filteredProducts}
-                onProductPick={addToCart}
-                cart={cart}
-                noteEditorLineKey={noteEditorLineKey}
-                setNoteEditorLineKey={setNoteEditorLineKey}
-                updateQty={updateQty}
-                removeFromCart={removeFromCart}
-                updateItemNote={updateItemNote}
-                cartTotal={cartTotal}
-                formatCurrency={formatCurrency}
-                minHeightClass="min-h-0 flex-1"
-                className="flex-1 min-h-0"
-                sidebarPreCart={
-                  activeOrdersForTable.length > 0 ? (
-                    <div className="space-y-2 mb-3">
-                      <p className="text-xs uppercase tracking-wide text-[#BFDBFE] font-semibold">Pedidos actuales de la mesa</p>
-                      {activeOrdersForTable.map((order) => (
-                        <div key={order.id} className="bg-[#1D4ED8]/20 border border-[#3B82F6]/20 rounded-lg p-2">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <p className="text-xs font-semibold text-white">#{order.order_number || '-'}</p>
-                            <p className="text-xs font-semibold text-[#DBEAFE]">{formatCurrency(order.total || 0)}</p>
-                          </div>
-                          <div className="space-y-1">
-                            {(order.items || []).map((it) => (
-                              <p key={it.id} className="text-xs text-[#DBEAFE] truncate">
-                                {it.quantity}x {it.product_name}
-                              </p>
-                            ))}
-                          </div>
-                          <div className="flex justify-end mt-2">
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${getOrderStatusUi(order.status).classes}`}>
-                              {getOrderStatusUi(order.status).label}
+            <div className="p-4 flex-1 overflow-hidden min-h-0 flex flex-col gap-3">
+              <div className="flex flex-wrap gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMesaPanel('add');
+                    setMesaUnirPorNombre(false);
+                  }}
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                    mesaPanel === 'add'
+                      ? 'bg-[#BFDBFE] text-[#1E3A8A] border-[#BFDBFE]'
+                      : 'bg-[#1E3A8A]/40 text-[#DBEAFE] border-[#3B82F6]/30 hover:bg-[#1E3A8A]/60'
+                  }`}
+                >
+                  Agregar pedido
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMesaPanel('view')}
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                    mesaPanel === 'view'
+                      ? 'bg-[#BFDBFE] text-[#1E3A8A] border-[#BFDBFE]'
+                      : 'bg-[#1E3A8A]/40 text-[#DBEAFE] border-[#3B82F6]/30 hover:bg-[#1E3A8A]/60'
+                  }`}
+                >
+                  Ver pedido
+                </button>
+              </div>
+
+              {mesaPanel === 'view' ? (
+                <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                  {activeOrdersForTable.length === 0 ? (
+                    <p className="text-sm text-[#BFDBFE]">No hay pedidos en esta mesa.</p>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-2 shrink-0 mb-2">
+                        <p className="text-xs uppercase tracking-wide text-[#BFDBFE] font-semibold">Pedidos de la mesa</p>
+                        <button
+                          type="button"
+                          onClick={() => setMesaUnirPorNombre((v) => !v)}
+                          className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#1E3A8A]/60 border border-[#3B82F6]/35 text-[#DBEAFE] hover:bg-[#1E3A8A]/80"
+                        >
+                          {mesaUnirPorNombre ? 'Desagrupar' : 'Unir pedidos'}
+                        </button>
+                      </div>
+                      <div className="flex text-[10px] uppercase tracking-wide text-[#93C5FD] border-b border-[#3B82F6]/35 pb-1.5 shrink-0">
+                        <span className="flex-1 min-w-0 pr-2">Producto</span>
+                        <span className="w-11 text-center shrink-0">Cant.</span>
+                        <span className="w-[5.5rem] text-right shrink-0">Total</span>
+                      </div>
+                      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pr-0.5">
+                        {mesaRowsToShow.map((row) => (
+                          <div
+                            key={row.key}
+                            className="flex items-baseline gap-1 py-1.5 border-b border-[#3B82F6]/20 text-sm text-[#F1F5F9]"
+                          >
+                            <span className="flex-1 min-w-0 flex items-baseline gap-1.5">
+                              {!mesaUnirPorNombre && row.orderNumber != null ? (
+                                <span className="text-[10px] text-[#93C5FD] shrink-0 tabular-nums">#{row.orderNumber}</span>
+                              ) : null}
+                              <span className="truncate">{row.name}</span>
+                            </span>
+                            <span className="w-11 text-center tabular-nums text-[#DBEAFE] font-medium shrink-0">{row.quantity}</span>
+                            <span className="w-[5.5rem] text-right tabular-nums font-semibold text-white shrink-0">
+                              {formatCurrency(row.subtotal)}
                             </span>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null
-                }
-                footer={
-                  cart.length > 0 ? (
-                    <>
-                      <div className="flex justify-between font-bold text-lg text-white">
-                        <span>Total</span>
-                        <span className="text-[#DBEAFE]">{formatCurrency(cartTotal)}</span>
+                        ))}
                       </div>
-                      <button
-                        type="button"
-                        onClick={submitOrder}
-                        className="w-full py-3 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-base hover:from-[#1D4ED8] hover:to-[#1E40AF] transition-all shadow-lg shadow-[#1D4ED8]/30 flex items-center justify-center gap-2"
-                      >
-                        <MdReceipt /> Enviar Pedido
-                      </button>
+                      {!mesaUnirPorNombre ? (
+                        <div className="mt-3 pt-2 border-t border-[#3B82F6]/25 shrink-0 space-y-1">
+                          {activeOrdersForTable.map((order) => (
+                            <div key={order.id} className="flex justify-between items-center text-xs text-[#BFDBFE]">
+                              <span>Pedido #{order.order_number || '-'}</span>
+                              <span className={`px-2 py-0.5 rounded-full font-semibold ${getOrderStatusUi(order.status).classes}`}>
+                                {getOrderStatusUi(order.status).label}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                     </>
-                  ) : null
-                }
-              />
+                  )}
+                </div>
+              ) : (
+                <StaffDineInOrderUI
+                  search={search}
+                  onSearchChange={setSearch}
+                  selectedCat={selectedCat}
+                  onSelectedCatChange={setSelectedCat}
+                  categories={categories}
+                  filteredProducts={filteredProducts}
+                  onProductPick={addToCart}
+                  cart={cart}
+                  noteEditorLineKey={noteEditorLineKey}
+                  setNoteEditorLineKey={setNoteEditorLineKey}
+                  updateQty={updateQty}
+                  removeFromCart={removeFromCart}
+                  updateItemNote={updateItemNote}
+                  cartTotal={cartTotal}
+                  formatCurrency={formatCurrency}
+                  minHeightClass="min-h-0 flex-1"
+                  className="flex-1 min-h-0"
+                  cartLayout="lines"
+                  footer={
+                    cart.length > 0 ? (
+                      <>
+                        <div className="flex justify-between font-bold text-lg text-white">
+                          <span>Total</span>
+                          <span className="text-[#DBEAFE]">{formatCurrency(cartTotal)}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={submitOrder}
+                          className="w-full py-3 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-base hover:from-[#1D4ED8] hover:to-[#1E40AF] transition-all shadow-lg shadow-[#1D4ED8]/30 flex items-center justify-center gap-2"
+                        >
+                          <MdReceipt /> Enviar Pedido
+                        </button>
+                      </>
+                    ) : null
+                  }
+                />
+              )}
             </div>
           </aside>
         </>

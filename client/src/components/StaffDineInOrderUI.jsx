@@ -35,6 +35,8 @@ export default function StaffDineInOrderUI({
   minHeightClass = 'min-h-[50vh]',
   /** Altura fija + solo la grilla / carrito hacen scroll (p. ej. modal de Reservas) */
   embedded = false,
+  /** 'cards' = recuadros; 'lines' = nombre + cantidad + precio en una línea (Mesas) */
+  cartLayout = 'cards',
   className = '',
 }) {
   const rootClass = embedded
@@ -132,6 +134,80 @@ export default function StaffDineInOrderUI({
 
           {cart.length === 0 ? (
             <p className="text-center text-[#BFDBFE] text-sm py-8">Selecciona productos</p>
+          ) : cartLayout === 'lines' ? (
+            cart.map((item) => {
+              const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
+              return (
+                <div key={item.line_key} className="border-b border-[#3B82F6]/25 py-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="flex-1 min-w-0 truncate text-white font-medium" title={item.name}>
+                      {item.name}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNoteEditorLineKey((prev) => (prev === item.line_key ? '' : item.line_key))
+                        }
+                        className={`w-7 h-7 rounded flex items-center justify-center border ${
+                          item.notes?.trim()
+                            ? 'bg-amber-100 border-amber-300 text-amber-700'
+                            : 'bg-[#1E3A8A]/50 border-[#93C5FD]/30 text-[#DBEAFE] hover:bg-[#1E3A8A]/70'
+                        }`}
+                        title="Agregar nota"
+                      >
+                        <MdEditNote className="text-sm" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateQty(item.line_key, -1)}
+                        className="w-6 h-6 bg-[#1E3A8A]/50 border border-[#93C5FD]/30 rounded flex items-center justify-center hover:bg-[#1E3A8A]/70 text-[#DBEAFE]"
+                      >
+                        <MdRemove className="text-xs" />
+                      </button>
+                      <span className="w-7 text-center font-bold text-white tabular-nums">{item.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateQty(item.line_key, 1)}
+                        className="w-6 h-6 bg-[#1E3A8A]/50 border border-[#93C5FD]/30 rounded flex items-center justify-center hover:bg-[#1E3A8A]/70 text-[#DBEAFE]"
+                      >
+                        <MdAdd className="text-xs" />
+                      </button>
+                    </div>
+                    <span className="w-[5.5rem] shrink-0 text-right font-semibold text-[#DBEAFE] tabular-nums">
+                      {formatCurrency(lineTotal)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFromCart(item.line_key)}
+                      className="text-[#93C5FD] hover:text-white shrink-0 p-0.5"
+                      aria-label="Quitar"
+                    >
+                      <MdDelete className="text-sm" />
+                    </button>
+                  </div>
+                  {Number(item.note_required || 0) === 1 && (
+                    <p className="text-[11px] text-[#FCA5A5] font-semibold mt-0.5">Nota obligatoria</p>
+                  )}
+                  {item.modifier_name && item.modifier_option && (
+                    <p className="text-[11px] text-[#BFDBFE] truncate mt-0.5">
+                      {item.modifier_name}: {item.modifier_option}
+                    </p>
+                  )}
+                  {(noteEditorLineKey === item.line_key || item.notes?.trim()) && (
+                    <div className="mt-2">
+                      <textarea
+                        value={item.notes || ''}
+                        onChange={(e) => updateItemNote(item.line_key, e.target.value)}
+                        placeholder="Escribe una nota para cocina..."
+                        className="w-full rounded border border-[#60A5FA] bg-[#111827] px-2 py-1.5 text-xs text-[#F9FAFB] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                        rows={2}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })
           ) : (
             cart.map((item) => (
               <div key={item.line_key} className="bg-[#1D4ED8]/25 border border-[#3B82F6]/20 rounded-lg p-2">
