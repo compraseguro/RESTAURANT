@@ -211,6 +211,7 @@ export default function SelfOrder() {
                   view: 'Ver pedidos',
                   listTitle: 'Pedidos de tu mesa',
                   empty: 'Aún no hay pedidos enviados en esta mesa.',
+                  totalMesa: 'Total tu mesa',
                 }}
               >
                 <StaffDineInOrderUI

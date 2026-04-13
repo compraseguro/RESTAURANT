@@ -1,0 +1,22 @@
+---
+description: Formato para comandos Git Bash al subir cambios (uno por bloque copiable).
+alwaysApply: true
+---
+
+# Comandos Git para el usuario
+
+Cuando el usuario pida subir cambios, códigos git, `git push`, actualizar el repo, o similar:
+
+1. **No crear archivos** en el proyecto solo para listar comandos (el usuario lo pidió explícitamente antes).
+
+2. Responder **siempre** con **cinco partes numeradas del 1 al 5**. En cada parte: título en negrita (ej. **1**), línea en blanco, y **un solo** bloque de código con etiqueta `text` que contenga **exactamente una línea** (el comando). Orden típico de líneas:
+
+   - **1:** `cd` al repo (ruta por defecto del proyecto en Git Bash: `/c/Users/Intel/OneDrive/RESTAURANT.DEMO` salvo que el usuario use otra).
+   - **2:** `git status`
+   - **3:** `git add -A` (o los archivos que pida el usuario)
+   - **4:** `git commit -m "…"` con mensaje acorde al cambio
+   - **5:** `git push origin main` (u otra rama si aplica)
+
+3. Después de los cinco bloques, **una o dos frases** recordando: cambiar el mensaje del paso 4 si hace falta; ajustar `cd` o la rama si no coinciden con su máquina.
+
+4. Para otros flujos (`git pull`, otra rama, etc.), **misma regla**: un comando = un bloque numerado; no poner varios comandos en un único bloque largo.

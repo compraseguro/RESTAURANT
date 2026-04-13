@@ -12,6 +12,7 @@ const defaultLabels = {
   merge: 'Unir pedidos',
   unmerge: 'Desagrupar',
   empty: 'No hay pedidos en esta mesa.',
+  totalMesa: 'Total mesa',
 };
 
 const MERGE_STORAGE_PREFIX = 'mesaPedidoMerge:';
@@ -59,6 +60,13 @@ export default function StaffMesaPedidoTabs({
   const lineRows = useMemo(() => flattenOrdersToLines(orders), [orders]);
   const mergedRows = useMemo(() => mergeLinesByProductName(lineRows), [lineRows]);
   const rowsToShow = unirPorNombre ? mergedRows : lineRows;
+
+  /** Total cuenta mesa: suma de totales de pedidos; si no hay total, suma de subtotales por ítem */
+  const totalMesa = useMemo(() => {
+    const byOrders = (orders || []).reduce((s, o) => s + Number(o.total || 0), 0);
+    if (byOrders > 0) return byOrders;
+    return lineRows.reduce((s, r) => s + Number(r.subtotal || 0), 0);
+  }, [orders, lineRows]);
 
   const toggleUnir = () => {
     setUnirPorNombre((prev) => {
@@ -146,6 +154,10 @@ export default function StaffMesaPedidoTabs({
                     </div>
                   );
                 })}
+              </div>
+              <div className="mt-2 pt-2 border-t border-[#3B82F6]/40 shrink-0 flex justify-between items-center gap-3">
+                <span className="text-sm font-bold text-[#BFDBFE]">{labels.totalMesa}</span>
+                <span className="text-lg font-bold text-white tabular-nums">{formatCurrency(totalMesa)}</span>
               </div>
             </>
           )}
