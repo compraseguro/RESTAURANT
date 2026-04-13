@@ -440,6 +440,7 @@ export default function Reservas() {
                 </p>
                 <StaffDineInOrderUI
                   embedded
+                  cartLayout="lines"
                   search={search}
                   onSearchChange={setSearch}
                   selectedCat={selectedCat}

@@ -9,6 +9,7 @@ import { useStaffOrderCart } from '../../hooks/useStaffOrderCart';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import StaffDineInOrderUI from '../../components/StaffDineInOrderUI';
+import StaffMesaPedidoTabs from '../../components/StaffMesaPedidoTabs';
 import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
 import {
   MdPointOfSale, MdTableRestaurant, MdReceipt, MdPrint,
@@ -854,6 +855,7 @@ export default function POSPanel() {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
   const registerSales = Number(register?.total_sales || 0);
   const todaySales = registerSales;
   const openingAmt = register?.opening_amount || 0;
@@ -1345,6 +1347,7 @@ export default function POSPanel() {
         title={quickSaleMode ? 'Venta rápida' : `Agregar Pedido — ${selectedTable?.name || ''}`}
         size="xl"
       >
+        {quickSaleMode ? (
         <StaffDineInOrderUI
           search={search}
           onSearchChange={setSearch}
@@ -1362,8 +1365,7 @@ export default function POSPanel() {
           cartTotal={cartTotal}
           formatCurrency={formatCurrency}
           minHeightClass="min-h-[60vh]"
-          sidebarTop={
-            quickSaleMode ? (
+          sidebarTop={(
               <div className="space-y-2">
                 <div>
                   <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Método de pago</label>
@@ -1463,8 +1465,7 @@ export default function POSPanel() {
                   )}
                 </div>
               </div>
-            ) : null
-          }
+          )}
           footer={
             cart.length > 0 ? (
               <>
@@ -1490,6 +1491,79 @@ export default function POSPanel() {
             ) : null
           }
         />
+        ) : selectedTable ? (
+          <StaffMesaPedidoTabs
+            orders={selectedTable.orders || []}
+            formatCurrency={formatCurrency}
+            resetKey={selectedTable.id}
+            className="min-h-[60vh] max-h-[min(90vh,780px)] flex-1 min-h-0"
+          >
+            <StaffDineInOrderUI
+              search={search}
+              onSearchChange={setSearch}
+              selectedCat={selectedCat}
+              onSelectedCatChange={setSelectedCat}
+              categories={categories}
+              filteredProducts={filteredProducts}
+              onProductPick={addToCart}
+              cart={cart}
+              noteEditorLineKey={noteEditorLineKey}
+              setNoteEditorLineKey={setNoteEditorLineKey}
+              updateQty={updateQty}
+              removeFromCart={removeFromCart}
+              updateItemNote={updateItemNote}
+              cartTotal={cartTotal}
+              formatCurrency={formatCurrency}
+              minHeightClass="min-h-0 flex-1"
+              className="flex-1 min-h-0"
+              footer={
+                cart.length > 0 ? (
+                  <>
+                    <div className="flex justify-between font-bold text-lg text-white">
+                      <span>Total</span>
+                      <span className="text-[#BFDBFE]">{formatCurrency(cartTotal)}</span>
+                    </div>
+                    <button type="button" onClick={submitOrder} className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
+                      <MdReceipt /> Enviar Pedido
+                    </button>
+                  </>
+                ) : null
+              }
+            />
+          </StaffMesaPedidoTabs>
+        ) : (
+          <StaffDineInOrderUI
+            search={search}
+            onSearchChange={setSearch}
+            selectedCat={selectedCat}
+            onSelectedCatChange={setSelectedCat}
+            categories={categories}
+            filteredProducts={filteredProducts}
+            onProductPick={addToCart}
+            cart={cart}
+            noteEditorLineKey={noteEditorLineKey}
+            setNoteEditorLineKey={setNoteEditorLineKey}
+            updateQty={updateQty}
+            removeFromCart={removeFromCart}
+            updateItemNote={updateItemNote}
+            cartTotal={cartTotal}
+            formatCurrency={formatCurrency}
+            minHeightClass="min-h-[60vh]"
+            footer={
+              cart.length > 0 ? (
+                <>
+                  <div className="flex justify-between font-bold text-lg text-white">
+                    <span>Total</span>
+                    <span className="text-[#BFDBFE]">{formatCurrency(cartTotal)}</span>
+                  </div>
+                  <button type="button" onClick={submitOrder} className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
+                    <MdReceipt /> Enviar Pedido
+                  </button>
+                </>
+              ) : null
+            }
+          />
+        )}
       </Modal>
 
       <StaffModifierPromptModal

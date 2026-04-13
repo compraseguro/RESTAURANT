@@ -290,51 +290,77 @@ export default function Delivery() {
               {cart.length > 0 && <span className="text-xs bg-gold-100 text-gold-600 px-2 py-0.5 rounded-full">{cart.length}</span>}
             </h3>
 
-            <div className="flex-1 overflow-y-auto space-y-2">
+            <div className="flex-1 overflow-y-auto">
               {cart.length === 0 ? (
                 <p className="text-center text-slate-400 text-sm py-8">Selecciona productos</p>
-              ) : cart.map(item => (
-                <div key={item.product_id} className="bg-slate-50 rounded-lg p-2 border border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{item.name}</p>
+              ) : (
+                cart.map((item) => {
+                  const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
+                  return (
+                    <div key={item.product_id} className="border-b border-slate-200 py-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="flex-1 min-w-0 truncate font-medium text-slate-800" title={item.name}>
+                          {item.name}
+                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setNoteEditorProductId((prev) => (prev === item.product_id ? '' : item.product_id))}
+                            className={`w-7 h-7 rounded flex items-center justify-center border ${
+                              item.notes?.trim()
+                                ? 'bg-amber-100 border-amber-300 text-amber-700'
+                                : 'bg-white hover:bg-slate-200 border border-slate-200'
+                            }`}
+                            title="Agregar nota"
+                          >
+                            <MdEditNote className="text-sm" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateQty(item.product_id, -1)}
+                            className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border border-slate-200"
+                          >
+                            <MdRemove className="text-xs" />
+                          </button>
+                          <span className="w-7 text-center font-bold text-slate-900 tabular-nums">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateQty(item.product_id, 1)}
+                            className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border border-slate-200"
+                          >
+                            <MdAdd className="text-xs" />
+                          </button>
+                        </div>
+                        <span className="w-[5.5rem] shrink-0 text-right font-semibold text-gold-700 tabular-nums">
+                          {formatCurrency(lineTotal)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.product_id)}
+                          className="text-red-400 hover:text-red-600 shrink-0 p-0.5"
+                          aria-label="Quitar"
+                        >
+                          <MdDelete className="text-sm" />
+                        </button>
+                      </div>
                       {Number(item.note_required || 0) === 1 && (
-                        <p className="text-[11px] text-red-600 font-medium">Nota obligatoria</p>
+                        <p className="text-[11px] text-red-600 font-medium mt-0.5">Nota obligatoria</p>
                       )}
-                      <p className="text-xs text-slate-400">{formatCurrency(item.price)}</p>
+                      {(noteEditorProductId === item.product_id || item.notes?.trim()) && (
+                        <div className="mt-2">
+                          <textarea
+                            value={item.notes || ''}
+                            onChange={(e) => updateItemNote(item.product_id, e.target.value)}
+                            placeholder="Escribe una nota para cocina/bar..."
+                            className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                            rows={2}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setNoteEditorProductId(prev => (prev === item.product_id ? '' : item.product_id))}
-                        className={`w-7 h-7 rounded flex items-center justify-center border ${
-                          item.notes?.trim()
-                            ? 'bg-amber-100 border-amber-300 text-amber-700'
-                            : 'bg-white hover:bg-slate-200'
-                        }`}
-                        title="Agregar nota"
-                      >
-                        <MdEditNote className="text-sm" />
-                      </button>
-                      <button onClick={() => updateQty(item.product_id, -1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdRemove className="text-xs" /></button>
-                      <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
-                      <button onClick={() => updateQty(item.product_id, 1)} className="w-6 h-6 bg-white rounded flex items-center justify-center hover:bg-slate-200 border"><MdAdd className="text-xs" /></button>
-                    </div>
-                    <button onClick={() => removeFromCart(item.product_id)} className="text-red-400 hover:text-red-600"><MdDelete className="text-sm" /></button>
-                  </div>
-                  {(noteEditorProductId === item.product_id || item.notes?.trim()) && (
-                    <div className="mt-2">
-                      <textarea
-                        value={item.notes || ''}
-                        onChange={(e) => updateItemNote(item.product_id, e.target.value)}
-                        placeholder="Escribe una nota para cocina/bar..."
-                        className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
-                        rows={2}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
+                  );
+                })
+              )}
             </div>
 
             {cart.length > 0 && (

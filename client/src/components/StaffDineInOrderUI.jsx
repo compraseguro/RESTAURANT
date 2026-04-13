@@ -10,7 +10,7 @@ import {
 import { showStockInOrderingUI } from '../utils/productStockDisplay';
 
 /**
- * UI unificada “Tomar pedido” (Mesas / Caja / Reservas): buscador, categorías, grilla y carrito.
+ * UI unificada “Tomar pedido” (Mesas / Caja / Reservas / Delivery / auto-pedido): buscador, categorías, grilla y carrito.
  * Tema navy alineado con el panel lateral de Mesas.
  */
 export default function StaffDineInOrderUI({
@@ -36,7 +36,7 @@ export default function StaffDineInOrderUI({
   /** Altura fija + solo la grilla / carrito hacen scroll (p. ej. modal de Reservas) */
   embedded = false,
   /** 'cards' = recuadros; 'lines' = nombre + cantidad + precio en una línea (Mesas) */
-  cartLayout = 'cards',
+  cartLayout = 'lines',
   className = '',
 }) {
   const rootClass = embedded

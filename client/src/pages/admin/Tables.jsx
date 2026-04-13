@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useStaffOrderCart } from '../../hooks/useStaffOrderCart';
 import Modal from '../../components/Modal';
 import StaffDineInOrderUI from '../../components/StaffDineInOrderUI';
+import StaffMesaPedidoTabs from '../../components/StaffMesaPedidoTabs';
 import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
 import toast from 'react-hot-toast';
 import { MdTableRestaurant, MdReceipt, MdClose } from 'react-icons/md';
@@ -26,10 +27,6 @@ export default function Tables() {
   const [actionType, setActionType] = useState('');
   const [sourceTableId, setSourceTableId] = useState('');
   const [targetTableId, setTargetTableId] = useState('');
-  /** add = tomar pedido (por defecto); view = solo pedidos ya enviados a la mesa */
-  const [mesaPanel, setMesaPanel] = useState('add');
-  /** En vista pedidos: agrupar líneas con el mismo nombre de producto */
-  const [mesaUnirPorNombre, setMesaUnirPorNombre] = useState(false);
 
   const {
     cart,
@@ -77,8 +74,6 @@ export default function Tables() {
   const openMenuForTable = (table) => {
     setSelectedTable(table);
     setShowMenu(true);
-    setMesaPanel('add');
-    setMesaUnirPorNombre(false);
     resetCart();
     setSearch('');
     setSelectedCat('all');
@@ -86,8 +81,6 @@ export default function Tables() {
 
   const closeMenuPanel = () => {
     setShowMenu(false);
-    setMesaPanel('add');
-    setMesaUnirPorNombre(false);
     resetCart();
     setSearch('');
     setSelectedCat('all');
@@ -189,61 +182,6 @@ export default function Tables() {
     return true;
   });
   const activeOrdersForTable = selectedTable?.orders || [];
-
-  const mesaLineRows = useMemo(() => {
-    const rows = [];
-    for (const order of activeOrdersForTable) {
-      const st = order.status;
-      const on = order.order_number;
-      for (const it of order.items || []) {
-        const qty = Number(it.quantity || 0);
-        const unit = Number(it.unit_price ?? 0);
-        const sub = Number(it.subtotal != null ? it.subtotal : unit * qty);
-        rows.push({
-          key: it.id,
-          orderNumber: on,
-          name: String(it.product_name || '—').trim() || '—',
-          quantity: qty,
-          subtotal: sub,
-          status: st,
-        });
-      }
-    }
-    return rows;
-  }, [activeOrdersForTable]);
-
-  const mesaLineRowsMerged = useMemo(() => {
-    const m = new Map();
-    for (const r of mesaLineRows) {
-      const k = r.name.toLowerCase();
-      if (!m.has(k)) {
-        m.set(k, {
-          key: `agg-${k}`,
-          orderNumber: null,
-          name: r.name,
-          quantity: 0,
-          subtotal: 0,
-          status: r.status,
-        });
-      }
-      const a = m.get(k);
-      a.quantity += r.quantity;
-      a.subtotal += r.subtotal;
-    }
-    return [...m.values()];
-  }, [mesaLineRows]);
-
-  const mesaRowsToShow = mesaUnirPorNombre ? mesaLineRowsMerged : mesaLineRows;
-
-  const getOrderStatusUi = (status) => {
-    const value = String(status || '').toLowerCase();
-    if (value === 'pending') return { label: 'Pendiente', classes: 'bg-[#3B82F6]/20 text-[#F9FAFB] border border-[#3B82F6]/40' };
-    if (value === 'preparing') return { label: 'Preparando', classes: 'bg-[#2563EB]/20 text-[#F9FAFB] border border-[#2563EB]/40' };
-    if (value === 'ready') return { label: 'Listo', classes: 'bg-emerald-500/20 text-emerald-100 border border-emerald-300/40' };
-    if (value === 'delivered') return { label: 'Entregado', classes: 'bg-[#1F2937] text-[#F9FAFB] border border-[#3B82F6]/30' };
-    if (value === 'cancelled') return { label: 'Cancelado', classes: 'bg-[#1E40AF]/25 text-[#F9FAFB] border border-[#3B82F6]/40' };
-    return { label: value || 'Sin estado', classes: 'bg-[#1F2937] text-[#F9FAFB] border border-[#3B82F6]/30' };
-  };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
 
@@ -349,91 +287,13 @@ export default function Tables() {
               </button>
             </div>
 
-            <div className="p-4 flex-1 overflow-hidden min-h-0 flex flex-col gap-3">
-              <div className="flex flex-wrap gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMesaPanel('add');
-                    setMesaUnirPorNombre(false);
-                  }}
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                    mesaPanel === 'add'
-                      ? 'bg-[#BFDBFE] text-[#1E3A8A] border-[#BFDBFE]'
-                      : 'bg-[#1E3A8A]/40 text-[#DBEAFE] border-[#3B82F6]/30 hover:bg-[#1E3A8A]/60'
-                  }`}
-                >
-                  Agregar pedido
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMesaPanel('view')}
-                  className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                    mesaPanel === 'view'
-                      ? 'bg-[#BFDBFE] text-[#1E3A8A] border-[#BFDBFE]'
-                      : 'bg-[#1E3A8A]/40 text-[#DBEAFE] border-[#3B82F6]/30 hover:bg-[#1E3A8A]/60'
-                  }`}
-                >
-                  Ver pedido
-                </button>
-              </div>
-
-              {mesaPanel === 'view' ? (
-                <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                  {activeOrdersForTable.length === 0 ? (
-                    <p className="text-sm text-[#BFDBFE]">No hay pedidos en esta mesa.</p>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between gap-2 shrink-0 mb-2">
-                        <p className="text-xs uppercase tracking-wide text-[#BFDBFE] font-semibold">Pedidos de la mesa</p>
-                        <button
-                          type="button"
-                          onClick={() => setMesaUnirPorNombre((v) => !v)}
-                          className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#1E3A8A]/60 border border-[#3B82F6]/35 text-[#DBEAFE] hover:bg-[#1E3A8A]/80"
-                        >
-                          {mesaUnirPorNombre ? 'Desagrupar' : 'Unir pedidos'}
-                        </button>
-                      </div>
-                      <div className="flex text-[10px] uppercase tracking-wide text-[#93C5FD] border-b border-[#3B82F6]/35 pb-1.5 shrink-0">
-                        <span className="flex-1 min-w-0 pr-2">Producto</span>
-                        <span className="w-11 text-center shrink-0">Cant.</span>
-                        <span className="w-[5.5rem] text-right shrink-0">Total</span>
-                      </div>
-                      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pr-0.5">
-                        {mesaRowsToShow.map((row) => (
-                          <div
-                            key={row.key}
-                            className="flex items-baseline gap-1 py-1.5 border-b border-[#3B82F6]/20 text-sm text-[#F1F5F9]"
-                          >
-                            <span className="flex-1 min-w-0 flex items-baseline gap-1.5">
-                              {!mesaUnirPorNombre && row.orderNumber != null ? (
-                                <span className="text-[10px] text-[#93C5FD] shrink-0 tabular-nums">#{row.orderNumber}</span>
-                              ) : null}
-                              <span className="truncate">{row.name}</span>
-                            </span>
-                            <span className="w-11 text-center tabular-nums text-[#DBEAFE] font-medium shrink-0">{row.quantity}</span>
-                            <span className="w-[5.5rem] text-right tabular-nums font-semibold text-white shrink-0">
-                              {formatCurrency(row.subtotal)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      {!mesaUnirPorNombre ? (
-                        <div className="mt-3 pt-2 border-t border-[#3B82F6]/25 shrink-0 space-y-1">
-                          {activeOrdersForTable.map((order) => (
-                            <div key={order.id} className="flex justify-between items-center text-xs text-[#BFDBFE]">
-                              <span>Pedido #{order.order_number || '-'}</span>
-                              <span className={`px-2 py-0.5 rounded-full font-semibold ${getOrderStatusUi(order.status).classes}`}>
-                                {getOrderStatusUi(order.status).label}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-              ) : (
+            <div className="p-4 flex-1 overflow-hidden min-h-0 flex flex-col">
+              <StaffMesaPedidoTabs
+                orders={activeOrdersForTable}
+                formatCurrency={formatCurrency}
+                resetKey={selectedTable?.id}
+                className="min-h-0 flex-1"
+              >
                 <StaffDineInOrderUI
                   search={search}
                   onSearchChange={setSearch}
@@ -471,7 +331,7 @@ export default function Tables() {
                     ) : null
                   }
                 />
-              )}
+              </StaffMesaPedidoTabs>
             </div>
           </aside>
         </>

@@ -4,20 +4,11 @@ import { api, formatCurrency } from '../../utils/api';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useStaffOrderCart } from '../../hooks/useStaffOrderCart';
 import StaffDineInOrderUI from '../../components/StaffDineInOrderUI';
+import StaffMesaPedidoTabs from '../../components/StaffMesaPedidoTabs';
 import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
 import CartasHorizontalCarousel from '../../components/CartasHorizontalCarousel';
 import toast from 'react-hot-toast';
 import { MdClose, MdReceipt, MdRestaurantMenu } from 'react-icons/md';
-
-function getOrderStatusUi(status) {
-  const value = String(status || '').toLowerCase();
-  if (value === 'pending') return { label: 'Pendiente', classes: 'bg-[#3B82F6]/20 text-[#F9FAFB] border border-[#3B82F6]/40' };
-  if (value === 'preparing') return { label: 'Preparando', classes: 'bg-[#2563EB]/20 text-[#F9FAFB] border border-[#2563EB]/40' };
-  if (value === 'ready') return { label: 'Listo', classes: 'bg-emerald-500/20 text-emerald-100 border border-emerald-300/40' };
-  if (value === 'delivered') return { label: 'Entregado', classes: 'bg-[#1F2937] text-[#F9FAFB] border border-[#3B82F6]/30' };
-  if (value === 'cancelled') return { label: 'Cancelado', classes: 'bg-[#1E40AF]/25 text-[#F9FAFB] border border-[#3B82F6]/40' };
-  return { label: value || 'Sin estado', classes: 'bg-[#1F2937] text-[#F9FAFB] border border-[#3B82F6]/30' };
-}
 
 export default function SelfOrder() {
   const [searchParams] = useSearchParams();
@@ -171,33 +162,6 @@ export default function SelfOrder() {
     );
   }
 
-  const sidebarPreCart =
-    orders.length > 0 ? (
-      <div className="space-y-2 mb-3">
-        <p className="text-xs uppercase tracking-wide text-[#BFDBFE] font-semibold">Pedidos de tu mesa</p>
-        {orders.map((order) => (
-          <div key={order.id} className="bg-[#1D4ED8]/20 border border-[#3B82F6]/20 rounded-lg p-2">
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <p className="text-xs font-semibold text-white">#{order.order_number || '-'}</p>
-              <p className="text-xs font-semibold text-[#DBEAFE]">{formatCurrency(order.total || 0)}</p>
-            </div>
-            <div className="space-y-1">
-              {(order.items || []).map((it) => (
-                <p key={it.id} className="text-xs text-[#DBEAFE] truncate">
-                  {it.quantity}x {it.product_name}
-                </p>
-              ))}
-            </div>
-            <div className="flex justify-end mt-2">
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${getOrderStatusUi(order.status).classes}`}>
-                {getOrderStatusUi(order.status).label}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    ) : null;
-
   return (
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col min-h-[100dvh]">
       <header className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-[#3B82F6]/25 bg-[#1e293b]/95 z-20">
@@ -237,43 +201,55 @@ export default function SelfOrder() {
               </button>
             </div>
             <div className="p-4 flex-1 overflow-hidden min-h-0 flex flex-col">
-              <StaffDineInOrderUI
-                search={search}
-                onSearchChange={setSearch}
-                selectedCat={selectedCat}
-                onSelectedCatChange={setSelectedCat}
-                categories={categories}
-                filteredProducts={filteredProducts}
-                onProductPick={addToCart}
-                cart={cart}
-                noteEditorLineKey={noteEditorLineKey}
-                setNoteEditorLineKey={setNoteEditorLineKey}
-                updateQty={updateQty}
-                removeFromCart={removeFromCart}
-                updateItemNote={updateItemNote}
-                cartTotal={cartTotal}
+              <StaffMesaPedidoTabs
+                orders={orders}
                 formatCurrency={formatCurrency}
-                minHeightClass="min-h-0 flex-1"
-                className="flex-1 min-h-0"
-                sidebarPreCart={sidebarPreCart}
-                footer={
-                  cart.length > 0 ? (
-                    <>
-                      <div className="flex justify-between font-bold text-lg text-white">
-                        <span>Total</span>
-                        <span className="text-[#DBEAFE]">{formatCurrency(cartTotal)}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={submitOrder}
-                        className="w-full py-3 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-base hover:from-[#1D4ED8] hover:to-[#1E40AF] transition-all shadow-lg shadow-[#1D4ED8]/30 flex items-center justify-center gap-2"
-                      >
-                        <MdReceipt /> Enviar pedido
-                      </button>
-                    </>
-                  ) : null
-                }
-              />
+                resetKey={table.id}
+                className="min-h-0 flex-1"
+                labels={{
+                  add: 'Agregar pedido',
+                  view: 'Ver pedidos',
+                  listTitle: 'Pedidos de tu mesa',
+                  empty: 'Aún no hay pedidos enviados en esta mesa.',
+                }}
+              >
+                <StaffDineInOrderUI
+                  search={search}
+                  onSearchChange={setSearch}
+                  selectedCat={selectedCat}
+                  onSelectedCatChange={setSelectedCat}
+                  categories={categories}
+                  filteredProducts={filteredProducts}
+                  onProductPick={addToCart}
+                  cart={cart}
+                  noteEditorLineKey={noteEditorLineKey}
+                  setNoteEditorLineKey={setNoteEditorLineKey}
+                  updateQty={updateQty}
+                  removeFromCart={removeFromCart}
+                  updateItemNote={updateItemNote}
+                  cartTotal={cartTotal}
+                  formatCurrency={formatCurrency}
+                  minHeightClass="min-h-0 flex-1"
+                  className="flex-1 min-h-0"
+                  footer={
+                    cart.length > 0 ? (
+                      <>
+                        <div className="flex justify-between font-bold text-lg text-white">
+                          <span>Total</span>
+                          <span className="text-[#DBEAFE]">{formatCurrency(cartTotal)}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={submitOrder}
+                          className="w-full py-3 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-base hover:from-[#1D4ED8] hover:to-[#1E40AF] transition-all shadow-lg shadow-[#1D4ED8]/30 flex items-center justify-center gap-2"
+                        >
+                          <MdReceipt /> Enviar pedido
+                        </button>
+                      </>
+                    ) : null
+                  }
+                />
+              </StaffMesaPedidoTabs>
             </div>
           </aside>
         </>
