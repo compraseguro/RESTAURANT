@@ -33,18 +33,26 @@ export function mergeLinesByProductName(rows) {
         name: r.name,
         quantity: 0,
         subtotal: 0,
-        status: r.status,
+        statuses: new Set(),
       });
     }
     const a = m.get(k);
     a.quantity += r.quantity;
     a.subtotal += r.subtotal;
+    a.statuses.add(String(r.status || '').toLowerCase());
   }
-  return [...m.values()];
+  return [...m.values()].map((row) => {
+    const { statuses, ...rest } = row;
+    const list = [...statuses].filter(Boolean);
+    let status = list[0] || '';
+    if (list.length > 1) status = '__mixed__';
+    return { ...rest, status };
+  });
 }
 
 export function getStaffOrderStatusUi(status) {
   const value = String(status || '').toLowerCase();
+  if (value === '__mixed__') return { label: 'Varios', classes: 'bg-slate-600/35 text-[#F9FAFB] border border-slate-400/35' };
   if (value === 'pending') return { label: 'Pendiente', classes: 'bg-[#3B82F6]/20 text-[#F9FAFB] border border-[#3B82F6]/40' };
   if (value === 'preparing') return { label: 'Preparando', classes: 'bg-[#2563EB]/20 text-[#F9FAFB] border border-[#2563EB]/40' };
   if (value === 'ready') return { label: 'Listo', classes: 'bg-emerald-500/20 text-emerald-100 border border-emerald-300/40' };

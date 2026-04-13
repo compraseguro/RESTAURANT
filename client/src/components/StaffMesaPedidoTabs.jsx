@@ -14,40 +14,66 @@ const defaultLabels = {
   empty: 'No hay pedidos en esta mesa.',
 };
 
+const MERGE_STORAGE_PREFIX = 'mesaPedidoMerge:';
+
+function readMergeSaved(resetKey) {
+  if (resetKey == null || resetKey === '') return false;
+  try {
+    return sessionStorage.getItem(`${MERGE_STORAGE_PREFIX}${resetKey}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeMergeSaved(resetKey, value) {
+  if (resetKey == null || resetKey === '') return;
+  try {
+    sessionStorage.setItem(`${MERGE_STORAGE_PREFIX}${resetKey}`, value ? '1' : '0');
+  } catch {
+    /* private mode / quota */
+  }
+}
+
 /**
  * Pestañas Agregar / Ver + lista en líneas + unir por nombre (Mesas, Caja, auto-pedido).
+ * «Unir pedidos» se recuerda por mesa (sessionStorage) hasta pulsar «Desagrupar», aunque se cierre el panel.
  */
 export default function StaffMesaPedidoTabs({
   orders = [],
   formatCurrency,
   children,
   labels: labelsProp,
-  /** Al cambiar mesa / contexto, vuelve a «Agregar» y desagrupa */
+  /** Identificador de mesa/contexto: al cambiar se carga la preferencia de unión guardada */
   resetKey,
   className = '',
 }) {
   const labels = { ...defaultLabels, ...labelsProp };
   const [panel, setPanel] = useState('add');
-  const [unirPorNombre, setUnirPorNombre] = useState(false);
+  const [unirPorNombre, setUnirPorNombre] = useState(() => readMergeSaved(resetKey));
 
   useEffect(() => {
     setPanel('add');
-    setUnirPorNombre(false);
+    setUnirPorNombre(readMergeSaved(resetKey));
   }, [resetKey]);
 
   const lineRows = useMemo(() => flattenOrdersToLines(orders), [orders]);
   const mergedRows = useMemo(() => mergeLinesByProductName(lineRows), [lineRows]);
   const rowsToShow = unirPorNombre ? mergedRows : lineRows;
 
+  const toggleUnir = () => {
+    setUnirPorNombre((prev) => {
+      const next = !prev;
+      writeMergeSaved(resetKey, next);
+      return next;
+    });
+  };
+
   return (
     <div className={`flex flex-col gap-3 min-h-0 flex-1 ${className}`}>
       <div className="flex flex-wrap gap-2 shrink-0">
         <button
           type="button"
-          onClick={() => {
-            setPanel('add');
-            setUnirPorNombre(false);
-          }}
+          onClick={() => setPanel('add')}
           className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
             panel === 'add'
               ? 'bg-[#BFDBFE] text-[#1E3A8A] border-[#BFDBFE]'
@@ -79,50 +105,48 @@ export default function StaffMesaPedidoTabs({
                 <p className="text-xs uppercase tracking-wide text-[#BFDBFE] font-semibold">{labels.listTitle}</p>
                 <button
                   type="button"
-                  onClick={() => setUnirPorNombre((v) => !v)}
+                  onClick={toggleUnir}
                   className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#1E3A8A]/60 border border-[#3B82F6]/35 text-[#DBEAFE] hover:bg-[#1E3A8A]/80"
                 >
                   {unirPorNombre ? labels.unmerge : labels.merge}
                 </button>
               </div>
-              <div className="flex text-[10px] uppercase tracking-wide text-[#93C5FD] border-b border-[#3B82F6]/35 pb-1.5 shrink-0">
-                <span className="flex-1 min-w-0 pr-2">Producto</span>
-                <span className="w-11 text-center shrink-0">Cant.</span>
-                <span className="w-[5.5rem] text-right shrink-0">Total</span>
+              <div className="flex text-[10px] uppercase tracking-wide text-[#93C5FD] border-b border-[#3B82F6]/35 pb-1.5 shrink-0 gap-1">
+                <span className="flex-1 min-w-0 pr-1">Producto</span>
+                <span className="w-[5.5rem] shrink-0 text-center">Estado</span>
+                <span className="w-10 text-center shrink-0">Cant.</span>
+                <span className="w-[5.25rem] text-right shrink-0">Total</span>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pr-0.5">
-                {rowsToShow.map((row) => (
-                  <div
-                    key={row.key}
-                    className="flex items-baseline gap-1 py-1.5 border-b border-[#3B82F6]/20 text-sm text-[#F1F5F9]"
-                  >
-                    <span className="flex-1 min-w-0 flex items-baseline gap-1.5">
-                      {!unirPorNombre && row.orderNumber != null ? (
-                        <span className="text-[10px] text-[#93C5FD] shrink-0 tabular-nums">#{row.orderNumber}</span>
-                      ) : null}
-                      <span className="truncate">{row.name}</span>
-                    </span>
-                    <span className="w-11 text-center tabular-nums text-[#DBEAFE] font-medium shrink-0">{row.quantity}</span>
-                    <span className="w-[5.5rem] text-right tabular-nums font-semibold text-white shrink-0">
-                      {formatCurrency(row.subtotal)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {!unirPorNombre ? (
-                <div className="mt-3 pt-2 border-t border-[#3B82F6]/25 shrink-0 space-y-1">
-                  {(orders || []).map((order) => (
-                    <div key={order.id} className="flex justify-between items-center text-xs text-[#BFDBFE]">
-                      <span>Pedido #{order.order_number || '-'}</span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full font-semibold ${getStaffOrderStatusUi(order.status).classes}`}
-                      >
-                        {getStaffOrderStatusUi(order.status).label}
+                {rowsToShow.map((row) => {
+                  const st = getStaffOrderStatusUi(row.status);
+                  return (
+                    <div
+                      key={row.key}
+                      className="flex items-center gap-1 py-1.5 border-b border-[#3B82F6]/20 text-sm text-[#F1F5F9]"
+                    >
+                      <span className="flex-1 min-w-0 flex items-center gap-1.5">
+                        {!unirPorNombre && row.orderNumber != null ? (
+                          <span className="text-[10px] text-[#93C5FD] shrink-0 tabular-nums">#{row.orderNumber}</span>
+                        ) : null}
+                        <span className="truncate">{row.name}</span>
+                      </span>
+                      <span className="w-[5.5rem] shrink-0 flex justify-center px-0.5">
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold max-w-full truncate ${st.classes}`}
+                          title={st.label}
+                        >
+                          {st.label}
+                        </span>
+                      </span>
+                      <span className="w-10 text-center tabular-nums text-[#DBEAFE] font-medium shrink-0">{row.quantity}</span>
+                      <span className="w-[5.25rem] text-right tabular-nums font-semibold text-white shrink-0">
+                        {formatCurrency(row.subtotal)}
                       </span>
                     </div>
-                  ))}
-                </div>
-              ) : null}
+                  );
+                })}
+              </div>
             </>
           )}
         </div>
