@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions } from '../../utils/api';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
+import { groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -883,19 +884,14 @@ export default function POSPanel() {
       ? Math.min(selectionBaseTotal, selectionBaseTotal * (discountValue / 100))
       : Math.min(selectionBaseTotal, discountValue));
   const payableTotal = Math.max(0, selectionBaseTotal - discountPreview);
-  const payableOrdersForBill = !selectedTable
-    ? []
-    : splitMode
-      ? (selectedTable.orders || []).filter((o) => selectedOrderIds.includes(o.id))
-      : (selectedTable.orders || []);
-  const billLineItems = payableOrdersForBill.flatMap((o) =>
-    (o.items || []).map((item) => ({
-      key: `${o.id}-${item.id}`,
-      qty: item.quantity,
-      name: item.product_name,
-      subtotal: item.subtotal,
-    }))
-  );
+  const billLineItemsGrouped = useMemo(() => {
+    const ordersForBill = !selectedTable
+      ? []
+      : splitMode
+        ? (selectedTable.orders || []).filter((o) => selectedOrderIds.includes(o.id))
+        : (selectedTable.orders || []);
+    return groupItemsByProductNameForBill(ordersForBill.flatMap((o) => o.items || []));
+  }, [selectedTable, splitMode, selectedOrderIds]);
   const occupiedHours = (() => {
     const timestamps = (selectedTable?.orders || [])
       .map(o => o.created_at)
@@ -1601,14 +1597,17 @@ export default function POSPanel() {
                       {!billingForm.enabled ? (
                         <>
                           <h3 className="text-base font-bold text-[#F9FAFB] shrink-0">Pedidos</h3>
-                          <div className="grid grid-cols-[1fr_auto] gap-3 text-xs font-semibold text-[#9CA3AF] border-b border-[#3B82F6]/25 pb-2 shrink-0">
+                          <div className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-[10px] sm:text-xs font-semibold text-[#9CA3AF] border-b border-[#3B82F6]/25 pb-2 shrink-0">
                             <span>Producto</span>
-                            <span className="text-right tabular-nums">Cant.</span>
+                            <span className="text-center tabular-nums">Cant.</span>
+                            <span className="text-right tabular-nums">P. unit.</span>
+                            <span className="text-right tabular-nums">Total</span>
                           </div>
                           <div className="overflow-y-auto flex-1 space-y-2 max-h-[min(28vh,220px)] pr-1">
                             {splitMode ? (
                               (selectedTable.orders || []).map((order) => {
                                 const sel = selectedOrderIds.includes(order.id);
+                                const groupedOrderLines = groupItemsByProductNameForBill(order.items || []);
                                 return (
                                   <div
                                     key={order.id}
@@ -1625,27 +1624,34 @@ export default function POSPanel() {
                                       />
                                       <span className="text-xs font-bold text-[#BFDBFE]">Pedido #{order.order_number}</span>
                                     </label>
-                                    <div className="space-y-0.5 pl-6">
-                                      {(order.items || []).map((item) => (
-                                        <div key={item.id} className="flex justify-between gap-2 text-sm text-[#D1D5DB]">
-                                          <span className="min-w-0 truncate">{item.product_name}</span>
-                                          <span className="tabular-nums shrink-0 text-[#F9FAFB]">{item.quantity}</span>
+                                    <div className="space-y-0.5 pl-2 sm:pl-4">
+                                      {groupedOrderLines.map((row) => (
+                                        <div
+                                          key={row.key}
+                                          className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-xs sm:text-sm text-[#D1D5DB] py-0.5 border-b border-[#3B82F6]/10 last:border-0"
+                                        >
+                                          <span className="min-w-0 truncate">{row.name}</span>
+                                          <span className="text-center tabular-nums text-[#F9FAFB]">{row.qty}</span>
+                                          <span className="text-right tabular-nums text-[#D1D5DB]">{formatCurrency(row.unitPrice)}</span>
+                                          <span className="text-right tabular-nums font-medium text-[#F9FAFB]">{formatCurrency(row.subtotal)}</span>
                                         </div>
                                       ))}
                                     </div>
                                   </div>
                                 );
                               })
-                            ) : billLineItems.length === 0 ? (
+                            ) : billLineItemsGrouped.length === 0 ? (
                               <p className="text-sm text-[#9CA3AF] text-center py-6">Sin ítems</p>
                             ) : (
-                              billLineItems.map((row) => (
+                              billLineItemsGrouped.map((row) => (
                                 <div
                                   key={row.key}
-                                  className="grid grid-cols-[1fr_auto] gap-3 text-sm text-[#D1D5DB] py-1 border-b border-[#3B82F6]/10 last:border-0"
+                                  className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-sm text-[#D1D5DB] py-1.5 border-b border-[#3B82F6]/10 last:border-0"
                                 >
-                                  <span className="min-w-0">{row.name}</span>
-                                  <span className="text-right tabular-nums text-[#F9FAFB]">{row.qty}</span>
+                                  <span className="min-w-0 truncate">{row.name}</span>
+                                  <span className="text-center tabular-nums text-[#F9FAFB]">{row.qty}</span>
+                                  <span className="text-right tabular-nums text-[#D1D5DB]">{formatCurrency(row.unitPrice)}</span>
+                                  <span className="text-right tabular-nums font-medium text-[#F9FAFB]">{formatCurrency(row.subtotal)}</span>
                                 </div>
                               ))
                             )}

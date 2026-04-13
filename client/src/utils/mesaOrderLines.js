@@ -50,6 +50,31 @@ export function mergeLinesByProductName(rows) {
   });
 }
 
+/** Agrupa ítems de pedido por nombre (cobrar mesa, precuenta): cantidad, subtotal y precio unitario medio. */
+export function groupItemsByProductNameForBill(items) {
+  const m = new Map();
+  for (const it of items || []) {
+    const name = String(it.product_name || '—').trim() || '—';
+    const k = name.toLowerCase();
+    const qty = Number(it.quantity || 0);
+    const unit = Number(it.unit_price ?? 0);
+    const sub = Number(it.subtotal != null ? it.subtotal : unit * qty);
+    if (!m.has(k)) {
+      m.set(k, { key: `bill-${k}`, name, qty: 0, subtotal: 0 });
+    }
+    const a = m.get(k);
+    a.qty += qty;
+    a.subtotal += sub;
+  }
+  return [...m.values()].map((r) => ({
+    key: r.key,
+    name: r.name,
+    qty: r.qty,
+    subtotal: r.subtotal,
+    unitPrice: r.qty > 0 ? r.subtotal / r.qty : 0,
+  }));
+}
+
 export function getStaffOrderStatusUi(status) {
   const value = String(status || '').toLowerCase();
   if (value === '__mixed__') return { label: 'Varios', classes: 'bg-slate-600/35 text-[#F9FAFB] border border-slate-400/35' };

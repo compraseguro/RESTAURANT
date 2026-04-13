@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Comandos Git para el usuario
 
-Cuando el usuario pida subir cambios, códigos git, `git push`, actualizar el repo, o similar:
+Cuando el usuario pida subir cambios, códigos git, `git push`, actualizar el repo, o similar; **y siempre al final de una respuesta donde el asistente haya modificado uno o más archivos del repo** (incluido este archivo de reglas):
 
 1. **No crear archivos** en el proyecto solo para listar comandos (el usuario lo pidió explícitamente antes).
 
