@@ -1,5 +1,9 @@
 /** Texto plano para impresoras térmicas por red (ESC/POS vía TCP). */
 
+function isCuentaClienteSelfOrder(order) {
+  return String(order?.table_number || '') === 'Cliente' && String(order?.customer_id || '').trim() !== '';
+}
+
 export function buildKitchenTicketPlainText({
   restaurant = {},
   title = '',
@@ -19,8 +23,13 @@ export function buildKitchenTicketPlainText({
   (orders || []).forEach((order) => {
     const orderTypeLabel =
       order.type === 'delivery' ? 'Delivery' : order.type === 'pickup' ? 'Recojo' : 'Mesa/Salon';
-    const tbl = order.table_number ? ` Mesa ${order.table_number}` : '';
-    lines.push(`#${order.order_number} ${orderTypeLabel}${tbl}`);
+    if (isCuentaClienteSelfOrder(order)) {
+      lines.push(clip(order.customer_name || 'Cliente', 42));
+      lines.push(`#${order.order_number} ${orderTypeLabel}`);
+    } else {
+      const tbl = order.table_number ? ` Mesa ${order.table_number}` : '';
+      lines.push(`#${order.order_number} ${orderTypeLabel}${tbl}`);
+    }
     (order.items || []).forEach((item) => {
       let line = ` ${item.quantity}x ${item.product_name || ''}`;
       if (item.variant_name) line += ` (${item.variant_name})`;

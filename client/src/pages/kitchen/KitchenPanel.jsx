@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
 import { api, ORDER_TYPES, formatTime } from '../../utils/api';
+
+/** Pedido auto-pedido con cuenta de cliente (sin mesa física). */
+function isCuentaClienteSelfOrder(order) {
+  return String(order?.table_number || '') === 'Cliente' && String(order?.customer_id || '').trim() !== '';
+}
 import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
@@ -88,15 +93,27 @@ export default function KitchenPanel({ station = 'cocina' }) {
         toast.error(err.message || 'No se pudo imprimir por red; se abrirá el navegador');
       }
     }
-    const htmlRows = list.map(order => {
+    const htmlRows = list.map((order) => {
       const orderTypeLabel = order.type === 'delivery' ? 'Delivery' : order.type === 'pickup' ? 'Recojo' : 'Mesa/Salón';
-      const items = (order.items || []).map(item => (
-        `<li>${item.quantity}x ${item.product_name}${item.variant_name ? ` (${item.variant_name})` : ''}${item.notes ? ` - ${item.notes}` : ''}</li>`
-      )).join('');
+      const items = (order.items || [])
+        .map(
+          (item) =>
+            `<li>${item.quantity}x ${item.product_name}${item.variant_name ? ` (${item.variant_name})` : ''}${item.notes ? ` - ${item.notes}` : ''}</li>`
+        )
+        .join('');
+      const cliente = isCuentaClienteSelfOrder(order);
+      const esc = (s) => String(s || '').replace(/</g, '');
+      const timeSmall = `<small>${formatTime(order.created_at)}</small>`;
+      let header;
+      if (cliente) {
+        header = `<strong>${esc(order.customer_name)}</strong><br/><strong>#${order.order_number}</strong> - ${orderTypeLabel}<br/>${timeSmall}`;
+      } else {
+        const mesa = order.table_number ? ` - Mesa ${esc(order.table_number)}` : '';
+        header = `<strong>#${order.order_number}</strong> - ${orderTypeLabel}${mesa}<br/>${timeSmall}`;
+      }
       return `
         <div class="ticket">
-          <strong>#${order.order_number}</strong> - ${orderTypeLabel}${order.table_number ? ` - Mesa ${order.table_number}` : ''}<br/>
-          <small>${formatTime(order.created_at)}</small>
+          ${header}
           <ul style="margin:8px 0 0 16px;padding:0;">${items}</ul>
         </div>
       `;
@@ -250,21 +267,41 @@ export default function KitchenPanel({ station = 'cocina' }) {
           const TypeIcon = typeIcons[order.type] || MdRestaurant;
           const isUrgent = (Date.now() - new Date(order.created_at + 'Z').getTime()) > 15 * 60000;
 
+          const cuentaCliente = isCuentaClienteSelfOrder(order);
           return (
             <div key={order.id} className={`rounded-xl overflow-hidden backdrop-blur-xl ${order.status === 'pending' ? 'bg-[#1F2937] border-2 border-[#3B82F6]/60' : 'bg-[#1F2937]/85 border border-[#3B82F6]/25'} ${isUrgent ? 'ring-2 ring-[#3B82F6]/45' : ''}`}>
-              <div className={`px-4 py-3 flex items-center justify-between ${order.status === 'pending' ? 'bg-[#3B82F6]/20' : 'bg-[#111827]/45'}`}>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg">#{order.order_number}</span>
-                  <TypeIcon className="text-xl" />
-                  {order.table_number && <span className="text-sm bg-[#111827]/60 border border-[#3B82F6]/25 px-2 py-0.5 rounded">Mesa {order.table_number}</span>}
-                </div>
-                <div className="flex items-center gap-1 text-sm">
-                  <MdAccessTime className={isUrgent ? 'text-[#F9FAFB]' : 'text-[#9CA3AF]'} />
-                  <span className={isUrgent ? 'text-[#F9FAFB] font-bold' : 'text-[#9CA3AF]'}>{getTimeDiff(order.created_at)}</span>
-                </div>
+              <div className={`px-4 py-3 ${order.status === 'pending' ? 'bg-[#3B82F6]/20' : 'bg-[#111827]/45'}`}>
+                {cuentaCliente ? (
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-lg font-bold leading-tight text-white" title={order.customer_name}>
+                        {order.customer_name || 'Cliente'}
+                      </p>
+                      <p className="mt-1 text-xs text-[#9CA3AF]">Pedido #{order.order_number}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1 text-sm">
+                      <MdAccessTime className={isUrgent ? 'text-[#F9FAFB]' : 'text-[#9CA3AF]'} />
+                      <span className={isUrgent ? 'font-bold text-[#F9FAFB]' : 'text-[#9CA3AF]'}>{getTimeDiff(order.created_at)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold">#{order.order_number}</span>
+                      <TypeIcon className="text-xl" />
+                      {order.table_number ? (
+                        <span className="rounded border border-[#3B82F6]/25 bg-[#111827]/60 px-2 py-0.5 text-sm">Mesa {order.table_number}</span>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-1 text-sm">
+                      <MdAccessTime className={isUrgent ? 'text-[#F9FAFB]' : 'text-[#9CA3AF]'} />
+                      <span className={isUrgent ? 'font-bold text-[#F9FAFB]' : 'text-[#9CA3AF]'}>{getTimeDiff(order.created_at)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="px-4 py-3 space-y-2">
+              <div className="space-y-2 px-4 py-3">
                 {order.items?.map(item => (
                   <div key={item.id} className="flex items-start gap-2">
                     <span className="bg-[#111827]/60 border border-[#3B82F6]/25 text-[#F9FAFB] w-6 h-6 rounded flex items-center justify-center text-sm font-bold flex-shrink-0">{item.quantity}</span>

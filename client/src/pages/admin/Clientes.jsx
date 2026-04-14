@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, formatCurrency } from '../../utils/api';
-import { MdAdd, MdEdit, MdDelete, MdSearch, MdPhone, MdEmail, MdReceipt, MdAttachMoney, MdContentCopy, MdQrCode2 } from 'react-icons/md';
+import { api, formatCurrency, formatDate } from '../../utils/api';
+import { MdAdd, MdEdit, MdDelete, MdSearch, MdPhone, MdEmail, MdReceipt, MdAttachMoney, MdContentCopy } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 
 function selfOrderClienteUrl(customerId) {
   const base = typeof window !== 'undefined' ? window.location.origin : '';
   return `${base}/auto-pedido-cliente?cliente=${encodeURIComponent(customerId)}`;
+}
+
+function orderTotalPieces(o) {
+  return (o.items || []).reduce((sum, it) => sum + Number(it.quantity || 0), 0);
 }
 
 export default function Clientes() {
@@ -146,19 +150,6 @@ export default function Clientes() {
         <div className="card"><p className="text-xs text-slate-500">Ingreso por Clientes</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(totalIncome)}</p></div>
       </div>
 
-      <div className="card mb-5 border border-sky-800/40 bg-slate-900/30 p-4">
-        <div className="flex items-start gap-2">
-          <MdQrCode2 className="mt-0.5 shrink-0 text-xl text-sky-400" />
-          <div>
-            <p className="font-semibold text-slate-100">Auto-pedido por cliente (QR / enlace)</p>
-            <p className="mt-1 text-sm text-slate-400">
-              Cada cliente tiene un enlace único y una contraseña (la del registro; por defecto <span className="font-mono text-slate-300">cliente123</span>).
-              Tras identificarse, puede pedir como en el QR de mesa: los pedidos van a cocina/bar y quedan en su cuenta para cobrar desde esta lista.
-            </p>
-          </div>
-        </div>
-      </div>
-
       <div className="card p-5">
         <div className="relative mb-4">
           <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -195,30 +186,24 @@ export default function Clientes() {
                     <p className="text-xs text-slate-700">No tiene pedidos pendientes.</p>
                   ) : (
                     <div className="space-y-2">
-                      {(pendingOrdersByCustomer[c.id] || []).map(o => (
-                        <div key={o.id} className="rounded-lg border border-slate-200 p-2">
-                          <div className="text-[11px] font-semibold text-slate-700 mb-1">Pedido #{o.order_number || '-'}</div>
-                          <div className="space-y-1">
-                            {(o.items || []).length === 0 ? (
-                              <p className="text-xs text-slate-500">Sin detalle de productos</p>
-                            ) : (
-                              (o.items || []).map((item) => (
-                                <div key={item.id || `${o.id}-${item.product_id}`} className="flex items-center justify-between text-xs">
-                                  <span className="text-slate-800">{item.quantity}x {item.product_name}</span>
-                                  <span className="text-slate-700">{formatCurrency(item.subtotal || 0)}</span>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                          <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-1">
-                            <span className="text-xs font-medium text-slate-700">Total pedido</span>
-                            <strong className="text-emerald-700">{formatCurrency(o.total || 0)}</strong>
-                          </div>
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-2 gap-y-0.5 border-b border-slate-200 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                        <span>Fecha</span>
+                        <span>Pedido</span>
+                        <span className="text-right">Cant.</span>
+                      </div>
+                      {(pendingOrdersByCustomer[c.id] || []).map((o) => (
+                        <div
+                          key={o.id}
+                          className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-0.5 border-b border-slate-100 py-1.5 text-xs last:border-0"
+                        >
+                          <span className="text-slate-700">{formatDate(o.created_at)}</span>
+                          <span className="shrink-0 font-mono font-semibold text-slate-900">#{o.order_number || '-'}</span>
+                          <span className="text-right tabular-nums text-slate-800">{orderTotalPieces(o)}</span>
                         </div>
                       ))}
-                      <div className="mt-2 rounded-lg bg-slate-900 px-3 py-2 text-white flex items-center justify-between">
-                        <span className="text-sm font-semibold">Total pendiente</span>
-                        <span className="text-base font-bold">{formatCurrency(getCustomerPendingTotal(c.id))}</span>
+                      <div className="mt-3 rounded-lg bg-slate-900 px-3 py-2 text-white flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-sm font-semibold">Total de la cuenta</span>
+                        <span className="text-base font-bold tabular-nums">{formatCurrency(getCustomerPendingTotal(c.id))}</span>
                       </div>
                       <button
                         onClick={() => chargeCustomerPendingOrders(c)}
@@ -230,40 +215,19 @@ export default function Clientes() {
                       </button>
                     </div>
                   )}
-                  <div className="mt-4 rounded-lg border border-sky-700/40 bg-slate-50 p-3">
-                    <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
-                      <MdQrCode2 className="text-base" /> Enlace y QR auto-pedido
-                    </p>
-                    <p className="mb-2 text-xs text-slate-600">
-                      El cliente abre el enlace, introduce su contraseña y luego «Hacer pedido». Los pedidos se asocian a{' '}
-                      <strong>{c.name}</strong> para esta pantalla y la caja.
-                    </p>
-                    <div className="mb-2 flex flex-wrap gap-2">
-                      <input
-                        readOnly
-                        value={selfOrderClienteUrl(c.id)}
-                        className="input-field min-w-0 flex-1 font-mono text-xs"
-                        onFocus={(e) => e.target.select()}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => copyClienteSelfOrderLink(c.id)}
-                        className="btn-secondary flex shrink-0 items-center gap-1 px-3 text-sm"
-                      >
-                        <MdContentCopy /> Copiar
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap items-start gap-4">
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(selfOrderClienteUrl(c.id))}`}
-                        alt=""
-                        className="h-44 w-44 rounded-lg border border-slate-200 bg-white p-1"
-                      />
-                      <p className="max-w-sm text-xs text-slate-600">
-                        Imprime o comparte el QR. Ruta pública:{' '}
-                        <span className="break-all font-mono text-slate-800">/auto-pedido-cliente?cliente=…</span>
-                      </p>
-                    </div>
+                  <div className="mt-3 flex items-center gap-3 border-t border-slate-200 pt-3">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=96x96&data=${encodeURIComponent(selfOrderClienteUrl(c.id))}`}
+                      alt="QR auto-pedido"
+                      className="h-24 w-24 shrink-0 rounded border border-slate-200 bg-white p-0.5"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => copyClienteSelfOrderLink(c.id)}
+                      className="btn-secondary inline-flex shrink-0 items-center gap-1.5 px-3 py-2 text-sm"
+                    >
+                      <MdContentCopy /> Copiar
+                    </button>
                   </div>
                 </div>
               )}
