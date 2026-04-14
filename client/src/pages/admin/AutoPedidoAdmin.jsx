@@ -418,37 +418,40 @@ export default function AutoPedidoAdmin() {
               </div>
             </div>
           </div>
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 pt-1 xl:grid-cols-2 xl:gap-3">
-            <div className="flex min-h-0 flex-1 flex-col">
-              <label className="mb-0.5 block shrink-0 text-xs font-medium text-[#9CA3AF]">Contenido</label>
-              <p className="mb-0.5 shrink-0 text-[10px] text-[#64748B] sm:text-[11px]">
-                <span className="font-mono text-[#BFDBFE]">#</span> → color «Líneas #».
-              </p>
-              <div className="flex min-h-0 flex-1 flex-col">
-                <MenuCartaSyntaxEditor
-                  value={genText}
-                  onChange={setGenText}
-                  bgColor={normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg)}
-                  textColor={normalizeHex(genColors.text, DEFAULT_MENU_CARTA_COLORS.text)}
-                  sectionColor={normalizeHex(genColors.section, DEFAULT_MENU_CARTA_COLORS.section)}
-                />
-              </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-2 pt-1">
+            <div className="mb-0.5 hidden shrink-0 items-end gap-3 xl:grid xl:grid-cols-2">
+              <label className="block text-xs font-medium text-[#9CA3AF]">Contenido</label>
+              <label className="block text-xs font-medium text-[#9CA3AF]">Vista previa</label>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col">
-              <label className="mb-0.5 block shrink-0 text-xs font-medium text-[#9CA3AF]">Vista previa</label>
-              <div
-                className="rounded-xl border border-[#3B82F6]/30 flex-1 min-h-0 flex items-center justify-center p-3 overflow-auto"
-                style={{ backgroundColor: normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg) }}
-              >
-                {genPreviewUrl ? (
-                  <img
-                    src={genPreviewUrl}
-                    alt="Vista previa de la carta generada"
-                    className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg"
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-2 xl:gap-3">
+              <div className="flex min-h-0 flex-1 flex-col">
+                <label className="mb-0.5 block shrink-0 text-xs font-medium text-[#9CA3AF] xl:sr-only">Contenido</label>
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <MenuCartaSyntaxEditor
+                    value={genText}
+                    onChange={setGenText}
+                    bgColor={normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg)}
+                    textColor={normalizeHex(genColors.text, DEFAULT_MENU_CARTA_COLORS.text)}
+                    sectionColor={normalizeHex(genColors.section, DEFAULT_MENU_CARTA_COLORS.section)}
                   />
-                ) : (
-                  <p className="text-[#64748B] text-sm px-4 text-center">Escribe platos y precios para ver la vista previa</p>
-                )}
+                </div>
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col">
+                <label className="mb-0.5 block shrink-0 text-xs font-medium text-[#9CA3AF] xl:sr-only">Vista previa</label>
+                <div
+                  className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-xl border border-[#3B82F6]/30 p-3"
+                  style={{ backgroundColor: normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg) }}
+                >
+                  {genPreviewUrl ? (
+                    <img
+                      src={genPreviewUrl}
+                      alt="Vista previa de la carta generada"
+                      className="max-h-full max-w-full h-auto w-auto rounded-lg object-contain"
+                    />
+                  ) : (
+                    <p className="px-4 text-center text-sm text-[#64748B]">Escribe platos y precios para ver la vista previa</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
