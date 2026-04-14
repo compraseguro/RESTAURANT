@@ -185,7 +185,7 @@ export default function SelfOrder() {
       {showOrderPanel && table && (
         <>
           <div className="fixed inset-0 bg-black/40 z-40" onClick={closeOrderPanel} />
-          <aside className="fixed top-0 right-0 h-screen w-full md:w-1/2 bg-[#1F2937] z-50 shadow-2xl border-l border-[#3B82F6]/40 flex flex-col text-white">
+          <aside className="fixed top-0 right-0 flex h-[100dvh] max-h-[100dvh] w-full flex-col border-l border-[#3B82F6]/40 bg-[#1F2937] text-white shadow-2xl md:w-1/2 z-50">
             <div className="px-5 py-4 border-b border-[#3B82F6]/30 bg-[#1D4ED8]/30 backdrop-blur-xl flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-white">Tu pedido — {table.name}</h3>
@@ -200,12 +200,12 @@ export default function SelfOrder() {
                 <MdClose className="text-xl" />
               </button>
             </div>
-            <div className="p-4 flex-1 overflow-hidden min-h-0 flex flex-col">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
               <StaffMesaPedidoTabs
                 orders={orders}
                 formatCurrency={formatCurrency}
                 resetKey={table.id}
-                className="min-h-0 flex-1"
+                className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
                 labels={{
                   add: 'Agregar pedido',
                   view: 'Ver pedidos',
@@ -215,6 +215,7 @@ export default function SelfOrder() {
                 }}
               >
                 <StaffDineInOrderUI
+                  stackedSelfOrder
                   search={search}
                   onSearchChange={setSearch}
                   selectedCat={selectedCat}
@@ -231,23 +232,27 @@ export default function SelfOrder() {
                   cartTotal={cartTotal}
                   formatCurrency={formatCurrency}
                   minHeightClass="min-h-0 flex-1"
-                  className="flex-1 min-h-0"
+                  className="min-h-0 min-w-0 flex-1"
                   footer={
-                    cart.length > 0 ? (
-                      <>
-                        <div className="flex justify-between font-bold text-lg text-white">
-                          <span>Total</span>
-                          <span className="text-[#DBEAFE]">{formatCurrency(cartTotal)}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={submitOrder}
-                          className="w-full py-3 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-base hover:from-[#1D4ED8] hover:to-[#1E40AF] transition-all shadow-lg shadow-[#1D4ED8]/30 flex items-center justify-center gap-2"
-                        >
-                          <MdReceipt /> Enviar pedido
-                        </button>
-                      </>
-                    ) : null
+                    <>
+                      {cart.length > 0 ? (
+                        <p className="text-[11px] text-[#93C5FD]">{cart.length} artículo(s)</p>
+                      ) : (
+                        <p className="text-[12px] text-[#BFDBFE]">Elige productos arriba</p>
+                      )}
+                      <div className="flex justify-between text-lg font-bold text-white">
+                        <span>Total</span>
+                        <span className="text-[#DBEAFE]">{formatCurrency(cartTotal)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={submitOrder}
+                        disabled={cart.length === 0}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] py-3 text-base font-semibold text-white shadow-lg shadow-[#1D4ED8]/30 transition-all hover:from-[#1D4ED8] hover:to-[#1E40AF] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <MdReceipt /> Enviar pedido
+                      </button>
+                    </>
                   }
                 />
               </StaffMesaPedidoTabs>
