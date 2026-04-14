@@ -1,11 +1,61 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { MdAdd, MdDelete, MdSave, MdContentCopy, MdQrCode2, MdUploadFile, MdRestaurantMenu } from 'react-icons/md';
 import CartasHorizontalCarousel from '../../components/CartasHorizontalCarousel';
 import Modal from '../../components/Modal';
-import { parseMenuLines, buildMenuCartaSvgBlob } from '../../utils/generateMenuCartaSvg';
+import {
+  parseMenuLines,
+  buildMenuCartaSvgBlob,
+  DEFAULT_MENU_CARTA_COLORS,
+  normalizeHex,
+} from '../../utils/generateMenuCartaSvg';
+
+/** Editor con resaltado: líneas que empiezan (tras espacios) con # usan color de sección. */
+function MenuCartaSyntaxEditor({ value, onChange, bgColor, textColor, sectionColor }) {
+  const innerRef = useRef(null);
+  const [scrollTop, setScrollTop] = useState(0);
+
+  useEffect(() => {
+    if (innerRef.current) {
+      innerRef.current.style.transform = `translateY(-${scrollTop}px)`;
+    }
+  }, [scrollTop, value, bgColor, textColor, sectionColor]);
+
+  const lines = String(value ?? '').split(/\r?\n/);
+  const hashLine = (line) => line.trimStart().startsWith('#');
+
+  return (
+    <div
+      className="relative rounded-lg border border-slate-500 overflow-hidden shadow-inner"
+      style={{ backgroundColor: bgColor }}
+    >
+      <div className="absolute inset-0 overflow-hidden pointer-events-none select-none" aria-hidden>
+        <div ref={innerRef} className="p-3 font-mono text-sm leading-6 text-left will-change-transform">
+          {lines.map((line, i) => (
+            <div
+              key={i}
+              className="whitespace-pre-wrap break-words min-h-[1.5rem]"
+              style={{ color: hashLine(line) ? sectionColor : textColor }}
+            >
+              {line || '\u00a0'}
+            </div>
+          ))}
+        </div>
+      </div>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+        spellCheck={false}
+        className="relative z-10 block w-full min-h-[220px] max-h-[min(52vh,420px)] p-3 font-mono text-sm leading-6 bg-transparent text-transparent resize-y overflow-auto border-0 outline-none focus:ring-2 focus:ring-sky-400/40 rounded-lg"
+        style={{ caretColor: textColor }}
+        placeholder=""
+      />
+    </div>
+  );
+}
 
 const MENU_GEN_PLACEHOLDER = `# Entradas
 Ceviche clásico  28
@@ -33,6 +83,7 @@ export default function AutoPedidoAdmin() {
   const [genTitle, setGenTitle] = useState('Nuestra carta');
   const [genText, setGenText] = useState(MENU_GEN_PLACEHOLDER);
   const [genPreviewUrl, setGenPreviewUrl] = useState('');
+  const [genColors, setGenColors] = useState(() => ({ ...DEFAULT_MENU_CARTA_COLORS }));
 
   const load = () => {
     setLoading(true);
@@ -52,14 +103,18 @@ export default function AutoPedidoAdmin() {
   useEffect(() => {
     if (genOpenIndex === null) return undefined;
     const rows = parseMenuLines(genText);
-    const blob = buildMenuCartaSvgBlob({ rows, title: genTitle.trim() || 'Nuestra carta' });
+    const blob = buildMenuCartaSvgBlob({
+      rows,
+      title: genTitle.trim() || 'Nuestra carta',
+      colors: genColors,
+    });
     const url = URL.createObjectURL(blob);
     setGenPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return url;
     });
     return () => URL.revokeObjectURL(url);
-  }, [genOpenIndex, genText, genTitle]);
+  }, [genOpenIndex, genText, genTitle, genColors]);
 
   const addRow = () => {
     setCartas((prev) => [
@@ -79,6 +134,7 @@ export default function AutoPedidoAdmin() {
   const openGenerator = (index) => {
     setGenTitle('Nuestra carta');
     setGenText(MENU_GEN_PLACEHOLDER);
+    setGenColors({ ...DEFAULT_MENU_CARTA_COLORS });
     setGenOpenIndex(index);
   };
 
@@ -96,7 +152,11 @@ export default function AutoPedidoAdmin() {
     }
     const tid = toast.loading('Generando y subiendo…');
     try {
-      const blob = buildMenuCartaSvgBlob({ rows, title: genTitle.trim() || 'Nuestra carta' });
+      const blob = buildMenuCartaSvgBlob({
+        rows,
+        title: genTitle.trim() || 'Nuestra carta',
+        colors: genColors,
+      });
       const file = new File([blob], `carta-${Date.now()}.svg`, { type: 'image/svg+xml' });
       const { url } = await api.upload(file);
       updateRow(genOpenIndex, 'url', url || '');
@@ -313,20 +373,67 @@ export default function AutoPedidoAdmin() {
               placeholder="Nuestra carta"
             />
           </div>
+          <div>
+            <p className="text-xs font-medium text-slate-600 mb-2">Colores de la carta (también en la vista previa)</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <label className="flex flex-col gap-1 text-xs text-slate-600">
+                Fondo
+                <input
+                  type="color"
+                  value={normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg)}
+                  onChange={(e) => setGenColors((c) => ({ ...c, bg: e.target.value }))}
+                  className="h-9 w-full min-w-0 rounded border border-slate-300 cursor-pointer bg-white p-0.5"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-slate-600">
+                Texto (platos)
+                <input
+                  type="color"
+                  value={normalizeHex(genColors.text, DEFAULT_MENU_CARTA_COLORS.text)}
+                  onChange={(e) => setGenColors((c) => ({ ...c, text: e.target.value }))}
+                  className="h-9 w-full min-w-0 rounded border border-slate-300 cursor-pointer bg-white p-0.5"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-slate-600">
+                Líneas con # (secciones)
+                <input
+                  type="color"
+                  value={normalizeHex(genColors.section, DEFAULT_MENU_CARTA_COLORS.section)}
+                  onChange={(e) => setGenColors((c) => ({ ...c, section: e.target.value }))}
+                  className="h-9 w-full min-w-0 rounded border border-slate-300 cursor-pointer bg-white p-0.5"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-slate-600">
+                Precios
+                <input
+                  type="color"
+                  value={normalizeHex(genColors.price, DEFAULT_MENU_CARTA_COLORS.price)}
+                  onChange={(e) => setGenColors((c) => ({ ...c, price: e.target.value }))}
+                  className="h-9 w-full min-w-0 rounded border border-slate-300 cursor-pointer bg-white p-0.5"
+                />
+              </label>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Contenido</label>
-              <textarea
-                className="input-field font-mono text-sm min-h-[220px] resize-y"
+              <p className="text-[11px] text-slate-500 mb-1">
+                Las líneas que empiezan con <span className="font-mono">#</span> se ven en color de «secciones» mientras escribes.
+              </p>
+              <MenuCartaSyntaxEditor
                 value={genText}
-                onChange={(e) => setGenText(e.target.value)}
-                spellCheck={false}
-                placeholder={MENU_GEN_PLACEHOLDER}
+                onChange={setGenText}
+                bgColor={normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg)}
+                textColor={normalizeHex(genColors.text, DEFAULT_MENU_CARTA_COLORS.text)}
+                sectionColor={normalizeHex(genColors.section, DEFAULT_MENU_CARTA_COLORS.section)}
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Vista previa</label>
-              <div className="rounded-xl border border-slate-200 bg-[#0f172a] min-h-[220px] flex items-center justify-center p-2 overflow-hidden">
+              <div
+                className="rounded-xl border border-slate-200 min-h-[220px] flex items-center justify-center p-2 overflow-hidden"
+                style={{ backgroundColor: normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg) }}
+              >
                 {genPreviewUrl ? (
                   <img
                     src={genPreviewUrl}
