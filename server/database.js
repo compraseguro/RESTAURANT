@@ -81,7 +81,7 @@ async function restoreDbFromBuffer(fileBuffer) {
   saveDb();
 }
 
-function resetOperationalData({ keepAdminUserId = '' } = {}) {
+function resetOperationalData({ keepAdminUserId = '', preserveContrato = false } = {}) {
   const keepId = String(keepAdminUserId || '').trim();
   withTransaction((tx) => {
     tx.run('PRAGMA foreign_keys = OFF');
@@ -185,6 +185,16 @@ function resetOperationalData({ keepAdminUserId = '' } = {}) {
       );
     }
 
+    let preservedContratoValue = null;
+    if (preserveContrato) {
+      try {
+        const contratoRow = tx.queryOne('SELECT value FROM app_settings WHERE key = ?', ['contrato']);
+        if (contratoRow && contratoRow.value != null) preservedContratoValue = contratoRow.value;
+      } catch (_) {
+        /* backup antiguo sin fila contrato */
+      }
+    }
+
     tx.run('DELETE FROM app_settings');
     const defaultSettings = {
       regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
@@ -266,6 +276,15 @@ function resetOperationalData({ keepAdminUserId = '' } = {}) {
         [key, JSON.stringify(value)]
       );
     });
+
+    if (preserveContrato && preservedContratoValue != null) {
+      tx.run(
+        `INSERT INTO app_settings (key, value, updated_at)
+         VALUES ('contrato', ?, datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+        [preservedContratoValue]
+      );
+    }
 
     tx.run('DELETE FROM order_sequence');
     tx.run('INSERT INTO order_sequence (id, current_number) VALUES (1, 0)');

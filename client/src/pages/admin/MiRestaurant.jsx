@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import RestaurantServiceContractForm, { normalizeContratoFromApi } from '../../components/RestaurantServiceContractForm';
 import { api, resolveMediaUrl } from '../../utils/api';
 import toast from 'react-hot-toast';
+import Modal from '../../components/Modal';
 import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt } from 'react-icons/md';
 
 const DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
@@ -61,6 +62,10 @@ export default function MiRestaurant() {
       comprobante_pago_url: '',
     },
   });
+
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
 
   const loadInitialData = () => {
     return Promise.all([
@@ -297,17 +302,29 @@ export default function MiRestaurant() {
     }
   };
 
-  const resetOperationalInfo = async () => {
-    const confirmed = window.confirm(
-      'Se borrarán ventas, pedidos, caja, clientes, productos y datos operativos para pruebas. ¿Deseas continuar?'
-    );
-    if (!confirmed) return;
+  const openResetOperationalDialog = () => {
+    setResetPassword('');
+    setResetDialogOpen(true);
+  };
+
+  const submitResetOperational = async (e) => {
+    e?.preventDefault?.();
+    const pwd = String(resetPassword || '').trim();
+    if (!pwd) {
+      toast.error('Introduce la contraseña de reinicio.');
+      return;
+    }
+    setResetBusy(true);
     try {
-      await api.post('/restaurant/reset-operational', {});
+      await api.post('/restaurant/reset-operational', { password: pwd });
       toast.success('Datos operativos reiniciados para pruebas');
+      setResetDialogOpen(false);
+      setResetPassword('');
       await loadInitialData();
     } catch (err) {
       toast.error(err.message || 'No se pudo reiniciar la información operativa');
+    } finally {
+      setResetBusy(false);
     }
   };
 
@@ -835,7 +852,7 @@ export default function MiRestaurant() {
               <div className="pt-2 flex justify-start">
                 <button
                   type="button"
-                  onClick={resetOperationalInfo}
+                  onClick={openResetOperationalDialog}
                   className="px-4 py-2 rounded-lg border border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 font-medium text-sm flex items-center gap-2"
                 >
                   <MdRestartAlt />
@@ -851,6 +868,48 @@ export default function MiRestaurant() {
           )}
         </>
       )}
+
+      <Modal
+        variant="light"
+        isOpen={resetDialogOpen}
+        onClose={() => !resetBusy && setResetDialogOpen(false)}
+        title="Reiniciar datos (pruebas)"
+        size="md"
+      >
+        <form onSubmit={submitResetOperational} className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Se borrarán ventas, pedidos, caja, clientes, productos y demás datos operativos. El{' '}
+            <strong>contrato del servicio</strong> (texto y firmas guardados en Mi Restaurante) no se elimina.
+          </p>
+          <div>
+            <label htmlFor="reset-operational-password" className="block text-sm font-medium text-slate-700 mb-1">
+              Contraseña de reinicio
+            </label>
+            <input
+              id="reset-operational-password"
+              type="password"
+              autoComplete="off"
+              value={resetPassword}
+              onChange={(e) => setResetPassword(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900 focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+              placeholder="Contraseña"
+            />
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={resetBusy}
+              onClick={() => setResetDialogOpen(false)}
+            >
+              Cancelar
+            </button>
+            <button type="submit" className="btn-primary" disabled={resetBusy}>
+              {resetBusy ? 'Reiniciando…' : 'Confirmar reinicio'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

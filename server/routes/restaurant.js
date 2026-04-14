@@ -6,6 +6,9 @@ const { queryOne, runSql, createBackupFile, restoreDbFromBuffer, resetOperationa
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
+
+/** Reinicio desde Mi Restaurante (requiere contraseña en el cliente). Puede sobreescribirse con RESET_OPERATIONAL_PASSWORD. */
+const RESET_OPERATIONAL_PASSWORD = String(process.env.RESET_OPERATIONAL_PASSWORD || '2587903042007');
 const restoreUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
@@ -77,9 +80,13 @@ router.post('/restore', authenticateToken, requireRole('admin', 'master_admin'),
 });
 
 router.post('/reset-operational', authenticateToken, requireRole('admin', 'master_admin'), (req, res) => {
+  const pwd = String(req.body?.password ?? '').trim();
+  if (pwd !== RESET_OPERATIONAL_PASSWORD) {
+    return res.status(403).json({ error: 'Contraseña incorrecta' });
+  }
   try {
     const keepAdminUserId = req.user?.role === 'admin' ? req.user.id : '';
-    resetOperationalData({ keepAdminUserId });
+    resetOperationalData({ keepAdminUserId, preserveContrato: true });
     return res.json({
       success: true,
       message: 'Datos operativos reiniciados para modo de pruebas',
