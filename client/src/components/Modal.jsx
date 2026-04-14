@@ -17,6 +17,10 @@ export default function Modal({
   titleClassName = '',
   closeButtonClassName = '',
   closeIconClassName = '',
+  /** Sustituye la altura máxima del panel (p. ej. carta generador: casi pantalla completa). */
+  maxHeightClass = 'max-h-[90vh]',
+  dialogClassName = '',
+  bodyClassName = '',
 }) {
   if (!isOpen) return null;
 
@@ -28,7 +32,9 @@ export default function Modal({
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
     full: 'max-w-6xl',
-  }[size];
+    /** Casi ancho completo útil en escritorio (generador de cartas, etc.) */
+    wide: 'max-w-[min(96rem,calc(100vw-1rem))]',
+  }[size] || 'max-w-lg';
 
   const placementClass = placement === 'right' ? 'justify-end' : 'justify-center';
 
@@ -49,8 +55,8 @@ export default function Modal({
   const closeIconDefault = isLight ? 'text-slate-500' : 'text-[#9CA3AF]';
 
   const bodyClass = isLight
-    ? 'overflow-y-auto p-6 flex-1 bg-[#F1F5F9] text-slate-800 [&_strong]:text-slate-900'
-    : 'overflow-y-auto p-6 flex-1 bg-[#1F2937] modal-sheet-body';
+    ? `overflow-y-auto p-6 flex-1 bg-[#F1F5F9] text-slate-800 [&_strong]:text-slate-900 ${bodyClassName}`.trim()
+    : `overflow-y-auto p-6 flex-1 bg-[#1F2937] modal-sheet-body ${bodyClassName}`.trim();
 
   return (
     <div
@@ -60,7 +66,7 @@ export default function Modal({
     >
       <div className={`fixed inset-0 ${overlayClass}`} aria-hidden />
       <div
-        className={`relative rounded-2xl w-full ${sizeClass} max-h-[90vh] flex flex-col overflow-hidden ${panelClass}`}
+        className={`relative rounded-2xl w-full ${sizeClass} ${maxHeightClass} flex flex-col overflow-hidden ${panelClass} ${dialogClassName}`.trim()}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

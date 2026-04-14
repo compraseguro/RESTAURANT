@@ -28,11 +28,11 @@ function MenuCartaSyntaxEditor({ value, onChange, bgColor, textColor, sectionCol
 
   return (
     <div
-      className="relative rounded-lg border border-slate-500 overflow-hidden shadow-inner"
+      className="relative rounded-lg border border-slate-600/80 overflow-hidden shadow-inner flex flex-col h-[min(72vh,860px)] min-h-[min(56vh,620px)] max-h-[min(82vh,960px)]"
       style={{ backgroundColor: bgColor }}
     >
-      <div className="absolute inset-0 overflow-hidden pointer-events-none select-none" aria-hidden>
-        <div ref={innerRef} className="p-3 font-mono text-sm leading-6 text-left will-change-transform">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none select-none min-h-0" aria-hidden>
+        <div ref={innerRef} className="p-3 font-mono text-sm leading-6 text-left will-change-transform min-h-full">
           {lines.map((line, i) => (
             <div
               key={i}
@@ -49,7 +49,7 @@ function MenuCartaSyntaxEditor({ value, onChange, bgColor, textColor, sectionCol
         onChange={(e) => onChange(e.target.value)}
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         spellCheck={false}
-        className="relative z-10 block w-full min-h-[220px] max-h-[min(52vh,420px)] p-3 font-mono text-sm leading-6 bg-transparent text-transparent resize-y overflow-auto border-0 outline-none focus:ring-2 focus:ring-sky-400/40 rounded-lg"
+        className="relative z-10 block w-full flex-1 min-h-0 p-3 font-mono text-sm leading-6 bg-transparent text-transparent resize-y overflow-auto border-0 outline-none focus:ring-2 focus:ring-sky-400/40 rounded-lg"
         style={{ caretColor: textColor }}
         placeholder=""
       />
@@ -146,7 +146,7 @@ export default function AutoPedidoAdmin() {
   const applyGeneratedCarta = async () => {
     if (!canSave || genOpenIndex === null) return;
     const rows = parseMenuLines(genText);
-    if (!rows.some((r) => r.kind === 'item')) {
+    if (!rows.some((r) => r.kind === 'item' && r.price != null && Number.isFinite(Number(r.price)))) {
       toast.error('Añade al menos una línea con precio al final (ej. Lomo saltado  35)');
       return;
     }
@@ -356,97 +356,103 @@ export default function AutoPedidoAdmin() {
         isOpen={genOpenIndex !== null}
         onClose={closeGenerator}
         title="Generar carta desde texto"
-        size="lg"
-        variant="light"
+        size="wide"
+        variant="dark"
+        maxHeightClass="max-h-[min(98dvh,calc(100dvh-0.5rem))]"
+        bodyClassName="flex flex-col min-h-0 overflow-hidden !p-4 sm:!p-5"
       >
-        <div className="space-y-4 text-slate-800">
-          <p className="text-sm text-slate-600">
-            Escribe cada plato en una línea y el precio al final (con o sin <span className="font-mono">S/</span>). Usa líneas con{' '}
-            <span className="font-mono">#</span> o solo texto sin número para títulos de sección (ej. «Postres»).
+        <div className="flex min-h-0 flex-1 flex-col gap-4 text-[#E5E7EB]">
+          <p className="text-sm text-[#9CA3AF] shrink-0">
+            Escribe cada plato en una línea y el precio al final (con o sin <span className="font-mono text-[#BFDBFE]">S/</span>). Usa líneas con{' '}
+            <span className="font-mono text-[#BFDBFE]">#</span> o solo texto sin número para títulos de sección (ej. «Postres»).
           </p>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Título de la carta</label>
-            <input
-              className="input-field"
-              value={genTitle}
-              onChange={(e) => setGenTitle(e.target.value)}
-              placeholder="Nuestra carta"
-            />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-600 mb-2">Colores de la carta (también en la vista previa)</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <label className="flex flex-col gap-1 text-xs text-slate-600">
-                Fondo
-                <input
-                  type="color"
-                  value={normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg)}
-                  onChange={(e) => setGenColors((c) => ({ ...c, bg: e.target.value }))}
-                  className="h-9 w-full min-w-0 rounded border border-slate-300 cursor-pointer bg-white p-0.5"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs text-slate-600">
-                Texto (platos)
-                <input
-                  type="color"
-                  value={normalizeHex(genColors.text, DEFAULT_MENU_CARTA_COLORS.text)}
-                  onChange={(e) => setGenColors((c) => ({ ...c, text: e.target.value }))}
-                  className="h-9 w-full min-w-0 rounded border border-slate-300 cursor-pointer bg-white p-0.5"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs text-slate-600">
-                Líneas con # (secciones)
-                <input
-                  type="color"
-                  value={normalizeHex(genColors.section, DEFAULT_MENU_CARTA_COLORS.section)}
-                  onChange={(e) => setGenColors((c) => ({ ...c, section: e.target.value }))}
-                  className="h-9 w-full min-w-0 rounded border border-slate-300 cursor-pointer bg-white p-0.5"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs text-slate-600">
-                Precios
-                <input
-                  type="color"
-                  value={normalizeHex(genColors.price, DEFAULT_MENU_CARTA_COLORS.price)}
-                  onChange={(e) => setGenColors((c) => ({ ...c, price: e.target.value }))}
-                  className="h-9 w-full min-w-0 rounded border border-slate-300 cursor-pointer bg-white p-0.5"
-                />
-              </label>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="shrink-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)] gap-4 items-start">
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Contenido</label>
-              <p className="text-[11px] text-slate-500 mb-1">
-                Las líneas que empiezan con <span className="font-mono">#</span> se ven en color de «secciones» mientras escribes.
-              </p>
-              <MenuCartaSyntaxEditor
-                value={genText}
-                onChange={setGenText}
-                bgColor={normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg)}
-                textColor={normalizeHex(genColors.text, DEFAULT_MENU_CARTA_COLORS.text)}
-                sectionColor={normalizeHex(genColors.section, DEFAULT_MENU_CARTA_COLORS.section)}
+              <label className="block text-xs font-medium text-[#9CA3AF] mb-1">Título de la carta</label>
+              <input
+                className="input-field"
+                value={genTitle}
+                onChange={(e) => setGenTitle(e.target.value)}
+                placeholder="Nuestra carta"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Vista previa</label>
+            <div className="lg:pt-5">
+              <p className="text-xs font-medium text-[#9CA3AF] mb-2">Colores</p>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <label className="flex flex-col gap-1 text-[11px] text-[#9CA3AF]">
+                  Fondo
+                  <input
+                    type="color"
+                    value={normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg)}
+                    onChange={(e) => setGenColors((c) => ({ ...c, bg: e.target.value }))}
+                    className="h-9 w-full min-w-0 rounded border border-[#3B82F6]/35 cursor-pointer bg-[#111827] p-0.5"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] text-[#9CA3AF]">
+                  Texto
+                  <input
+                    type="color"
+                    value={normalizeHex(genColors.text, DEFAULT_MENU_CARTA_COLORS.text)}
+                    onChange={(e) => setGenColors((c) => ({ ...c, text: e.target.value }))}
+                    className="h-9 w-full min-w-0 rounded border border-[#3B82F6]/35 cursor-pointer bg-[#111827] p-0.5"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] text-[#9CA3AF]">
+                  Líneas #
+                  <input
+                    type="color"
+                    value={normalizeHex(genColors.section, DEFAULT_MENU_CARTA_COLORS.section)}
+                    onChange={(e) => setGenColors((c) => ({ ...c, section: e.target.value }))}
+                    className="h-9 w-full min-w-0 rounded border border-[#3B82F6]/35 cursor-pointer bg-[#111827] p-0.5"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-[11px] text-[#9CA3AF]">
+                  Precios
+                  <input
+                    type="color"
+                    value={normalizeHex(genColors.price, DEFAULT_MENU_CARTA_COLORS.price)}
+                    onChange={(e) => setGenColors((c) => ({ ...c, price: e.target.value }))}
+                    className="h-9 w-full min-w-0 rounded border border-[#3B82F6]/35 cursor-pointer bg-[#111827] p-0.5"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="flex min-h-0 flex-1 flex-col">
+              <label className="mb-1 block shrink-0 text-xs font-medium text-[#9CA3AF]">Contenido</label>
+              <p className="mb-1 shrink-0 text-[11px] text-[#64748B]">
+                Las líneas con <span className="font-mono text-[#BFDBFE]">#</span> usan el color «Líneas #».
+              </p>
+              <div className="flex min-h-0 flex-1 flex-col">
+                <MenuCartaSyntaxEditor
+                  value={genText}
+                  onChange={setGenText}
+                  bgColor={normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg)}
+                  textColor={normalizeHex(genColors.text, DEFAULT_MENU_CARTA_COLORS.text)}
+                  sectionColor={normalizeHex(genColors.section, DEFAULT_MENU_CARTA_COLORS.section)}
+                />
+              </div>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col">
+              <label className="mb-1 block shrink-0 text-xs font-medium text-[#9CA3AF]">Vista previa</label>
               <div
-                className="rounded-xl border border-slate-200 min-h-[220px] flex items-center justify-center p-2 overflow-hidden"
+                className="rounded-xl border border-[#3B82F6]/30 flex-1 min-h-0 flex items-center justify-center p-3 overflow-auto"
                 style={{ backgroundColor: normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg) }}
               >
                 {genPreviewUrl ? (
                   <img
                     src={genPreviewUrl}
                     alt="Vista previa de la carta generada"
-                    className="max-w-full max-h-[min(360px,50vh)] w-auto h-auto object-contain rounded-lg"
+                    className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg"
                   />
                 ) : (
-                  <p className="text-slate-500 text-sm px-4 text-center">Escribe platos y precios para ver la vista previa</p>
+                  <p className="text-[#64748B] text-sm px-4 text-center">Escribe platos y precios para ver la vista previa</p>
                 )}
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 justify-end pt-2 border-t border-slate-200">
+          <div className="flex flex-wrap gap-2 justify-end pt-3 border-t border-[#3B82F6]/25 shrink-0">
             <button type="button" onClick={closeGenerator} className="btn-secondary text-sm">
               Cerrar
             </button>

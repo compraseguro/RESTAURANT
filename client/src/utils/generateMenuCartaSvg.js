@@ -51,9 +51,9 @@ export const DEFAULT_MENU_CARTA_COLORS = {
 
 /**
  * Interpreta líneas de menú.
- * - Con precio al final: "Ceviche clásico  S/ 28" · "Lomo 35,50" · "Chicha 8"
- * - Línea con # al inicio: título de sección explícito
- * - Sin precio reconocible: sección (ej. "Entradas", "Postres")
+ * - Línea con # al inicio (tras espacios): solo ahí es categoría / sección en la carta.
+ * - Con precio al final: ítem con precio ("Ceviche clásico  28", "Lomo 35,50").
+ * - Sin # y sin precio: ítem solo texto (mismo color que platos, sin línea de categoría).
  */
 export function parseMenuLines(raw) {
   const lines = String(raw || '')
@@ -75,14 +75,14 @@ export function parseMenuLines(raw) {
         continue;
       }
     }
-    rows.push({ kind: 'section', label: line });
+    rows.push({ kind: 'item', name: line, price: null });
   }
   return rows;
 }
 
 function formatPriceS(value) {
   const n = Number(value);
-  if (!Number.isFinite(n)) return 'S/ —';
+  if (value === null || value === undefined || !Number.isFinite(n)) return '';
   const fixed = Math.abs(n - Math.round(n)) < 0.001 ? String(Math.round(n)) : n.toFixed(2).replace(/\.?0+$/, '');
   return `S/ ${fixed}`;
 }
@@ -165,13 +165,16 @@ export function buildMenuCartaSvgString({ rows, title = 'Nuestra carta', colors:
       y += lineHSection + 8;
     } else {
       const name = escapeXml(clipMenuName(r.name));
-      const priceStr = escapeXml(formatPriceS(r.price));
+      const hasPrice = r.price != null && Number.isFinite(Number(r.price));
       parts.push(
         `<text x="${padX}" y="${y}" fill="${text}" font-family="system-ui,-apple-system,sans-serif" font-size="16" font-weight="500">${name}</text>`
       );
-      parts.push(
-        `<text x="${W - padX}" y="${y}" text-anchor="end" fill="${price}" font-family="system-ui,-apple-system,sans-serif" font-size="16" font-weight="700">${priceStr}</text>`
-      );
+      if (hasPrice) {
+        const priceStr = escapeXml(formatPriceS(r.price));
+        parts.push(
+          `<text x="${W - padX}" y="${y}" text-anchor="end" fill="${price}" font-family="system-ui,-apple-system,sans-serif" font-size="16" font-weight="700">${priceStr}</text>`
+        );
+      }
       y += lineHItem;
     }
   }
