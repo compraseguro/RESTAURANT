@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions } from '../../utils/api';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
@@ -19,6 +19,12 @@ import {
   MdRestaurantMenu,
   MdAccessTime, MdPersonAdd, MdEmail,
 } from 'react-icons/md';
+
+/** Mesa sintética al cobrar cuenta desde Clientes (no existe fila en `tables`). */
+const CLIENT_CHECKOUT_TABLE_PREFIX = 'client-checkout:';
+function isClientCheckoutTable(table) {
+  return Boolean(table && String(table.id || '').startsWith(CLIENT_CHECKOUT_TABLE_PREFIX));
+}
 
 const CAJA_OPTIONS = [
   { id: 'cobrar', label: 'Cobrar' },
@@ -69,6 +75,9 @@ const getOrderChargeTotal = (order) => {
 
 export default function POSPanel() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const clientCheckoutOpenedKeyRef = useRef('');
   const [tables, setTables] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [allOrders, setAllOrders] = useState([]);
@@ -191,8 +200,21 @@ export default function POSPanel() {
           : Number(daily.sales.total_sales || 0)
       );
       if (selectedTable) {
-        const updated = tablesData.find(t => t.id === selectedTable.id);
-        if (updated) setSelectedTable(updated);
+        if (isClientCheckoutTable(selectedTable)) {
+          const cid = String(selectedTable.id).slice(CLIENT_CHECKOUT_TABLE_PREFIX.length);
+          const fresh = (ordersData || []).filter(
+            (o) =>
+              String(o.customer_id || '') === cid &&
+              String(o.payment_status || '') !== 'paid' &&
+              String(o.status || '') !== 'cancelled'
+          );
+          setSelectedTable((prev) =>
+            prev && isClientCheckoutTable(prev) ? { ...prev, orders: fresh } : prev
+          );
+        } else {
+          const updated = tablesData.find((t) => t.id === selectedTable.id);
+          if (updated) setSelectedTable(updated);
+        }
       }
       if (tableDetail) {
         const updatedDetail = tablesData.find(t => t.id === tableDetail.id);
@@ -495,6 +517,54 @@ export default function POSPanel() {
     }));
   };
 
+  /** Desde Clientes: abrir modal de cobro con pedidos del cliente (misma API que mesa). */
+  useEffect(() => {
+    const payload = location.state?.clientCheckout;
+    if (!payload?.customerId || !Array.isArray(payload.orderIds) || !payload.orderIds.length) return;
+
+    const byId = new Map((allOrders || []).map((o) => [o.id, o]));
+    const missing = payload.orderIds.some((id) => !byId.has(id));
+    if (missing) return;
+
+    const orders = payload.orderIds
+      .map((id) => byId.get(id))
+      .filter((o) => String(o.payment_status || '') !== 'paid' && String(o.status || '') !== 'cancelled');
+
+    const navKey = `${payload.customerId}:${payload.orderIds.slice().sort().join(',')}`;
+
+    if (!orders.length) {
+      clientCheckoutOpenedKeyRef.current = '';
+      toast.error('Esos pedidos ya no están pendientes de cobro.');
+      navigate('/admin/caja?view=cobrar', { replace: true, state: {} });
+      return;
+    }
+
+    if (clientCheckoutOpenedKeyRef.current === navKey) return;
+    clientCheckoutOpenedKeyRef.current = navKey;
+
+    setActiveCajaOption('cobrar');
+    setSearchParams({ view: 'cobrar' }, { replace: true });
+    setTableDetail(null);
+    setSelectedTable({
+      id: `${CLIENT_CHECKOUT_TABLE_PREFIX}${payload.customerId}`,
+      name: String(payload.customerName || 'Cliente').trim() || 'Cliente',
+      number: '',
+      orders,
+    });
+    setShowBill(true);
+    setPaymentMethod('efectivo');
+    setAmountReceived('');
+    setSplitMode(false);
+    setSelectedOrderIds(orders.map((o) => o.id));
+    setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
+    resetBillingForm();
+    if (payload.customerForBilling) {
+      applyCustomerToBilling(payload.customerForBilling);
+    }
+    toast.success(`Caja: cobrar cuenta de ${payload.customerName || 'cliente'}`);
+    navigate('/admin/caja?view=cobrar', { replace: true, state: {} });
+  }, [location.state, allOrders, navigate, setSearchParams]);
+
   const validateBillingData = () => {
     if (!billingForm.enabled) return null;
     const docNumber = String(billingForm.customer_doc_number || '').trim();
@@ -632,9 +702,11 @@ export default function POSPanel() {
         }
       }
 
-      const updatedTable = await api.get(`/tables/${selectedTable.id}`);
-      if (!updatedTable.orders || updatedTable.orders.length === 0) {
-        await api.patch(`/tables/${selectedTable.id}/status`, { status: 'available' });
+      if (!isClientCheckoutTable(selectedTable)) {
+        const updatedTable = await api.get(`/tables/${selectedTable.id}`);
+        if (!updatedTable.orders || updatedTable.orders.length === 0) {
+          await api.patch(`/tables/${selectedTable.id}/status`, { status: 'available' });
+        }
       }
       if (issuedDocs.length > 0) {
         toast.success(`${payableOrders.length} pedido(s) cobrados y ${issuedDocs.length} comprobante(s) generado(s)`);
@@ -648,6 +720,7 @@ export default function POSPanel() {
       setSplitMode(false);
       setSelectedOrderIds([]);
       setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
+      clientCheckoutOpenedKeyRef.current = '';
       setSelectedTable(null);
       setAmountReceived('');
       resetBillingForm();
@@ -1603,11 +1676,12 @@ export default function POSPanel() {
       <Modal
         isOpen={showBill}
         onClose={() => {
+          clientCheckoutOpenedKeyRef.current = '';
           setShowBill(false);
           setAmountReceived('');
           resetBillingForm();
         }}
-        title="COBRAR MESA"
+        title={selectedTable && isClientCheckoutTable(selectedTable) ? 'COBRAR CUENTA CLIENTE' : 'COBRAR MESA'}
         size="xl"
         headerClassName="bg-[#1D4ED8]/40 border-b border-[#3B82F6]/30"
         titleClassName="text-[#F9FAFB] font-extrabold tracking-wide uppercase"

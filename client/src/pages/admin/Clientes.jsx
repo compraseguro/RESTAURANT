@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api, formatCurrency, formatDate } from '../../utils/api';
 import { MdAdd, MdEdit, MdDelete, MdSearch, MdPhone, MdEmail, MdReceipt, MdAttachMoney, MdContentCopy } from 'react-icons/md';
 import Modal from '../../components/Modal';
@@ -13,7 +14,31 @@ function orderTotalPieces(o) {
   return (o.items || []).reduce((sum, it) => sum + Number(it.quantity || 0), 0);
 }
 
+/** Mismo criterio que caja (POS) para el importe cobrable del pedido. */
+function getOrderChargeTotal(o) {
+  if (!o) return 0;
+  const base = Number(o.subtotal || 0) + Number(o.delivery_fee || 0);
+  const discount = Number(o.discount || 0);
+  return Math.max(0, base - discount);
+}
+
+function orderProductsShortLabel(o) {
+  const items = o.items || [];
+  if (!items.length) return '—';
+  const names = items.map((it) => String(it.product_name || '').trim()).filter(Boolean);
+  const unique = [...new Set(names)];
+  let s = unique.join(', ');
+  if (s.length > 42) s = `${s.slice(0, 39)}…`;
+  return s;
+}
+
+function pedidoColumnText(o) {
+  const n = o.order_number ?? '-';
+  return `#${n} ${orderProductsShortLabel(o)}`.trim();
+}
+
 export default function Clientes() {
+  const navigate = useNavigate();
   const [clientes, setClientes] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +46,6 @@ export default function Clientes() {
   const [showModal, setShowModal] = useState(false);
   const [editClient, setEditClient] = useState(null);
   const [expandedClientId, setExpandedClientId] = useState('');
-  const [chargingClientId, setChargingClientId] = useState('');
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', password: '' });
 
   const normalizeCustomerEmail = (value) => {
@@ -113,28 +137,31 @@ export default function Clientes() {
     return map;
   }, [orders]);
   const getCustomerPendingTotal = (customerId) =>
-    (pendingOrdersByCustomer[customerId] || []).reduce((sum, o) => sum + Number(o.total || 0), 0);
+    (pendingOrdersByCustomer[customerId] || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
   const copyClienteSelfOrderLink = (customerId) => {
     const url = selfOrderClienteUrl(customerId);
     navigator.clipboard.writeText(url).then(() => toast.success('Enlace copiado')).catch(() => toast.error('No se pudo copiar'));
   };
 
-  const chargeCustomerPendingOrders = async (customer) => {
+  const goToCajaToChargeCustomer = (customer) => {
     const customerOrders = pendingOrdersByCustomer[customer.id] || [];
     if (!customerOrders.length) return toast.error('No hay pedidos pendientes para cobrar');
-    try {
-      setChargingClientId(customer.id);
-      await api.post('/pos/checkout-table', {
-        order_ids: customerOrders.map(o => o.id),
-        payment_method: 'efectivo',
-      });
-      toast.success(`Pedidos de ${customer.name} cobrados correctamente`);
-      await load(search);
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setChargingClientId('');
-    }
+    navigate('/admin/caja?view=cobrar', {
+      state: {
+        clientCheckout: {
+          customerId: customer.id,
+          customerName: customer.name,
+          orderIds: customerOrders.map((o) => o.id),
+          customerForBilling: {
+            doc_type: customer.doc_type,
+            doc_number: customer.doc_number,
+            name: customer.name,
+            address: customer.address || '',
+            phone: customer.phone || '',
+          },
+        },
+      },
+    });
   };
 
   return (
@@ -186,32 +213,38 @@ export default function Clientes() {
                     <p className="text-xs text-slate-700">No tiene pedidos pendientes.</p>
                   ) : (
                     <div className="space-y-2">
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-2 gap-y-0.5 border-b border-slate-200 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      <div className="grid grid-cols-[minmax(4.5rem,0.85fr)_minmax(0,1fr)_2.25rem_4.25rem] gap-x-2 border-b border-slate-200 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                         <span>Fecha</span>
-                        <span>Pedido</span>
+                        <span className="min-w-0">Pedido</span>
                         <span className="text-right">Cant.</span>
+                        <span className="text-right">Precio</span>
                       </div>
                       {(pendingOrdersByCustomer[c.id] || []).map((o) => (
                         <div
                           key={o.id}
-                          className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-0.5 border-b border-slate-100 py-1.5 text-xs last:border-0"
+                          className="grid grid-cols-[minmax(4.5rem,0.85fr)_minmax(0,1fr)_2.25rem_4.25rem] items-center gap-x-2 border-b border-slate-100 py-1.5 text-xs last:border-0"
                         >
-                          <span className="text-slate-700">{formatDate(o.created_at)}</span>
-                          <span className="shrink-0 font-mono font-semibold text-slate-900">#{o.order_number || '-'}</span>
+                          <span className="shrink-0 text-slate-700">{formatDate(o.created_at)}</span>
+                          <span className="min-w-0 break-words font-medium leading-snug text-slate-900" title={pedidoColumnText(o)}>
+                            {pedidoColumnText(o)}
+                          </span>
                           <span className="text-right tabular-nums text-slate-800">{orderTotalPieces(o)}</span>
+                          <span className="text-right tabular-nums font-medium text-slate-900">{formatCurrency(getOrderChargeTotal(o))}</span>
                         </div>
                       ))}
-                      <div className="mt-3 rounded-lg bg-slate-900 px-3 py-2 text-white flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="text-sm font-semibold">Total de la cuenta</span>
-                        <span className="text-base font-bold tabular-nums">{formatCurrency(getCustomerPendingTotal(c.id))}</span>
+                      <div className="mt-3 flex justify-end border-t border-slate-200 pt-2">
+                        <div className="rounded-lg bg-slate-900 px-4 py-2.5 text-right text-white shadow-sm">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-300">Total a cobrar</p>
+                          <p className="text-lg font-bold tabular-nums text-white">{formatCurrency(getCustomerPendingTotal(c.id))}</p>
+                        </div>
                       </div>
                       <button
-                        onClick={() => chargeCustomerPendingOrders(c)}
-                        disabled={chargingClientId === c.id}
-                        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                        onClick={() => goToCajaToChargeCustomer(c)}
+                        className="btn-primary flex w-full items-center justify-center gap-2"
                       >
                         <MdAttachMoney />
-                        {chargingClientId === c.id ? 'Cobrando...' : 'Cobrar pendientes'}
+                        Ir a caja a cobrar
                       </button>
                     </div>
                   )}
