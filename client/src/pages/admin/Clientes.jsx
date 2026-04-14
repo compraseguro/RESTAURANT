@@ -233,9 +233,16 @@ export default function Clientes() {
                         </div>
                       ))}
                       <div className="mt-3 flex justify-end border-t border-slate-200 pt-2">
-                        <div className="rounded-lg bg-slate-900 px-4 py-2.5 text-right text-white shadow-sm">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-300">Total a cobrar</p>
-                          <p className="text-lg font-bold tabular-nums text-white">{formatCurrency(getCustomerPendingTotal(c.id))}</p>
+                        <div
+                          className="rounded-lg border border-slate-600 px-4 py-2.5 text-right shadow-md"
+                          style={{ backgroundColor: '#0f172a', color: '#f8fafc' }}
+                        >
+                          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#cbd5e1' }}>
+                            Total a cobrar
+                          </p>
+                          <p className="text-lg font-bold tabular-nums" style={{ color: '#ffffff' }}>
+                            {formatCurrency(getCustomerPendingTotal(c.id))}
+                          </p>
                         </div>
                       </div>
                       <button

@@ -362,6 +362,14 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
       return updated;
     });
 
+    /** Demo/pruebas: si ya no queda ningún pedido sin cobrar, el siguiente pedido vuelve a numerarse desde #1. */
+    const unpaidRow = queryOne(
+      "SELECT COUNT(*) as c FROM orders WHERE status != 'cancelled' AND IFNULL(payment_status, '') != 'paid'"
+    );
+    if (Number(unpaidRow?.c || 0) === 0) {
+      runSql('UPDATE order_sequence SET current_number = 0 WHERE id = 1');
+    }
+
     const paidOrders = result.map((id) => queryOne('SELECT * FROM orders WHERE id = ?', [id])).filter(Boolean);
     logAudit({
       actorUserId: req.user.id,
