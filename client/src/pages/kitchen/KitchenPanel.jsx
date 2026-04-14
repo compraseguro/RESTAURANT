@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, ORDER_TYPES, formatTime } from '../../utils/api';
 import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
+import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
@@ -274,7 +275,15 @@ export default function KitchenPanel({ station = 'cocina' }) {
                     </div>
                   </div>
                 ))}
-                {order.notes && <div className="bg-[#111827]/55 border border-[#3B82F6]/25 rounded-lg p-2 mt-2"><p className="text-xs text-[#F9FAFB]">📝 {order.notes}</p></div>}
+                {(() => {
+                  const noteBlock = getKitchenOrderNotesDisplay(order);
+                  if (!noteBlock) return null;
+                  return (
+                    <div className="bg-[#111827]/55 border border-[#3B82F6]/25 rounded-lg p-2 mt-2">
+                      <p className="text-xs text-[#F9FAFB] whitespace-pre-line leading-relaxed">{noteBlock}</p>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="px-4 py-3 border-t border-[#3B82F6]/25">

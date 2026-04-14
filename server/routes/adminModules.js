@@ -3,6 +3,8 @@ const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const { queryAll, queryOne, runSql, logAudit } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { getOrderWithItems } = require('../orderCreateService');
+const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
 
 router.use(authenticateToken, requireRole('admin', 'cajero', 'mozo'));
 
@@ -468,6 +470,32 @@ router.put('/reservations/:id', (req, res) => {
       req.params.id,
     ]
   );
+
+  if (String(nextStatus) === 'cancelled') {
+    const marker = `RESERVA_ID:${req.params.id}`;
+    const linkedOrders = queryAll(
+      "SELECT id, status FROM orders WHERE notes LIKE ? AND status IN ('pending','preparing')",
+      [`%${marker}%`]
+    );
+    const io = req.app.get('io');
+    for (const row of linkedOrders) {
+      restoreNonTransformedStockForOrder(row.id);
+      runSql("UPDATE orders SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?", [row.id]);
+      logAudit({
+        actorUserId: req.user.id,
+        actorName: req.user.full_name || req.user.username || '',
+        action: 'order.status.update',
+        resourceType: 'order',
+        resourceId: row.id,
+        details: { from: row.status, to: 'cancelled', reason: 'reservation_cancelled' },
+      });
+      if (io) {
+        const updatedOrder = getOrderWithItems(row.id);
+        if (updatedOrder) io.emit('order-update', updatedOrder);
+      }
+    }
+  }
+
   res.json(queryOne('SELECT * FROM reservations WHERE id = ?', [req.params.id]));
 });
 

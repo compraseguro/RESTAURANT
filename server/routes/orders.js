@@ -5,6 +5,7 @@ const { queryAll, queryOne, runSql, withTransaction, logAudit } = require('../da
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { assertPaymentMethodAllowed } = require('../businessRules');
 const { getOrderWithItems, createOrderInTransaction, actorFromRequest } = require('../orderCreateService');
+const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
 
 const router = express.Router();
 const ORDER_TRANSITIONS = {
@@ -20,75 +21,6 @@ function getChargeBase(order) {
     0,
     Number(order?.subtotal || 0) + Number(order?.delivery_fee || 0)
   );
-}
-
-function recalculateProductStock(productId) {
-  const sum = queryOne(
-    'SELECT COALESCE(SUM(quantity), 0) as total FROM inventory_warehouse_stocks WHERE product_id = ?',
-    [productId]
-  );
-  const total = Number(sum?.total || 0);
-  runSql('UPDATE products SET stock = ?, updated_at = datetime(\'now\') WHERE id = ?', [total, productId]);
-  return total;
-}
-
-function ensureWarehouseRowsForProduct(product) {
-  const currentRows = queryAll('SELECT * FROM inventory_warehouse_stocks WHERE product_id = ?', [product.id]);
-  if (currentRows.length > 0) return currentRows;
-  const preferred = queryOne('SELECT id, name FROM warehouse_locations WHERE id = ? AND is_active = 1', [product.stock_warehouse_id]);
-  const principal = queryOne('SELECT id, name FROM warehouse_locations WHERE LOWER(name) = LOWER(?) AND is_active = 1', ['Almacen Principal']);
-  const target = preferred || principal || queryOne('SELECT id, name FROM warehouse_locations WHERE is_active = 1 ORDER BY name LIMIT 1');
-  if (!target) return [];
-  runSql(
-    'INSERT INTO inventory_warehouse_stocks (id, product_id, warehouse_id, quantity, updated_at) VALUES (?, ?, ?, ?, datetime(\'now\'))',
-    [uuidv4(), product.id, target.id, Number(product.stock || 0)]
-  );
-  return queryAll('SELECT * FROM inventory_warehouse_stocks WHERE product_id = ?', [product.id]);
-}
-
-function deductFromWarehouses(product, quantityNeeded) {
-  const rows = ensureWarehouseRowsForProduct(product);
-  if (rows.length === 0) return false;
-
-  const preferredId = product.stock_warehouse_id || '';
-  const sortedRows = [...rows].sort((a, b) => {
-    if (a.warehouse_id === preferredId) return -1;
-    if (b.warehouse_id === preferredId) return 1;
-    return Number(b.quantity || 0) - Number(a.quantity || 0);
-  });
-
-  let pending = Number(quantityNeeded || 0);
-  for (const row of sortedRows) {
-    if (pending <= 0) break;
-    const available = Number(row.quantity || 0);
-    if (available <= 0) continue;
-    const consume = Math.min(available, pending);
-    runSql(
-      'UPDATE inventory_warehouse_stocks SET quantity = ?, updated_at = datetime(\'now\') WHERE id = ?',
-      [available - consume, row.id]
-    );
-    pending -= consume;
-  }
-
-  if (pending > 0) return false;
-  recalculateProductStock(product.id);
-  return true;
-}
-
-function addToWarehouses(product, quantityToAdd) {
-  const rows = ensureWarehouseRowsForProduct(product);
-  if (rows.length === 0) {
-    runSql('UPDATE products SET stock = stock + ?, updated_at = datetime(\'now\') WHERE id = ?', [quantityToAdd, product.id]);
-    return;
-  }
-  const preferredId = product.stock_warehouse_id || rows[0].warehouse_id;
-  const target = rows.find(r => r.warehouse_id === preferredId) || rows[0];
-  const current = Number(target.quantity || 0);
-  runSql(
-    'UPDATE inventory_warehouse_stocks SET quantity = ?, updated_at = datetime(\'now\') WHERE id = ?',
-    [current + Number(quantityToAdd || 0), target.id]
-  );
-  recalculateProductStock(product.id);
 }
 
 function isBarText(value = '') {
@@ -433,13 +365,7 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'moz
   }
 
   if (status === 'cancelled' && order.status !== 'cancelled') {
-    const items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
-    items.forEach(item => {
-      const product = queryOne('SELECT * FROM products WHERE id = ?', [item.product_id]);
-      if (!product) return;
-      if (product.process_type !== 'non_transformed') return;
-      addToWarehouses(product, Number(item.quantity || 0));
-    });
+    restoreNonTransformedStockForOrder(order.id);
   }
 
   runSql("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, req.params.id]);

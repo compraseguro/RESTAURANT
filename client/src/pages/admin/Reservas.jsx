@@ -203,7 +203,8 @@ export default function Reservas() {
   };
 
   const today = new Date().toISOString().split('T')[0];
-  const todayReservas = reservas.filter((r) => r.date === today && r.status !== 'cancelled');
+  const visibleReservas = reservas.filter((r) => !['cancelled', 'cancelada'].includes(String(r.status || '').toLowerCase()));
+  const todayReservas = visibleReservas.filter((r) => r.date === today);
   const statusColors = {
     confirmed: 'bg-emerald-100 text-emerald-700',
     pending: 'bg-gold-100 text-gold-700',
@@ -243,7 +244,7 @@ export default function Reservas() {
           </div>
           <div>
             <p className="text-xs text-slate-500">Confirmadas</p>
-            <p className="text-xl font-bold">{reservas.filter((r) => r.status === 'confirmed').length}</p>
+            <p className="text-xl font-bold">{visibleReservas.filter((r) => r.status === 'confirmed').length}</p>
           </div>
         </div>
         <div className="card flex items-center gap-3">
@@ -258,15 +259,15 @@ export default function Reservas() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-        {reservas.length === 0 ? (
+        {visibleReservas.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
             <MdEventSeat className="text-5xl mx-auto mb-3" />
-            <p className="font-medium">No hay reservas</p>
-            <p className="text-sm">Crea una nueva reserva para comenzar</p>
+            <p className="font-medium">No hay reservas activas</p>
+            <p className="text-sm">Las canceladas no se muestran aquí · Crea una nueva reserva para comenzar</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {reservas.map((r) => (
+            {visibleReservas.map((r) => (
               <div key={r.id} className="flex items-center justify-between p-4 rounded-lg border border-slate-100 hover:bg-slate-50">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-gold-100 rounded-full flex items-center justify-center">
