@@ -2,8 +2,21 @@ import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-import { MdAdd, MdDelete, MdSave, MdContentCopy, MdQrCode2, MdUploadFile } from 'react-icons/md';
+import { MdAdd, MdDelete, MdSave, MdContentCopy, MdQrCode2, MdUploadFile, MdRestaurantMenu } from 'react-icons/md';
 import CartasHorizontalCarousel from '../../components/CartasHorizontalCarousel';
+import Modal from '../../components/Modal';
+import { parseMenuLines, buildMenuCartaSvgBlob } from '../../utils/generateMenuCartaSvg';
+
+const MENU_GEN_PLACEHOLDER = `# Entradas
+Ceviche clásico  28
+Wantán frito  18
+
+# Platos fuertes
+Lomo saltado  38
+Ají de gallina  32
+
+Postres
+Helado de vainilla  10`;
 
 function selfOrderUrlForTable(number) {
   const base = typeof window !== 'undefined' ? window.location.origin : '';
@@ -16,6 +29,10 @@ export default function AutoPedidoAdmin() {
   const [cartas, setCartas] = useState([]);
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [genOpenIndex, setGenOpenIndex] = useState(null);
+  const [genTitle, setGenTitle] = useState('Nuestra carta');
+  const [genText, setGenText] = useState(MENU_GEN_PLACEHOLDER);
+  const [genPreviewUrl, setGenPreviewUrl] = useState('');
 
   const load = () => {
     setLoading(true);
@@ -32,6 +49,18 @@ export default function AutoPedidoAdmin() {
     load();
   }, []);
 
+  useEffect(() => {
+    if (genOpenIndex === null) return undefined;
+    const rows = parseMenuLines(genText);
+    const blob = buildMenuCartaSvgBlob({ rows, title: genTitle.trim() || 'Nuestra carta' });
+    const url = URL.createObjectURL(blob);
+    setGenPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return url;
+    });
+    return () => URL.revokeObjectURL(url);
+  }, [genOpenIndex, genText, genTitle]);
+
   const addRow = () => {
     setCartas((prev) => [
       ...prev,
@@ -45,6 +74,37 @@ export default function AutoPedidoAdmin() {
 
   const removeRow = (index) => {
     setCartas((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const openGenerator = (index) => {
+    setGenTitle('Nuestra carta');
+    setGenText(MENU_GEN_PLACEHOLDER);
+    setGenOpenIndex(index);
+  };
+
+  const closeGenerator = () => {
+    setGenOpenIndex(null);
+    setGenPreviewUrl('');
+  };
+
+  const applyGeneratedCarta = async () => {
+    if (!canSave || genOpenIndex === null) return;
+    const rows = parseMenuLines(genText);
+    if (!rows.some((r) => r.kind === 'item')) {
+      toast.error('Añade al menos una línea con precio al final (ej. Lomo saltado  35)');
+      return;
+    }
+    const tid = toast.loading('Generando y subiendo…');
+    try {
+      const blob = buildMenuCartaSvgBlob({ rows, title: genTitle.trim() || 'Nuestra carta' });
+      const file = new File([blob], `carta-${Date.now()}.svg`, { type: 'image/svg+xml' });
+      const { url } = await api.upload(file);
+      updateRow(genOpenIndex, 'url', url || '');
+      toast.success('Carta generada aplicada. Pulsa Guardar para persistir.', { id: tid });
+      closeGenerator();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo subir la carta', { id: tid });
+    }
   };
 
   const uploadCartaFile = async (index, e) => {
@@ -188,6 +248,17 @@ export default function AutoPedidoAdmin() {
                       <MdDelete className="text-xl" />
                     </button>
                   </div>
+                  <div className="md:col-span-12 pt-1 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => openGenerator(i)}
+                      className="text-sm inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 font-medium disabled:opacity-50"
+                      disabled={!canSave}
+                    >
+                      <MdRestaurantMenu className="text-lg" />
+                      Generar carta desde texto (platos y precios)
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -220,6 +291,64 @@ export default function AutoPedidoAdmin() {
         </div>
         {tables.length === 0 && <p className="text-slate-500 text-sm">No hay mesas configuradas. Créalas en Configuración → Salones y Mesas.</p>}
       </div>
+
+      <Modal
+        isOpen={genOpenIndex !== null}
+        onClose={closeGenerator}
+        title="Generar carta desde texto"
+        size="lg"
+        variant="light"
+      >
+        <div className="space-y-4 text-slate-800">
+          <p className="text-sm text-slate-600">
+            Escribe cada plato en una línea y el precio al final (con o sin <span className="font-mono">S/</span>). Usa líneas con{' '}
+            <span className="font-mono">#</span> o solo texto sin número para títulos de sección (ej. «Postres»).
+          </p>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Título de la carta</label>
+            <input
+              className="input-field"
+              value={genTitle}
+              onChange={(e) => setGenTitle(e.target.value)}
+              placeholder="Nuestra carta"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Contenido</label>
+              <textarea
+                className="input-field font-mono text-sm min-h-[220px] resize-y"
+                value={genText}
+                onChange={(e) => setGenText(e.target.value)}
+                spellCheck={false}
+                placeholder={MENU_GEN_PLACEHOLDER}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Vista previa</label>
+              <div className="rounded-xl border border-slate-200 bg-[#0f172a] min-h-[220px] flex items-center justify-center p-2 overflow-hidden">
+                {genPreviewUrl ? (
+                  <img
+                    src={genPreviewUrl}
+                    alt="Vista previa de la carta generada"
+                    className="max-w-full max-h-[min(360px,50vh)] w-auto h-auto object-contain rounded-lg"
+                  />
+                ) : (
+                  <p className="text-slate-500 text-sm px-4 text-center">Escribe platos y precios para ver la vista previa</p>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 justify-end pt-2 border-t border-slate-200">
+            <button type="button" onClick={closeGenerator} className="btn-secondary text-sm">
+              Cerrar
+            </button>
+            <button type="button" onClick={applyGeneratedCarta} className="btn-primary text-sm" disabled={!canSave}>
+              Subir y aplicar a «{genOpenIndex !== null ? cartas[genOpenIndex]?.name || 'esta carta' : ''}»
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
