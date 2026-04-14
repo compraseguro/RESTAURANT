@@ -41,6 +41,8 @@ const DEFAULT_BILLING_FORM = {
   customer_name: '',
   customer_address: '',
   customer_phone: '',
+  /** Comprobante: cada ítem del pedido vs una sola línea por consumo */
+  invoice_lines_mode: 'detallado',
 };
 const EMPTY_CUSTOMER_FORM = {
   doc_type: '1',
@@ -514,6 +516,7 @@ export default function POSPanel() {
     const doc = await api.post('/billing/issue', {
       order_id: orderId,
       doc_type: billingForm.doc_type,
+      invoice_lines_mode: billingForm.invoice_lines_mode,
       customer: {
         doc_type: billingForm.customer_doc_type,
         doc_number: billingForm.customer_doc_number,
@@ -1433,6 +1436,31 @@ export default function POSPanel() {
                           <option value="0">Sin documento</option>
                         </select>
                       </div>
+                      <div className="rounded-lg border border-[#3B82F6]/25 bg-[#0F172A]/60 p-2 space-y-1.5">
+                        <p className="text-[11px] font-medium text-[#E5E7EB]">Detalle en el comprobante</p>
+                        <div className="flex flex-wrap gap-3 text-xs text-[#D1D5DB]">
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="invoice_lines_quick"
+                              checked={billingForm.invoice_lines_mode === 'detallado'}
+                              onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'detallado' }))}
+                              className="border-[#3B82F6]/50"
+                            />
+                            Detallado (cada producto)
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="invoice_lines_quick"
+                              checked={billingForm.invoice_lines_mode === 'consumo'}
+                              onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'consumo' }))}
+                              className="border-[#3B82F6]/50"
+                            />
+                            Por consumo (una línea)
+                          </label>
+                        </div>
+                      </div>
                       <input
                         className="input-field"
                         placeholder="N° documento"
@@ -1692,6 +1720,31 @@ export default function POSPanel() {
                               <option value="6">RUC</option>
                               <option value="0">Sin documento</option>
                             </select>
+                            <div className="sm:col-span-2 rounded-lg border border-[#3B82F6]/25 bg-[#0F172A]/60 p-2 space-y-1.5">
+                              <p className="text-xs font-medium text-[#E5E7EB]">Detalle en el comprobante</p>
+                              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-xs text-[#D1D5DB]">
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name="invoice_lines_mesa"
+                                    checked={billingForm.invoice_lines_mode === 'detallado'}
+                                    onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'detallado' }))}
+                                    className="border-[#3B82F6]/50"
+                                  />
+                                  Detallado (cada producto)
+                                </label>
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name="invoice_lines_mesa"
+                                    checked={billingForm.invoice_lines_mode === 'consumo'}
+                                    onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'consumo' }))}
+                                    className="border-[#3B82F6]/50"
+                                  />
+                                  Por consumo (una línea)
+                                </label>
+                              </div>
+                            </div>
                             <input
                               className="input-field text-sm"
                               placeholder="N° documento"

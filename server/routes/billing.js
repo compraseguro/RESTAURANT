@@ -20,6 +20,13 @@ function round2(value) {
   return Math.round(toNumber(value) * 100) / 100;
 }
 
+/** Líneas del comprobante: detallado = ítems del pedido; consumo = una sola línea con totales del pedido */
+function normalizeInvoiceLinesMode(raw) {
+  const v = String(raw || '').trim().toLowerCase();
+  if (v === 'consumo' || v === 'por_consumo') return 'consumo';
+  return 'detallado';
+}
+
 function normalizeSeries(value, fallback) {
   const clean = String(value || '').trim().toUpperCase();
   return clean || fallback;
@@ -263,35 +270,60 @@ async function sendToProvider(restaurant, providerPayload) {
   return sendToNubefactProvider(restaurant, providerPayload);
 }
 
-function buildNubefactPayload({ restaurant, order, items, customer, docType, series, correlative }) {
+function buildNubefactPayload({ restaurant, order, items, customer, docType, series, correlative, invoiceLinesMode = 'detallado' }) {
   const taxRate = toNumber(restaurant.tax_rate, 18);
   const subtotal = round2(order.subtotal);
   const tax = round2(order.tax);
   const total = round2(order.total);
 
-  const mappedItems = items.map((item) => {
-    const quantity = toNumber(item.quantity, 0);
-    const valorUnitario = round2(item.unit_price);
-    const precioUnitario = round2(valorUnitario * (1 + taxRate / 100));
-    const lineSubtotal = round2(item.subtotal);
-    const lineTax = round2(lineSubtotal * (taxRate / 100));
-    const lineTotal = round2(lineSubtotal + lineTax);
+  let mappedItems;
+  if (invoiceLinesMode === 'consumo') {
+    const lineSubtotal = subtotal;
+    const lineTax = tax;
+    const lineTotal = total;
+    const valorUnitario = lineSubtotal;
+    const precioUnitario = lineTotal;
+    mappedItems = [
+      {
+        unidad_de_medida: 'NIU',
+        codigo: '',
+        descripcion: 'VENTA POR CONSUMO',
+        cantidad: 1,
+        valor_unitario: valorUnitario,
+        precio_unitario: precioUnitario,
+        descuento: '',
+        subtotal: lineSubtotal,
+        tipo_de_igv: 1,
+        igv: lineTax,
+        total: lineTotal,
+        anticipo_regularizacion: false,
+      },
+    ];
+  } else {
+    mappedItems = items.map((item) => {
+      const quantity = toNumber(item.quantity, 0);
+      const valorUnitario = round2(item.unit_price);
+      const precioUnitario = round2(valorUnitario * (1 + taxRate / 100));
+      const lineSubtotal = round2(item.subtotal);
+      const lineTax = round2(lineSubtotal * (taxRate / 100));
+      const lineTotal = round2(lineSubtotal + lineTax);
 
-    return {
-      unidad_de_medida: 'NIU',
-      codigo: item.product_id || '',
-      descripcion: item.product_name || 'Producto',
-      cantidad: quantity,
-      valor_unitario: valorUnitario,
-      precio_unitario: precioUnitario,
-      descuento: '',
-      subtotal: lineSubtotal,
-      tipo_de_igv: 1,
-      igv: lineTax,
-      total: lineTotal,
-      anticipo_regularizacion: false,
-    };
-  });
+      return {
+        unidad_de_medida: 'NIU',
+        codigo: item.product_id || '',
+        descripcion: item.product_name || 'Producto',
+        cantidad: quantity,
+        valor_unitario: valorUnitario,
+        precio_unitario: precioUnitario,
+        descuento: '',
+        subtotal: lineSubtotal,
+        tipo_de_igv: 1,
+        igv: lineTax,
+        total: lineTotal,
+        anticipo_regularizacion: false,
+      };
+    });
+  }
 
   return {
     operacion: 'generar_comprobante',
@@ -475,7 +507,7 @@ router.get('/provider-status', authenticateToken, requireRole('admin', 'cajero',
   }
 });
 
-async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceExisting = false }) {
+async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceExisting = false, invoiceLinesMode: invoiceLinesModeRaw }) {
   if (!orderId) throw new Error('Debes enviar order_id');
   if (!DOCS[docType] && docType !== 'nota_venta') throw new Error('Tipo de comprobante inválido');
 
@@ -504,6 +536,7 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
   }
   const items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
   if (items.length === 0) throw new Error('El pedido no tiene items');
+  const invoiceLinesMode = normalizeInvoiceLinesMode(invoiceLinesModeRaw);
 
   const restaurant = queryOne('SELECT * FROM restaurants LIMIT 1');
   if (!restaurant) throw new Error('No hay restaurante configurado');
@@ -533,6 +566,7 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
       docType,
       series,
       correlative,
+      invoiceLinesMode,
     })
     : buildNubefactPayload({
       restaurant,
@@ -542,6 +576,7 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
       docType,
       series,
       correlative,
+      invoiceLinesMode,
     });
 
   const {
@@ -615,9 +650,15 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
 
 router.post('/issue', authenticateToken, requireRole('admin', 'cajero', 'mozo'), async (req, res) => {
   try {
-    const { order_id: orderId, doc_type: docTypeRaw, customer } = req.body || {};
+    const { order_id: orderId, doc_type: docTypeRaw, customer, invoice_lines_mode: invoiceLinesMode } = req.body || {};
     const docType = String(docTypeRaw || '').trim().toLowerCase();
-    const created = await issueDocumentForOrder({ orderId, docType, customer, replaceExisting: false });
+    const created = await issueDocumentForOrder({
+      orderId,
+      docType,
+      customer,
+      replaceExisting: false,
+      invoiceLinesMode,
+    });
     res.json(created);
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo emitir comprobante electrónico' });
@@ -627,9 +668,15 @@ router.post('/issue', authenticateToken, requireRole('admin', 'cajero', 'mozo'),
 router.put('/order/:orderId/document', authenticateToken, requireRole('admin', 'cajero', 'mozo'), async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { doc_type: docTypeRaw, customer } = req.body || {};
+    const { doc_type: docTypeRaw, customer, invoice_lines_mode: invoiceLinesMode } = req.body || {};
     const docType = String(docTypeRaw || '').trim().toLowerCase();
-    const created = await issueDocumentForOrder({ orderId, docType, customer, replaceExisting: true });
+    const created = await issueDocumentForOrder({
+      orderId,
+      docType,
+      customer,
+      replaceExisting: true,
+      invoiceLinesMode,
+    });
     res.json(created);
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo cambiar el comprobante' });

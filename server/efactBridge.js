@@ -33,6 +33,7 @@ function buildEfactSaleJson({
   docType,
   series,
   correlative,
+  invoiceLinesMode = 'detallado',
 }) {
   const taxRate = toNumber(restaurant.tax_rate, 18);
   const ruc = String(restaurant.company_ruc || '').trim();
@@ -40,16 +41,25 @@ function buildEfactSaleJson({
   if (!ruc) throw new Error('Configure el RUC del emisor en Facturación electrónica');
   if (!razon) throw new Error('Configure la razón social del emisor en Facturación electrónica');
 
-  const lineas = items.map((item) => {
-    const quantity = toNumber(item.quantity, 0);
-    const precioSin = round2(item.unit_price);
-    return {
-      descripcion: item.product_name || 'Producto',
-      cantidad: String(quantity),
-      precio_unitario_sin_igv: precioSin.toFixed(2),
-      codigo_afectacion_igv: '10',
-    };
-  });
+  const lineas = invoiceLinesMode === 'consumo'
+    ? [
+      {
+        descripcion: 'VENTA POR CONSUMO',
+        cantidad: '1',
+        precio_unitario_sin_igv: round2(order.subtotal).toFixed(2),
+        codigo_afectacion_igv: '10',
+      },
+    ]
+    : items.map((item) => {
+      const quantity = toNumber(item.quantity, 0);
+      const precioSin = round2(item.unit_price);
+      return {
+        descripcion: item.product_name || 'Producto',
+        cantidad: String(quantity),
+        precio_unitario_sin_igv: precioSin.toFixed(2),
+        codigo_afectacion_igv: '10',
+      };
+    });
 
   const direccionFiscal = String(restaurant.billing_emisor_direccion || '').trim()
     || String(restaurant.address || '').trim()
