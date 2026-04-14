@@ -361,24 +361,24 @@ export default function AutoPedidoAdmin() {
         maxHeightClass="max-h-[min(98dvh,calc(100dvh-0.5rem))]"
         bodyClassName="flex flex-col min-h-0 overflow-hidden !p-4 sm:!p-5"
       >
-        <div className="flex min-h-0 flex-1 flex-col gap-4 text-[#E5E7EB]">
-          <p className="text-sm text-[#9CA3AF] shrink-0">
-            Escribe cada plato en una línea y el precio al final (con o sin <span className="font-mono text-[#BFDBFE]">S/</span>). Usa líneas con{' '}
-            <span className="font-mono text-[#BFDBFE]">#</span> o solo texto sin número para títulos de sección (ej. «Postres»).
+        <div className="flex min-h-0 flex-1 flex-col gap-2 text-[#E5E7EB]">
+          <p className="shrink-0 text-[11px] leading-snug text-[#9CA3AF] sm:text-xs">
+            Una línea por plato y precio al final (opcional <span className="font-mono text-[#BFDBFE]">S/</span>). Categoría solo si la línea empieza por{' '}
+            <span className="font-mono text-[#BFDBFE]">#</span>.
           </p>
-          <div className="shrink-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)] gap-4 items-start">
+          <div className="grid shrink-0 grid-cols-1 items-start gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)] lg:gap-3">
             <div>
-              <label className="block text-xs font-medium text-[#9CA3AF] mb-1">Título de la carta</label>
+              <label className="mb-0.5 block text-xs font-medium text-[#9CA3AF]">Título de la carta</label>
               <input
-                className="input-field"
+                className="input-field py-1.5 text-sm"
                 value={genTitle}
                 onChange={(e) => setGenTitle(e.target.value)}
                 placeholder="Nuestra carta"
               />
             </div>
-            <div className="lg:pt-5">
-              <p className="text-xs font-medium text-[#9CA3AF] mb-2">Colores</p>
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div>
+              <p className="mb-1 text-xs font-medium text-[#9CA3AF]">Colores</p>
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                 <label className="flex flex-col gap-1 text-[11px] text-[#9CA3AF]">
                   Fondo
                   <input
@@ -418,11 +418,11 @@ export default function AutoPedidoAdmin() {
               </div>
             </div>
           </div>
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 pt-1 xl:grid-cols-2 xl:gap-3">
             <div className="flex min-h-0 flex-1 flex-col">
-              <label className="mb-1 block shrink-0 text-xs font-medium text-[#9CA3AF]">Contenido</label>
-              <p className="mb-1 shrink-0 text-[11px] text-[#64748B]">
-                Las líneas con <span className="font-mono text-[#BFDBFE]">#</span> usan el color «Líneas #».
+              <label className="mb-0.5 block shrink-0 text-xs font-medium text-[#9CA3AF]">Contenido</label>
+              <p className="mb-0.5 shrink-0 text-[10px] text-[#64748B] sm:text-[11px]">
+                <span className="font-mono text-[#BFDBFE]">#</span> → color «Líneas #».
               </p>
               <div className="flex min-h-0 flex-1 flex-col">
                 <MenuCartaSyntaxEditor
@@ -435,7 +435,7 @@ export default function AutoPedidoAdmin() {
               </div>
             </div>
             <div className="flex min-h-0 flex-1 flex-col">
-              <label className="mb-1 block shrink-0 text-xs font-medium text-[#9CA3AF]">Vista previa</label>
+              <label className="mb-0.5 block shrink-0 text-xs font-medium text-[#9CA3AF]">Vista previa</label>
               <div
                 className="rounded-xl border border-[#3B82F6]/30 flex-1 min-h-0 flex items-center justify-center p-3 overflow-auto"
                 style={{ backgroundColor: normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg) }}
@@ -452,7 +452,7 @@ export default function AutoPedidoAdmin() {
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 justify-end pt-3 border-t border-[#3B82F6]/25 shrink-0">
+          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-[#3B82F6]/25 pt-2">
             <button type="button" onClick={closeGenerator} className="btn-secondary text-sm">
               Cerrar
             </button>
