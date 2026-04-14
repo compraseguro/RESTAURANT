@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, formatCurrency } from '../../utils/api';
-import { MdAdd, MdEdit, MdDelete, MdSearch, MdPhone, MdEmail, MdReceipt, MdAttachMoney } from 'react-icons/md';
+import { MdAdd, MdEdit, MdDelete, MdSearch, MdPhone, MdEmail, MdReceipt, MdAttachMoney, MdContentCopy, MdQrCode2 } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
+
+function selfOrderClienteUrl(customerId) {
+  const base = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${base}/auto-pedido-cliente?cliente=${encodeURIComponent(customerId)}`;
+}
 
 export default function Clientes() {
   const [clientes, setClientes] = useState([]);
@@ -105,6 +110,11 @@ export default function Clientes() {
   }, [orders]);
   const getCustomerPendingTotal = (customerId) =>
     (pendingOrdersByCustomer[customerId] || []).reduce((sum, o) => sum + Number(o.total || 0), 0);
+  const copyClienteSelfOrderLink = (customerId) => {
+    const url = selfOrderClienteUrl(customerId);
+    navigator.clipboard.writeText(url).then(() => toast.success('Enlace copiado')).catch(() => toast.error('No se pudo copiar'));
+  };
+
   const chargeCustomerPendingOrders = async (customer) => {
     const customerOrders = pendingOrdersByCustomer[customer.id] || [];
     if (!customerOrders.length) return toast.error('No hay pedidos pendientes para cobrar');
@@ -134,6 +144,19 @@ export default function Clientes() {
         <div className="card"><p className="text-xs text-slate-500">Total Clientes</p><p className="text-xl font-bold">{clientes.length}</p></div>
         <div className="card"><p className="text-xs text-slate-500">Visitas Totales</p><p className="text-xl font-bold">{totalVisits}</p></div>
         <div className="card"><p className="text-xs text-slate-500">Ingreso por Clientes</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(totalIncome)}</p></div>
+      </div>
+
+      <div className="card mb-5 border border-sky-800/40 bg-slate-900/30 p-4">
+        <div className="flex items-start gap-2">
+          <MdQrCode2 className="mt-0.5 shrink-0 text-xl text-sky-400" />
+          <div>
+            <p className="font-semibold text-slate-100">Auto-pedido por cliente (QR / enlace)</p>
+            <p className="mt-1 text-sm text-slate-400">
+              Cada cliente tiene un enlace único y una contraseña (la del registro; por defecto <span className="font-mono text-slate-300">cliente123</span>).
+              Tras identificarse, puede pedir como en el QR de mesa: los pedidos van a cocina/bar y quedan en su cuenta para cobrar desde esta lista.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="card p-5">
@@ -207,6 +230,41 @@ export default function Clientes() {
                       </button>
                     </div>
                   )}
+                  <div className="mt-4 rounded-lg border border-sky-700/40 bg-slate-50 p-3">
+                    <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-700">
+                      <MdQrCode2 className="text-base" /> Enlace y QR auto-pedido
+                    </p>
+                    <p className="mb-2 text-xs text-slate-600">
+                      El cliente abre el enlace, introduce su contraseña y luego «Hacer pedido». Los pedidos se asocian a{' '}
+                      <strong>{c.name}</strong> para esta pantalla y la caja.
+                    </p>
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <input
+                        readOnly
+                        value={selfOrderClienteUrl(c.id)}
+                        className="input-field min-w-0 flex-1 font-mono text-xs"
+                        onFocus={(e) => e.target.select()}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => copyClienteSelfOrderLink(c.id)}
+                        className="btn-secondary flex shrink-0 items-center gap-1 px-3 text-sm"
+                      >
+                        <MdContentCopy /> Copiar
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-start gap-4">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(selfOrderClienteUrl(c.id))}`}
+                        alt=""
+                        className="h-44 w-44 rounded-lg border border-slate-200 bg-white p-1"
+                      />
+                      <p className="max-w-sm text-xs text-slate-600">
+                        Imprime o comparte el QR. Ruta pública:{' '}
+                        <span className="break-all font-mono text-slate-800">/auto-pedido-cliente?cliente=…</span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

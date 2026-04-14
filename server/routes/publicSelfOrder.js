@@ -1,9 +1,12 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, withTransaction } = require('../database');
 const { assertPaymentMethodAllowed } = require('../businessRules');
 const { createOrderInTransaction, getOrderWithItems } = require('../orderCreateService');
 const { createRateLimiter } = require('../middleware/rateLimit');
+const { JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -11,6 +14,29 @@ const selfOrderPostLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   max: 20,
 });
+
+const clientVerifyLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 15,
+});
+
+const SELF_ORDER_CLIENT_SCOPE = 'self_order_client';
+
+function signSelfOrderClientToken(customerId) {
+  return jwt.sign({ scope: SELF_ORDER_CLIENT_SCOPE, customer_id: customerId }, JWT_SECRET, { expiresIn: '7d' });
+}
+
+function verifySelfOrderClientToken(tokenRaw) {
+  const token = String(tokenRaw || '').trim();
+  if (!token) return null;
+  try {
+    const d = jwt.verify(token, JWT_SECRET);
+    if (d.scope !== SELF_ORDER_CLIENT_SCOPE || !d.customer_id) return null;
+    return String(d.customer_id).trim();
+  } catch {
+    return null;
+  }
+}
 
 function parseAppSettingsObject() {
   const row = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
@@ -99,17 +125,75 @@ function activeOrdersForTableNumber(tableNumber) {
   return orders;
 }
 
+function activeOrdersForCustomerId(customerId) {
+  const orders = queryAll(
+    "SELECT * FROM orders WHERE customer_id = ? AND status IN ('pending','preparing','ready') ORDER BY created_at DESC",
+    [customerId]
+  );
+  orders.forEach((o) => {
+    o.items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [o.id]);
+  });
+  return orders;
+}
+
+router.post('/client-verify', clientVerifyLimiter, (req, res) => {
+  try {
+    const customerId = String(req.body?.customer_id || '').trim();
+    const password = String(req.body?.password || '');
+    if (!customerId || !password) {
+      return res.status(400).json({ error: 'Cliente y contraseña requeridos' });
+    }
+    const row = queryOne('SELECT id, name, password_hash FROM customers WHERE id = ?', [customerId]);
+    const ok = row && row.password_hash && bcrypt.compareSync(password, row.password_hash);
+    if (!ok) {
+      return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+    const token = signSelfOrderClientToken(row.id);
+    res.json({
+      token,
+      customer: { id: row.id, name: row.name },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error al verificar' });
+  }
+});
+
 router.get('/bootstrap', (req, res) => {
   try {
+    const cliente = String(req.query.cliente || '').trim();
+    const token = String(req.query.token || '').trim();
+    if (cliente && token) {
+      const cid = verifySelfOrderClientToken(token);
+      if (!cid || cid !== cliente) {
+        return res.status(401).json({ error: 'Sesión inválida o expirada. Vuelve a identificarte.' });
+      }
+      const customer = queryOne('SELECT id, name FROM customers WHERE id = ?', [cid]);
+      if (!customer) return res.status(404).json({ error: 'Cliente no encontrado' });
+      return res.json({
+        mode: 'cliente',
+        table: {
+          id: customer.id,
+          number: '',
+          name: customer.name,
+          zone: 'Cliente',
+        },
+        products: loadProductsMenu(),
+        categories: loadCategoriesActive(),
+        modifiers: loadModifiersPublic(),
+        cartas: getAutoPedidoCartas(),
+      });
+    }
+
     const mesa = String(req.query.mesa || '').trim();
     if (!mesa) {
-      return res.status(400).json({ error: 'Parámetro mesa requerido' });
+      return res.status(400).json({ error: 'Parámetro mesa o cliente+token requerido' });
     }
     const table = findTableByMesa(mesa);
     if (!table) {
       return res.status(404).json({ error: 'Mesa no encontrada' });
     }
     res.json({
+      mode: 'mesa',
       table: { id: table.id, number: table.number, name: table.name, zone: table.zone },
       products: loadProductsMenu(),
       categories: loadCategoriesActive(),
@@ -133,20 +217,31 @@ router.get('/orders', (req, res) => {
   }
 });
 
+router.get('/client-orders', (req, res) => {
+  try {
+    const cliente = String(req.query.cliente || '').trim();
+    const token = String(req.query.token || '').trim();
+    if (!cliente || !token) return res.status(400).json({ error: 'cliente y token requeridos' });
+    const cid = verifySelfOrderClientToken(token);
+    if (!cid || cid !== cliente) {
+      return res.status(401).json({ error: 'Sesión inválida o expirada' });
+    }
+    const customer = queryOne('SELECT id FROM customers WHERE id = ?', [cid]);
+    if (!customer) return res.status(404).json({ error: 'Cliente no encontrado' });
+    res.json(activeOrdersForCustomerId(cid));
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error al listar pedidos' });
+  }
+});
+
 router.post('/orders', selfOrderPostLimiter, (req, res) => {
   const mesa = String(req.body?.mesa || req.body?.table_number || '').trim();
+  const cliente = String(req.body?.cliente || '').trim();
+  const clientToken = String(req.body?.token || '').trim();
   const { items, payment_method, notes, customer_name } = req.body || {};
 
-  if (!mesa) return res.status(400).json({ error: 'Número de mesa requerido' });
   if (!items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'El pedido debe tener al menos un producto' });
-  }
-
-  const table = findTableByMesa(mesa);
-  if (!table) return res.status(404).json({ error: 'Mesa no encontrada' });
-
-  if (String(req.body?.table_number || '').trim() && String(req.body.table_number).trim() !== String(table.number)) {
-    return res.status(400).json({ error: 'Datos de mesa inconsistentes' });
   }
 
   const requestedPaymentMethod = String(payment_method || '').trim().toLowerCase();
@@ -159,6 +254,52 @@ router.post('/orders', selfOrderPostLimiter, (req, res) => {
   }
 
   const orderId = uuidv4();
+
+  if (cliente && clientToken) {
+    const cid = verifySelfOrderClientToken(clientToken);
+    if (!cid || cid !== cliente) {
+      return res.status(401).json({ error: 'Sesión inválida o expirada' });
+    }
+    const customer = queryOne('SELECT id, name FROM customers WHERE id = ?', [cid]);
+    if (!customer) return res.status(404).json({ error: 'Cliente no encontrado' });
+
+    const body = {
+      items,
+      type: 'dine_in',
+      table_number: 'Cliente',
+      delivery_address: '',
+      notes: notes || '',
+      payment_method: payment_method || 'efectivo',
+      customer_name: String(customer_name || '').trim() || customer.name,
+      discount: 0,
+      customer_id: null,
+    };
+
+    try {
+      const result = withTransaction((tx) =>
+        createOrderInTransaction(tx, orderId, body, { kind: 'public_customer', customerId: cid })
+      );
+      const order = getOrderWithItems(result.orderId);
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('new-order', order);
+        io.emit('order-update', order);
+      }
+      return res.status(201).json(order);
+    } catch (err) {
+      return res.status(400).json({ error: err.message || 'No se pudo crear el pedido' });
+    }
+  }
+
+  if (!mesa) return res.status(400).json({ error: 'Número de mesa requerido' });
+
+  const table = findTableByMesa(mesa);
+  if (!table) return res.status(404).json({ error: 'Mesa no encontrada' });
+
+  if (String(req.body?.table_number || '').trim() && String(req.body.table_number).trim() !== String(table.number)) {
+    return res.status(400).json({ error: 'Datos de mesa inconsistentes' });
+  }
+
   const body = {
     items,
     type: 'dine_in',

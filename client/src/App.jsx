@@ -10,6 +10,7 @@ import Tables from './pages/admin/Tables';
 import Reservas from './pages/admin/Reservas';
 import AutoPedidoAdmin from './pages/admin/AutoPedidoAdmin';
 import SelfOrder from './pages/public/SelfOrder';
+import SelfOrderCliente from './pages/public/SelfOrderCliente';
 import Creditos from './pages/admin/Creditos';
 import Clientes from './pages/admin/Clientes';
 import Productos from './pages/admin/Productos';
@@ -135,6 +136,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/auto-pedido" element={<SelfOrder />} />
+      <Route path="/auto-pedido-cliente" element={<SelfOrderCliente />} />
       <Route path="/" element={user && user.type === 'staff' ? <Navigate to={
         getDefaultStaffPath(user)
       } /> : <Login />} />

@@ -19,7 +19,7 @@ function getOrderWithItems(orderId) {
  * @param {*} tx - objeto de transacción (queryOne, queryAll, run)
  * @param {string} orderId
  * @param {object} body - mismo cuerpo que POST /orders
- * @param {{ kind: 'customer' | 'staff' | 'public_qr', user?: object }} actor
+ * @param {{ kind: 'customer' | 'staff' | 'public_qr' | 'public_customer', user?: object, customerId?: string }} actor
  */
 function createOrderInTransaction(tx, orderId, body, actor) {
   const {
@@ -126,6 +126,8 @@ function createOrderInTransaction(tx, orderId, body, actor) {
     customerId = actor.user.id;
   } else if (actor.kind === 'staff') {
     customerId = String(customer_id || '').trim() || null;
+  } else if (actor.kind === 'public_customer' && actor.customerId) {
+    customerId = String(actor.customerId).trim() || null;
   }
   if (customerId) {
     const customer = tx.queryOne('SELECT id, name FROM customers WHERE id = ?', [customerId]);
@@ -140,6 +142,8 @@ function createOrderInTransaction(tx, orderId, body, actor) {
     custName = customerFromDb?.name || customer_name || '';
   } else if (actor.kind === 'public_qr') {
     custName = String(customer_name || '').trim() || `Mesa ${String(table_number || '').trim()}`;
+  } else if (actor.kind === 'public_customer') {
+    custName = customerFromDb?.name || String(customer_name || '').trim() || 'Cliente';
   }
 
   const saleDocumentNumber = `001-${String(orderNumber).padStart(8, '0')}`;
@@ -157,6 +161,9 @@ function createOrderInTransaction(tx, orderId, body, actor) {
   } else if (actor.kind === 'public_qr') {
     createdByUserId = '';
     createdByUserName = 'Auto-pedido (QR)';
+  } else if (actor.kind === 'public_customer') {
+    createdByUserId = '';
+    createdByUserName = 'Auto-pedido (cliente)';
   }
 
   tx.run(
