@@ -2,6 +2,8 @@
  * Construye el JSON esperado por el bot Python (BOT DE FACTURACION) y llama a su API HTTP.
  */
 
+const { effectiveEfactApiUrl, effectiveEfactHttpSecret } = require('./efactConnection');
+
 function toNumber(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -157,8 +159,8 @@ function mapEfactResponseToProviderResult(parsed, responseOk) {
 }
 
 async function sendEfactSale(restaurant, saleJson) {
-  const base = String(restaurant.billing_api_url || '').replace(/\/$/, '');
-  const secret = String(restaurant.billing_api_token || '').trim();
+  const base = String(effectiveEfactApiUrl(restaurant) || '').replace(/\/$/, '');
+  const secret = String(effectiveEfactHttpSecret(restaurant) || '').trim();
   const headers = { 'Content-Type': 'application/json' };
   if (secret) headers['X-EFACT-SECRET'] = secret;
 

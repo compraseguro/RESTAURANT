@@ -3,6 +3,12 @@ const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { buildEfactSaleJson, sendEfactSale } = require('../efactBridge');
+const {
+  effectiveEfactApiUrl,
+  effectiveEfactHttpSecret,
+  billingEfactUrlFromEnv,
+  billingEfactSecretFromEnv,
+} = require('../efactConnection');
 
 const router = express.Router();
 
@@ -88,7 +94,7 @@ function canSendToNubefact(restaurant) {
 
 function canSendToEfact(restaurant) {
   return String(restaurant.billing_provider || '').toLowerCase() === 'restaurant_efact'
-    && Boolean(String(restaurant.billing_api_url || '').trim());
+    && Boolean(effectiveEfactApiUrl(restaurant));
 }
 
 function canSendToProvider(restaurant) {
@@ -115,7 +121,7 @@ function assertRestaurantReadyForBillingIssue(restaurant, useEfact, docType) {
   if (useEfact) {
     if (!canSendToEfact(restaurant)) {
       throw new Error(
-        'Indique la URL del bot (Mi Restaurante → Bot facturación SUNAT), p. ej. http://127.0.0.1:8765, y ejecute python api_server.py en la carpeta BOT DE FACTURACION.'
+        'Configure la URL del bot en el panel o defina EFACT_API_URL en el servidor (p. ej. http://127.0.0.1:8765 con Docker). El bot debe estar en ejecución (python api_server.py o entrypoint Docker).'
       );
     }
     const serie = docType === 'factura'
@@ -149,9 +155,11 @@ function assertSunatOutcomeAcceptedOrOfflinePending(restaurant, useEfact, result
 }
 
 async function checkProviderReachability(restaurant) {
-  const url = String(restaurant?.billing_api_url || '').trim();
-  if (!url) return false;
   const prov = String(restaurant?.billing_provider || '').toLowerCase();
+  const url = prov === 'restaurant_efact'
+    ? effectiveEfactApiUrl(restaurant)
+    : String(restaurant?.billing_api_url || '').trim();
+  if (!url) return false;
   const healthUrl = prov === 'restaurant_efact' ? url.replace(/\/$/, '') + '/health' : url;
   try {
     const controller = new AbortController();
@@ -410,14 +418,20 @@ function buildNubefactPayload({ restaurant, order, items, customer, docType, ser
 router.get('/config', authenticateToken, requireRole('admin'), (req, res) => {
   const restaurant = queryOne('SELECT * FROM restaurants LIMIT 1');
   if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
+  const effUrl = effectiveEfactApiUrl(restaurant);
+  const effSecret = effectiveEfactHttpSecret(restaurant);
+  const urlLocked = billingEfactUrlFromEnv();
+  const secretLocked = billingEfactSecretFromEnv();
   res.json({
     company_ruc: restaurant.company_ruc || '',
     legal_name: restaurant.legal_name || '',
     billing_enabled: Number(restaurant.billing_enabled ?? 1),
     billing_provider: restaurant.billing_provider || 'restaurant_efact',
-    billing_api_url: restaurant.billing_api_url || '',
+    billing_api_url: effUrl,
+    billing_api_url_from_env: urlLocked,
     billing_api_token: '',
-    has_billing_api_token: Boolean((restaurant.billing_api_token || '').trim()),
+    has_billing_api_token: Boolean(effSecret),
+    billing_api_secret_from_env: secretLocked,
     billing_series_boleta: restaurant.billing_series_boleta || '',
     billing_series_factura: restaurant.billing_series_factura || '',
     billing_offline_mode: Number(restaurant.billing_offline_mode ?? 1),
@@ -445,9 +459,21 @@ router.put('/config', authenticateToken, requireRole('admin'), (req, res) => {
       billing_auto_retry_interval_sec,
     } = req.body || {};
 
-    const nextToken = String(billing_api_token || '').trim()
-      ? String(billing_api_token || '').trim()
-      : (current.billing_api_token || '');
+    const urlLocked = billingEfactUrlFromEnv();
+    const secretLocked = billingEfactSecretFromEnv();
+
+    const nextUrl = urlLocked
+      ? effectiveEfactApiUrl(current)
+      : String(billing_api_url || '').trim();
+
+    let nextToken;
+    if (secretLocked) {
+      nextToken = String(current.billing_api_token || '').trim();
+    } else {
+      nextToken = String(billing_api_token || '').trim()
+        ? String(billing_api_token || '').trim()
+        : String(current.billing_api_token || '').trim();
+    }
 
     runSql(
       `UPDATE restaurants SET
@@ -461,7 +487,7 @@ router.put('/config', authenticateToken, requireRole('admin'), (req, res) => {
         updated_at = datetime('now')
       WHERE id = ?`,
       [
-        String(billing_api_url || '').trim(),
+        nextUrl,
         nextToken,
         Number(billing_offline_mode ? 1 : 0),
         Number(billing_auto_retry_enabled ? 1 : 0),
@@ -471,14 +497,18 @@ router.put('/config', authenticateToken, requireRole('admin'), (req, res) => {
     );
 
     const updated = queryOne('SELECT * FROM restaurants WHERE id = ?', [current.id]);
+    const effUrl = effectiveEfactApiUrl(updated);
+    const effSecret = effectiveEfactHttpSecret(updated);
     res.json({
       company_ruc: updated.company_ruc || '',
       legal_name: updated.legal_name || '',
       billing_enabled: Number(updated.billing_enabled ?? 1),
       billing_provider: updated.billing_provider || 'restaurant_efact',
-      billing_api_url: updated.billing_api_url || '',
+      billing_api_url: effUrl,
+      billing_api_url_from_env: urlLocked,
       billing_api_token: '',
-      has_billing_api_token: Boolean((updated.billing_api_token || '').trim()),
+      has_billing_api_token: Boolean(effSecret),
+      billing_api_secret_from_env: secretLocked,
       billing_series_boleta: updated.billing_series_boleta || '',
       billing_series_factura: updated.billing_series_factura || '',
       billing_offline_mode: Number(updated.billing_offline_mode ?? 1),

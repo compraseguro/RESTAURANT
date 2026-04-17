@@ -3,8 +3,8 @@
 #   2) (Recomendado) Montar credenciales del bot — ver volumen comentado bot.env y certificado .pfx
 #   3) docker compose up --build
 #
-# En el panel: proveedor "Bot SUNAT local", URL API = http://127.0.0.1:8765
-# (desde el mismo contenedor Node alcanza al Python por localhost).
+# EFACT_API_URL en el servicio app apunta al bot Python del mismo contenedor (ver entrypoint).
+# Opcional: defina también EFACT_HTTP_SECRET en .env junto a este YAML (mismo valor que en bot/.env).
 
 services:
   app:
@@ -22,7 +22,9 @@ services:
       EFACT_HTTP_HOST: "0.0.0.0"
       EFACT_HTTP_PORT: "8765"
       OUTPUT_DIR: /data/efact-output
-      # Opcional: mismo valor que "Secreto HTTP" en Facturación electrónica
+      # Bot Python en el mismo contenedor (entrypoint); Node usa esta URL sin configurar el panel
+      EFACT_API_URL: http://127.0.0.1:8765
+      # Opcional: mismo valor en .env del bot (EFACT_HTTP_SECRET) y aquí
       EFACT_HTTP_SECRET: ${EFACT_HTTP_SECRET:-}
     volumes:
       - restaurant_data:/data

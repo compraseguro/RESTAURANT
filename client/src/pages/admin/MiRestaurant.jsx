@@ -30,6 +30,8 @@ export default function MiRestaurant() {
     billing_api_url: '',
     billing_api_token: '',
     has_billing_api_token: false,
+    billing_api_url_from_env: false,
+    billing_api_secret_from_env: false,
     billing_offline_mode: 1,
     billing_auto_retry_enabled: 1,
     billing_auto_retry_interval_sec: 120,
@@ -86,6 +88,8 @@ export default function MiRestaurant() {
             ...prev,
             billing_api_url: billingData.billing_api_url || '',
             has_billing_api_token: Boolean(billingData.has_billing_api_token),
+            billing_api_url_from_env: Boolean(billingData.billing_api_url_from_env),
+            billing_api_secret_from_env: Boolean(billingData.billing_api_secret_from_env),
             billing_offline_mode: Number(billingData.billing_offline_mode ?? 1),
             billing_auto_retry_enabled: Number(billingData.billing_auto_retry_enabled ?? 1),
             billing_auto_retry_interval_sec: Number(billingData.billing_auto_retry_interval_sec || 120),
@@ -149,6 +153,8 @@ export default function MiRestaurant() {
           ...prev,
           billing_api_url: saved.billing_api_url || '',
           has_billing_api_token: Boolean(saved.has_billing_api_token),
+          billing_api_url_from_env: Boolean(saved.billing_api_url_from_env),
+          billing_api_secret_from_env: Boolean(saved.billing_api_secret_from_env),
           billing_offline_mode: Number(saved.billing_offline_mode ?? 1),
           billing_auto_retry_enabled: Number(saved.billing_auto_retry_enabled ?? 1),
           billing_auto_retry_interval_sec: Number(saved.billing_auto_retry_interval_sec || 120),
@@ -546,30 +552,49 @@ export default function MiRestaurant() {
                 </div>
               </div>
 
+              {(billingConfig.billing_api_url_from_env || billingConfig.billing_api_secret_from_env) ? (
+                <div className="rounded-lg border border-blue-200 bg-blue-50/90 p-3 text-sm text-slate-700">
+                  <strong>Conexión fijada en el servidor:</strong> la URL y/o el secreto las define el API Node con{' '}
+                  <code className="text-xs bg-white px-1 rounded border">EFACT_API_URL</code> y{' '}
+                  <code className="text-xs bg-white px-1 rounded border">EFACT_HTTP_SECRET</code>
+                  {' '}en el <code className="text-xs bg-white px-1 rounded border">.env</code> (p. ej. Docker Compose). Coinciden con el bot en el mismo despliegue; los campos de abajo son solo lectura.
+                </div>
+              ) : null}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">URL del API del bot (Node → Python)</label>
                   <input
-                    className="input-field"
+                    className={`input-field ${billingConfig.billing_api_url_from_env ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                     value={billingConfig.billing_api_url}
                     onChange={e => updateBilling('billing_api_url', e.target.value)}
                     placeholder="http://127.0.0.1:8765"
+                    disabled={billingConfig.billing_api_url_from_env}
                   />
+                  {!billingConfig.billing_api_url_from_env ? (
+                    <p className="text-xs text-slate-500 mt-1">
+                      En Docker puede omitirse: defina <code className="bg-slate-100 px-1 rounded">EFACT_API_URL=http://127.0.0.1:8765</code> en el entorno del servidor.
+                    </p>
+                  ) : null}
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Secreto HTTP (X-EFACT-SECRET) {billingConfig.has_billing_api_token ? '(ya configurado)' : ''}
+                    Secreto HTTP (X-EFACT-SECRET){' '}
+                    {billingConfig.has_billing_api_token ? '(activo)' : ''}
                   </label>
                   <input
-                    className="input-field"
+                    className={`input-field ${billingConfig.billing_api_secret_from_env ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                     value={billingConfig.billing_api_token}
                     onChange={e => updateBilling('billing_api_token', e.target.value)}
                     placeholder={
-                      billingConfig.has_billing_api_token
-                        ? 'Vacío = mantener; debe coincidir con EFACT_HTTP_SECRET en .env del bot'
-                        : 'Opcional: mismo valor que EFACT_HTTP_SECRET en el .env del bot'
+                      billingConfig.billing_api_secret_from_env
+                        ? 'Definido por EFACT_HTTP_SECRET en el servidor'
+                        : billingConfig.has_billing_api_token
+                          ? 'Vacío = mantener; debe coincidir con EFACT_HTTP_SECRET en el .env del bot'
+                          : 'Opcional: mismo valor que EFACT_HTTP_SECRET en el .env del bot'
                     }
                     type="password"
+                    disabled={billingConfig.billing_api_secret_from_env}
                   />
                 </div>
                 <div>
@@ -608,9 +633,9 @@ export default function MiRestaurant() {
               </div>
 
               <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-900">
-                Debe estar en ejecución <code className="text-xs bg-amber-100 px-1 rounded">python api_server.py</code> en la carpeta
-                {' '}<code className="text-xs bg-amber-100 px-1 rounded">BOT DE FACTURACION</code>
-                (o Docker con Node+Python). Certificado .pfx y credenciales SOL van en el <code className="text-xs bg-amber-100 px-1 rounded">.env</code> del bot.
+                En local: ejecute <code className="text-xs bg-amber-100 px-1 rounded">python api_server.py</code> en{' '}
+                <code className="text-xs bg-amber-100 px-1 rounded">BOT DE FACTURACION</code>.
+                Con <strong>Docker</strong>, el <code className="text-xs bg-amber-100 px-1 rounded">entrypoint</code> ya arranca el bot en el mismo contenedor que Node; certificado .pfx y SOL van en el <code className="text-xs bg-amber-100 px-1 rounded">.env</code> del bot.
               </div>
               <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-red-800">
                 Al emitir facturas, el cliente debe tener RUC válido (11 dígitos) y razón social.
