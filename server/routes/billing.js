@@ -8,6 +8,7 @@ const {
   effectiveEfactHttpSecret,
   billingEfactUrlFromEnv,
   billingEfactSecretFromEnv,
+  isAcceptableEfactApiUrlForStorage,
 } = require('../efactConnection');
 
 const router = express.Router();
@@ -462,9 +463,15 @@ router.put('/config', authenticateToken, requireRole('master_admin'), (req, res)
     const urlLocked = billingEfactUrlFromEnv();
     const secretLocked = billingEfactSecretFromEnv();
 
-    const nextUrl = urlLocked
+    let nextUrl = urlLocked
       ? effectiveEfactApiUrl(current)
       : String(billing_api_url || '').trim();
+    if (!urlLocked && nextUrl && !isAcceptableEfactApiUrlForStorage(nextUrl)) {
+      return res.status(400).json({
+        error:
+          'La URL del bot debe ser una dirección http:// o https:// (p. ej. http://127.0.0.1:8765). No uses el usuario ni la contraseña de administrador en este campo.',
+      });
+    }
 
     let nextToken;
     if (secretLocked) {

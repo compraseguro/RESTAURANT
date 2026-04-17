@@ -596,9 +596,13 @@ export default function MiRestaurant() {
                     onChange={e => updateBilling('billing_api_url', e.target.value)}
                     placeholder="http://127.0.0.1:8765"
                     disabled={billingConfig.billing_api_url_from_env}
+                    autoComplete="off"
+                    name="billing-efact-api-base-url"
+                    inputMode="url"
                   />
                   {!billingConfig.billing_api_url_from_env ? (
                     <p className="text-xs text-slate-500 mt-1">
+                      Solo la URL base del bot (http… o https…). No pegues usuario ni contraseña de login aquí; el navegador no debe autocompletar esos datos en este campo.
                       En Docker puede omitirse: defina <code className="bg-slate-100 px-1 rounded">EFACT_API_URL=http://127.0.0.1:8765</code> en el entorno del servidor.
                     </p>
                   ) : null}
@@ -621,6 +625,8 @@ export default function MiRestaurant() {
                     }
                     type="password"
                     disabled={billingConfig.billing_api_secret_from_env}
+                    autoComplete="new-password"
+                    name="billing-efact-http-secret"
                   />
                 </div>
                 <div>

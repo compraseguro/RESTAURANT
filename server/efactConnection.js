@@ -14,10 +14,35 @@ function envEfactHttpSecret() {
   return String(process.env.EFACT_HTTP_SECRET || process.env.INTERNAL_EFACT_HTTP_SECRET || '').trim();
 }
 
+/**
+ * Solo acepta http(s)://… válido. Cualquier otro texto en BD (p. ej. usuario de login
+ * pegado por error o autocompletado del navegador) se ignora para no romper fetch al bot.
+ */
+function sanitizeDbEfactApiUrl(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  const lc = s.toLowerCase();
+  if (!lc.startsWith('http://') && !lc.startsWith('https://')) return '';
+  try {
+    // eslint-disable-next-line no-new
+    new URL(s);
+    return s;
+  } catch {
+    return '';
+  }
+}
+
 function effectiveEfactApiUrl(restaurant) {
   const fromEnv = envEfactApiUrl();
   if (fromEnv) return fromEnv;
-  return String(restaurant?.billing_api_url || '').trim();
+  return sanitizeDbEfactApiUrl(restaurant?.billing_api_url);
+}
+
+/** true si vacío (se usa solo env) o si es URL http(s) válida */
+function isAcceptableEfactApiUrlForStorage(value) {
+  const s = String(value ?? '').trim();
+  if (!s) return true;
+  return Boolean(sanitizeDbEfactApiUrl(s));
 }
 
 function effectiveEfactHttpSecret(restaurant) {
@@ -39,4 +64,6 @@ module.exports = {
   effectiveEfactHttpSecret,
   billingEfactUrlFromEnv,
   billingEfactSecretFromEnv,
+  sanitizeDbEfactApiUrl,
+  isAcceptableEfactApiUrlForStorage,
 };

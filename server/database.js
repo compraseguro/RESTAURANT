@@ -994,6 +994,22 @@ async function initDatabase() {
       );
     }
 
+    const invalidEfactUrlCleaned = queryOne(
+      'SELECT 1 AS ok FROM app_settings WHERE key = ?',
+      ['billing_invalid_efact_url_cleared_v1']
+    );
+    if (!invalidEfactUrlCleaned) {
+      db.run(`
+        UPDATE restaurants SET billing_api_url = ''
+        WHERE trim(coalesce(billing_api_url, '')) != ''
+          AND lower(trim(billing_api_url)) NOT LIKE 'http://%'
+          AND lower(trim(billing_api_url)) NOT LIKE 'https://%'
+      `);
+      db.run(
+        "INSERT OR IGNORE INTO app_settings (key, value) VALUES ('billing_invalid_efact_url_cleared_v1', '\"1\"')"
+      );
+    }
+
     const workSessionCols = queryAll('PRAGMA table_info(user_work_sessions)');
     const workSessionColNames = new Set((workSessionCols || []).map((c) => c.name));
     if (!workSessionColNames.has('photo_login')) {

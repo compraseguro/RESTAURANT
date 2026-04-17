@@ -303,7 +303,15 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
                 onChange={(e) => updateBilling('billing_api_url', e.target.value)}
                 placeholder="http://127.0.0.1:8765"
                 disabled={billingConfig.billing_api_url_from_env}
+                autoComplete="off"
+                name="billing-efact-api-base-url"
+                inputMode="url"
               />
+              {!billingConfig.billing_api_url_from_env ? (
+                <p className="text-xs text-slate-500 mt-1">
+                  Solo URL http(s) del bot. No uses usuario/contraseña de administrador maestro aquí.
+                </p>
+              ) : null}
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -322,6 +330,8 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
                 }
                 type="password"
                 disabled={billingConfig.billing_api_secret_from_env}
+                autoComplete="new-password"
+                name="billing-efact-http-secret"
               />
             </div>
             <div>

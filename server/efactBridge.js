@@ -160,6 +160,14 @@ function mapEfactResponseToProviderResult(parsed, responseOk) {
 
 async function sendEfactSale(restaurant, saleJson) {
   const base = String(effectiveEfactApiUrl(restaurant) || '').replace(/\/$/, '');
+  if (!base) {
+    const err = { error: 'Falta URL del bot e-fact (http://… en Mi Restaurante o variable EFACT_API_URL en el servidor).' };
+    return {
+      response: { ok: false, status: 503 },
+      parsed: err,
+      providerResult: mapEfactResponseToProviderResult(err, false),
+    };
+  }
   const secret = String(effectiveEfactHttpSecret(restaurant) || '').trim();
   const headers = { 'Content-Type': 'application/json' };
   if (secret) headers['X-EFACT-SECRET'] = secret;
