@@ -29,7 +29,7 @@ const allLinks = [
   { to: '/admin/informes', icon: MdAssessment, label: 'Informes', roles: ['admin', 'cajero'], moduleId: 'informes' },
   { to: '/admin/ventas', icon: MdAttachMoney, label: 'Ventas', roles: ['admin', 'cajero'], moduleId: 'ventas' },
   { to: '/admin/indicadores', icon: MdInsights, label: 'Indicadores', roles: ['admin'], moduleId: 'indicadores' },
-  { to: '/admin/mi-restaurant', icon: MdStorefront, label: 'Mi Restaurante', roles: ['admin'], moduleId: 'mi_restaurant' },
+  { to: '/admin/mi-restaurant', icon: MdStorefront, label: 'Mi Restaurante', roles: ['admin', 'master_admin'], moduleId: 'mi_restaurant' },
   { to: '/admin/tiempo-trabajado', icon: MdAccessTime, label: 'Tiempo trabajado', roles: ['admin'], moduleId: 'tiempo_trabajado' },
   { to: '/admin/configuracion', icon: MdSettings, label: 'Configuración', roles: ['admin'], moduleId: 'configuracion' },
 ];
@@ -45,7 +45,7 @@ const cajaSubOptions = [
   { id: 'consulta_precios', label: 'Consulta de precios' },
 ];
 
-const miRestaurantSubOptions = [
+const miRestaurantSubOptionsAll = [
   { id: 'mi_empresa', label: 'Mi empresa' },
   { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
   { id: 'pagos_sistema', label: 'Pagos de créditos' },
@@ -53,6 +53,13 @@ const miRestaurantSubOptions = [
   { id: 'pago_uso_sistema', label: 'Pago por uso del sistema' },
   { id: 'informacion', label: 'Información' },
 ];
+
+function miRestaurantSubOptionsForRole(role) {
+  return miRestaurantSubOptionsAll.filter((o) => {
+    if (o.id === 'facturacion_electronica' || o.id === 'pago_uso_sistema') return role === 'master_admin';
+    return true;
+  });
+}
 
 const almacenSubOptions = [
   { id: 'movimiento_interno', label: 'Movimiento interno' },
@@ -201,7 +208,7 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
 
             {!isCollapsed && link.to === '/admin/mi-restaurant' && isMiRestaurantExpanded && (
               <div className="mt-1 ml-8 space-y-0.5">
-                {miRestaurantSubOptions.map(option => (
+                {miRestaurantSubOptionsForRole(user?.role).map(option => (
                   <NavLink
                     key={option.id}
                     to={`/admin/mi-restaurant?view=${option.id}`}

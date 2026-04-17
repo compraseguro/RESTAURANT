@@ -50,7 +50,7 @@ const ADMIN_MODULE_PATHS = [
   { path: '/admin/informes', moduleId: 'informes', roles: ['admin', 'cajero'] },
   { path: '/admin/ventas', moduleId: 'ventas', roles: ['admin', 'cajero'] },
   { path: '/admin/indicadores', moduleId: 'indicadores', roles: ['admin'] },
-  { path: '/admin/mi-restaurant', moduleId: 'mi_restaurant', roles: ['admin'] },
+  { path: '/admin/mi-restaurant', moduleId: 'mi_restaurant', roles: ['admin', 'master_admin'] },
   { path: '/admin/tiempo-trabajado', moduleId: 'tiempo_trabajado', roles: ['admin'] },
   { path: '/admin/configuracion', moduleId: 'configuracion', roles: ['admin'] },
 ];
@@ -161,7 +161,7 @@ export default function App() {
         <Route path="informes" element={<ProtectedRoute roles={['admin', 'cajero']} moduleId="informes"><Reports /></ProtectedRoute>} />
         <Route path="indicadores" element={<ProtectedRoute roles={['admin']} moduleId="indicadores"><Indicadores /></ProtectedRoute>} />
         <Route path="comprobantes-emitidos" element={<Navigate to="/admin/informes?seccion=facturacion" replace />} />
-        <Route path="mi-restaurant" element={<ProtectedRoute roles={['admin']} moduleId="mi_restaurant"><MiRestaurant /></ProtectedRoute>} />
+        <Route path="mi-restaurant" element={<ProtectedRoute roles={['admin', 'master_admin']} moduleId="mi_restaurant"><MiRestaurant /></ProtectedRoute>} />
         <Route path="configuracion" element={<ProtectedRoute roles={['admin']} moduleId="configuracion"><Settings /></ProtectedRoute>} />
       </Route>
 

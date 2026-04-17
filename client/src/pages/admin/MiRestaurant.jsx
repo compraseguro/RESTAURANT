@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import RestaurantServiceContractForm, { normalizeContratoFromApi } from '../../components/RestaurantServiceContractForm';
 import { api, resolveMediaUrl } from '../../utils/api';
@@ -20,7 +20,10 @@ const MI_RESTAURANT_VIEWS = [
 
 export default function MiRestaurant() {
   const { user } = useAuth();
-  const canEditContrato = user?.role === 'master_admin';
+  const isMasterAdmin = user?.role === 'master_admin';
+  const canEditContrato = isMasterAdmin;
+  /** Bot SUNAT + series contingencia + URL bot: solo maestro. */
+  const canEditBillingMaster = isMasterAdmin;
   const [searchParams, setSearchParams] = useSearchParams();
   const logoInputRef = useRef(null);
   const restoreInputRef = useRef(null);
@@ -74,7 +77,7 @@ export default function MiRestaurant() {
   const loadInitialData = () => {
     return Promise.all([
       api.get('/restaurant'),
-      api.get('/billing/config').catch(() => null),
+      isMasterAdmin ? api.get('/billing/config').catch(() => null) : Promise.resolve(null),
       api.get('/admin-modules/config/app').catch(() => null),
     ])
       .then(([restaurantData, billingData, appCfg]) => {
@@ -115,8 +118,17 @@ export default function MiRestaurant() {
 
   useEffect(() => {
     const requestedView = searchParams.get('view');
+    const masterOnlyViews = new Set(['facturacion_electronica', 'pago_uso_sistema']);
+
     if (requestedView === 'series_contingencia') {
-      setSearchParams({ view: 'facturacion_electronica' }, { replace: true });
+      const target = isMasterAdmin ? 'facturacion_electronica' : 'mi_empresa';
+      setActiveView(target);
+      setSearchParams({ view: target }, { replace: true });
+      return;
+    }
+    if (requestedView && masterOnlyViews.has(requestedView) && !isMasterAdmin) {
+      setActiveView('mi_empresa');
+      setSearchParams({ view: 'mi_empresa' }, { replace: true });
       return;
     }
     const isValidView = MI_RESTAURANT_VIEWS.some(option => option.id === requestedView);
@@ -131,7 +143,7 @@ export default function MiRestaurant() {
     if (!isValidView && !requestedView) {
       setSearchParams({ view: 'mi_empresa' }, { replace: true });
     }
-  }, [activeView, searchParams, setSearchParams]);
+  }, [activeView, searchParams, setSearchParams, isMasterAdmin]);
 
   const save = async () => {
     try {
@@ -140,6 +152,10 @@ export default function MiRestaurant() {
         return;
       }
       if (activeView === 'facturacion_electronica') {
+        if (!canEditBillingMaster) {
+          toast.error('Solo el administrador maestro puede guardar la facturación electrónica, contingencia y conexión al bot.');
+          return;
+        }
         const savedRestaurant = await api.put('/restaurant', restaurant);
         setRestaurant(savedRestaurant);
         const saved = await api.put('/billing/config', {
@@ -198,6 +214,10 @@ export default function MiRestaurant() {
           return;
         }
         if (key === 'pago_uso_sistema') {
+          if (!canEditBillingMaster) {
+            toast.error('Solo el administrador maestro puede guardar el pago por uso del sistema.');
+            return;
+          }
           const raw = appConfig.pago_uso_sistema || {};
           const periodo = raw.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
           const payload = {
@@ -351,8 +371,14 @@ export default function MiRestaurant() {
   };
 
   if (!restaurant) return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
+  if (!isMasterAdmin && (activeView === 'facturacion_electronica' || activeView === 'pago_uso_sistema')) {
+    return <Navigate to="/admin/mi-restaurant?view=mi_empresa" replace />;
+  }
   const activeViewLabel = MI_RESTAURANT_VIEWS.find(option => option.id === activeView)?.label || 'Mi empresa';
-  const showSaveButton = activeView !== 'contrato' || canEditContrato;
+  const showSaveButton =
+    (activeView !== 'contrato' || canEditContrato)
+    && (activeView !== 'facturacion_electronica' || canEditBillingMaster)
+    && (activeView !== 'pago_uso_sistema' || canEditBillingMaster);
 
   return (
     <div>
@@ -468,6 +494,13 @@ export default function MiRestaurant() {
                 </div>
               </div>
 
+              {!canEditBillingMaster ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  Solo el <strong>administrador maestro</strong> puede modificar esta sección. Los datos se muestran en solo lectura.
+                </div>
+              ) : null}
+
+              <fieldset disabled={!canEditBillingMaster} className="border-0 p-0 m-0 min-w-0 space-y-5">
               <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
                 <h4 className="font-semibold text-slate-800 text-sm">Empresa y ubicación SUNAT (emisor)</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -631,6 +664,7 @@ export default function MiRestaurant() {
                   />
                 </div>
               </div>
+              </fieldset>
 
               <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-900">
                 En local: ejecute <code className="text-xs bg-amber-100 px-1 rounded">python api_server.py</code> en{' '}
@@ -884,7 +918,7 @@ export default function MiRestaurant() {
               </div>
 
               <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
-                Tras cargar el archivo, pulsa <strong>Guardar cambios</strong> para guardar la URL del comprobante junto al resto de datos.
+                Tras cargar el archivo, pulse <strong>Guardar cambios</strong> para guardar la URL del comprobante junto al resto de datos.
               </div>
             </div>
           ) : activeView === 'informacion' ? (

@@ -75,7 +75,7 @@ function hasReservationConflict({ tableId, date, time, excludeId = '' }) {
   });
 }
 
-router.get('/config/app', requireRole('admin'), (req, res) => {
+router.get('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
   res.json(readAppSettingsObject());
 });
 
@@ -174,11 +174,22 @@ router.get('/config/app/history', requireRole('admin'), (req, res) => {
   });
 });
 
-router.put('/config/app', requireRole('admin'), (req, res) => {
-  const payload = req.body || {};
-  if (payload.contrato !== undefined && req.user?.role !== 'master_admin') {
+router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
+  const payload = { ...(req.body || {}) };
+  const isMaster = req.user?.role === 'master_admin';
+
+  if (payload.contrato !== undefined && !isMaster) {
     return res.status(403).json({ error: 'Solo el administrador maestro puede modificar el contrato del servicio.' });
   }
+
+  if (!isMaster) {
+    const keys = Object.keys(payload).filter((k) => payload[k] !== undefined);
+    const blocked = keys.filter((k) => k === 'pago_uso_sistema' || k === 'series_contingencia');
+    if (blocked.length) {
+      return res.status(403).json({ error: 'Solo el administrador maestro puede modificar esa configuración.' });
+    }
+  }
+
   const beforeState = readAppSettingsObject();
   const changedKeys = [];
   const updatedKeys = [];

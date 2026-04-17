@@ -20,15 +20,30 @@ router.get('/', (req, res) => {
   res.json(restaurant || {});
 });
 
-router.put('/', authenticateToken, requireRole('admin'), (req, res) => {
+router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, res) => {
+  const isMaster = req.user?.role === 'master_admin';
   const b = req.body || {};
-  const {
+  let {
     name, address, phone, email, logo, tax_rate, currency, currency_symbol,
     delivery_enabled, delivery_fee, delivery_min_order, delivery_radius_km, schedule,
     company_ruc, legal_name, billing_nombre_comercial, billing_emisor_ubigeo,
     billing_emisor_direccion, billing_emisor_provincia, billing_emisor_departamento,
     billing_emisor_distrito, billing_series_boleta, billing_series_factura,
   } = b;
+
+  /** SUNAT / series: solo administrador maestro (el admin del restaurante no las cambia aquí). */
+  if (!isMaster) {
+    company_ruc = null;
+    legal_name = null;
+    billing_nombre_comercial = null;
+    billing_emisor_ubigeo = null;
+    billing_emisor_direccion = null;
+    billing_emisor_provincia = null;
+    billing_emisor_departamento = null;
+    billing_emisor_distrito = null;
+    billing_series_boleta = null;
+    billing_series_factura = null;
+  }
 
   runSql(`UPDATE restaurants SET 
     name = COALESCE(?, name), address = COALESCE(?, address), phone = COALESCE(?, phone), email = COALESCE(?, email), logo = COALESCE(?, logo),
