@@ -420,7 +420,10 @@ export default function MasterAdmin() {
 
         {tab === 'facturacion' && (
           <div className="card">
-            <h2 className="font-semibold text-slate-800 mb-3">Fecha de facturación y bloqueo automático</h2>
+            <h2 className="font-semibold text-slate-800 mb-2">Fecha de facturación y bloqueo automático</h2>
+            <p className="text-xs text-slate-500 mb-3">
+              Solo el administrador maestro puede editar estos valores. El administrador del restaurante ve la misma fecha y parámetros en el <strong>Escritorio</strong> (solo lectura).
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Fecha de facturación</label>

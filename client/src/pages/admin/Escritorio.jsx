@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { api, formatCurrency, parseApiDate, toLocalDateKey } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -32,8 +33,10 @@ const formatDateForLabel = (value) => {
 };
 
 export default function Escritorio() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [billingSchedule, setBillingSchedule] = useState(null);
   const [printConfig, setPrintConfig] = useState({ cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
   const [datePreset, setDatePreset] = useState('month');
@@ -60,6 +63,22 @@ export default function Escritorio() {
     loadData();
   }, []);
   useActiveInterval(loadData, 10000);
+
+  const loadBillingSchedule = () => {
+    if (user?.role !== 'admin') {
+      setBillingSchedule(null);
+      return;
+    }
+    api.get('/master-admin/billing-schedule')
+      .then((data) => setBillingSchedule(data))
+      .catch(() => setBillingSchedule(null));
+  };
+
+  useEffect(() => {
+    loadBillingSchedule();
+  }, [user?.role]);
+
+  useActiveInterval(loadBillingSchedule, 120000);
   useSocket('order-update', loadData);
   useEffect(() => {
     if (datePreset !== 'month') return;
@@ -362,6 +381,37 @@ export default function Escritorio() {
 
   return (
     <div className="space-y-4">
+      {user?.role === 'admin' && billingSchedule ? (
+        <div className="card p-4 border border-slate-600/50 bg-slate-900/30">
+          <div className="flex items-center gap-2 mb-1">
+            <MdDateRange className="text-sky-400 text-xl" />
+            <h3 className="text-base font-semibold text-slate-100">Fecha de facturación y bloqueo automático</h3>
+          </div>
+          <p className="text-xs text-slate-500 mb-3">
+            Mismos datos que configura el <strong className="text-slate-400">administrador maestro</strong>. Solo consulta; la edición es exclusiva del maestro.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Fecha de facturación</p>
+              <p className="rounded-lg border border-slate-600 bg-slate-950/50 px-3 py-2 text-sm text-slate-200">
+                {billingSchedule.billing_date ? formatDateForLabel(billingSchedule.billing_date) : '— Sin definir —'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Avisar antes (días)</p>
+              <p className="rounded-lg border border-slate-600 bg-slate-950/50 px-3 py-2 text-sm text-slate-200">
+                {billingSchedule.notify_days_before ?? 5}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 mb-1">Bloqueo automático por mora</p>
+              <p className="rounded-lg border border-slate-600 bg-slate-950/50 px-3 py-2 text-sm text-slate-200">
+                {billingSchedule.auto_block_on_overdue ? 'Activo' : 'Inactivo'}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="card p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-slate-100">Centro Operativo</h3>

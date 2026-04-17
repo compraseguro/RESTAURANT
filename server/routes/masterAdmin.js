@@ -24,6 +24,19 @@ router.get('/admin-notifications', (req, res) => {
   return res.json(getActiveNotifications().slice(0, 30));
 });
 
+/** Misma configuración que edita el maestro en «Fecha de facturación»; el admin del restaurante solo la consulta. */
+router.get('/billing-schedule', (req, res) => {
+  if (!['admin', 'master_admin'].includes(req.user?.role)) {
+    return res.status(403).json({ error: 'Sin permisos' });
+  }
+  const control = evaluateAutomaticBillingRules();
+  return res.json({
+    billing_date: String(control.billing_date || '').trim(),
+    notify_days_before: Math.max(1, Math.min(30, Number(control.notify_days_before || 5))),
+    auto_block_on_overdue: Number(control.auto_block_on_overdue || 0) === 1,
+  });
+});
+
 router.use((req, res, next) => {
   if (req.user?.role !== 'master_admin') {
     return res.status(403).json({ error: 'Acceso exclusivo para administrador maestro' });
