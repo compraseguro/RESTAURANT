@@ -184,9 +184,18 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
 
   if (!isMaster) {
     const keys = Object.keys(payload).filter((k) => payload[k] !== undefined);
-    const blocked = keys.filter((k) => k === 'pago_uso_sistema' || k === 'series_contingencia');
-    if (blocked.length) {
-      return res.status(403).json({ error: 'Solo el administrador maestro puede modificar esa configuración.' });
+    if (keys.includes('series_contingencia')) {
+      return res.status(403).json({ error: 'Solo el administrador maestro puede modificar la configuración de series de contingencia.' });
+    }
+    /** Admin del restaurante: solo puede actualizar la URL del comprobante de pago por uso; el resto lo conserva la BD. */
+    if (payload.pago_uso_sistema !== undefined) {
+      const previous = queryOne('SELECT value FROM app_settings WHERE key = ?', ['pago_uso_sistema']);
+      const prevParsed = parseJsonSafe(previous?.value, {});
+      const inc = payload.pago_uso_sistema && typeof payload.pago_uso_sistema === 'object' ? payload.pago_uso_sistema : {};
+      payload.pago_uso_sistema = {
+        ...prevParsed,
+        comprobante_pago_url: String(inc.comprobante_pago_url ?? prevParsed.comprobante_pago_url ?? '').trim(),
+      };
     }
   }
 

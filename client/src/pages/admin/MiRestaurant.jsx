@@ -21,9 +21,12 @@ const MI_RESTAURANT_VIEWS = [
 export default function MiRestaurant() {
   const { user } = useAuth();
   const isMasterAdmin = user?.role === 'master_admin';
+  const isRestaurantAdmin = user?.role === 'admin';
   const canEditContrato = isMasterAdmin;
   /** Bot SUNAT + series contingencia + URL bot: solo maestro. */
   const canEditBillingMaster = isMasterAdmin;
+  /** Comprobante de pago por uso: maestro o admin del restaurante. */
+  const canEditPagoUsoComprobante = isMasterAdmin || isRestaurantAdmin;
   const [searchParams, setSearchParams] = useSearchParams();
   const logoInputRef = useRef(null);
   const restoreInputRef = useRef(null);
@@ -210,22 +213,29 @@ export default function MiRestaurant() {
           return;
         }
         if (key === 'pago_uso_sistema') {
-          if (!canEditBillingMaster) {
-            toast.error('Solo el administrador maestro puede guardar el pago por uso del sistema.');
+          if (canEditBillingMaster) {
+            const raw = appConfig.pago_uso_sistema || {};
+            const periodo = raw.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
+            const payload = {
+              periodo_facturacion: periodo,
+              fecha_proxima_facturacion: String(raw.fecha_proxima_facturacion || '').trim().slice(0, 32),
+              numero_cuenta: String(raw.numero_cuenta || '').trim(),
+              nombre_empresa_cobro: String(raw.nombre_empresa_cobro || '').trim(),
+              comprobante_pago_url: String(raw.comprobante_pago_url || '').trim(),
+            };
+            const saved = await api.put('/admin-modules/config/app', { pago_uso_sistema: payload });
+            setAppConfig(prev => ({ ...prev, ...saved }));
+            toast.success('Datos de pago por uso del sistema guardados');
             return;
           }
-          const raw = appConfig.pago_uso_sistema || {};
-          const periodo = raw.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
-          const payload = {
-            periodo_facturacion: periodo,
-            fecha_proxima_facturacion: String(raw.fecha_proxima_facturacion || '').trim().slice(0, 32),
-            numero_cuenta: String(raw.numero_cuenta || '').trim(),
-            nombre_empresa_cobro: String(raw.nombre_empresa_cobro || '').trim(),
-            comprobante_pago_url: String(raw.comprobante_pago_url || '').trim(),
-          };
-          const saved = await api.put('/admin-modules/config/app', { pago_uso_sistema: payload });
-          setAppConfig(prev => ({ ...prev, ...saved }));
-          toast.success('Datos de pago por uso del sistema guardados');
+          if (canEditPagoUsoComprobante) {
+            const url = String(appConfig.pago_uso_sistema?.comprobante_pago_url || '').trim();
+            const saved = await api.put('/admin-modules/config/app', { pago_uso_sistema: { comprobante_pago_url: url } });
+            setAppConfig(prev => ({ ...prev, ...saved }));
+            toast.success('Comprobante de pago guardado');
+            return;
+          }
+          toast.error('No tienes permiso para guardar esta sección.');
           return;
         }
         if (key === 'contrato') {
@@ -274,6 +284,10 @@ export default function MiRestaurant() {
 
   const uploadComprobantePagoUso = async (file) => {
     if (!file) return;
+    if (!canEditPagoUsoComprobante) {
+      toast.error('No tienes permiso para cargar el comprobante.');
+      return;
+    }
     try {
       const uploaded = await api.upload(file);
       const url = uploaded?.url || '';
@@ -371,7 +385,7 @@ export default function MiRestaurant() {
   const showSaveButton =
     (activeView !== 'contrato' || canEditContrato)
     && (activeView !== 'facturacion_electronica' || canEditBillingMaster)
-    && (activeView !== 'pago_uso_sistema' || canEditBillingMaster);
+    && (activeView !== 'pago_uso_sistema' || canEditBillingMaster || canEditPagoUsoComprobante);
 
   return (
     <div>
@@ -826,7 +840,13 @@ export default function MiRestaurant() {
                 Registra los datos que te indique el proveedor del software para abonar la licencia o suscripción: periodicidad, cuenta de destino y, si ya pagaste, adjunta el comprobante.
               </p>
 
-              {!canEditBillingMaster ? (
+              {isRestaurantAdmin && !isMasterAdmin ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  Como <strong>administrador del restaurante</strong> puedes <strong>cargar o quitar el comprobante</strong> de pago.
+                  La periodicidad, cuenta y datos del beneficiario solo los edita el administrador maestro.
+                </div>
+              ) : null}
+              {!canEditBillingMaster && !isRestaurantAdmin ? (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   Solo el <strong>administrador maestro</strong> puede modificar esta sección. Los datos se muestran en solo lectura.
                 </div>
@@ -872,6 +892,10 @@ export default function MiRestaurant() {
                     onChange={(e) => updateAppCfg('pago_uso_sistema', 'nombre_empresa_cobro', e.target.value)}
                   />
                 </div>
+              </div>
+              </fieldset>
+
+              <div className="space-y-3 pt-2 border-t border-slate-100">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Comprobante de pago</label>
                   <p className="text-xs text-slate-500 mb-2">Sube una imagen (o PDF) del voucher o transferencia.</p>
@@ -880,6 +904,7 @@ export default function MiRestaurant() {
                       type="button"
                       onClick={() => comprobanteUsoInputRef.current?.click()}
                       className="btn-secondary flex items-center gap-2 text-sm"
+                      disabled={!canEditPagoUsoComprobante}
                     >
                       <MdUpload /> Cargar comprobante
                     </button>
@@ -902,7 +927,8 @@ export default function MiRestaurant() {
                         </a>
                         <button
                           type="button"
-                          className="text-sm text-red-600 hover:underline"
+                          className="text-sm text-red-600 hover:underline disabled:opacity-50"
+                          disabled={!canEditPagoUsoComprobante}
                           onClick={() => updateAppCfg('pago_uso_sistema', 'comprobante_pago_url', '')}
                         >
                           Quitar
@@ -924,9 +950,9 @@ export default function MiRestaurant() {
               </div>
 
               <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
-                Tras cargar el archivo, pulse <strong>Guardar cambios</strong> para guardar la URL del comprobante junto al resto de datos.
+                Tras cargar el archivo, pulse <strong>Guardar cambios</strong> para guardar la URL del comprobante
+                {canEditBillingMaster ? ' junto al resto de datos' : ''}.
               </div>
-              </fieldset>
             </div>
           ) : activeView === 'informacion' ? (
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-4">
