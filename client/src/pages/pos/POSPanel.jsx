@@ -565,6 +565,19 @@ export default function POSPanel() {
     navigate('/admin/caja?view=cobrar', { replace: true, state: {} });
   }, [location.state, allOrders, navigate, setSearchParams]);
 
+  const billingSuccessSummary = (doc) => {
+    const num = String(doc?.full_number || '').trim();
+    const st = String(doc?.provider_status || '').toLowerCase();
+    const sunat = String(doc?.sunat_description || '').trim();
+    if (st === 'accepted') {
+      return sunat ? `${num} — ${sunat}` : `${num} — aceptado por SUNAT`;
+    }
+    if (st === 'pending') {
+      return `${num || 'Comprobante'} — guardado; pendiente de sincronizar con SUNAT`;
+    }
+    return num || 'Comprobante registrado';
+  };
+
   const validateBillingData = () => {
     if (!billingForm.enabled) return null;
     const docNumber = String(billingForm.customer_doc_number || '').trim();
@@ -687,13 +700,6 @@ export default function POSPanel() {
         }
       }
 
-      await api.post('/pos/checkout-table', {
-        order_ids: payableOrders.map(o => o.id),
-        payment_method: paymentMethod,
-        discount_reason: discountConfig.reason,
-        discounts_by_order: discountsByOrder,
-      });
-
       const issuedDocs = [];
       if (billingForm.enabled) {
         for (const order of payableOrders) {
@@ -702,6 +708,13 @@ export default function POSPanel() {
         }
       }
 
+      await api.post('/pos/checkout-table', {
+        order_ids: payableOrders.map(o => o.id),
+        payment_method: paymentMethod,
+        discount_reason: discountConfig.reason,
+        discounts_by_order: discountsByOrder,
+      });
+
       if (!isClientCheckoutTable(selectedTable)) {
         const updatedTable = await api.get(`/tables/${selectedTable.id}`);
         if (!updatedTable.orders || updatedTable.orders.length === 0) {
@@ -709,10 +722,10 @@ export default function POSPanel() {
         }
       }
       if (issuedDocs.length > 0) {
-        toast.success(`${payableOrders.length} pedido(s) cobrados y ${issuedDocs.length} comprobante(s) generado(s)`);
-        if (issuedDocs.length === 1 && issuedDocs[0]?.pdf_url) {
-          window.open(issuedDocs[0].pdf_url, '_blank');
-        }
+        const detail = issuedDocs.map(billingSuccessSummary).join(' · ');
+        toast.success(`${payableOrders.length} pedido(s) cobrados. ${detail}`);
+        const pdf = issuedDocs.find((d) => d?.pdf_url)?.pdf_url;
+        if (pdf) window.open(pdf, '_blank');
       } else {
         toast.success(`${payableOrders.length} pedido(s) cobrados en ${selectedTable.name}`);
       }
@@ -823,14 +836,17 @@ export default function POSPanel() {
         payment_method: paymentMethod,
       });
       if (quickSaleMode) {
+        let doc = null;
+        if (billingForm.enabled) {
+          doc = await issueElectronicDocument(createdOrder.id);
+        }
         await api.put(`/orders/${createdOrder.id}/payment`, {
           payment_method: paymentMethod,
           payment_status: 'paid',
         });
         await api.put(`/orders/${createdOrder.id}/status`, { status: 'delivered' });
-        if (billingForm.enabled) {
-          const doc = await issueElectronicDocument(createdOrder.id);
-          toast.success(`Venta rápida cobrada · ${doc.full_number || 'Comprobante generado'}`, { id: tid });
+        if (billingForm.enabled && doc) {
+          toast.success(`Venta rápida cobrada · ${billingSuccessSummary(doc)}`, { id: tid });
           if (doc?.pdf_url) window.open(doc.pdf_url, '_blank');
         } else {
           toast.success('Venta rápida cobrada', { id: tid });

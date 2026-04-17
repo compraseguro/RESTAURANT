@@ -130,6 +130,8 @@ export default function MiRestaurant() {
         return;
       }
       if (activeView === 'facturacion_electronica') {
+        const savedRestaurant = await api.put('/restaurant', restaurant);
+        setRestaurant(savedRestaurant);
         const saved = await api.put('/billing/config', {
           billing_api_url: billingConfig.billing_api_url,
           billing_api_token: billingConfig.billing_api_token,
@@ -146,7 +148,7 @@ export default function MiRestaurant() {
           billing_auto_retry_interval_sec: Number(saved.billing_auto_retry_interval_sec || 120),
           billing_api_token: '',
         }));
-        toast.success('Conexión al bot guardada');
+        toast.success('Datos del emisor y conexión al bot guardados');
         return;
       }
       if (activeView !== 'mi_empresa') {
@@ -481,10 +483,56 @@ export default function MiRestaurant() {
               <div className="flex items-center gap-2">
                 <MdReceipt className="text-red-600 text-2xl" />
                 <div>
-                  <h3 className="font-bold text-slate-800 text-lg">Conexión al bot SUNAT</h3>
+                  <h3 className="font-bold text-slate-800 text-lg">Facturación SUNAT (emisor + bot)</h3>
                   <p className="text-sm text-slate-500 mt-0.5">
-                    La emisión electrónica está activa y el proveedor es solo el bot. RUC, dirección y series se configuran en <strong>Mi empresa → Información</strong>.
+                    Complete aquí al dueño de la empresa (emisor) y la URL del bot; pulse <strong>Guardar cambios</strong> una vez. En caja, solo ingrese datos del comprador y emita.
                   </p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+                <h4 className="font-semibold text-slate-800 text-sm">Datos del emisor (quien factura)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">RUC (11 dígitos)</label>
+                    <input className="input-field" value={restaurant.company_ruc ?? ''} onChange={e => update('company_ruc', e.target.value.replace(/\D/g, '').slice(0, 11))} placeholder="" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Razón social</label>
+                    <input className="input-field" value={restaurant.legal_name ?? ''} onChange={e => update('legal_name', e.target.value)} placeholder="" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Nombre comercial (SUNAT)</label>
+                    <input className="input-field" value={restaurant.billing_nombre_comercial ?? ''} onChange={e => update('billing_nombre_comercial', e.target.value)} placeholder="" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Ubigeo</label>
+                    <input className="input-field" value={restaurant.billing_emisor_ubigeo ?? ''} onChange={e => update('billing_emisor_ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="150101" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Dirección fiscal (si vacío, se usa la dirección de Mi empresa)</label>
+                    <input className="input-field" value={restaurant.billing_emisor_direccion ?? ''} onChange={e => update('billing_emisor_direccion', e.target.value)} placeholder="" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Departamento</label>
+                    <input className="input-field" value={restaurant.billing_emisor_departamento ?? ''} onChange={e => update('billing_emisor_departamento', e.target.value)} placeholder="" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Provincia</label>
+                    <input className="input-field" value={restaurant.billing_emisor_provincia ?? ''} onChange={e => update('billing_emisor_provincia', e.target.value)} placeholder="" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Distrito</label>
+                    <input className="input-field" value={restaurant.billing_emisor_distrito ?? ''} onChange={e => update('billing_emisor_distrito', e.target.value)} placeholder="" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Serie boleta</label>
+                    <input className="input-field" value={restaurant.billing_series_boleta ?? ''} onChange={e => update('billing_series_boleta', (e.target.value || '').toUpperCase())} placeholder="B001" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Serie factura</label>
+                    <input className="input-field" value={restaurant.billing_series_factura ?? ''} onChange={e => update('billing_series_factura', (e.target.value || '').toUpperCase())} placeholder="F001" />
+                  </div>
                 </div>
               </div>
 

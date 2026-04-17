@@ -129,19 +129,29 @@ function mapEfactResponseToProviderResult(parsed, responseOk) {
   const sunat = parsed?.sunat;
   const sunatOk = sunat && sunat.ok === true;
   const flowFailed = parsed?.ok === false;
+  const paths = parsed?.paths || {};
+  const hasSignedXml = Boolean(paths.xml_firmado);
+  /** Sin .pfx el bot solo genera XML/PDF y no debe considerarse éxito SUNAT. */
+  const noSunatFlow = !flowFailed && parsed?.ok !== false && !hasSignedXml && sunat == null;
+
   let providerStatus = 'sent';
   if (sunatOk) providerStatus = 'accepted';
   else if (flowFailed || (sunat && sunat.ok === false)) providerStatus = 'error';
+  else if (noSunatFlow) providerStatus = 'error';
 
-  const paths = parsed?.paths || {};
+  const noCertMsg =
+    'Configure CERT_PFX_PATH y CERT_PFX_PASSWORD en el .env del bot y reinicie python api_server.py para firmar y enviar a SUNAT.';
+
   return {
     providerStatus,
-    providerMessage: parsed?.mensaje || sunat?.mensaje || (parsed?.ok ? 'Procesado por bot local' : 'Revisar respuesta del bot'),
+    providerMessage: noSunatFlow
+      ? noCertMsg
+      : (parsed?.mensaje || sunat?.mensaje || (parsed?.ok ? 'Procesado por bot local' : 'Revisar respuesta del bot')),
     hashCode: '',
     sunatDescription: String(sunat?.mensaje || ''),
     xmlUrl: String(paths.xml_firmado || paths.xml_sin_firma || ''),
     cdrUrl: String(paths.cdr_xml || paths.cdr_zip || ''),
-    pdfUrl: '',
+    pdfUrl: String(paths.pdf || ''),
     providerResponse: parsed || {},
   };
 }

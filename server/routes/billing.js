@@ -96,6 +96,58 @@ function canSendToProvider(restaurant) {
     && (canSendToNubefact(restaurant) || canSendToEfact(restaurant));
 }
 
+/** Validación antes de armar el payload (mensajes claros para el panel / POS). */
+function assertRestaurantReadyForBillingIssue(restaurant, useEfact, docType) {
+  if (!Number(restaurant.billing_enabled ?? 0)) {
+    throw new Error('La facturación electrónica no está habilitada en el restaurante.');
+  }
+  const ruc = String(restaurant.company_ruc || '').trim();
+  const razon = String(restaurant.legal_name || '').trim();
+  if (!ruc) {
+    throw new Error('Falta el RUC del emisor (Mi Restaurante → Mi empresa o Bot facturación SUNAT).');
+  }
+  if (!/^\d{11}$/.test(ruc)) {
+    throw new Error('El RUC del emisor debe tener 11 dígitos.');
+  }
+  if (!razon) {
+    throw new Error('Falta la razón social del emisor.');
+  }
+  if (useEfact) {
+    if (!canSendToEfact(restaurant)) {
+      throw new Error(
+        'Indique la URL del bot (Mi Restaurante → Bot facturación SUNAT), p. ej. http://127.0.0.1:8765, y ejecute python api_server.py en la carpeta BOT DE FACTURACION.'
+      );
+    }
+    const serie = docType === 'factura'
+      ? String(restaurant.billing_series_factura || '').trim()
+      : String(restaurant.billing_series_boleta || '').trim();
+    if (!serie) {
+      throw new Error(docType === 'factura'
+        ? 'Configure la serie de factura (p. ej. F001) en datos del emisor.'
+        : 'Configure la serie de boleta (p. ej. B001) en datos del emisor.');
+    }
+  } else if (!canSendToNubefact(restaurant)) {
+    throw new Error('Configure la URL y el token del proveedor de facturación (NubeFacT u otro).');
+  }
+}
+
+function assertSunatOutcomeAcceptedOrOfflinePending(restaurant, useEfact, result) {
+  const offline = isOfflineModeEnabled(restaurant);
+  const { providerStatus, providerMessage, sunatDescription } = result;
+  if (providerStatus === 'error') {
+    throw new Error(
+      String(sunatDescription || providerMessage || 'Emisión electrónica rechazada').trim() || 'Emisión electrónica rechazada'
+    );
+  }
+  if (!useEfact) return;
+  if (providerStatus === 'accepted') return;
+  if (providerStatus === 'pending' && offline) return;
+  throw new Error(
+    String(sunatDescription || providerMessage || '').trim()
+      || 'El comprobante no fue aceptado por SUNAT. Revise certificado .pfx, usuario SOL, ambiente (beta) y series autorizadas.'
+  );
+}
+
 async function checkProviderReachability(restaurant) {
   const url = String(restaurant?.billing_api_url || '').trim();
   if (!url) return false;
@@ -541,6 +593,9 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
   const restaurant = queryOne('SELECT * FROM restaurants LIMIT 1');
   if (!restaurant) throw new Error('No hay restaurante configurado');
 
+  const useEfact = String(restaurant.billing_provider || '').toLowerCase() === 'restaurant_efact';
+  assertRestaurantReadyForBillingIssue(restaurant, useEfact, docType);
+
   const sourceCustomer = {
     doc_type: customer?.doc_type || existingDoc?.customer_doc_type || '',
     doc_number: customer?.doc_number || existingDoc?.customer_doc_number || '',
@@ -556,7 +611,6 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
   const correlative = getNextCorrelative(docType, series);
   const fullNumber = `${series}-${String(correlative).padStart(8, '0')}`;
 
-  const useEfact = String(restaurant.billing_provider || '').toLowerCase() === 'restaurant_efact';
   const providerPayload = useEfact
     ? buildEfactSaleJson({
       restaurant,
@@ -589,6 +643,12 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
     pdfUrl,
     providerResponse,
   } = await sendToProvider(restaurant, providerPayload);
+
+  assertSunatOutcomeAcceptedOrOfflinePending(restaurant, useEfact, {
+    providerStatus,
+    providerMessage,
+    sunatDescription,
+  });
 
   if (replaceExisting && existingDoc) {
     runSql('DELETE FROM electronic_documents WHERE order_id = ?', [orderId]);
