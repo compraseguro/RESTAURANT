@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import RestaurantServiceContractForm, { normalizeContratoFromApi } from '../../components/RestaurantServiceContractForm';
 import { api, resolveMediaUrl } from '../../utils/api';
+import { proximaFechaFromControlAnchor } from '../../utils/nextBillingFromAnchor';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt } from 'react-icons/md';
@@ -76,16 +77,22 @@ export default function MiRestaurant() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetPassword, setResetPassword] = useState('');
   const [resetBusy, setResetBusy] = useState(false);
+  /** Fecha de facturación del control maestro (ancla para próxima fecha de pago por uso). */
+  const [billingAnchorDate, setBillingAnchorDate] = useState('');
 
   const canReadBillingConfig = user?.role === 'admin' || user?.role === 'master_admin';
 
   const loadInitialData = useCallback(() => {
+    const schedulePromise = isMasterAdmin
+      ? api.get('/master-admin/billing-schedule').catch(() => null)
+      : Promise.resolve(null);
     return Promise.all([
       api.get('/restaurant'),
       canReadBillingConfig ? api.get('/billing/config').catch(() => null) : Promise.resolve(null),
       api.get('/admin-modules/config/app').catch(() => null),
+      schedulePromise,
     ])
-      .then(([restaurantData, billingData, appCfg]) => {
+      .then(([restaurantData, billingData, appCfg, schedule]) => {
         const data = restaurantData || {};
         if (!data.schedule || typeof data.schedule !== 'object') data.schedule = {};
         DAYS.forEach(d => { if (!data.schedule[d]) data.schedule[d] = { open: '11:00', close: '23:00', enabled: true }; });
@@ -104,18 +111,40 @@ export default function MiRestaurant() {
             billing_api_token: '',
           }));
         }
+        if (schedule?.billing_date) {
+          setBillingAnchorDate(String(schedule.billing_date).trim());
+        } else {
+          setBillingAnchorDate('');
+        }
         if (appCfg && typeof appCfg === 'object') {
           setAppConfig((prev) => {
-            const next = { ...prev, ...appCfg };
+            let next = { ...prev, ...appCfg };
             if (appCfg.contrato && typeof appCfg.contrato === 'object') {
               next.contrato = normalizeContratoFromApi(appCfg.contrato);
+            }
+            const anchor = String(schedule?.billing_date || '').trim();
+            const p = next.pago_uso_sistema || {};
+            if (
+              isMasterAdmin
+              && anchor
+              && /^\d{4}-\d{2}-\d{2}$/.test(anchor)
+              && !String(p.fecha_proxima_facturacion || '').trim()
+            ) {
+              const per = p.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
+              next = {
+                ...next,
+                pago_uso_sistema: {
+                  ...p,
+                  fecha_proxima_facturacion: proximaFechaFromControlAnchor(anchor, per),
+                },
+              };
             }
             return next;
           });
         }
       })
       .catch(console.error);
-  }, [canReadBillingConfig]);
+  }, [canReadBillingConfig, isMasterAdmin]);
 
   useEffect(() => {
     if (!user?.role) return;
@@ -614,12 +643,6 @@ export default function MiRestaurant() {
                     name="billing-efact-api-base-url"
                     inputMode="url"
                   />
-                  {!billingConfig.billing_api_url_from_env ? (
-                    <p className="text-xs text-slate-500 mt-1">
-                      Solo la URL base del bot (http… o https…). No pegues usuario ni contraseña de login aquí; el navegador no debe autocompletar esos datos en este campo.
-                      En Docker puede omitirse: defina <code className="bg-slate-100 px-1 rounded">EFACT_API_URL=http://127.0.0.1:8765</code> en el entorno del servidor.
-                    </p>
-                  ) : null}
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -838,6 +861,13 @@ export default function MiRestaurant() {
               </div>
               <p className="text-sm text-slate-500">
                 Registra los datos que te indique el proveedor del software para abonar la licencia o suscripción: periodicidad, cuenta de destino y, si ya pagaste, adjunta el comprobante.
+                {canEditBillingMaster ? (
+                  <>
+                    {' '}
+                    La <strong>próxima fecha de facturación</strong> se calcula sola a partir de la fecha de facturación del{' '}
+                    <strong>Administrador maestro</strong> (mismo día, al mes o semestre siguiente según frecuencia).
+                  </>
+                ) : null}
               </p>
 
               {isRestaurantAdmin && !isMasterAdmin ? (
@@ -859,7 +889,20 @@ export default function MiRestaurant() {
                   <select
                     className="input-field"
                     value={appConfig.pago_uso_sistema?.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual'}
-                    onChange={(e) => updateAppCfg('pago_uso_sistema', 'periodo_facturacion', e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const anchor = String(billingAnchorDate || '').trim();
+                      setAppConfig((prev) => {
+                        const p = { ...(prev.pago_uso_sistema || {}), periodo_facturacion: v };
+                        if (anchor && /^\d{4}-\d{2}-\d{2}$/.test(anchor)) {
+                          p.fecha_proxima_facturacion = proximaFechaFromControlAnchor(
+                            anchor,
+                            v === 'semestral' ? 'semestral' : 'mensual',
+                          );
+                        }
+                        return { ...prev, pago_uso_sistema: p };
+                      });
+                    }}
                   >
                     <option value="mensual">Mensual</option>
                     <option value="semestral">Semestral</option>

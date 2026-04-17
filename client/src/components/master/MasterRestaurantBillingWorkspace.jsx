@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { api, resolveMediaUrl } from '../../utils/api';
+import { proximaFechaFromControlAnchor } from '../../utils/nextBillingFromAnchor';
 import { normalizeContratoFromApi } from '../RestaurantServiceContractForm';
 import { MdReceipt, MdPayment, MdSave, MdUpload } from 'react-icons/md';
 
@@ -40,15 +41,17 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
   const [appConfig, setAppConfig] = useState(defaultAppConfig);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [billingAnchorDate, setBillingAnchorDate] = useState('');
   const comprobanteUsoInputRef = useRef(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [restaurantData, billingData, appCfg] = await Promise.all([
+      const [restaurantData, billingData, appCfg, schedule] = await Promise.all([
         api.get('/restaurant'),
         api.get('/billing/config').catch(() => null),
         api.get('/admin-modules/config/app').catch(() => null),
+        api.get('/master-admin/billing-schedule').catch(() => null),
       ]);
       const data = restaurantData || {};
       if (!data.schedule || typeof data.schedule !== 'object') data.schedule = {};
@@ -72,11 +75,28 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
         setBillingConfig(defaultBillingConfig());
       }
 
+      if (schedule?.billing_date) {
+        setBillingAnchorDate(String(schedule.billing_date).trim());
+      } else {
+        setBillingAnchorDate('');
+      }
       if (appCfg && typeof appCfg === 'object') {
         setAppConfig((prev) => {
-          const next = { ...prev, ...appCfg };
+          let next = { ...prev, ...appCfg };
           if (appCfg.contrato && typeof appCfg.contrato === 'object') {
             next.contrato = normalizeContratoFromApi(appCfg.contrato);
+          }
+          const anchor = String(schedule?.billing_date || '').trim();
+          const p = next.pago_uso_sistema || {};
+          if (anchor && /^\d{4}-\d{2}-\d{2}$/.test(anchor) && !String(p.fecha_proxima_facturacion || '').trim()) {
+            const per = p.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
+            next = {
+              ...next,
+              pago_uso_sistema: {
+                ...p,
+                fecha_proxima_facturacion: proximaFechaFromControlAnchor(anchor, per),
+              },
+            };
           }
           return next;
         });
@@ -307,11 +327,6 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
                 name="billing-efact-api-base-url"
                 inputMode="url"
               />
-              {!billingConfig.billing_api_url_from_env ? (
-                <p className="text-xs text-slate-500 mt-1">
-                  Solo URL http(s) del bot. No uses usuario/contraseña de administrador maestro aquí.
-                </p>
-              ) : null}
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -393,7 +408,20 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
               <select
                 className="input-field"
                 value={appConfig.pago_uso_sistema?.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual'}
-                onChange={(e) => updateAppCfg('pago_uso_sistema', 'periodo_facturacion', e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const anchor = String(billingAnchorDate || '').trim();
+                  setAppConfig((prev) => {
+                    const p = { ...(prev.pago_uso_sistema || {}), periodo_facturacion: v };
+                    if (anchor && /^\d{4}-\d{2}-\d{2}$/.test(anchor)) {
+                      p.fecha_proxima_facturacion = proximaFechaFromControlAnchor(
+                        anchor,
+                        v === 'semestral' ? 'semestral' : 'mensual',
+                      );
+                    }
+                    return { ...prev, pago_uso_sistema: p };
+                  });
+                }}
               >
                 <option value="mensual">Mensual</option>
                 <option value="semestral">Semestral</option>

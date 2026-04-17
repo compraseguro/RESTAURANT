@@ -199,6 +199,22 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
     }
   }
 
+  if (isMaster && payload.pago_uso_sistema !== undefined) {
+    const { getControlConfig } = require('../masterAdminService');
+    const { proximaFechaFromControlAnchor } = require('../pagoUsoBillingSync');
+    const anchor = String(getControlConfig().billing_date || '').trim();
+    const prevParsed = parseJsonSafe(queryOne('SELECT value FROM app_settings WHERE key = ?', ['pago_uso_sistema'])?.value, {});
+    const inc = payload.pago_uso_sistema && typeof payload.pago_uso_sistema === 'object' ? payload.pago_uso_sistema : {};
+    const merged = { ...prevParsed, ...inc };
+    const nextPeriodo = merged.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
+    const prevPeriodo = prevParsed.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
+    const periodoChanged = nextPeriodo !== prevPeriodo;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(anchor) && (periodoChanged || !String(merged.fecha_proxima_facturacion || '').trim())) {
+      merged.fecha_proxima_facturacion = proximaFechaFromControlAnchor(anchor, nextPeriodo);
+    }
+    payload.pago_uso_sistema = merged;
+  }
+
   const beforeState = readAppSettingsObject();
   const changedKeys = [];
   const updatedKeys = [];

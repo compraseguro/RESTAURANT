@@ -1,6 +1,9 @@
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const { queryOne, runSql } = require('./database');
+const { proximaFechaFromControlAnchor } = require('./pagoUsoBillingSync');
+
+const PAGO_USO_APP_KEY = 'pago_uso_sistema';
 
 const MASTER_SETTING_KEY = 'master_admin_control';
 const MASTER_NOTIFICATIONS_KEY = 'master_admin_notifications';
@@ -264,6 +267,15 @@ function evaluateAutomaticBillingRules() {
   return current;
 }
 
+function syncPagoUsoProximaFechaFromBillingAnchor(anchorDateKey) {
+  const anchor = String(anchorDateKey || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor)) return;
+  const pago = { ...readSetting(PAGO_USO_APP_KEY, {}) };
+  const periodo = pago.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
+  pago.fecha_proxima_facturacion = proximaFechaFromControlAnchor(anchor, periodo);
+  upsertSetting(PAGO_USO_APP_KEY, pago);
+}
+
 function setControlConfig(patch = {}, actorName = '') {
   const current = getControlConfig();
   const next = {
@@ -280,6 +292,10 @@ function setControlConfig(patch = {}, actorName = '') {
     }
   }
   upsertSetting(MASTER_SETTING_KEY, next);
+  /** Al fijar la fecha de facturación (día de compra), la próxima fecha de pago por uso = ancla + 1 o 6 meses según periodo. */
+  if (patch.billing_date !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(String(next.billing_date || '').trim())) {
+    syncPagoUsoProximaFechaFromBillingAnchor(next.billing_date);
+  }
   return next;
 }
 
