@@ -415,7 +415,7 @@ function buildNubefactPayload({ restaurant, order, items, customer, docType, ser
   };
 }
 
-router.get('/config', authenticateToken, requireRole('master_admin'), (req, res) => {
+router.get('/config', authenticateToken, requireRole('admin', 'master_admin'), (req, res) => {
   const restaurant = queryOne('SELECT * FROM restaurants LIMIT 1');
   if (!restaurant) return res.status(404).json({ error: 'Restaurante no encontrado' });
   const effUrl = effectiveEfactApiUrl(restaurant);

@@ -45,7 +45,7 @@ const cajaSubOptions = [
   { id: 'consulta_precios', label: 'Consulta de precios' },
 ];
 
-const miRestaurantSubOptionsAll = [
+const miRestaurantSubOptions = [
   { id: 'mi_empresa', label: 'Mi empresa' },
   { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
   { id: 'pagos_sistema', label: 'Pagos de créditos' },
@@ -53,13 +53,6 @@ const miRestaurantSubOptionsAll = [
   { id: 'pago_uso_sistema', label: 'Pago por uso del sistema' },
   { id: 'informacion', label: 'Información' },
 ];
-
-function miRestaurantSubOptionsForRole(role) {
-  return miRestaurantSubOptionsAll.filter((o) => {
-    if (o.id === 'facturacion_electronica' || o.id === 'pago_uso_sistema') return role === 'master_admin';
-    return true;
-  });
-}
 
 const almacenSubOptions = [
   { id: 'movimiento_interno', label: 'Movimiento interno' },
@@ -208,7 +201,7 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
 
             {!isCollapsed && link.to === '/admin/mi-restaurant' && isMiRestaurantExpanded && (
               <div className="mt-1 ml-8 space-y-0.5">
-                {miRestaurantSubOptionsForRole(user?.role).map(option => (
+                {miRestaurantSubOptions.map(option => (
                   <NavLink
                     key={option.id}
                     to={`/admin/mi-restaurant?view=${option.id}`}

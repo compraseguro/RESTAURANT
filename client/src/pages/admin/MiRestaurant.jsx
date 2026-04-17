@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useSearchParams, Navigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import RestaurantServiceContractForm, { normalizeContratoFromApi } from '../../components/RestaurantServiceContractForm';
 import { api, resolveMediaUrl } from '../../utils/api';
@@ -74,10 +74,12 @@ export default function MiRestaurant() {
   const [resetPassword, setResetPassword] = useState('');
   const [resetBusy, setResetBusy] = useState(false);
 
-  const loadInitialData = () => {
+  const canReadBillingConfig = user?.role === 'admin' || user?.role === 'master_admin';
+
+  const loadInitialData = useCallback(() => {
     return Promise.all([
       api.get('/restaurant'),
-      isMasterAdmin ? api.get('/billing/config').catch(() => null) : Promise.resolve(null),
+      canReadBillingConfig ? api.get('/billing/config').catch(() => null) : Promise.resolve(null),
       api.get('/admin-modules/config/app').catch(() => null),
     ])
       .then(([restaurantData, billingData, appCfg]) => {
@@ -110,25 +112,19 @@ export default function MiRestaurant() {
         }
       })
       .catch(console.error);
-  };
+  }, [canReadBillingConfig]);
 
   useEffect(() => {
+    if (!user?.role) return;
     loadInitialData();
-  }, []);
+  }, [user?.role, user?.id, loadInitialData]);
 
   useEffect(() => {
     const requestedView = searchParams.get('view');
-    const masterOnlyViews = new Set(['facturacion_electronica', 'pago_uso_sistema']);
 
     if (requestedView === 'series_contingencia') {
-      const target = isMasterAdmin ? 'facturacion_electronica' : 'mi_empresa';
-      setActiveView(target);
-      setSearchParams({ view: target }, { replace: true });
-      return;
-    }
-    if (requestedView && masterOnlyViews.has(requestedView) && !isMasterAdmin) {
-      setActiveView('mi_empresa');
-      setSearchParams({ view: 'mi_empresa' }, { replace: true });
+      setActiveView('facturacion_electronica');
+      setSearchParams({ view: 'facturacion_electronica' }, { replace: true });
       return;
     }
     const isValidView = MI_RESTAURANT_VIEWS.some(option => option.id === requestedView);
@@ -143,7 +139,7 @@ export default function MiRestaurant() {
     if (!isValidView && !requestedView) {
       setSearchParams({ view: 'mi_empresa' }, { replace: true });
     }
-  }, [activeView, searchParams, setSearchParams, isMasterAdmin]);
+  }, [activeView, searchParams, setSearchParams]);
 
   const save = async () => {
     try {
@@ -371,9 +367,6 @@ export default function MiRestaurant() {
   };
 
   if (!restaurant) return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
-  if (!isMasterAdmin && (activeView === 'facturacion_electronica' || activeView === 'pago_uso_sistema')) {
-    return <Navigate to="/admin/mi-restaurant?view=mi_empresa" replace />;
-  }
   const activeViewLabel = MI_RESTAURANT_VIEWS.find(option => option.id === activeView)?.label || 'Mi empresa';
   const showSaveButton =
     (activeView !== 'contrato' || canEditContrato)
@@ -827,6 +820,13 @@ export default function MiRestaurant() {
                 Registra los datos que te indique el proveedor del software para abonar la licencia o suscripción: periodicidad, cuenta de destino y, si ya pagaste, adjunta el comprobante.
               </p>
 
+              {!canEditBillingMaster ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  Solo el <strong>administrador maestro</strong> puede modificar esta sección. Los datos se muestran en solo lectura.
+                </div>
+              ) : null}
+
+              <fieldset disabled={!canEditBillingMaster} className="border-0 p-0 m-0 min-w-0 space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Frecuencia de facturación</label>
@@ -920,6 +920,7 @@ export default function MiRestaurant() {
               <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
                 Tras cargar el archivo, pulse <strong>Guardar cambios</strong> para guardar la URL del comprobante junto al resto de datos.
               </div>
+              </fieldset>
             </div>
           ) : activeView === 'informacion' ? (
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-4">

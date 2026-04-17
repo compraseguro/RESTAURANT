@@ -20,11 +20,16 @@ import {
   MdClose,
   MdEdit,
   MdDelete,
+  MdReceipt,
+  MdPayment,
 } from 'react-icons/md';
+import MasterRestaurantBillingWorkspace from '../../components/master/MasterRestaurantBillingWorkspace';
 
 const TABS = [
   { id: 'usuarios', label: 'Usuario administrador', icon: MdAdminPanelSettings },
   { id: 'contrato', label: 'Contrato del servicio', icon: MdReceiptLong },
+  { id: 'sunat_bot', label: 'Bot facturación SUNAT', icon: MdReceipt },
+  { id: 'pago_uso_sistema', label: 'Pago por uso del sistema', icon: MdPayment },
   { id: 'facturacion', label: 'Fecha de facturación', icon: MdEventAvailable },
   { id: 'notificaciones', label: 'Notificaciones', icon: MdNotifications },
   { id: 'bloqueo', label: 'Bloqueo por falta de pago', icon: MdLock },
@@ -322,7 +327,7 @@ export default function MasterAdmin() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">Administrador Maestro</h1>
-              <p className="text-sm text-slate-500">Control de dueños, contratos, facturación, bloqueo global y notificaciones.</p>
+              <p className="text-sm text-slate-500">Control de dueños, contratos, SUNAT y pago por uso del restaurante, fecha de facturación, bloqueo global y notificaciones.</p>
             </div>
             <button onClick={logout} className="btn-secondary flex items-center gap-2"><MdLogout /> Salir</button>
           </div>
@@ -407,6 +412,10 @@ export default function MasterAdmin() {
               </>
             )}
           </div>
+        )}
+
+        {(tab === 'sunat_bot' || tab === 'pago_uso_sistema') && (
+          <MasterRestaurantBillingWorkspace active={tab === 'sunat_bot' ? 'sunat' : 'pago_uso'} />
         )}
 
         {tab === 'facturacion' && (
