@@ -26,7 +26,26 @@ function proximaFechaFromControlAnchor(anchorYyyyMmDd, periodo) {
   return addMonthsToIsoDate(anchorYyyyMmDd, months);
 }
 
+function addDaysToIsoDate(dateKey, daysToAdd) {
+  const add = Number(daysToAdd);
+  if (!Number.isFinite(add) || add === 0) return String(dateKey || '').trim();
+  const parts = String(dateKey || '').trim().split('-');
+  if (parts.length !== 3) return '';
+  const y = Number(parts[0]);
+  const mo = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (!y || !mo || !d) return '';
+  const dt = new Date(y, mo - 1, d);
+  if (Number.isNaN(dt.getTime())) return '';
+  dt.setDate(dt.getDate() + add);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
 module.exports = {
   addMonthsToIsoDate,
+  addDaysToIsoDate,
   proximaFechaFromControlAnchor,
 };

@@ -71,6 +71,7 @@ export default function MiRestaurant() {
       numero_cuenta: '',
       nombre_empresa_cobro: '',
       comprobante_pago_url: '',
+      comprobante_grace_days_after_due: 3,
     },
   });
 
@@ -79,11 +80,23 @@ export default function MiRestaurant() {
   const [resetBusy, setResetBusy] = useState(false);
   /** Fecha de facturación del control maestro (ancla para próxima fecha de pago por uso). */
   const [billingAnchorDate, setBillingAnchorDate] = useState('');
+  /** Ventana de carga del comprobante (servidor): enlazada a fecha_proxima_facturación y días de gracia. */
+  const [pagoUsoComprobanteUi, setPagoUsoComprobanteUi] = useState(null);
 
   const canReadBillingConfig = user?.role === 'admin' || user?.role === 'master_admin';
 
+  const refreshPagoUsoComprobanteSchedule = useCallback(async () => {
+    if (!canReadBillingConfig) return;
+    try {
+      const s = await api.get('/master-admin/billing-schedule');
+      setPagoUsoComprobanteUi(s?.pago_uso_comprobante || null);
+    } catch (_) {
+      setPagoUsoComprobanteUi(null);
+    }
+  }, [canReadBillingConfig]);
+
   const loadInitialData = useCallback(() => {
-    const schedulePromise = isMasterAdmin
+    const schedulePromise = canReadBillingConfig
       ? api.get('/master-admin/billing-schedule').catch(() => null)
       : Promise.resolve(null);
     return Promise.all([
@@ -115,6 +128,11 @@ export default function MiRestaurant() {
           setBillingAnchorDate(String(schedule.billing_date).trim());
         } else {
           setBillingAnchorDate('');
+        }
+        if (schedule?.pago_uso_comprobante) {
+          setPagoUsoComprobanteUi(schedule.pago_uso_comprobante);
+        } else {
+          setPagoUsoComprobanteUi(null);
         }
         if (appCfg && typeof appCfg === 'object') {
           setAppConfig((prev) => {
@@ -245,15 +263,19 @@ export default function MiRestaurant() {
           if (canEditBillingMaster) {
             const raw = appConfig.pago_uso_sistema || {};
             const periodo = raw.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
+            const g = Number(raw.comprobante_grace_days_after_due);
+            const grace = Number.isFinite(g) ? Math.max(1, Math.min(14, Math.round(g))) : 3;
             const payload = {
               periodo_facturacion: periodo,
               fecha_proxima_facturacion: String(raw.fecha_proxima_facturacion || '').trim().slice(0, 32),
               numero_cuenta: String(raw.numero_cuenta || '').trim(),
               nombre_empresa_cobro: String(raw.nombre_empresa_cobro || '').trim(),
               comprobante_pago_url: String(raw.comprobante_pago_url || '').trim(),
+              comprobante_grace_days_after_due: grace,
             };
             const saved = await api.put('/admin-modules/config/app', { pago_uso_sistema: payload });
             setAppConfig(prev => ({ ...prev, ...saved }));
+            await refreshPagoUsoComprobanteSchedule();
             toast.success('Datos de pago por uso del sistema guardados');
             return;
           }
@@ -261,6 +283,7 @@ export default function MiRestaurant() {
             const url = String(appConfig.pago_uso_sistema?.comprobante_pago_url || '').trim();
             const saved = await api.put('/admin-modules/config/app', { pago_uso_sistema: { comprobante_pago_url: url } });
             setAppConfig(prev => ({ ...prev, ...saved }));
+            await refreshPagoUsoComprobanteSchedule();
             toast.success('Comprobante de pago guardado');
             return;
           }
@@ -315,6 +338,11 @@ export default function MiRestaurant() {
     if (!file) return;
     if (!canEditPagoUsoComprobante) {
       toast.error('No tienes permiso para cargar el comprobante.');
+      return;
+    }
+    const compUi = pagoUsoComprobanteUi;
+    if (isRestaurantAdmin && !isMasterAdmin && compUi?.policy_active && !compUi.upload_comprobante_allowed) {
+      toast.error(compUi.upload_comprobante_message || 'No puede cargar el comprobante en esta fecha.');
       return;
     }
     try {
@@ -876,6 +904,19 @@ export default function MiRestaurant() {
                   La periodicidad, cuenta y datos del beneficiario solo los edita el administrador maestro.
                 </div>
               ) : null}
+              {pagoUsoComprobanteUi?.policy_active && pagoUsoComprobanteUi.upload_comprobante_message ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                  <p>{pagoUsoComprobanteUi.upload_comprobante_message}</p>
+                  {pagoUsoComprobanteUi.fecha_proxima_facturacion ? (
+                    <p className="text-xs text-slate-500 mt-2">
+                      Próxima facturación: {pagoUsoComprobanteUi.fecha_proxima_facturacion}
+                      {pagoUsoComprobanteUi.comprobante_upload_deadline
+                        ? ` · Carga permitida hasta: ${pagoUsoComprobanteUi.comprobante_upload_deadline}`
+                        : ''}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               {!canEditBillingMaster && !isRestaurantAdmin ? (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   Solo el <strong>administrador maestro</strong> puede modificar esta sección. Los datos se muestran en solo lectura.
@@ -917,6 +958,22 @@ export default function MiRestaurant() {
                     onChange={(e) => updateAppCfg('pago_uso_sistema', 'fecha_proxima_facturacion', e.target.value)}
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Días de gracia para subir comprobante</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={14}
+                    className="input-field"
+                    value={Number(appConfig.pago_uso_sistema?.comprobante_grace_days_after_due ?? 3)}
+                    onChange={(e) => updateAppCfg(
+                      'pago_uso_sistema',
+                      'comprobante_grace_days_after_due',
+                      Math.max(1, Math.min(14, Number(e.target.value) || 3)),
+                    )}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Tras la fecha de facturación, cuántos días tiene para cargar el comprobante antes del bloqueo.</p>
+                </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Número de cuenta</label>
                   <input
@@ -943,41 +1000,52 @@ export default function MiRestaurant() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Comprobante de pago</label>
                   <p className="text-xs text-slate-500 mb-2">Sube una imagen (o PDF) del voucher o transferencia.</p>
                   <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => comprobanteUsoInputRef.current?.click()}
-                      className="btn-secondary flex items-center gap-2 text-sm"
-                      disabled={!canEditPagoUsoComprobante}
-                    >
-                      <MdUpload /> Cargar comprobante
-                    </button>
-                    <input
-                      ref={comprobanteUsoInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
-                      className="hidden"
-                      onChange={(e) => uploadComprobantePagoUso(e.target.files?.[0])}
-                    />
-                    {appConfig.pago_uso_sistema?.comprobante_pago_url ? (
-                      <>
-                        <a
-                          href={resolveMediaUrl(appConfig.pago_uso_sistema.comprobante_pago_url)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:underline"
-                        >
-                          Ver archivo
-                        </a>
-                        <button
-                          type="button"
-                          className="text-sm text-red-600 hover:underline disabled:opacity-50"
-                          disabled={!canEditPagoUsoComprobante}
-                          onClick={() => updateAppCfg('pago_uso_sistema', 'comprobante_pago_url', '')}
-                        >
-                          Quitar
-                        </button>
-                      </>
-                    ) : null}
+                    {(() => {
+                      const compUi = pagoUsoComprobanteUi;
+                      const restrictComprobanteForRestaurant =
+                        isRestaurantAdmin && !isMasterAdmin && Boolean(compUi?.policy_active);
+                      const blockUpload = restrictComprobanteForRestaurant && !compUi.upload_comprobante_allowed;
+                      const blockRemove = restrictComprobanteForRestaurant && !compUi.quitar_comprobante_allowed;
+                      return (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => comprobanteUsoInputRef.current?.click()}
+                            className="btn-secondary flex items-center gap-2 text-sm"
+                            disabled={!canEditPagoUsoComprobante || blockUpload}
+                          >
+                            <MdUpload /> Cargar comprobante
+                          </button>
+                          <input
+                            ref={comprobanteUsoInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+                            className="hidden"
+                            onChange={(e) => uploadComprobantePagoUso(e.target.files?.[0])}
+                          />
+                          {appConfig.pago_uso_sistema?.comprobante_pago_url ? (
+                            <>
+                              <a
+                                href={resolveMediaUrl(appConfig.pago_uso_sistema.comprobante_pago_url)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                Ver archivo
+                              </a>
+                              <button
+                                type="button"
+                                className="text-sm text-red-600 hover:underline disabled:opacity-50"
+                                disabled={!canEditPagoUsoComprobante || blockRemove}
+                                onClick={() => updateAppCfg('pago_uso_sistema', 'comprobante_pago_url', '')}
+                              >
+                                Quitar
+                              </button>
+                            </>
+                          ) : null}
+                        </>
+                      );
+                    })()}
                   </div>
                   {appConfig.pago_uso_sistema?.comprobante_pago_url &&
                   !String(appConfig.pago_uso_sistema.comprobante_pago_url).toLowerCase().endsWith('.pdf') ? (

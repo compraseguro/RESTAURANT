@@ -219,6 +219,8 @@ function resetOperationalData({ keepAdminUserId = '', preserveContrato = false }
         numero_cuenta: '',
         nombre_empresa_cobro: '',
         comprobante_pago_url: '',
+        comprobante_grace_days_after_due: 3,
+        comprobante_alert_sent_for: '',
       },
       settings: {
         regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
@@ -1124,6 +1126,8 @@ async function initDatabase() {
       numero_cuenta: '',
       nombre_empresa_cobro: '',
       comprobante_pago_url: '',
+      comprobante_grace_days_after_due: 3,
+      comprobante_alert_sent_for: '',
     })]);
     db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['settings', JSON.stringify({
       regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },

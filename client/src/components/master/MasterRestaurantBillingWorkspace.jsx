@@ -27,6 +27,7 @@ const defaultAppConfig = () => ({
     numero_cuenta: '',
     nombre_empresa_cobro: '',
     comprobante_pago_url: '',
+    comprobante_grace_days_after_due: 3,
   },
 });
 
@@ -42,6 +43,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [billingAnchorDate, setBillingAnchorDate] = useState('');
+  const [pagoUsoComprobanteUi, setPagoUsoComprobanteUi] = useState(null);
   const comprobanteUsoInputRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -79,6 +81,11 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
         setBillingAnchorDate(String(schedule.billing_date).trim());
       } else {
         setBillingAnchorDate('');
+      }
+      if (schedule?.pago_uso_comprobante) {
+        setPagoUsoComprobanteUi(schedule.pago_uso_comprobante);
+      } else {
+        setPagoUsoComprobanteUi(null);
       }
       if (appCfg && typeof appCfg === 'object') {
         setAppConfig((prev) => {
@@ -178,15 +185,24 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
     try {
       const raw = appConfig.pago_uso_sistema || {};
       const periodo = raw.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
+      const g = Number(raw.comprobante_grace_days_after_due);
+      const grace = Number.isFinite(g) ? Math.max(1, Math.min(14, Math.round(g))) : 3;
       const payload = {
         periodo_facturacion: periodo,
         fecha_proxima_facturacion: String(raw.fecha_proxima_facturacion || '').trim().slice(0, 32),
         numero_cuenta: String(raw.numero_cuenta || '').trim(),
         nombre_empresa_cobro: String(raw.nombre_empresa_cobro || '').trim(),
         comprobante_pago_url: String(raw.comprobante_pago_url || '').trim(),
+        comprobante_grace_days_after_due: grace,
       };
       const saved = await api.put('/admin-modules/config/app', { pago_uso_sistema: payload });
       setAppConfig((prev) => ({ ...prev, ...saved }));
+      try {
+        const s = await api.get('/master-admin/billing-schedule');
+        setPagoUsoComprobanteUi(s?.pago_uso_comprobante || null);
+      } catch (_) {
+        setPagoUsoComprobanteUi(null);
+      }
       toast.success('Datos de pago por uso del sistema guardados');
     } catch (err) {
       toast.error(err.message);
@@ -402,6 +418,20 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
             </div>
           </div>
 
+          {pagoUsoComprobanteUi?.policy_active && pagoUsoComprobanteUi.upload_comprobante_message ? (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              <p>{pagoUsoComprobanteUi.upload_comprobante_message}</p>
+              {pagoUsoComprobanteUi.fecha_proxima_facturacion ? (
+                <p className="text-xs text-slate-500 mt-2">
+                  Próxima facturación: {pagoUsoComprobanteUi.fecha_proxima_facturacion}
+                  {pagoUsoComprobanteUi.comprobante_upload_deadline
+                    ? ` · Ventana de carga hasta: ${pagoUsoComprobanteUi.comprobante_upload_deadline}`
+                    : ''}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Frecuencia de facturación</label>
@@ -435,6 +465,22 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
                 value={appConfig.pago_uso_sistema?.fecha_proxima_facturacion || ''}
                 onChange={(e) => updateAppCfg('pago_uso_sistema', 'fecha_proxima_facturacion', e.target.value)}
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Días de gracia para subir comprobante</label>
+              <input
+                type="number"
+                min={1}
+                max={14}
+                className="input-field"
+                value={Number(appConfig.pago_uso_sistema?.comprobante_grace_days_after_due ?? 3)}
+                onChange={(e) => updateAppCfg(
+                  'pago_uso_sistema',
+                  'comprobante_grace_days_after_due',
+                  Math.max(1, Math.min(14, Number(e.target.value) || 3)),
+                )}
+              />
+              <p className="text-xs text-slate-500 mt-1">Después de la fecha de facturación, días hábiles de ventana antes del bloqueo automático.</p>
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 mb-1">Número de cuenta</label>

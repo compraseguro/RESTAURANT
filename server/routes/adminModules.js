@@ -3,6 +3,12 @@ const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const { queryAll, queryOne, runSql, logAudit } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const {
+  getControlConfig,
+  assertComprobantePagoUsoChangeAllowed,
+  releaseAutoLockIfComprobantePresent,
+  evaluateAutomaticBillingRules,
+} = require('../masterAdminService');
 const { getOrderWithItems } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
 
@@ -175,6 +181,7 @@ router.get('/config/app/history', requireRole('admin'), (req, res) => {
 });
 
 router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
+  try {
   const payload = { ...(req.body || {}) };
   const isMaster = req.user?.role === 'master_admin';
 
@@ -192,15 +199,21 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
       const previous = queryOne('SELECT value FROM app_settings WHERE key = ?', ['pago_uso_sistema']);
       const prevParsed = parseJsonSafe(previous?.value, {});
       const inc = payload.pago_uso_sistema && typeof payload.pago_uso_sistema === 'object' ? payload.pago_uso_sistema : {};
+      const prevUrl = String(prevParsed.comprobante_pago_url || '').trim();
+      const nextUrl = String(inc.comprobante_pago_url ?? prevParsed.comprobante_pago_url ?? '').trim();
+      assertComprobantePagoUsoChangeAllowed({
+        isMaster: false,
+        incomingUrl: nextUrl,
+        previousUrl: prevUrl,
+      });
       payload.pago_uso_sistema = {
         ...prevParsed,
-        comprobante_pago_url: String(inc.comprobante_pago_url ?? prevParsed.comprobante_pago_url ?? '').trim(),
+        comprobante_pago_url: nextUrl,
       };
     }
   }
 
   if (isMaster && payload.pago_uso_sistema !== undefined) {
-    const { getControlConfig } = require('../masterAdminService');
     const { proximaFechaFromControlAnchor } = require('../pagoUsoBillingSync');
     const anchor = String(getControlConfig().billing_date || '').trim();
     const prevParsed = parseJsonSafe(queryOne('SELECT value FROM app_settings WHERE key = ?', ['pago_uso_sistema'])?.value, {});
@@ -211,6 +224,12 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
     const periodoChanged = nextPeriodo !== prevPeriodo;
     if (/^\d{4}-\d{2}-\d{2}$/.test(anchor) && (periodoChanged || !String(merged.fecha_proxima_facturacion || '').trim())) {
       merged.fecha_proxima_facturacion = proximaFechaFromControlAnchor(anchor, nextPeriodo);
+    }
+    if (merged.comprobante_grace_days_after_due !== undefined) {
+      const g = Number(merged.comprobante_grace_days_after_due);
+      merged.comprobante_grace_days_after_due = Number.isFinite(g)
+        ? Math.max(1, Math.min(14, Math.round(g)))
+        : (prevParsed.comprobante_grace_days_after_due ?? 3);
     }
     payload.pago_uso_sistema = merged;
   }
@@ -266,7 +285,15 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
       },
     });
   }
+  if (updatedKeys.includes('pago_uso_sistema')) {
+    const urlAfter = String(out.pago_uso_sistema?.comprobante_pago_url || '').trim();
+    releaseAutoLockIfComprobantePresent(urlAfter);
+    evaluateAutomaticBillingRules();
+  }
   res.json(out);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'No se pudo guardar' });
+  }
 });
 
 router.post('/config/app/rollback/:historyId', requireRole('admin'), (req, res) => {

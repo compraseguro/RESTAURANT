@@ -10,6 +10,7 @@ const {
   updateNotification,
   deleteNotification,
   evaluateAutomaticBillingRules,
+  buildPagoUsoComprobanteUiState,
   getLockState,
   getMasterCredentialsPublic,
   updateMasterCredentials,
@@ -34,6 +35,7 @@ router.get('/billing-schedule', (req, res) => {
     billing_date: String(control.billing_date || '').trim(),
     notify_days_before: Math.max(1, Math.min(30, Number(control.notify_days_before || 5))),
     auto_block_on_overdue: Number(control.auto_block_on_overdue || 0) === 1,
+    pago_uso_comprobante: buildPagoUsoComprobanteUiState(),
   });
 });
 

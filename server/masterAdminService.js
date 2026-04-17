@@ -1,7 +1,10 @@
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const { queryOne, runSql } = require('./database');
-const { proximaFechaFromControlAnchor } = require('./pagoUsoBillingSync');
+const { proximaFechaFromControlAnchor, addDaysToIsoDate } = require('./pagoUsoBillingSync');
+
+const REASON_PAGO_USO_SIN_COMPROBANTE =
+  'Bloqueo automático: sin comprobante de pago por uso tras el plazo de gracia.';
 
 const PAGO_USO_APP_KEY = 'pago_uso_sistema';
 
@@ -37,6 +40,8 @@ const DEFAULT_CONTROL = {
   lock_enabled_by: '',
   lock_enabled_at: '',
   billing_alert_sent_for: '',
+  /** 1 si el bloqueo global lo puso la regla del comprobante de pago por uso */
+  pago_uso_comprobante_lock_auto: 0,
 };
 
 function parseJsonSafe(value, fallback) {
@@ -264,7 +269,175 @@ function evaluateAutomaticBillingRules() {
   }
 
   if (changed) upsertSetting(MASTER_SETTING_KEY, current);
-  return current;
+
+  evaluatePagoUsoComprobanteWindow();
+
+  return getControlConfig();
+}
+
+/**
+ * Comprobante de pago por uso: aviso notify_days_before días antes de fecha_proxima;
+ * carga permitida solo desde fecha_proxima hasta fecha_proxima + grace días;
+ * sin comprobante tras el plazo → bloqueo global (marcado con pago_uso_comprobante_lock_auto).
+ */
+function evaluatePagoUsoComprobanteWindow() {
+  const today = isoDateKeyNow();
+  const control = { ...getControlConfig() };
+  const pago = { ...readSetting(PAGO_USO_APP_KEY, {}) };
+  const nextDue = String(pago.fecha_proxima_facturacion || '').trim();
+  const grace = Math.max(1, Math.min(14, Number(pago.comprobante_grace_days_after_due ?? 3)));
+  const notifyWin = Math.max(1, Math.min(30, Number(control.notify_days_before ?? 5)));
+  const hasUrl = Boolean(String(pago.comprobante_pago_url || '').trim());
+  let controlChanged = false;
+  let pagoChanged = false;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDue)) {
+    if (hasUrl && Number(control.pago_uso_comprobante_lock_auto || 0) === 1) {
+      control.global_lock_enabled = 0;
+      control.pago_uso_comprobante_lock_auto = 0;
+      control.global_lock_reason = '';
+      control.lock_enabled_at = new Date().toISOString();
+      control.lock_enabled_by = 'Sistema automático';
+      controlChanged = true;
+    }
+    if (controlChanged) upsertSetting(MASTER_SETTING_KEY, control);
+    return;
+  }
+
+  const deadline = addDaysToIsoDate(nextDue, grace);
+  if (!hasUrl && /^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
+    const daysToDue = diffDays(today, nextDue);
+    if (
+      daysToDue !== null
+      && daysToDue >= 0
+      && daysToDue <= notifyWin
+      && String(pago.comprobante_alert_sent_for || '') !== nextDue
+    ) {
+      addNotification({
+        title: 'Pago por uso — subir comprobante',
+        message: `La fecha de pago es el ${nextDue}. Puede cargar el comprobante desde esa fecha y hasta ${deadline} (${grace} día(s) de gracia). Si no lo sube, el sistema se bloqueará.`,
+        created_by: 'Sistema automático',
+        level: 'warning',
+      });
+      pago.comprobante_alert_sent_for = nextDue;
+      pagoChanged = true;
+    }
+  }
+
+  if (!hasUrl && /^\d{4}-\d{2}-\d{2}$/.test(deadline) && diffDays(deadline, today) > 0) {
+    if (Number(control.global_lock_enabled || 0) !== 1) {
+      control.global_lock_enabled = 1;
+      control.global_lock_reason = REASON_PAGO_USO_SIN_COMPROBANTE;
+      control.pago_uso_comprobante_lock_auto = 1;
+      control.lock_enabled_at = new Date().toISOString();
+      control.lock_enabled_by = 'Sistema automático (pago por uso)';
+      addNotification({
+        title: 'Sistema bloqueado',
+        message: `No se registró comprobante de pago por uso antes del ${deadline}.`,
+        created_by: 'Sistema automático',
+        level: 'danger',
+      });
+      controlChanged = true;
+    }
+  }
+
+  if (hasUrl && Number(control.pago_uso_comprobante_lock_auto || 0) === 1) {
+    control.global_lock_enabled = 0;
+    control.pago_uso_comprobante_lock_auto = 0;
+    control.global_lock_reason = '';
+    control.lock_enabled_at = new Date().toISOString();
+    control.lock_enabled_by = 'Sistema automático';
+    controlChanged = true;
+  }
+
+  if (pagoChanged) upsertSetting(PAGO_USO_APP_KEY, pago);
+  if (controlChanged) upsertSetting(MASTER_SETTING_KEY, control);
+}
+
+function buildPagoUsoComprobanteUiState() {
+  const today = isoDateKeyNow();
+  const control = getControlConfig();
+  const pago = readSetting(PAGO_USO_APP_KEY, {});
+  const nextDue = String(pago.fecha_proxima_facturacion || '').trim();
+  const grace = Math.max(1, Math.min(14, Number(pago.comprobante_grace_days_after_due ?? 3)));
+  const notifyWin = Math.max(1, Math.min(30, Number(control.notify_days_before ?? 5)));
+  const hasUrl = Boolean(String(pago.comprobante_pago_url || '').trim());
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDue)) {
+    return {
+      policy_active: false,
+      fecha_proxima_facturacion: '',
+      comprobante_grace_days_after_due: grace,
+      notify_days_before_comprobante: notifyWin,
+      comprobante_upload_deadline: '',
+      upload_comprobante_allowed: true,
+      quitar_comprobante_allowed: true,
+      upload_comprobante_message: '',
+    };
+  }
+
+  const deadline = addDaysToIsoDate(nextDue, grace);
+  const daysToDue = diffDays(today, nextDue);
+  const uploadOk = diffDays(nextDue, today) >= 0 && diffDays(today, deadline) >= 0;
+
+  let msg = '';
+  if (today < nextDue) {
+    msg = `Podrá subir o actualizar el comprobante a partir del ${nextDue}.`;
+  } else if (diffDays(deadline, today) > 0) {
+    msg = `Plazo de carga finalizado (${deadline}).`;
+  } else if (!hasUrl) {
+    msg = `Cargue el comprobante antes del ${deadline} (${grace} día(s) después del ${nextDue}).`;
+  }
+
+  return {
+    policy_active: true,
+    fecha_proxima_facturacion: nextDue,
+    comprobante_grace_days_after_due: grace,
+    notify_days_before_comprobante: notifyWin,
+    comprobante_upload_deadline: deadline,
+    upload_comprobante_allowed: uploadOk,
+    quitar_comprobante_allowed: diffDays(today, nextDue) <= 0,
+    upload_comprobante_message: msg,
+    has_comprobante: hasUrl,
+    days_until_fecha_proxima: daysToDue,
+  };
+}
+
+function assertComprobantePagoUsoChangeAllowed({ isMaster, incomingUrl, previousUrl }) {
+  if (isMaster) return;
+  const st = buildPagoUsoComprobanteUiState();
+  if (!st.policy_active) return;
+  const inc = String(incomingUrl ?? '').trim();
+  const prev = String(previousUrl ?? '').trim();
+
+  if (!inc && prev) {
+    if (todayBeforeDue(st)) {
+      throw new Error('No puede quitar el comprobante antes de la fecha de facturación de pago por uso.');
+    }
+    return;
+  }
+  if (inc && !st.upload_comprobante_allowed) {
+    throw new Error(st.upload_comprobante_message || 'No puede cargar el comprobante en esta fecha.');
+  }
+}
+
+function todayBeforeDue(st) {
+  const today = isoDateKeyNow();
+  const nextDue = String(st.fecha_proxima_facturacion || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDue)) return false;
+  return diffDays(today, nextDue) > 0;
+}
+
+function releaseAutoLockIfComprobantePresent(urlTrimmed) {
+  if (!String(urlTrimmed || '').trim()) return;
+  const control = { ...getControlConfig() };
+  if (Number(control.pago_uso_comprobante_lock_auto || 0) !== 1) return;
+  control.global_lock_enabled = 0;
+  control.pago_uso_comprobante_lock_auto = 0;
+  control.global_lock_reason = '';
+  control.lock_enabled_at = new Date().toISOString();
+  control.lock_enabled_by = 'Sistema automático';
+  upsertSetting(MASTER_SETTING_KEY, control);
 }
 
 function syncPagoUsoProximaFechaFromBillingAnchor(anchorDateKey) {
@@ -273,6 +446,7 @@ function syncPagoUsoProximaFechaFromBillingAnchor(anchorDateKey) {
   const pago = { ...readSetting(PAGO_USO_APP_KEY, {}) };
   const periodo = pago.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
   pago.fecha_proxima_facturacion = proximaFechaFromControlAnchor(anchor, periodo);
+  pago.comprobante_alert_sent_for = '';
   upsertSetting(PAGO_USO_APP_KEY, pago);
 }
 
@@ -325,4 +499,7 @@ module.exports = {
   getMasterCredentialsPublic,
   verifyMasterCredentials,
   updateMasterCredentials,
+  buildPagoUsoComprobanteUiState,
+  assertComprobantePagoUsoChangeAllowed,
+  releaseAutoLockIfComprobantePresent,
 };
