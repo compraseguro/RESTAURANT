@@ -242,6 +242,31 @@ function resolveBillingDueDateKey(control) {
   return proximaFechaFromControlAnchor(anchor, periodo);
 }
 
+const DEFAULT_MORA_LOCK_REASON = 'Bloqueo por falta de pago';
+
+/** Quita bloqueo global puesto solo por mora de calendario, si ya no corresponde. No toca bloqueo por comprobante de pago por uso ni cierres manuales del maestro. */
+function tryReleaseAutomaticMoraLock(current, dueDateKey, today) {
+  if (Number(current.global_lock_enabled || 0) !== 1) return false;
+  if (Number(current.pago_uso_comprobante_lock_auto || 0) === 1) return false;
+  const by = String(current.lock_enabled_by || '').trim();
+  const reason = String(current.global_lock_reason || '').trim();
+  const looksLikeMoraAuto =
+    by === 'Sistema automático'
+    || (by === '' && reason === DEFAULT_MORA_LOCK_REASON);
+  if (!looksLikeMoraAuto) return false;
+
+  if (dueDateKey && /^\d{4}-\d{2}-\d{2}$/.test(dueDateKey)) {
+    const daysToDue = diffDays(today, dueDateKey);
+    if (daysToDue !== null && daysToDue < 0) return false;
+  }
+
+  current.global_lock_enabled = 0;
+  current.global_lock_reason = '';
+  current.lock_enabled_at = new Date().toISOString();
+  current.lock_enabled_by = 'Sistema automático';
+  return true;
+}
+
 function evaluateAutomaticBillingRules() {
   const current = getControlConfig();
   const today = isoDateKeyNow();
@@ -270,7 +295,7 @@ function evaluateAutomaticBillingRules() {
 
     if (daysToDue !== null && daysToDue < 0 && Number(current.auto_block_on_overdue || 0) === 1 && Number(current.global_lock_enabled || 0) !== 1) {
       current.global_lock_enabled = 1;
-      current.global_lock_reason = current.global_lock_reason || 'Bloqueo por falta de pago';
+      current.global_lock_reason = current.global_lock_reason || DEFAULT_MORA_LOCK_REASON;
       current.lock_enabled_by = 'Sistema automático';
       current.lock_enabled_at = new Date().toISOString();
       addNotification({
@@ -280,7 +305,11 @@ function evaluateAutomaticBillingRules() {
         level: 'danger',
       });
       changed = true;
+    } else if (tryReleaseAutomaticMoraLock(current, dueDateKey, today)) {
+      changed = true;
     }
+  } else if (tryReleaseAutomaticMoraLock(current, '', today)) {
+    changed = true;
   }
 
   if (changed) upsertSetting(MASTER_SETTING_KEY, current);
