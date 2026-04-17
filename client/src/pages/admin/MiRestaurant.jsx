@@ -12,7 +12,6 @@ const DAY_NAMES = { lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', j
 const MI_RESTAURANT_VIEWS = [
   { id: 'mi_empresa', label: 'Mi empresa' },
   { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
-  { id: 'series_contingencia', label: 'Series de contingencia' },
   { id: 'pagos_sistema', label: 'Pagos de créditos' },
   { id: 'contrato', label: 'Contrato del servicio' },
   { id: 'pago_uso_sistema', label: 'Pago por uso del sistema' },
@@ -36,7 +35,10 @@ export default function MiRestaurant() {
     billing_auto_retry_interval_sec: 120,
   });
   const [tab, setTab] = useState('info');
-  const [activeView, setActiveView] = useState(searchParams.get('view') || 'mi_empresa');
+  const initialViewParam = searchParams.get('view') || 'mi_empresa';
+  const [activeView, setActiveView] = useState(
+    initialViewParam === 'series_contingencia' ? 'facturacion_electronica' : initialViewParam
+  );
   const [appConfig, setAppConfig] = useState({
     regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
     pagos_sistema: {
@@ -109,6 +111,10 @@ export default function MiRestaurant() {
 
   useEffect(() => {
     const requestedView = searchParams.get('view');
+    if (requestedView === 'series_contingencia') {
+      setSearchParams({ view: 'facturacion_electronica' }, { replace: true });
+      return;
+    }
     const isValidView = MI_RESTAURANT_VIEWS.some(option => option.id === requestedView);
     if (isValidView && requestedView !== activeView) {
       setActiveView(requestedView);
@@ -148,7 +154,15 @@ export default function MiRestaurant() {
           billing_auto_retry_interval_sec: Number(saved.billing_auto_retry_interval_sec || 120),
           billing_api_token: '',
         }));
-        toast.success('Datos del emisor y conexión al bot guardados');
+        const sc = appConfig.series_contingencia || {};
+        const seriesContingenciaPayload = {
+          boleta: String(sc.boleta || '').trim().toUpperCase(),
+          factura: String(sc.factura || '').trim().toUpperCase(),
+          enabled: Number(sc.enabled) ? 1 : 0,
+        };
+        const savedApp = await api.put('/admin-modules/config/app', { series_contingencia: seriesContingenciaPayload });
+        setAppConfig((prev) => ({ ...prev, ...savedApp }));
+        toast.success('Facturación SUNAT (emisor, series, contingencia y bot) guardada');
         return;
       }
       if (activeView !== 'mi_empresa') {
@@ -389,52 +403,10 @@ export default function MiRestaurant() {
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Email</label><input value={restaurant.email} onChange={e => update('email', e.target.value)} className="input-field" /></div>
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Dirección</label><input value={restaurant.address} onChange={e => update('address', e.target.value)} className="input-field" /></div>
           </div>
-          <div className="mt-8 pt-6 border-t border-slate-100">
-            <h4 className="font-semibold text-slate-800 mb-1">Empresa y ubicación (SUNAT / comprobantes)</h4>
-            <p className="text-sm text-slate-500 mb-4">Completa según tu RUC y establecimiento. Se usa al emitir boletas y facturas con el bot.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">RUC emisor</label>
-                <input className="input-field" value={restaurant.company_ruc ?? ''} onChange={e => update('company_ruc', e.target.value)} placeholder="" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Razón social</label>
-                <input className="input-field" value={restaurant.legal_name ?? ''} onChange={e => update('legal_name', e.target.value)} placeholder="" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre comercial (SUNAT)</label>
-                <input className="input-field" value={restaurant.billing_nombre_comercial ?? ''} onChange={e => update('billing_nombre_comercial', e.target.value)} placeholder="" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Ubigeo</label>
-                <input className="input-field" value={restaurant.billing_emisor_ubigeo ?? ''} onChange={e => update('billing_emisor_ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Dirección fiscal (si queda vacío se usa la dirección de arriba)</label>
-                <input className="input-field" value={restaurant.billing_emisor_direccion ?? ''} onChange={e => update('billing_emisor_direccion', e.target.value)} placeholder="" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Departamento</label>
-                <input className="input-field" value={restaurant.billing_emisor_departamento ?? ''} onChange={e => update('billing_emisor_departamento', e.target.value)} placeholder="" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Provincia</label>
-                <input className="input-field" value={restaurant.billing_emisor_provincia ?? ''} onChange={e => update('billing_emisor_provincia', e.target.value)} placeholder="" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Distrito</label>
-                <input className="input-field" value={restaurant.billing_emisor_distrito ?? ''} onChange={e => update('billing_emisor_distrito', e.target.value)} placeholder="" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Serie boleta</label>
-                <input className="input-field" value={restaurant.billing_series_boleta ?? ''} onChange={e => update('billing_series_boleta', (e.target.value || '').toUpperCase())} placeholder="" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Serie factura</label>
-                <input className="input-field" value={restaurant.billing_series_factura ?? ''} onChange={e => update('billing_series_factura', (e.target.value || '').toUpperCase())} placeholder="" />
-              </div>
-            </div>
-          </div>
+          <p className="text-sm text-slate-500 mt-6 border-t border-slate-100 pt-4">
+            RUC, ubicación fiscal SUNAT, series de boleta/factura y series de contingencia se configuran solo en{' '}
+            <strong>Bot facturación SUNAT</strong> para evitar datos duplicados.
+          </p>
         </div>
           )}
 
@@ -485,13 +457,13 @@ export default function MiRestaurant() {
                 <div>
                   <h3 className="font-bold text-slate-800 text-lg">Facturación SUNAT (emisor + bot)</h3>
                   <p className="text-sm text-slate-500 mt-0.5">
-                    Complete aquí al dueño de la empresa (emisor) y la URL del bot; pulse <strong>Guardar cambios</strong> una vez. En caja, solo ingrese datos del comprador y emita.
+                    Único lugar para emisor SUNAT, series normales y de contingencia, y conexión al bot. Pulse <strong>Guardar cambios</strong> una vez. En caja, solo datos del comprador.
                   </p>
                 </div>
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
-                <h4 className="font-semibold text-slate-800 text-sm">Datos del emisor (quien factura)</h4>
+                <h4 className="font-semibold text-slate-800 text-sm">Empresa y ubicación SUNAT (emisor)</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">RUC (11 dígitos)</label>
@@ -510,7 +482,7 @@ export default function MiRestaurant() {
                     <input className="input-field" value={restaurant.billing_emisor_ubigeo ?? ''} onChange={e => update('billing_emisor_ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="150101" />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Dirección fiscal (si vacío, se usa la dirección de Mi empresa)</label>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Dirección fiscal (si vacío, se usa la dirección del restaurante en Mi empresa)</label>
                     <input className="input-field" value={restaurant.billing_emisor_direccion ?? ''} onChange={e => update('billing_emisor_direccion', e.target.value)} placeholder="" />
                   </div>
                   <div>
@@ -532,6 +504,44 @@ export default function MiRestaurant() {
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Serie factura</label>
                     <input className="input-field" value={restaurant.billing_series_factura ?? ''} onChange={e => update('billing_series_factura', (e.target.value || '').toUpperCase())} placeholder="F001" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+                <h4 className="font-semibold text-slate-800 text-sm">Series de contingencia</h4>
+                <p className="text-xs text-slate-500">
+                  Para comprobantes en contingencia cuando no hay comunicación con SUNAT (según normativa y su resolución).
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Serie boleta contingencia</label>
+                    <input
+                      className="input-field"
+                      value={appConfig.series_contingencia?.boleta || ''}
+                      onChange={e => updateAppCfg('series_contingencia', 'boleta', e.target.value.toUpperCase())}
+                      placeholder="BC01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Serie factura contingencia</label>
+                    <input
+                      className="input-field"
+                      value={appConfig.series_contingencia?.factura || ''}
+                      onChange={e => updateAppCfg('series_contingencia', 'factura', e.target.value.toUpperCase())}
+                      placeholder="FC01"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Modo contingencia</label>
+                    <select
+                      className="input-field"
+                      value={appConfig.series_contingencia?.enabled ? '1' : '0'}
+                      onChange={e => updateAppCfg('series_contingencia', 'enabled', Number(e.target.value))}
+                    >
+                      <option value="1">Activo</option>
+                      <option value="0">Inactivo</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -740,27 +750,6 @@ export default function MiRestaurant() {
 
               <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-800">
                 Recomendación: mantener al menos dos métodos de pago activos para continuidad operativa.
-              </div>
-            </div>
-          ) : activeView === 'series_contingencia' ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-4">
-              <h3 className="font-bold text-slate-800">Series de contingencia</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Serie boleta contingencia</label>
-                  <input className="input-field" value={appConfig.series_contingencia?.boleta || ''} onChange={e => updateAppCfg('series_contingencia', 'boleta', e.target.value.toUpperCase())} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Serie factura contingencia</label>
-                  <input className="input-field" value={appConfig.series_contingencia?.factura || ''} onChange={e => updateAppCfg('series_contingencia', 'factura', e.target.value.toUpperCase())} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Modo contingencia</label>
-                  <select className="input-field" value={appConfig.series_contingencia?.enabled ? '1' : '0'} onChange={e => updateAppCfg('series_contingencia', 'enabled', Number(e.target.value))}>
-                    <option value="1">Activo</option>
-                    <option value="0">Inactivo</option>
-                  </select>
-                </div>
               </div>
             </div>
           ) : activeView === 'contrato' ? (
