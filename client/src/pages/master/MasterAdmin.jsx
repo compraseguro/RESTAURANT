@@ -422,11 +422,11 @@ export default function MasterAdmin() {
           <div className="card">
             <h2 className="font-semibold text-slate-800 mb-2">Fecha de facturación y bloqueo automático</h2>
             <p className="text-xs text-slate-500 mb-3">
-              Solo el administrador maestro puede editar estos valores. El administrador del restaurante ve la misma fecha y parámetros en el <strong>Escritorio</strong> (solo lectura).
+              La fecha es la <strong>ancla del ciclo</strong> (p. ej. día de venta o alta). No exige pago ese mismo día: los avisos y el bloqueo automático por mora se calculan contra la <strong>próxima fecha de cobro</strong> (Pago por uso → próxima facturación, según periodo mensual o semestral).
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Fecha de facturación</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Fecha de referencia del ciclo</label>
                 <input className="input-field" type="date" value={control.billing_date || ''} onChange={(e) => setDashboard((p) => ({ ...p, control: { ...(p?.control || {}), billing_date: e.target.value } }))} />
               </div>
               <div>

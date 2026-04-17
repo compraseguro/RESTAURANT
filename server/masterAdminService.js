@@ -227,29 +227,44 @@ function diffDays(startDateKey, endDateKey) {
   return Math.floor((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * Pago posventa: `billing_date` es la ancla del ciclo (p. ej. día de venta / inicio), no el cobro.
+ * El vencimiento para avisos y bloqueo por mora es la primera (o actual) fecha de cobro:
+ * `fecha_proxima_facturacion` de pago por uso si está definida, si no ancla + 1 o 6 meses.
+ */
+function resolveBillingDueDateKey(control) {
+  const anchor = String(control?.billing_date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor)) return '';
+  const pago = readSetting(PAGO_USO_APP_KEY, {});
+  const periodo = pago.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
+  const explicit = String(pago.fecha_proxima_facturacion || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(explicit)) return explicit;
+  return proximaFechaFromControlAnchor(anchor, periodo);
+}
+
 function evaluateAutomaticBillingRules() {
   const current = getControlConfig();
   const today = isoDateKeyNow();
-  const billingDate = String(current.billing_date || '').trim();
+  const dueDateKey = resolveBillingDueDateKey(current);
   let changed = false;
 
-  if (billingDate) {
-    const daysToDue = diffDays(today, billingDate);
+  if (dueDateKey) {
+    const daysToDue = diffDays(today, dueDateKey);
     const notifyWindow = Math.max(1, Number(current.notify_days_before || 5));
 
     if (
       daysToDue !== null
       && daysToDue >= 0
       && daysToDue <= notifyWindow
-      && current.billing_alert_sent_for !== billingDate
+      && current.billing_alert_sent_for !== dueDateKey
     ) {
       addNotification({
         title: 'Vencimiento de facturación cercano',
-        message: `Tu fecha de pago vence el ${billingDate}. Quedan ${daysToDue} día(s).`,
+        message: `La próxima fecha de pago del período es el ${dueDateKey}. Quedan ${daysToDue} día(s).`,
         created_by: 'Sistema automático',
         level: 'warning',
       });
-      current.billing_alert_sent_for = billingDate;
+      current.billing_alert_sent_for = dueDateKey;
       changed = true;
     }
 
@@ -260,7 +275,7 @@ function evaluateAutomaticBillingRules() {
       current.lock_enabled_at = new Date().toISOString();
       addNotification({
         title: 'Sistema bloqueado automáticamente',
-        message: `Se activó bloqueo por falta de pago. Vencimiento: ${billingDate}.`,
+        message: `Se activó bloqueo por falta de pago. Vencimiento del período: ${dueDateKey}.`,
         created_by: 'Sistema automático',
         level: 'danger',
       });
