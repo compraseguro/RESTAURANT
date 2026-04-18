@@ -16,7 +16,19 @@ function getRoleRoute(role) {
   return '/admin';
 }
 
-const DEFAULT_RESTAURANT_NAME = 'Resto-FADEY';
+/** Marca por defecto en login y pie de página (si no hay nombre propio en Mi Restaurante). */
+const DEFAULT_LOGIN_BRAND = 'Resto Fadey App';
+
+/** Nombres genéricos del demo que en login se muestran como marca del producto. */
+function resolveLoginBrandDisplayName(apiName) {
+  const t = String(apiName || '').trim();
+  if (!t) return DEFAULT_LOGIN_BRAND;
+  const lower = t.toLowerCase().replace(/\s+/g, ' ');
+  if (lower === 'mi restaurante' || lower === 'resto-fadey' || lower === 'resto fadey') {
+    return DEFAULT_LOGIN_BRAND;
+  }
+  return t;
+}
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -30,7 +42,7 @@ export default function Login() {
   const [step, setStep] = useState(1);
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [brandName, setBrandName] = useState(DEFAULT_RESTAURANT_NAME);
+  const [brandName, setBrandName] = useState(DEFAULT_LOGIN_BRAND);
   const [brandLogo, setBrandLogo] = useState('');
 
   const photosRequired = attendancePolicy.loginRequired;
@@ -40,8 +52,7 @@ export default function Login() {
     api
       .get('/restaurant')
       .then((r) => {
-        const n = String(r?.name || '').trim();
-        setBrandName(n || DEFAULT_RESTAURANT_NAME);
+        setBrandName(resolveLoginBrandDisplayName(r?.name));
         setBrandLogo(String(r?.logo || '').trim());
       })
       .catch(() => {});
@@ -120,7 +131,7 @@ export default function Login() {
               <img
                 src={resolveMediaUrl(brandLogo)}
                 alt={brandName}
-                className="w-full h-full object-contain"
+                className="h-full w-full object-cover object-center"
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-[#3B82F6] to-[#2563EB] flex items-center justify-center">

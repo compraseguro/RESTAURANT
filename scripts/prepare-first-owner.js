@@ -85,7 +85,7 @@ async function main() {
   };
   runSql(
     `UPDATE restaurants
-     SET name = 'Mi Restaurante',
+     SET name = 'Resto Fadey App',
          address = '',
          phone = '',
          email = '',

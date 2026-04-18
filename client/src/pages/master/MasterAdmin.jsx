@@ -54,6 +54,8 @@ export default function MasterAdmin() {
     confirm_password: '',
   });
   const [showEditNotificationModal, setShowEditNotificationModal] = useState(false);
+  const [notificationToDelete, setNotificationToDelete] = useState(null);
+  const [deleteNotifyBusy, setDeleteNotifyBusy] = useState(false);
   const [editingNotification, setEditingNotification] = useState(null);
   const [editNotifyForm, setEditNotifyForm] = useState({ title: '', message: '', image_url: '', duration_value: 1, duration_unit: 'hours', no_expiry: false });
   const [showEditBuyerModal, setShowEditBuyerModal] = useState(false);
@@ -241,15 +243,19 @@ export default function MasterAdmin() {
     }
   };
 
-  const removeNotification = async (notification) => {
+  const confirmDeleteNotification = async () => {
+    const notification = notificationToDelete;
     if (!notification?.id) return;
-    if (!window.confirm(`¿Eliminar notificación "${notification.title}"?`)) return;
+    setDeleteNotifyBusy(true);
     try {
       await api.delete(`/master-admin/notifications/${notification.id}`);
       toast.success('Notificación eliminada');
+      setNotificationToDelete(null);
       await loadDashboard();
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setDeleteNotifyBusy(false);
     }
   };
 
@@ -511,7 +517,15 @@ export default function MasterAdmin() {
                       <div className="flex items-center gap-1">
                         <button type="button" onClick={() => setPreviewNotification(n)} className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-xs text-slate-700">Mostrar</button>
                         <button type="button" onClick={() => openEditNotification(n)} className="p-2 rounded bg-sky-50 hover:bg-sky-100 text-sky-700" aria-label="Editar notificación"><MdEdit /></button>
-                        <button type="button" onClick={() => removeNotification(n)} className="p-2 rounded bg-red-50 hover:bg-red-100 text-red-700" aria-label="Eliminar notificación"><MdDelete /></button>
+                        <button
+                          type="button"
+                          onClick={() => setNotificationToDelete(n)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-50 hover:bg-red-100 text-red-700 border border-red-200"
+                          aria-label="Eliminar notificación"
+                        >
+                          <MdDelete className="text-sm shrink-0" />
+                          Eliminar
+                        </button>
                       </div>
                     </div>
                     <p className="text-xs text-slate-500 mb-2">{new Date(n.created_at).toLocaleString('es-PE')} · {n.created_by}</p>
@@ -693,6 +707,50 @@ export default function MasterAdmin() {
             <button type="submit" className="btn-primary flex items-center gap-2"><MdSave /> Guardar cambios</button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={!!notificationToDelete}
+        onClose={() => {
+          if (!deleteNotifyBusy) setNotificationToDelete(null);
+        }}
+        title="Eliminar notificación"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+            <strong className="font-semibold">Aviso:</strong> asegúrese de haber comprendido el mensaje antes de eliminarlo, porque{' '}
+            <strong>no podrá recuperarlo</strong> ni restaurarlo desde el sistema.
+          </div>
+          {notificationToDelete ? (
+            <p className="text-sm text-[#D1D5DB]">
+              Se eliminará de forma permanente la notificación «<span className="font-semibold text-[#F9FAFB]">{notificationToDelete.title}</span>».
+            </p>
+          ) : null}
+          <div className="flex flex-wrap justify-end gap-2 pt-1">
+            <button type="button" className="btn-secondary" disabled={deleteNotifyBusy} onClick={() => setNotificationToDelete(null)}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={deleteNotifyBusy}
+              onClick={() => void confirmDeleteNotification()}
+            >
+              {deleteNotifyBusy ? (
+                <>
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Eliminando…
+                </>
+              ) : (
+                <>
+                  <MdDelete className="text-lg" />
+                  Sí, eliminar
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       <Modal isOpen={showEditBuyerModal} onClose={() => setShowEditBuyerModal(false)} title="Editar credenciales del administrador comprador">
