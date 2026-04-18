@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../utils/api';
+import { api, resolveMediaUrl } from '../utils/api';
 import toast from 'react-hot-toast';
 import { MdStorefront, MdPerson, MdLock, MdVisibility, MdVisibilityOff, MdArrowBack, MdCameraAlt } from 'react-icons/md';
 import AttendancePhotoCapture from '../components/AttendancePhotoCapture';
@@ -16,6 +16,8 @@ function getRoleRoute(role) {
   return '/admin';
 }
 
+const DEFAULT_RESTAURANT_NAME = 'Resto-FADEY';
+
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -28,9 +30,22 @@ export default function Login() {
   const [step, setStep] = useState(1);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [brandName, setBrandName] = useState(DEFAULT_RESTAURANT_NAME);
+  const [brandLogo, setBrandLogo] = useState('');
 
   const photosRequired = attendancePolicy.loginRequired;
   const policyReady = !attendancePolicy.loading;
+
+  useEffect(() => {
+    api
+      .get('/restaurant')
+      .then((r) => {
+        const n = String(r?.name || '').trim();
+        setBrandName(n || DEFAULT_RESTAURANT_NAME);
+        setBrandLogo(String(r?.logo || '').trim());
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     api
@@ -100,10 +115,20 @@ export default function Login() {
 
       <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-[#3B82F6] to-[#2563EB] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#2563EB]/30">
-            <MdStorefront className="text-white text-4xl" />
+          <div className="w-20 h-20 rounded-2xl mx-auto mb-4 shadow-lg shadow-[#2563EB]/30 overflow-hidden flex items-center justify-center bg-[#1F2937] ring-1 ring-[#3B82F6]/25">
+            {brandLogo ? (
+              <img
+                src={resolveMediaUrl(brandLogo)}
+                alt={brandName}
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-[#3B82F6] to-[#2563EB] flex items-center justify-center">
+                <MdStorefront className="text-white text-4xl" />
+              </div>
+            )}
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Resto-FADEY</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">{brandName}</h1>
           <p className="text-[#9CA3AF] mt-2 text-sm">Sistema de Gestión para Restaurantes</p>
         </div>
 
@@ -218,7 +243,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-[#9CA3AF] text-xs mt-6">
-          &copy; {new Date().getFullYear()} Resto-FADEY &mdash; Sistema de Gestión
+          &copy; {new Date().getFullYear()} {brandName} &mdash; Sistema de Gestión
         </p>
       </div>
     </div>
