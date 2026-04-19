@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { api, formatDateTime } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
@@ -87,7 +87,12 @@ const DEFAULT_APP_SETTINGS = {
   regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
   locales: [{ name: 'Principal', address: '', phone: '', active: 1 }],
   almacenes: [{ name: 'Almacén Principal', description: 'Almacén general de insumos', active: 1 }],
-  cajas: [{ name: 'Caja Principal', description: 'Caja #1 - Recepción', active: 1 }],
+  cajas: [{
+    id: 'b0b0b0b0-b0b0-4000-b0b0-b0b0b0b0b001',
+    name: 'Caja Principal',
+    description: 'Caja #1 - Recepción',
+    active: 1,
+  }],
   comprobantes: [
     { name: 'Boleta de Venta', series: 'B001', active: 1 },
     { name: 'Factura', series: 'F001', active: 1 },
@@ -253,7 +258,23 @@ const SETTINGS_SECTION_FORMS = {
     ],
   },
 };
-const EMPTY_USER_FORM = { username: '', email: '', password: '', full_name: '', role: 'mozo', phone: '', is_active: 1 };
+function newLocalCajaId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `caja_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function ensureCajaIdsDeep(cajas) {
+  if (!Array.isArray(cajas)) return [];
+  return cajas.map((c) => {
+    const id = String(c?.id || '').trim();
+    if (id) return { ...c };
+    return { ...c, id: newLocalCajaId() };
+  });
+}
+
+const EMPTY_USER_FORM = {
+  username: '', email: '', password: '', full_name: '', role: 'mozo', phone: '', is_active: 1, caja_station_id: '',
+};
 
 export default function Settings() {
   const [activeSection, setActiveSection] = useState(null);
@@ -289,7 +310,11 @@ export default function Settings() {
   const autoSaveTimerRef = useRef(null);
   const historySearchTimerRef = useRef(null);
   const serializeAppSettings = (value) => JSON.stringify(value || {});
-  const normalizeConfigPayload = (payload) => ({ ...DEFAULT_APP_SETTINGS, ...((payload && payload.settings) || payload || {}) });
+  const normalizeConfigPayload = (payload) => {
+    const merged = { ...DEFAULT_APP_SETTINGS, ...((payload && payload.settings) || payload || {}) };
+    merged.cajas = ensureCajaIdsDeep(Array.isArray(merged.cajas) ? merged.cajas : []);
+    return merged;
+  };
   const hasUnsavedAppSettings = serializeAppSettings(appSettings) !== appSettingsSnapshot;
 
   const loadUsers = () => {
@@ -436,6 +461,7 @@ export default function Settings() {
       role: u.role || 'mozo',
       phone: u.phone || '',
       is_active: Number(u.is_active || 0) === 1 ? 1 : 0,
+      caja_station_id: String(u.caja_station_id || '').trim(),
     });
     setShowPw(false);
     setShowModal(true);
@@ -459,6 +485,8 @@ export default function Settings() {
         role: String(form.role || '').trim(),
         phone: String(form.phone || '').trim(),
         is_active: Number(form.is_active || 0) === 1 ? 1 : 0,
+        caja_station_id:
+          String(form.role || '').toLowerCase() === 'cajero' ? String(form.caja_station_id || '').trim() : '',
       };
       if (!payload.password) delete payload.password;
       if (editUser) {
@@ -675,6 +703,15 @@ export default function Settings() {
       payload.code = String(payload.code || '').toUpperCase();
     }
     if (index === null) payload.active = 1;
+    if (section === 'cajas') {
+      if (index === null) {
+        payload.id = newLocalCajaId();
+      } else {
+        const existing = (appSettings.cajas || [])[index] || {};
+        const existingId = String(existing.id || '').trim();
+        payload.id = existingId || newLocalCajaId();
+      }
+    }
     setAppSettings(prev => {
       const list = Array.isArray(prev[section]) ? [...prev[section]] : [];
       if (index === null) list.push(payload);
@@ -1036,6 +1073,7 @@ export default function Settings() {
         {activeSection === 'users' && (
           <UsersSection
             users={users}
+            appSettings={appSettings}
             currentUser={currentUser}
             openNewUser={openNewUser}
             openEditUser={openEditUser}
@@ -1092,12 +1130,17 @@ export default function Settings() {
         {activeSection === 'cajas' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Cajas registradoras del sistema</p>
+              <p className="text-sm text-slate-500">
+                Defina aquí cada caja física; luego vincúlela a un usuario con rol Cajero en Usuarios.
+              </p>
               <button onClick={() => openSettingsCrudModal('cajas')} className="btn-primary flex items-center gap-2 text-sm"><MdAdd /> Nueva Caja</button>
             </div>
             <div className="card">
+              {!(appSettings.cajas || []).length && (
+                <p className="text-sm text-slate-500 py-6 text-center">Aún no hay cajas. Use «Nueva Caja» para crear la primera.</p>
+              )}
               {(appSettings.cajas || []).map((caja, i) => (
-                <div key={`${caja.name}-${i}`} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
+                <div key={String(caja.id || '').trim() || `${caja.name}-${i}`} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center"><MdPointOfSale className="text-sky-600" /></div>
                     <div><p className="font-medium">{caja.name}</p><p className="text-sm text-slate-500">{caja.description || 'Sin descripción'}</p></div>
@@ -1759,7 +1802,23 @@ export default function Settings() {
   );
 }
 
-function UsersSection({ users, currentUser, openNewUser, openEditUser, handleDelete, toggleActive, showModal, closeUserModal, editUser, handleSubmit, form, setForm, showPw, setShowPw }) {
+function UsersSection({
+  users,
+  appSettings,
+  currentUser,
+  openNewUser,
+  openEditUser,
+  handleDelete,
+  toggleActive,
+  showModal,
+  closeUserModal,
+  editUser,
+  handleSubmit,
+  form,
+  setForm,
+  showPw,
+  setShowPw,
+}) {
   const [showPermsModal, setShowPermsModal] = useState(false);
   const [permsUser, setPermsUser] = useState(null);
   const [perms, setPerms] = useState({});
@@ -1801,6 +1860,33 @@ function UsersSection({ users, currentUser, openNewUser, openEditUser, handleDel
     ALL_MODULES.forEach(m => { defaults[m.id] = m.defaultRoles.includes(permsUser.role); });
     setPerms(defaults);
   };
+
+  const cajaNameById = useMemo(() => {
+    const m = new Map();
+    (appSettings?.cajas || []).forEach((c) => {
+      const id = String(c?.id || '').trim();
+      if (id) m.set(id, String(c?.name || '').trim() || 'Caja');
+    });
+    return m;
+  }, [appSettings?.cajas]);
+
+  const cajaOptionsForForm = (() => {
+    const assigned = new Map();
+    (users || []).forEach((u) => {
+      if (String(u.role || '').toLowerCase() !== 'cajero') return;
+      const cid = String(u.caja_station_id || '').trim();
+      if (!cid) return;
+      assigned.set(cid, u.id);
+    });
+    const list = Array.isArray(appSettings?.cajas) ? appSettings.cajas : [];
+    return list
+      .filter((c) => Number(c?.active || 0) === 1 && String(c?.id || '').trim())
+      .filter((c) => {
+        const uid = assigned.get(String(c.id).trim());
+        return !uid || uid === editUser?.id;
+      })
+      .map((c) => ({ id: String(c.id).trim(), name: String(c.name || '').trim() || 'Caja' }));
+  })();
 
   return (
     <div>
@@ -1853,6 +1939,11 @@ function UsersSection({ users, currentUser, openNewUser, openEditUser, handleDel
                     <span className={`px-3 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1 ${roleInfo.color}`}>
                       <RoleIcon className="text-sm" /> {roleInfo.label}
                     </span>
+                    {String(u.role || '').toLowerCase() === 'cajero' && String(u.caja_station_id || '').trim() && (
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Caja: {cajaNameById.get(String(u.caja_station_id).trim()) || '—'}
+                      </p>
+                    )}
                   </td>
                   <td className="p-3 text-center">
                     <button onClick={() => toggleActive(u)} className={`px-3 py-1 rounded-full text-xs font-bold ${u.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-[#1E40AF]/20 text-[#F9FAFB]'}`}>
@@ -1910,8 +2001,18 @@ function UsersSection({ users, currentUser, openNewUser, openEditUser, handleDel
               {Object.entries(ROLES).map(([key, role]) => {
                 const Icon = role.icon;
                 return (
-                  <button key={key} type="button" onClick={() => setForm({ ...form, role: key })}
-                    className={`p-3 rounded-xl border-2 text-center transition-all ${form.role === key ? 'border-gold-500 bg-gold-50' : 'border-slate-200 hover:border-slate-300'}`}>
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        role: key,
+                        caja_station_id: key === 'cajero' ? form.caja_station_id : '',
+                      })
+                    }
+                    className={`p-3 rounded-xl border-2 text-center transition-all ${form.role === key ? 'border-gold-500 bg-gold-50' : 'border-slate-200 hover:border-slate-300'}`}
+                  >
                     <Icon className={`text-2xl mx-auto mb-1 ${form.role === key ? 'text-gold-600' : 'text-slate-400'}`} />
                     <p className="text-xs font-medium">{role.label}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">{role.desc}</p>
@@ -1920,6 +2021,31 @@ function UsersSection({ users, currentUser, openNewUser, openEditUser, handleDel
               })}
             </div>
           </div>
+          {String(form.role || '').toLowerCase() === 'cajero' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Caja asignada</label>
+              <select
+                value={String(form.caja_station_id || '')}
+                onChange={(e) => setForm({ ...form, caja_station_id: e.target.value })}
+                className="input-field"
+              >
+                <option value="">— Seleccione una caja —</option>
+                {cajaOptionsForForm.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {cajaOptionsForForm.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  No hay cajas activas disponibles (o ya están asignadas a otros cajeros). Cree una en Configuración → Cajas.
+                </p>
+              )}
+              {cajaOptionsForForm.length > 0 && (
+                <p className="text-xs text-slate-400 mt-1">
+                  Si es el primer cajero del local, puede dejar «Seleccione» y se vinculará solo a la Caja Principal.
+                </p>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label><input type="text" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input-field" placeholder="999 999 999" autoComplete="off" name="user-create-phone" /></div>
             <div>

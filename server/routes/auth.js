@@ -6,6 +6,7 @@ const { queryOne, runSql } = require('../database');
 const { JWT_SECRET, authenticateToken } = require('../middleware/auth');
 const { getLockState, verifyMasterCredentials, getMasterCredentialsPublic } = require('../masterAdminService');
 const { advanceStaffChatCycleIfDue, markAllStaffOfflineIfNeeded } = require('../staffChatService');
+const { getActiveCajaById } = require('../cajaSettings');
 
 const router = express.Router();
 
@@ -190,6 +191,22 @@ router.post('/login', (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
+  if (String(user.role || '').toLowerCase() === 'cajero') {
+    const cid = String(user.caja_station_id || '').trim();
+    if (!cid) {
+      return res.status(403).json({
+        error:
+          'Su usuario cajero no tiene una caja asignada. El administrador debe vincularlo en Configuración → Usuarios.',
+      });
+    }
+    const caja = getActiveCajaById(cid);
+    if (!caja) {
+      return res.status(403).json({
+        error:
+          'La caja asignada a este usuario no está disponible o está inactiva. Revise Configuración → Cajas y Usuarios.',
+      });
+    }
+  }
   const photoLogin = normalizeAttendancePhoto(req.body?.photo_login);
   const { loginPhoto } = readJornadaLaboralFlags();
   if (loginPhoto) {
@@ -213,6 +230,13 @@ router.post('/login', (req, res) => {
   );
 
   const permissions = getUserPermissions(user.id);
+  const cajaMeta =
+    String(user.role || '').toLowerCase() === 'cajero'
+      ? (() => {
+          const c = getActiveCajaById(user.caja_station_id);
+          return { caja_station_id: String(user.caja_station_id || '').trim(), caja_name: c?.name || '' };
+        })()
+      : { caja_station_id: '', caja_name: '' };
   res.json({
     token,
     user: {
@@ -223,6 +247,7 @@ router.post('/login', (req, res) => {
       role: user.role,
       avatar: user.avatar,
       permissions,
+      ...cajaMeta,
     },
   });
 });
@@ -295,9 +320,21 @@ router.get('/me', authenticateToken, (req, res) => {
     return res.json({ ...customer, type: 'customer' });
   }
   ensureOpenWorkSession(req.user);
-  const user = queryOne('SELECT id, username, email, full_name, role, avatar, phone FROM users WHERE id = ?', [req.user.id]);
+  const user = queryOne(
+    'SELECT id, username, email, full_name, role, avatar, phone, caja_station_id FROM users WHERE id = ?',
+    [req.user.id]
+  );
   const permissions = getUserPermissions(req.user.id);
-  res.json({ ...user, permissions, type: 'staff' });
+  const caja =
+    String(user?.role || '').toLowerCase() === 'cajero'
+      ? getActiveCajaById(user?.caja_station_id)
+      : null;
+  res.json({
+    ...user,
+    permissions,
+    type: 'staff',
+    caja_name: caja?.name || '',
+  });
 });
 
 module.exports = router;

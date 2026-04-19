@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { getActiveCajaById, getFirstAutoAssignCajaId } = require('../cajaSettings');
 
 const router = express.Router();
 const VALID_ROLES = new Set(['admin', 'cajero', 'mozo', 'cocina', 'bar', 'delivery']);
@@ -75,8 +76,57 @@ function createFullPermissions() {
   }, {});
 }
 
+function countCajerosExcluding(excludeUserId) {
+  const ex = String(excludeUserId || '').trim();
+  if (!ex) {
+    return queryOne(`SELECT COUNT(*) as c FROM users WHERE lower(trim(coalesce(role, ''))) = 'cajero'`);
+  }
+  return queryOne(
+    `SELECT COUNT(*) as c FROM users WHERE lower(trim(coalesce(role, ''))) = 'cajero' AND id != ?`,
+    [ex]
+  );
+}
+
+function normalizeCajaStationId(role, rawCajaId, { excludeUserId = '' } = {}) {
+  const roleLc = String(role || '').trim().toLowerCase();
+  if (roleLc !== 'cajero') return { caja_station_id: '' };
+  let id = String(rawCajaId ?? '').trim();
+  const exclude = String(excludeUserId || '').trim();
+  const otherCajeros = Number(countCajerosExcluding(exclude)?.c || 0);
+
+  if (!id) {
+    if (otherCajeros === 0) {
+      id = getFirstAutoAssignCajaId() || '';
+      if (!id) {
+        return { error: 'Debe existir al menos una caja activa en Configuración → Cajas.' };
+      }
+    } else {
+      return { error: 'Seleccione la caja para este cajero' };
+    }
+  }
+  if (!getActiveCajaById(id)) {
+    return { error: 'La caja no existe o está inactiva. Créela o actívela en Configuración → Cajas.' };
+  }
+  const taken = queryOne(
+    `SELECT id, full_name FROM users
+     WHERE lower(trim(coalesce(role, ''))) = 'cajero'
+       AND trim(coalesce(caja_station_id, '')) = ?
+       AND id != ?
+     LIMIT 1`,
+    [id, exclude]
+  );
+  if (taken?.id) {
+    return { error: `Esa caja ya está asignada a ${taken.full_name || 'otro cajero'}` };
+  }
+  return { caja_station_id: id };
+}
+
 router.get('/', authenticateToken, requireRole('admin'), (req, res) => {
-  res.json(queryAll('SELECT id, username, email, full_name, role, is_active, phone, avatar, created_at FROM users ORDER BY created_at DESC'));
+  res.json(
+    queryAll(
+      'SELECT id, username, email, full_name, role, is_active, phone, avatar, caja_station_id, created_at FROM users ORDER BY created_at DESC'
+    )
+  );
 });
 
 router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
@@ -97,12 +147,16 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
     const existing = queryOne('SELECT id FROM users WHERE username = ? OR email = ?', [username, email]);
     if (existing) return res.status(400).json({ error: 'El usuario o email ya existe' });
 
+    const cajaNorm = normalizeCajaStationId(role, req.body?.caja_station_id, { excludeUserId: '' });
+    if (cajaNorm.error) return res.status(400).json({ error: cajaNorm.error });
+    const cajaStationId = cajaNorm.caja_station_id;
+
     const restaurant = queryOne('SELECT id FROM restaurants LIMIT 1');
     const id = uuidv4();
     const hash = bcrypt.hashSync(password, 10);
     runSql(
-      'INSERT INTO users (id, username, email, password_hash, full_name, role, restaurant_id, phone, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, username, email, hash, fullName, role, restaurant?.id, phone, isActive]
+      'INSERT INTO users (id, username, email, password_hash, full_name, role, restaurant_id, phone, is_active, caja_station_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, username, email, hash, fullName, role, restaurant?.id, phone, isActive, cajaStationId]
     );
     const permissionsObj =
       req.user?.role === 'master_admin' && role === 'admin'
@@ -113,7 +167,10 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
       [uuidv4(), id, JSON.stringify(permissionsObj)]
     );
     return res.status(201).json(
-      queryOne('SELECT id, username, email, full_name, role, is_active, phone, created_at FROM users WHERE id = ?', [id])
+      queryOne(
+        'SELECT id, username, email, full_name, role, is_active, phone, caja_station_id, created_at FROM users WHERE id = ?',
+        [id]
+      )
     );
   } catch (err) {
     return res.status(400).json({ error: err.message || 'No se pudo crear el usuario' });
@@ -122,7 +179,10 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
 
 router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
   try {
-    const current = queryOne('SELECT id, username, email, full_name, role, phone, is_active FROM users WHERE id = ?', [req.params.id]);
+    const current = queryOne(
+      'SELECT id, username, email, full_name, role, phone, is_active, caja_station_id FROM users WHERE id = ?',
+      [req.params.id]
+    );
     if (!current?.id) return res.status(404).json({ error: 'Usuario no encontrado' });
 
     const username = req.body?.username === undefined ? current.username : String(req.body.username || '').trim();
@@ -132,6 +192,8 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
     const phone = req.body?.phone === undefined ? current.phone : String(req.body.phone || '').trim();
     const isActive = req.body?.is_active === undefined ? current.is_active : (Number(req.body.is_active || 0) === 1 ? 1 : 0);
     const password = String(req.body?.password || '').trim();
+    const rawCaja =
+      req.body?.caja_station_id === undefined ? current.caja_station_id : req.body.caja_station_id;
 
     if (!username || !email || !fullName || !role) {
       return res.status(400).json({ error: 'Usuario, email, nombre y rol son obligatorios' });
@@ -153,12 +215,19 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       runSql('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.params.id]);
     }
 
+    const cajaNorm = normalizeCajaStationId(role, rawCaja, { excludeUserId: req.params.id });
+    if (cajaNorm.error) return res.status(400).json({ error: cajaNorm.error });
+    const cajaStationId = cajaNorm.caja_station_id;
+
     runSql(
-      'UPDATE users SET username = ?, email = ?, full_name = ?, role = ?, phone = ?, is_active = ? WHERE id = ?',
-      [username, email, fullName, role, phone, isActive, req.params.id]
+      'UPDATE users SET username = ?, email = ?, full_name = ?, role = ?, phone = ?, is_active = ?, caja_station_id = ? WHERE id = ?',
+      [username, email, fullName, role, phone, isActive, cajaStationId, req.params.id]
     );
     return res.json(
-      queryOne('SELECT id, username, email, full_name, role, is_active, phone, created_at FROM users WHERE id = ?', [req.params.id])
+      queryOne(
+        'SELECT id, username, email, full_name, role, is_active, phone, caja_station_id, created_at FROM users WHERE id = ?',
+        [req.params.id]
+      )
     );
   } catch (err) {
     return res.status(400).json({ error: err.message || 'No se pudo actualizar el usuario' });

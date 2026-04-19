@@ -23,14 +23,16 @@ function getAnyOpenRegister() {
      FROM cash_registers cr
      JOIN users u ON u.id = cr.user_id
      WHERE cr.closed_at IS NULL
+     ORDER BY datetime(cr.opened_at) DESC
      LIMIT 1`
   );
 }
 
+/** Cajero: solo su caja abierta. Admin: la propia o puede operar sobre la última sesión abierta (cualquier cajero). */
 function getAccessibleOpenRegister(user) {
   const own = getOpenRegister(user?.id);
   if (own) return own;
-  if (user?.role === 'admin' || user?.role === 'cajero') return getAnyOpenRegister();
+  if (String(user?.role || '').toLowerCase() === 'admin') return getAnyOpenRegister();
   return null;
 }
 
@@ -141,16 +143,6 @@ router.post('/open-register', authenticateToken, requireRole('admin', 'cajero'),
   }
   const existing = getOpenRegister(req.user.id);
   if (existing) return res.status(400).json({ error: 'Ya tienes una caja abierta', register: existing });
-  const alreadyOpen = getAnyOpenRegister();
-  if (alreadyOpen && alreadyOpen.user_id !== req.user.id) {
-    if (req.user.role === 'admin' || req.user.role === 'cajero') {
-      return res.json({ ...alreadyOpen, shared_access: true });
-    }
-    return res.status(400).json({
-      error: `La caja ya está abierta por ${alreadyOpen.cajero_name}`,
-      register: alreadyOpen,
-    });
-  }
 
   const restaurant = queryOne('SELECT id FROM restaurants LIMIT 1');
   const id = uuidv4();
@@ -386,10 +378,20 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
 });
 
 router.get('/register-status', authenticateToken, requireRole('admin', 'cajero', 'mozo'), (req, res) => {
+  const openCount = queryOne('SELECT COUNT(*) as c FROM cash_registers WHERE closed_at IS NULL');
   const openRegister = queryOne(
-    'SELECT cr.id, cr.user_id, cr.opened_at, u.full_name as cajero_name FROM cash_registers cr JOIN users u ON u.id = cr.user_id WHERE cr.closed_at IS NULL LIMIT 1'
+    `SELECT cr.id, cr.user_id, cr.opened_at, u.full_name as cajero_name
+     FROM cash_registers cr
+     JOIN users u ON u.id = cr.user_id
+     WHERE cr.closed_at IS NULL
+     ORDER BY datetime(cr.opened_at) DESC
+     LIMIT 1`
   );
-  res.json({ is_open: !!openRegister, register: openRegister || null });
+  res.json({
+    is_open: Number(openCount?.c || 0) > 0,
+    register: openRegister || null,
+    open_count: Number(openCount?.c || 0),
+  });
 });
 
 router.get('/history', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {

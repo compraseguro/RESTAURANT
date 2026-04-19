@@ -13,10 +13,11 @@ const ROLE_COLORS = {
   bar: 'bg-indigo-100 text-indigo-700',
   delivery: 'bg-emerald-100 text-emerald-700',
 };
-const EMPTY_FORM = { username: '', email: '', password: '', full_name: '', role: 'mozo', phone: '' };
+const EMPTY_FORM = { username: '', email: '', password: '', full_name: '', role: 'mozo', phone: '', caja_station_id: '' };
 
 export default function Users() {
   const [users, setUsers] = useState([]);
+  const [cajas, setCajas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -24,8 +25,13 @@ export default function Users() {
 
   const loadData = async () => {
     try {
-      const usersData = await api.get('/users');
+      const [usersData, cfg] = await Promise.all([
+        api.get('/users'),
+        api.get('/admin-modules/config/app').catch(() => ({})),
+      ]);
       setUsers(usersData || []);
+      const s = cfg?.settings || cfg || {};
+      setCajas(Array.isArray(s.cajas) ? s.cajas : []);
     }
     catch (err) { toast.error(err.message); }
     finally { setLoading(false); }
@@ -38,12 +44,45 @@ export default function Users() {
     setForm(EMPTY_FORM);
   };
   const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setShowModal(true); };
-  const openEdit = (u) => { setEditing(u); setForm({ username: u.username, email: u.email, password: '', full_name: u.full_name, role: u.role, phone: u.phone }); setShowModal(true); };
+  const openEdit = (u) => {
+    setEditing(u);
+    setForm({
+      username: u.username,
+      email: u.email,
+      password: '',
+      full_name: u.full_name,
+      role: u.role,
+      phone: u.phone || '',
+      caja_station_id: String(u.caja_station_id || '').trim(),
+    });
+    setShowModal(true);
+  };
+
+  const cajaOptionsForForm = (() => {
+    const assigned = new Map();
+    (users || []).forEach((u) => {
+      if (String(u.role || '').toLowerCase() !== 'cajero') return;
+      const cid = String(u.caja_station_id || '').trim();
+      if (!cid) return;
+      assigned.set(cid, u.id);
+    });
+    return (cajas || [])
+      .filter((c) => Number(c?.active || 0) === 1 && String(c?.id || '').trim())
+      .filter((c) => {
+        const uid = assigned.get(String(c.id).trim());
+        return !uid || uid === editing?.id;
+      })
+      .map((c) => ({ id: String(c.id).trim(), name: String(c.name || '').trim() || 'Caja' }));
+  })();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = { ...form };
+      const payload = {
+        ...form,
+        caja_station_id:
+          String(form.role || '').toLowerCase() === 'cajero' ? String(form.caja_station_id || '').trim() : '',
+      };
       if (!payload.password) delete payload.password;
       if (editing) {
         await api.put(`/users/${editing.id}`, payload);
@@ -134,12 +173,46 @@ export default function Users() {
           <div><label className="block text-sm font-medium text-gray-700 mb-1">{editing ? 'Nueva Contraseña (dejar vacío para no cambiar)' : 'Contraseña *'}</label><input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="input-field" required={!editing} autoComplete="new-password" name="new-password" /></div>
           <div className="grid grid-cols-2 gap-4">
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Rol *</label>
-              <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} className="input-field">
+              <select
+                value={form.role}
+                onChange={(e) => {
+                  const role = e.target.value;
+                  setForm((f) => ({
+                    ...f,
+                    role,
+                    caja_station_id: String(role || '').toLowerCase() === 'cajero' ? f.caja_station_id : '',
+                  }));
+                }}
+                className="input-field"
+              >
                 {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label><input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="input-field" autoComplete="off" name="new-phone" /></div>
           </div>
+          {String(form.role || '').toLowerCase() === 'cajero' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Caja asignada *</label>
+              <select
+                value={String(form.caja_station_id || '')}
+                onChange={(e) => setForm((f) => ({ ...f, caja_station_id: e.target.value }))}
+                className="input-field"
+              >
+                <option value="">— Seleccione —</option>
+                {cajaOptionsForForm.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {cajaOptionsForForm.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">Cree cajas activas en Configuración → Cajas.</p>
+              )}
+              {cajaOptionsForForm.length > 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Primer cajero: puede dejar «Seleccione» y se asignará la Caja Principal automáticamente.
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button type="button" onClick={closeModal} className="btn-secondary">Cancelar</button>
             <button type="submit" className="btn-primary">{editing ? 'Guardar' : 'Crear'}</button>

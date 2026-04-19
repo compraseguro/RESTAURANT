@@ -226,7 +226,12 @@ function resetOperationalData({ keepAdminUserId = '', preserveContrato = false }
         regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
         locales: [{ name: 'Principal', address: '', phone: '', active: 1 }],
         almacenes: [{ name: 'Almacén Principal', description: 'Almacén general de insumos', active: 1 }],
-        cajas: [{ name: 'Caja Principal', description: 'Caja #1 - Recepción', active: 1 }],
+        cajas: [{
+          id: 'b0b0b0b0-b0b0-4000-b0b0-b0b0b0b0b001',
+          name: 'Caja Principal',
+          description: 'Caja #1 - Recepción',
+          active: 1,
+        }],
         comprobantes: [
           { name: 'Boleta de Venta', series: 'B001', active: 1 },
           { name: 'Factura', series: 'F001', active: 1 },
@@ -371,6 +376,7 @@ async function initDatabase() {
         is_active INTEGER DEFAULT 1,
         phone TEXT DEFAULT '',
         avatar TEXT DEFAULT '',
+        caja_station_id TEXT DEFAULT '',
         created_at TEXT DEFAULT (datetime('now'))
       )
     `);
@@ -1050,17 +1056,30 @@ async function initDatabase() {
           is_active INTEGER DEFAULT 1,
           phone TEXT DEFAULT '',
           avatar TEXT DEFAULT '',
+          caja_station_id TEXT DEFAULT '',
           created_at TEXT DEFAULT (datetime('now'))
         )
       `);
       db.run(`
-        INSERT INTO users (id, username, email, password_hash, full_name, role, restaurant_id, is_active, phone, avatar, created_at)
-        SELECT id, username, email, password_hash, full_name, role, restaurant_id, is_active, phone, avatar, created_at
+        INSERT INTO users (id, username, email, password_hash, full_name, role, restaurant_id, is_active, phone, avatar, created_at, caja_station_id)
+        SELECT id, username, email, password_hash, full_name, role, restaurant_id, is_active, phone, avatar, created_at, ''
         FROM users_legacy
       `);
       db.run('DROP TABLE users_legacy');
       db.run('PRAGMA foreign_keys = ON');
     }
+
+    const userColsCaja = queryAll('PRAGMA table_info(users)');
+    const userColNamesCaja = new Set((userColsCaja || []).map((c) => c.name));
+    if (!userColNamesCaja.has('caja_station_id')) {
+      db.run("ALTER TABLE users ADD COLUMN caja_station_id TEXT DEFAULT ''");
+    }
+    db.run(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_caja_station_unique
+       ON users(caja_station_id)
+       WHERE trim(coalesce(caja_station_id, '')) != ''
+         AND lower(trim(coalesce(role, ''))) = 'cajero'`
+    );
 
     const seqExists = queryOne('SELECT COUNT(*) as c FROM order_sequence');
     if (seqExists.c === 0) {
@@ -1133,7 +1152,12 @@ async function initDatabase() {
       regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
       locales: [{ name: 'Principal', address: '', phone: '', active: 1 }],
       almacenes: [{ name: 'Almacén Principal', description: 'Almacén general de insumos', active: 1 }],
-      cajas: [{ name: 'Caja Principal', description: 'Caja #1 - Recepción', active: 1 }],
+      cajas: [{
+        id: 'b0b0b0b0-b0b0-4000-b0b0-b0b0b0b0b001',
+        name: 'Caja Principal',
+        description: 'Caja #1 - Recepción',
+        active: 1,
+      }],
       comprobantes: [
         { name: 'Boleta de Venta', series: 'B001', active: 1 },
         { name: 'Factura', series: 'F001', active: 1 },
@@ -1221,8 +1245,47 @@ async function initDatabase() {
           },
         };
       }
+      const DEFAULT_PRIMARY_CAJA_ID = 'b0b0b0b0-b0b0-4000-b0b0-b0b0b0b0b001';
+      if (!Array.isArray(next.cajas) || next.cajas.length === 0) {
+        next = {
+          ...next,
+          cajas: [{
+            id: DEFAULT_PRIMARY_CAJA_ID,
+            name: 'Caja Principal',
+            description: 'Caja #1 - Recepción',
+            active: 1,
+          }],
+        };
+      }
+      const cajasRaw = Array.isArray(next.cajas) ? next.cajas : [];
+      const cajasWithIds = cajasRaw.map((c) => {
+        const id = String(c?.id || '').trim();
+        if (id) return c;
+        return { ...c, id: uuidv4() };
+      });
+      if (JSON.stringify(cajasWithIds) !== JSON.stringify(cajasRaw)) {
+        next = { ...next, cajas: cajasWithIds };
+      }
       if (JSON.stringify(next) !== JSON.stringify(parsed)) {
         db.run("UPDATE app_settings SET value = ?, updated_at = datetime('now') WHERE key = 'settings'", [JSON.stringify(next)]);
+      }
+      const userHasCajaCol = (queryAll('PRAGMA table_info(users)') || []).some((c) => c.name === 'caja_station_id');
+      if (userHasCajaCol) {
+        const activeCajas = (Array.isArray(next.cajas) ? next.cajas : []).filter(
+          (c) => Number(c?.active || 0) === 1 && String(c?.id || '').trim()
+        );
+        if (activeCajas.length === 1) {
+          const unset = queryAll(
+            `SELECT id FROM users WHERE lower(trim(coalesce(role, ''))) = 'cajero'
+             AND trim(coalesce(caja_station_id, '')) = ''`
+          );
+          if (unset && unset.length === 1) {
+            db.run('UPDATE users SET caja_station_id = ? WHERE id = ?', [
+              String(activeCajas[0].id).trim(),
+              unset[0].id,
+            ]);
+          }
+        }
       }
     }
 
@@ -1354,8 +1417,8 @@ function ensureOperationalUsers() {
       return;
     }
     db.run(
-      'INSERT INTO users (id, username, email, password_hash, full_name, role, restaurant_id, is_active, phone, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)',
-      [uuidv4(), user.username, user.email, bcrypt.hashSync(user.password, 10), user.full_name, user.role, restaurant.id, '', '']
+      'INSERT INTO users (id, username, email, password_hash, full_name, role, restaurant_id, is_active, phone, avatar, caja_station_id) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)',
+      [uuidv4(), user.username, user.email, bcrypt.hashSync(user.password, 10), user.full_name, user.role, restaurant.id, '', '', '']
     );
   });
 }
