@@ -551,7 +551,8 @@ async function initDatabase() {
         total_plin REAL DEFAULT 0,
         total_card REAL DEFAULT 0,
         notes TEXT DEFAULT '',
-        arqueo_data TEXT DEFAULT '{}'
+        arqueo_data TEXT DEFAULT '{}',
+        caja_station_id TEXT DEFAULT ''
       )
     `);
 
@@ -875,6 +876,16 @@ async function initDatabase() {
     const cashColumns = queryAll('PRAGMA table_info(cash_registers)');
     if (!cashColumns.some(col => col.name === 'arqueo_data')) {
       db.run("ALTER TABLE cash_registers ADD COLUMN arqueo_data TEXT DEFAULT '{}'");
+    }
+    if (!cashColumns.some(col => col.name === 'caja_station_id')) {
+      db.run("ALTER TABLE cash_registers ADD COLUMN caja_station_id TEXT DEFAULT ''");
+    }
+    try {
+      db.run(`UPDATE cash_registers SET caja_station_id = (
+        SELECT trim(coalesce(u.caja_station_id, '')) FROM users u WHERE u.id = cash_registers.user_id
+      ) WHERE trim(coalesce(caja_station_id, '')) = ''`);
+    } catch (_) {
+      /* backup antiguo */
     }
 
     const productColumns = queryAll('PRAGMA table_info(products)');

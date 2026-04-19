@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql, withTransaction, logAudit } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { assertPaymentMethodAllowed, normalizePaymentMethod } = require('../businessRules');
+const { getActiveCajaById, listCajasWithIds } = require('../cajaSettings');
 
 const router = express.Router();
 
@@ -17,23 +18,31 @@ function getOpenRegister(userId) {
   return queryOne('SELECT * FROM cash_registers WHERE user_id = ? AND closed_at IS NULL', [userId]);
 }
 
-function getAnyOpenRegister() {
-  return queryOne(
-    `SELECT cr.*, u.full_name as cajero_name
-     FROM cash_registers cr
-     JOIN users u ON u.id = cr.user_id
-     WHERE cr.closed_at IS NULL
-     ORDER BY datetime(cr.opened_at) DESC
-     LIMIT 1`
-  );
+function pickRegisterId(req) {
+  const q = String(req.query?.register_id || '').trim();
+  if (q) return q;
+  const b = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body.register_id : undefined;
+  return String(b || '').trim();
 }
 
-/** Cajero: solo su caja abierta. Admin: la propia o puede operar sobre la última sesión abierta (cualquier cajero). */
-function getAccessibleOpenRegister(user) {
-  const own = getOpenRegister(user?.id);
-  if (own) return own;
-  if (String(user?.role || '').toLowerCase() === 'admin') return getAnyOpenRegister();
-  return null;
+/**
+ * Cajero: solo su turno abierto (no acepta register_id de la URL).
+ * Admin: si envía register_id, opera esa sesión (cualquier usuario); si no, solo la suya propia.
+ */
+function resolvePosRegister(req) {
+  const user = req.user;
+  const role = String(user?.role || '').toLowerCase();
+  if (role === 'cajero') {
+    return getOpenRegister(user.id) || null;
+  }
+  if (role === 'admin') {
+    const rid = pickRegisterId(req);
+    if (rid) {
+      return queryOne('SELECT * FROM cash_registers WHERE id = ? AND closed_at IS NULL', [rid]) || null;
+    }
+    return getOpenRegister(user.id) || null;
+  }
+  return getOpenRegister(user.id) || null;
 }
 
 function getMovementTotals(registerId) {
@@ -133,33 +142,107 @@ async function sendCashCloseNotification({
   }
 }
 
+router.get('/caja-stations', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
+  let stations = listCajasWithIds().filter((c) => c.active);
+  const role = String(req.user.role || '').toLowerCase();
+  if (role === 'cajero') {
+    const row = queryOne('SELECT caja_station_id FROM users WHERE id = ?', [req.user.id]);
+    const sid = String(row?.caja_station_id || '').trim();
+    stations = sid ? stations.filter((s) => s.id === sid) : [];
+  }
+  const opens = queryAll(
+    `SELECT cr.id, cr.user_id, cr.caja_station_id, cr.opened_at, u.full_name as cajero_name
+     FROM cash_registers cr
+     JOIN users u ON u.id = cr.user_id
+     WHERE cr.closed_at IS NULL`
+  );
+  const bySid = new Map();
+  (opens || []).forEach((o) => {
+    const k = String(o.caja_station_id || '').trim();
+    if (!k) return;
+    const prev = bySid.get(k);
+    if (!prev || String(o.opened_at || '') > String(prev.opened_at || '')) bySid.set(k, o);
+  });
+  res.json({
+    stations: stations.map((s) => ({
+      id: s.id,
+      name: s.name,
+      active: s.active,
+      open_register: bySid.get(s.id) || null,
+    })),
+  });
+});
+
 router.post('/open-register', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
-  const { opening_amount } = req.body;
+  const { opening_amount } = req.body || {};
   if (opening_amount === undefined || opening_amount === null || Number.isNaN(Number(opening_amount))) {
     return res.status(400).json({ error: 'Debes ingresar el monto inicial de caja' });
   }
   if (Number(opening_amount) < 0) {
     return res.status(400).json({ error: 'El monto inicial no puede ser negativo' });
   }
-  const existing = getOpenRegister(req.user.id);
-  if (existing) return res.status(400).json({ error: 'Ya tienes una caja abierta', register: existing });
+
+  const dbUser = queryOne('SELECT role, caja_station_id FROM users WHERE id = ?', [req.user.id]);
+  const role = String(dbUser?.role || req.user.role || '').toLowerCase();
+  let stationId = '';
+  if (role === 'cajero') {
+    stationId = String(dbUser?.caja_station_id || '').trim();
+    if (!stationId) {
+      return res.status(400).json({ error: 'Su usuario no tiene una caja asignada. Configúrelo en Usuarios.' });
+    }
+  } else if (role === 'admin') {
+    stationId = String(req.body?.caja_station_id || '').trim();
+    if (!stationId) return res.status(400).json({ error: 'Seleccione la caja a abrir' });
+    if (!getActiveCajaById(stationId)) {
+      return res.status(400).json({ error: 'La caja no existe o está inactiva' });
+    }
+  } else {
+    return res.status(403).json({ error: 'Rol no autorizado para abrir caja' });
+  }
+
+  if (role !== 'admin') {
+    const existing = getOpenRegister(req.user.id);
+    if (existing) return res.status(400).json({ error: 'Ya tienes una caja abierta', register: existing });
+  } else {
+    const existing = getOpenRegister(req.user.id);
+    if (existing) {
+      return res.status(400).json({ error: 'Cierre su turno de caja actual antes de abrir otro', register: existing });
+    }
+  }
+
+  const clash = queryOne(
+    `SELECT cr.id, u.full_name as cajero_name FROM cash_registers cr
+     JOIN users u ON u.id = cr.user_id
+     WHERE cr.closed_at IS NULL AND trim(coalesce(cr.caja_station_id, '')) = ?
+     LIMIT 1`,
+    [stationId]
+  );
+  if (clash?.id) {
+    return res.status(400).json({
+      error: `Esta caja ya tiene un turno abierto (${clash.cajero_name || 'otro usuario'})`,
+      register: clash,
+    });
+  }
 
   const restaurant = queryOne('SELECT id FROM restaurants LIMIT 1');
   const id = uuidv4();
-  runSql('INSERT INTO cash_registers (id, user_id, restaurant_id, opening_amount) VALUES (?, ?, ?, ?)', [id, req.user.id, restaurant?.id, Number(opening_amount)]);
+  runSql(
+    'INSERT INTO cash_registers (id, user_id, restaurant_id, opening_amount, caja_station_id) VALUES (?, ?, ?, ?, ?)',
+    [id, req.user.id, restaurant?.id, Number(opening_amount), stationId]
+  );
   logAudit({
     actorUserId: req.user.id,
     actorName: req.user.full_name || req.user.username || '',
     action: 'cash_register.open',
     resourceType: 'cash_register',
     resourceId: id,
-    details: { opening_amount: Number(opening_amount) },
+    details: { opening_amount: Number(opening_amount), caja_station_id: stationId },
   });
   res.status(201).json(queryOne('SELECT * FROM cash_registers WHERE id = ?', [id]));
 });
 
 router.get('/current-register', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
-  const register = getAccessibleOpenRegister(req.user);
+  const register = resolvePosRegister(req);
   if (!register) return res.json(null);
 
   const sales = queryOne(`SELECT COALESCE(SUM(total), 0) as total_sales,
@@ -181,7 +264,7 @@ router.get('/current-register', authenticateToken, requireRole('admin', 'cajero'
 
 router.post('/close-register', authenticateToken, requireRole('admin', 'cajero'), async (req, res) => {
   const { closing_amount, notes, arqueo } = req.body;
-  const register = getAccessibleOpenRegister(req.user);
+  const register = resolvePosRegister(req);
   if (!register) return res.status(400).json({ error: 'No tienes una caja abierta' });
   if (closing_amount === undefined || closing_amount === null || Number.isNaN(Number(closing_amount))) {
     return res.status(400).json({ error: 'Debes ingresar el efectivo contado para cerrar caja' });
@@ -265,7 +348,7 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
 
 router.post('/send-close-email', authenticateToken, requireRole('admin', 'cajero'), async (req, res) => {
   const { closing_amount, notes, arqueo } = req.body || {};
-  const register = getAccessibleOpenRegister(req.user);
+  const register = resolvePosRegister(req);
   if (!register) return res.status(400).json({ error: 'No tienes una caja abierta' });
   if (closing_amount === undefined || closing_amount === null || Number.isNaN(Number(closing_amount))) {
     return res.status(400).json({ error: 'Debes ingresar el efectivo contado para enviar el reporte' });
@@ -311,7 +394,7 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
   const orderIds = Array.isArray(orderIdsRaw) ? orderIdsRaw.filter(Boolean) : [];
   if (!orderIds.length) return res.status(400).json({ error: 'Debes enviar al menos un pedido para cobrar' });
   const paymentMethod = normalizePaymentMethod(paymentMethodRaw, { allowOnline: true, fallback: 'efectivo' });
-  const register = getAccessibleOpenRegister(req.user);
+  const register = resolvePosRegister(req);
   if (!register) return res.status(400).json({ error: 'No tienes una caja abierta para cobrar' });
   try {
     assertPaymentMethodAllowed(paymentMethod, { allowOnline: true });
@@ -404,7 +487,7 @@ router.post('/movements', authenticateToken, requireRole('admin', 'cajero'), (re
   if (amount === undefined || amount === null || Number.isNaN(Number(amount)) || Number(amount) <= 0) {
     return res.status(400).json({ error: 'Monto inválido' });
   }
-  const register = getAccessibleOpenRegister(req.user);
+  const register = resolvePosRegister(req);
   if (!register) return res.status(400).json({ error: 'No tienes una caja abierta' });
   const id = uuidv4();
   runSql(
@@ -416,7 +499,7 @@ router.post('/movements', authenticateToken, requireRole('admin', 'cajero'), (re
 
 router.get('/movements', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
   const { type } = req.query;
-  const register = getAccessibleOpenRegister(req.user);
+  const register = resolvePosRegister(req);
   if (!register) return res.json([]);
   let sql = `SELECT cm.*, u.full_name as user_name
              FROM cash_movements cm
@@ -437,7 +520,7 @@ router.post('/notes', authenticateToken, requireRole('admin', 'cajero'), (req, r
   if (amount === undefined || amount === null || Number.isNaN(Number(amount)) || Number(amount) <= 0) {
     return res.status(400).json({ error: 'Monto inválido' });
   }
-  const register = getAccessibleOpenRegister(req.user);
+  const register = resolvePosRegister(req);
   if (!register) return res.status(400).json({ error: 'No tienes una caja abierta' });
   const id = uuidv4();
   runSql(
@@ -449,7 +532,7 @@ router.post('/notes', authenticateToken, requireRole('admin', 'cajero'), (req, r
 
 router.get('/notes', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
   const { note_type } = req.query;
-  const register = getAccessibleOpenRegister(req.user);
+  const register = resolvePosRegister(req);
   if (!register) return res.json([]);
   let sql = `SELECT cn.*, u.full_name as user_name
              FROM cash_notes cn
@@ -465,7 +548,7 @@ router.get('/notes', authenticateToken, requireRole('admin', 'cajero'), (req, re
 });
 
 router.get('/sales-monitor', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
-  const register = getAccessibleOpenRegister(req.user);
+  const register = resolvePosRegister(req);
   if (!register) return res.json({ hourly: [], by_payment: [], order_count: 0, total_sales: 0 });
   const hourly = queryAll(
     `SELECT strftime('%H', created_at) as hour,

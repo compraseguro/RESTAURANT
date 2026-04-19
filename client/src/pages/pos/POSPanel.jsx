@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions } from '../../utils/api';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
@@ -21,6 +21,8 @@ import {
 } from 'react-icons/md';
 
 /** Mesa sintética al cobrar cuenta desde Clientes (no existe fila en `tables`). */
+const POS_ADMIN_REGISTER_KEY = 'posAdminRegisterId';
+
 const CLIENT_CHECKOUT_TABLE_PREFIX = 'client-checkout:';
 function isClientCheckoutTable(table) {
   return Boolean(table && String(table.id || '').startsWith(CLIENT_CHECKOUT_TABLE_PREFIX));
@@ -161,17 +163,50 @@ export default function POSPanel() {
   const printRef = useRef(null);
   const [cajaPrintCfg, setCajaPrintCfg] = useState(null);
   const { user } = useAuth();
+  const [cajaStations, setCajaStations] = useState([]);
+  const [adminRegisterId, setAdminRegisterId] = useState(() => {
+    try {
+      return String(sessionStorage.getItem(POS_ADMIN_REGISTER_KEY) || '').trim();
+    } catch {
+      return '';
+    }
+  });
+
+  const appendPosRegisterId = useCallback(
+    (path) => {
+      const rid = String(adminRegisterId || '').trim();
+      if (String(user?.role || '').toLowerCase() !== 'admin' || !rid) return path;
+      const sep = path.includes('?') ? '&' : '?';
+      return `${path}${sep}register_id=${encodeURIComponent(rid)}`;
+    },
+    [user?.role, adminRegisterId]
+  );
+
+  const posRegisterBody = useCallback(() => {
+    const rid = String(adminRegisterId || '').trim();
+    if (String(user?.role || '').toLowerCase() !== 'admin' || !rid) return {};
+    return { register_id: rid };
+  }, [user?.role, adminRegisterId]);
   const openCajaView = (view) => {
     setActiveCajaOption(view);
     setSearchParams({ view }, { replace: true });
   };
 
-  const loadData = async () => {
+  const loadData = async (opts = {}) => {
     try {
-      const [tablesData, reg, status, prods, cats, modifiersData, cfg, daily, reservationsData, ordersData, printCfgRes] = await Promise.all([
+      const adminRid =
+        opts.adminRegisterOverride !== undefined
+          ? String(opts.adminRegisterOverride || '').trim()
+          : String(adminRegisterId || '').trim();
+      const currentRegPath =
+        String(user?.role || '').toLowerCase() === 'admin' && adminRid
+          ? `/pos/current-register?register_id=${encodeURIComponent(adminRid)}`
+          : '/pos/current-register';
+      const [tablesData, reg, status, stationsRes, prods, cats, modifiersData, cfg, daily, reservationsData, ordersData, printCfgRes] = await Promise.all([
         api.get('/tables'),
-        api.get('/pos/current-register'),
+        api.get(currentRegPath),
         api.get('/pos/register-status'),
+        api.get('/pos/caja-stations').catch(() => ({ stations: [] })),
         api.get('/products?active_only=true'),
         api.get('/categories/active'),
         api.get('/admin-modules/modifiers').catch(() => []),
@@ -181,6 +216,15 @@ export default function POSPanel() {
         api.get('/orders?limit=600').catch(() => []),
         api.get('/orders/print-config').catch(() => null),
       ]);
+      setCajaStations(Array.isArray(stationsRes?.stations) ? stationsRes.stations : []);
+      if (String(user?.role || '').toLowerCase() === 'admin' && adminRid && !reg) {
+        try {
+          sessionStorage.removeItem(POS_ADMIN_REGISTER_KEY);
+        } catch (_) {
+          /* noop */
+        }
+        setAdminRegisterId('');
+      }
       setCajaPrintCfg(printCfgRes?.printers?.caja || null);
       const visibleCategories = cats.filter(c => !WAREHOUSE_CATEGORY_NAMES.has((c.name || '').toUpperCase()));
       const visibleCategoryIds = new Set(visibleCategories.map(c => c.id));
@@ -263,10 +307,10 @@ export default function POSPanel() {
     if (!register) return;
     try {
       const [incomeData, expenseData, creditData, debitData] = await Promise.all([
-        api.get('/pos/movements?type=income'),
-        api.get('/pos/movements?type=expense'),
-        api.get('/pos/notes?note_type=credit'),
-        api.get('/pos/notes?note_type=debit'),
+        api.get(appendPosRegisterId('/pos/movements?type=income')),
+        api.get(appendPosRegisterId('/pos/movements?type=expense')),
+        api.get(appendPosRegisterId('/pos/notes?note_type=credit')),
+        api.get(appendPosRegisterId('/pos/notes?note_type=debit')),
       ]);
       setIncomes(incomeData);
       setExpenses(expenseData);
@@ -280,7 +324,7 @@ export default function POSPanel() {
     }
   };
 
-  useEffect(() => { loadCajaExtras(); }, [register?.id]);
+  useEffect(() => { loadCajaExtras(); }, [register?.id, appendPosRegisterId]);
 
   const loadBillingStatus = async () => {
     try {
@@ -361,7 +405,7 @@ export default function POSPanel() {
     { key: 'c50', label: 'Moneda S/0.50', value: 0.5 },
   ];
 
-  const openRegister = async () => {
+  const openRegisterForCajero = async () => {
     if (openingAmount === '') return toast.error('Ingresa el monto inicial de caja');
     const amount = parseFloat(openingAmount);
     if (Number.isNaN(amount) || amount < 0) return toast.error('El monto inicial no es válido');
@@ -371,7 +415,52 @@ export default function POSPanel() {
       setRegisterStatus({ is_open: true, register: { user_id: user?.id, cajero_name: user?.full_name, opened_at: reg.opened_at } });
       setOpeningAmount('');
       toast.success(`Caja abierta con ${formatCurrency(amount)}`);
+      await loadData();
     } catch (err) { toast.error(err.message); }
+  };
+
+  const openStationRegisterForAdmin = async (stationId) => {
+    if (openingAmount === '') return toast.error('Ingresa el monto inicial de caja');
+    const amount = parseFloat(openingAmount);
+    if (Number.isNaN(amount) || amount < 0) return toast.error('El monto inicial no es válido');
+    const sid = String(stationId || '').trim();
+    if (!sid) return toast.error('Caja no válida');
+    try {
+      const reg = await api.post('/pos/open-register', { opening_amount: amount, caja_station_id: sid });
+      try {
+        sessionStorage.setItem(POS_ADMIN_REGISTER_KEY, reg.id);
+      } catch (_) {
+        /* noop */
+      }
+      setAdminRegisterId(reg.id);
+      setRegister(reg);
+      setRegisterStatus({ is_open: true, register: { user_id: user?.id, cajero_name: user?.full_name, opened_at: reg.opened_at } });
+      setOpeningAmount('');
+      toast.success(`Caja abierta con ${formatCurrency(amount)}`);
+      await loadData({ adminRegisterOverride: reg.id });
+    } catch (err) { toast.error(err.message); }
+  };
+
+  const attachAdminToRegister = async (registerId) => {
+    const rid = String(registerId || '').trim();
+    if (!rid) return;
+    try {
+      sessionStorage.setItem(POS_ADMIN_REGISTER_KEY, rid);
+    } catch (_) {
+      /* noop */
+    }
+    setAdminRegisterId(rid);
+    await loadData({ adminRegisterOverride: rid });
+  };
+
+  const clearAdminRegisterContext = async () => {
+    try {
+      sessionStorage.removeItem(POS_ADMIN_REGISTER_KEY);
+    } catch (_) {
+      /* noop */
+    }
+    setAdminRegisterId('');
+    await loadData({ adminRegisterOverride: '' });
   };
 
   const prepareClose = () => {
@@ -419,10 +508,19 @@ export default function POSPanel() {
           denominations,
           observations: closingNotes,
         },
+        ...posRegisterBody(),
       });
       toast.success('Caja cerrada — Informe guardado');
       setShowCloseModal(false);
       setRegister(null);
+      if (String(user?.role || '').toLowerCase() === 'admin') {
+        try {
+          sessionStorage.removeItem(POS_ADMIN_REGISTER_KEY);
+        } catch (_) {
+          /* noop */
+        }
+        setAdminRegisterId('');
+      }
     } catch (err) { toast.error(err.message); }
   };
   const sendCloseByEmail = async () => {
@@ -432,6 +530,7 @@ export default function POSPanel() {
     try {
       setSendingCloseMail(true);
       await api.post('/pos/send-close-email', {
+        ...posRegisterBody(),
         closing_amount: amount,
         notes: closingNotes,
         arqueo: {
@@ -709,6 +808,7 @@ export default function POSPanel() {
       }
 
       await api.post('/pos/checkout-table', {
+        ...posRegisterBody(),
         order_ids: payableOrders.map(o => o.id),
         payment_method: paymentMethod,
         discount_reason: discountConfig.reason,
@@ -869,7 +969,7 @@ export default function POSPanel() {
     const amount = parseFloat(movementForm.amount);
     if (Number.isNaN(amount) || amount <= 0) return toast.error('Monto inválido');
     try {
-      await api.post('/pos/movements', { type, amount, concept: movementForm.concept });
+      await api.post('/pos/movements', { type, amount, concept: movementForm.concept, ...posRegisterBody() });
       toast.success(type === 'income' ? 'Ingreso registrado' : 'Egreso registrado');
       setMovementForm({ amount: '', concept: '' });
       await Promise.all([loadData(), loadCajaExtras()]);
@@ -882,7 +982,7 @@ export default function POSPanel() {
     const amount = parseFloat(noteForm.amount);
     if (Number.isNaN(amount) || amount <= 0) return toast.error('Monto inválido');
     try {
-      await api.post('/pos/notes', { note_type: noteType, amount, reason: noteForm.reason });
+      await api.post('/pos/notes', { note_type: noteType, amount, reason: noteForm.reason, ...posRegisterBody() });
       toast.success(noteType === 'credit' ? 'Nota de crédito registrada' : 'Nota de débito registrada');
       setNoteForm({ amount: '', reason: '' });
       loadCajaExtras();
@@ -1030,12 +1130,113 @@ export default function POSPanel() {
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
 
   if (!register) {
-    const blockedByOther = false;
+    const isAdmin = String(user?.role || '').toLowerCase() === 'admin';
+    if (isAdmin) {
+      return (
+        <div className="flex items-center justify-center py-12 px-4">
+          <div className="card max-w-3xl w-full">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
+              <div>
+                <MdPointOfSale className="text-5xl text-gold-500 mb-2" />
+                <h2 className="text-xl font-bold text-slate-800">Cajas del local</h2>
+                <p className="text-sm text-slate-500">
+                  Elija una caja para <strong>operar</strong> un turno ya abierto o para <strong>abrir</strong> un turno nuevo (monto de apertura común abajo).
+                </p>
+              </div>
+              {String(adminRegisterId || '').trim() ? (
+                <button
+                  type="button"
+                  onClick={() => void clearAdminRegisterContext()}
+                  className="btn-secondary text-sm shrink-0"
+                >
+                  Quitar selección
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mb-6 text-left">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Monto de apertura (nuevos turnos)</label>
+              <div className="relative max-w-xs">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">S/</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={openingAmount}
+                  onChange={(e) => setOpeningAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="input-field pl-10 text-lg font-bold text-center"
+                />
+              </div>
+              <p className="text-xs text-slate-400 mt-1">Se usa al pulsar «Abrir turno» en una caja sin sesión activa.</p>
+            </div>
+
+            {!cajaStations.length ? (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                No hay cajas activas en configuración. Defínalas en <strong>Configuración → Cajas</strong>.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {cajaStations.map((st) => {
+                  const op = st.open_register;
+                  return (
+                    <div
+                      key={st.id}
+                      className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-left flex flex-col gap-3"
+                    >
+                      <div>
+                        <p className="font-semibold text-slate-800">{st.name}</p>
+                        {op ? (
+                          <p className="text-xs text-slate-500 mt-1">
+                            Turno abierto · {op.cajero_name || 'Usuario'}{' '}
+                            {op.opened_at
+                              ? `· ${new Date(`${op.opened_at}Z`).toLocaleString('es-PE')}`
+                              : ''}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-slate-500 mt-1">Sin turno abierto</p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-auto">
+                        {op ? (
+                          <button
+                            type="button"
+                            onClick={() => void attachAdminToRegister(op.id)}
+                            className="btn-primary text-sm flex items-center gap-1"
+                          >
+                            <MdPointOfSale /> Operar esta caja
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void openStationRegisterForAdmin(st.id)}
+                            disabled={openingAmount === ''}
+                            className="btn-primary text-sm flex items-center gap-1 disabled:opacity-50"
+                          >
+                            <MdPointOfSale /> Abrir turno
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex items-center justify-center py-20">
         <div className="card text-center max-w-md">
           <MdPointOfSale className="text-6xl text-gold-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">Abrir Caja</h2>
+          {cajaStations[0]?.name ? (
+            <p className="text-sm text-slate-600 mb-2">
+              Caja asignada: <span className="font-semibold text-slate-800">{cajaStations[0].name}</span>
+            </p>
+          ) : null}
           <p className="text-slate-500 mb-6">Ingresa el monto inicial y abre la caja para comenzar a operar</p>
 
           <div className="mb-4 text-left">
@@ -1047,31 +1248,22 @@ export default function POSPanel() {
                 step="0.01"
                 min="0"
                 value={openingAmount}
-                onChange={e => setOpeningAmount(e.target.value)}
+                onChange={(e) => setOpeningAmount(e.target.value)}
                 placeholder="0.00"
                 className="input-field pl-10 text-lg font-bold text-center"
                 autoFocus
               />
             </div>
             <p className="text-xs text-slate-400 mt-1">Dinero en efectivo al iniciar el turno</p>
-            {blockedByOther && (
-              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                <p className="text-xs text-amber-700 font-medium">
-                  Caja en uso por {registerStatus.register?.cajero_name || 'otro usuario'}
-                </p>
-                <p className="text-xs text-amber-600">
-                  Abierta: {registerStatus.register?.opened_at ? new Date(`${registerStatus.register.opened_at}Z`).toLocaleString('es-PE') : '-'}
-                </p>
-              </div>
-            )}
           </div>
 
           <button
-            onClick={openRegister}
-            disabled={openingAmount === '' || blockedByOther}
+            type="button"
+            onClick={() => void openRegisterForCajero()}
+            disabled={openingAmount === ''}
             className="btn-primary w-full py-3 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <MdPointOfSale /> {blockedByOther ? 'Caja en uso' : 'Abrir Caja'}
+            <MdPointOfSale /> Abrir Caja
           </button>
         </div>
       </div>
@@ -1110,6 +1302,7 @@ export default function POSPanel() {
     if (!orders.length) return toast.error('Esta reserva no tiene pedidos pendientes para cobrar');
     try {
       await api.post('/pos/checkout-table', {
+        ...posRegisterBody(),
         order_ids: orders.map(o => o.id),
         payment_method: paymentMethod || 'efectivo',
       });
