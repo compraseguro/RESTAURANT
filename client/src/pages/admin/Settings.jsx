@@ -1689,7 +1689,7 @@ export default function Settings() {
                   className="btn-primary flex-1 inline-flex items-center justify-center gap-2 no-underline"
                   onClick={() => closeSettingsCrudModal()}
                 >
-                  WhatsApp proveedor (935 968 198)
+                  CONTACTAR AL PROVEEDOR
                 </a>
               </div>
             </div>
