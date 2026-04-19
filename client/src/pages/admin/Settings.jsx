@@ -72,15 +72,17 @@ const MENU_ITEMS = [
   { id: 'moneda_facturacion', label: 'Moneda de facturación', icon: MdAttachMoney },
   { id: 'cuentas_transferencia', label: 'Cuentas de transferencia', icon: MdSwapHoriz },
   { id: 'marcas', label: 'Gestión de marcas', icon: MdLabel },
-  { id: 'imagenes_self', label: 'Imágenes Self Service', icon: MdPhotoLibrary },
   { id: 'categoria_anular', label: 'Categoría Anular Venta', icon: MdDoNotDisturb },
   { id: 'formas_pago', label: 'Formas de pago', icon: MdPayment },
+  { id: 'config_historial', label: 'Historial de configuración', icon: MdHistory },
 ];
 const PARTIAL_SECTIONS = new Set([
   'regional', 'locales', 'almacenes', 'cajas', 'comprobantes', 'impresoras',
-  'tarjetas', 'monedas', 'cuentas_transferencia', 'marcas', 'imagenes_self',
+  'tarjetas', 'monedas', 'cuentas_transferencia', 'marcas',
   'categoria_anular', 'formas_pago',
 ]);
+/** Claves para filtrar el historial (incluye legado imagenes_self). */
+const HISTORY_FILTER_SECTIONS = [...PARTIAL_SECTIONS, 'imagenes_self'];
 const REQUIRED_ACTIVE_SECTIONS = new Set(['comprobantes', 'formas_pago']);
 
 const DEFAULT_APP_SETTINGS = {
@@ -407,7 +409,7 @@ export default function Settings() {
   };
 
   useEffect(() => {
-    if (activeSection === 'impresoras') return;
+    if (activeSection !== 'config_historial') return;
     loadAppSettingsHistory();
   }, [activeSection, historyOffset, historyFilterSection, historyFilterActor, historySearchDebounced, historyLimit]);
   useEffect(() => {
@@ -538,7 +540,7 @@ export default function Settings() {
       const normalized = normalizeConfigPayload(saved);
       setAppSettings(normalized);
       setAppSettingsSnapshot(serializeAppSettings(normalized));
-      if (activeSection !== 'impresoras') loadAppSettingsHistory();
+      if (activeSection === 'config_historial') loadAppSettingsHistory();
       if (!silent) toast.success('Configuración guardada');
     } catch (err) {
       if (!silent) toast.error(err.message);
@@ -722,7 +724,7 @@ export default function Settings() {
       const normalized = normalizeConfigPayload(restored);
       setAppSettings(normalized);
       setAppSettingsSnapshot(serializeAppSettings(normalized));
-      if (activeSection !== 'impresoras') loadAppSettingsHistory();
+      if (activeSection === 'config_historial') loadAppSettingsHistory();
       toast.success('Configuración restaurada');
     } catch (err) {
       toast.error(err.message);
@@ -857,7 +859,7 @@ export default function Settings() {
             </p>
           </div>
         )}
-        {activeSection && PARTIAL_SECTIONS.has(activeSection) && activeSection !== 'impresoras' && (
+        {activeSection === 'config_historial' && (
           <div className="mb-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-semibold text-slate-700">Historial reciente de configuración</p>
@@ -867,6 +869,9 @@ export default function Settings() {
                 <button onClick={loadAppSettingsHistory} className="text-xs text-sky-600 hover:underline">Actualizar</button>
               </div>
             </div>
+            <p className="text-xs text-slate-500 mb-3">
+              Consulta y restaura versiones anteriores de la configuración del sistema. Los cambios en otras secciones siguen registrándose aquí.
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
               <input
                 value={historySearch}
@@ -882,7 +887,7 @@ export default function Settings() {
                 setHistoryFilterSection(e.target.value);
               }} className="input-field">
                 <option value="all">Todas las secciones</option>
-                {[...PARTIAL_SECTIONS].map(section => (
+                {HISTORY_FILTER_SECTIONS.map(section => (
                   <option key={section} value={section}>{section}</option>
                 ))}
               </select>
@@ -1595,50 +1600,6 @@ export default function Settings() {
                   </div>
                 </div>
               ))}
-            </div>
-            <div className="flex justify-end">
-              <button onClick={saveAppSettings} className="btn-primary flex items-center gap-2"><MdSave /> Guardar</button>
-            </div>
-          </div>
-        )}
-
-        {/* IMÁGENES SELF SERVICE */}
-        {activeSection === 'imagenes_self' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Imágenes para el modo self-service / autoatención</p>
-              <button className="btn-primary flex items-center gap-2 text-sm" onClick={() => openSettingsCrudModal('imagenes_self')}>
-                <MdAdd /> Nueva Imagen
-              </button>
-            </div>
-            <div className="card">
-              {(appSettings.imagenes_self || []).length === 0 ? (
-                <div className="text-center py-8 text-slate-400">
-                  <MdPhotoLibrary className="text-4xl mx-auto mb-2" />
-                  <p className="text-sm">No hay imágenes registradas</p>
-                  <p className="text-xs mt-1">Agrega banners o recursos para autoatención</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {(appSettings.imagenes_self || []).map((img, i) => (
-                    <div key={`${img.name}-${i}`} className="border border-slate-200 rounded-xl p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-700 truncate">{img.name || 'Imagen'}</p>
-                          <p className="text-xs text-slate-500 truncate">{img.url || '-'}</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => toggleAppSection('imagenes_self', i)} className={`px-2 py-1 text-xs rounded-full ${img.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                            {img.active ? 'Activa' : 'Inactiva'}
-                          </button>
-                          <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('imagenes_self', i)}><MdEdit /></button>
-                          <button className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]" onClick={() => deleteAppSectionItem('imagenes_self', i, `la imagen "${img.name || 'sin nombre'}"`)}><MdDelete /></button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
             <div className="flex justify-end">
               <button onClick={saveAppSettings} className="btn-primary flex items-center gap-2"><MdSave /> Guardar</button>
