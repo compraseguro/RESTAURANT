@@ -14,7 +14,7 @@ import {
   MdAccessTime, MdMonetizationOn, MdAccountBalanceWallet,
   MdBrandingWatermark, MdImage, MdBlockFlipped, MdPayment,
   MdChevronRight, MdArrowBack, MdInventory, MdSwapHoriz,
-  MdLabel, MdDoNotDisturb, MdPhotoLibrary, MdCategory,
+  MdLabel, MdDoNotDisturb, MdCategory, MdHistory,
   MdSecurity, MdDashboard, MdEventSeat, MdDeliveryDining, MdPhotoCamera,
   MdAssessment, MdInsights, MdLocalOffer, MdDiscount,
   MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2
@@ -235,13 +235,6 @@ const SETTINGS_SECTION_FORMS = {
     title: 'Marca',
     fields: [
       { key: 'name', label: 'Nombre', required: true },
-    ],
-  },
-  imagenes_self: {
-    title: 'Imagen Self Service',
-    fields: [
-      { key: 'name', label: 'Nombre', required: true },
-      { key: 'url', label: 'URL de imagen', required: true },
     ],
   },
   formas_pago: {
