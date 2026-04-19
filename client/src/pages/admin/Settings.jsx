@@ -858,13 +858,6 @@ export default function Settings() {
             </span>
           )}
         </div>
-        {activeSection && PARTIAL_SECTIONS.has(activeSection) && (
-          <div className="mb-4 rounded-lg border border-[#3B82F6]/30 bg-[#1F2937] px-4 py-3">
-            <p className="text-sm text-[#9CA3AF]">
-              Esta sección guarda automáticamente los cambios (menos de 1 segundo). También puedes guardar manualmente si lo deseas.
-            </p>
-          </div>
-        )}
         {activeSection === 'config_historial' && (
           <div className="mb-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
             <div className="flex items-center justify-between mb-2">
