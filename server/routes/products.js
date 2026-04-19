@@ -158,7 +158,7 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
   const safeProductionArea = production_area === 'bar' ? 'bar' : 'cocina';
   const safeTaxType = ['igv', 'exonerado', 'inafecto'].includes(String(tax_type || '').toLowerCase())
     ? String(tax_type).toLowerCase()
-    : 'igv';
+    : 'inafecto';
   const safeModifierId = String(modifier_id || '').trim();
   const safeNoteRequired = Number(note_required) === 1 ? 1 : 0;
   runSql(

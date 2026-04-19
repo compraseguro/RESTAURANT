@@ -39,7 +39,7 @@ export default function Productos() {
     process_type: 'transformed',
     stock_warehouse_id: '',
     production_area: 'cocina',
-    tax_type: 'igv',
+    tax_type: 'inafecto',
     modifier_id: '',
     note_required: 0,
   });
@@ -118,7 +118,7 @@ export default function Productos() {
       process_type: 'transformed',
       stock_warehouse_id: defaultWarehouseId,
       production_area: 'cocina',
-      tax_type: 'igv',
+      tax_type: 'inafecto',
       modifier_id: '',
       note_required: 0,
     });
