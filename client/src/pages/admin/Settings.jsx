@@ -1191,12 +1191,12 @@ export default function Settings() {
         {/* IMPRESORAS */}
         {activeSection === 'impresoras' && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-sky-100 bg-sky-50/80 px-4 py-3 text-sm text-slate-700">
-              <p className="font-medium text-slate-800 mb-1">Control central de impresoras</p>
-              <p className="text-slate-600">
-                Defina aquí cocina, bar y caja. Modo <strong>Red local</strong>: IP y puerto (típico <strong>9100</strong>) de la impresora térmica en la misma red que el <strong>servidor</strong> de la aplicación.
-                Si el backend está en la nube (Render, etc.), no podrá abrir la IP de su WiFi: use <strong>Navegador</strong> o un servidor en el local.
-                Cocina y bar envían comandas desde su panel; la caja usa la impresora marcada como estación <strong>caja</strong> cuando imprima desde POS.
+            <div className="rounded-lg border border-[#3B82F6]/35 bg-[#0F172A] px-4 py-3 text-sm text-[#E5E7EB] shadow-inner">
+              <p className="font-semibold text-[#F9FAFB] mb-2">Control central de impresoras</p>
+              <p className="text-[#D1D5DB] leading-relaxed">
+                Defina aquí cocina, bar y caja. Modo <strong className="text-[#BFDBFE]">Red local</strong>: IP y puerto (típico <strong className="text-[#BFDBFE]">9100</strong>) de la impresora térmica en la misma red que el <strong className="text-[#BFDBFE]">servidor</strong> de la aplicación.
+                Si el backend está en la nube (Render, etc.), no podrá abrir la IP de su WiFi: use <strong className="text-[#BFDBFE]">Navegador</strong> o un servidor en el local.
+                Cocina y bar envían comandas desde su panel; la caja usa la impresora marcada como estación <strong className="text-[#BFDBFE]">caja</strong> cuando imprima desde POS.
               </p>
             </div>
             <div className="flex justify-between items-center">
