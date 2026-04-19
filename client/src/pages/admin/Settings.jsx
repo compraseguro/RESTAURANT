@@ -1669,7 +1669,13 @@ export default function Settings() {
           isOpen={settingsCrudModal.isOpen}
           onClose={closeSettingsCrudModal}
           title={`${settingsCrudModal.index === null ? 'Nuevo' : 'Editar'} ${SETTINGS_SECTION_FORMS[settingsCrudModal.section]?.title || 'registro'}`}
-          size={settingsCrudModal.section === 'impresoras' ? 'md' : 'sm'}
+          size={
+            settingsCrudModal.section === 'locales' && settingsCrudModal.index === null
+              ? 'xl'
+              : settingsCrudModal.section === 'impresoras'
+                ? 'md'
+                : 'sm'
+          }
         >
           {settingsCrudModal.section === 'locales' && settingsCrudModal.index === null ? (
             <div className="space-y-4">
@@ -1688,7 +1694,7 @@ export default function Settings() {
                   href={WHATSAPP_PROVEEDOR_LOCALES}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-primary flex-1 inline-flex items-center justify-center gap-2 no-underline"
+                  className="btn-primary flex-[1.35] inline-flex items-center justify-center gap-2 no-underline whitespace-nowrap text-center px-5"
                   onClick={() => closeSettingsCrudModal()}
                 >
                   CONTACTAR AL PROVEEDOR
