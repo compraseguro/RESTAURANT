@@ -1140,7 +1140,7 @@ export default function POSPanel() {
                 <MdPointOfSale className="text-5xl text-gold-500 mb-2" />
                 <h2 className="text-xl font-bold text-slate-800">Cajas del local</h2>
                 <p className="text-sm text-slate-500">
-                  Elija una caja para <strong>operar</strong> un turno ya abierto o para <strong>abrir</strong> un turno nuevo (monto de apertura común abajo).
+                  AGREGUE EL MONTO DE APERTURA PARA ABRIR UN TURNO DE CAJA O SELECCIONE UN TURNO YA ABIERTO PARA INSPECCIONAR.
                 </p>
               </div>
               {String(adminRegisterId || '').trim() ? (
