@@ -1673,11 +1673,13 @@ export default function Settings() {
         >
           {settingsCrudModal.section === 'locales' && settingsCrudModal.index === null ? (
             <div className="space-y-4">
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-                <p className="font-medium text-amber-900 mb-1">Sucursal o local adicional</p>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 space-y-3">
+                <p className="font-medium text-amber-900">Sucursal o local adicional</p>
                 <p className="text-amber-900/90">
-                  Cada nueva sucursal o local tiene un <strong>costo adicional</strong>. Para contratarlo o coordinar los detalles, debes{' '}
-                  <strong>contactar al proveedor</strong>; no se puede activar desde aquí de forma automática.
+                  La creación de nuevas sucursales está disponible como servicio adicional. Su activación requiere coordinación directa con el proveedor.
+                </p>
+                <p className="text-amber-900/90">
+                  Para obtener información detallada y proceder con la habilitación, por favor comunícate mediante el botón de contacto.
                 </p>
               </div>
               <div className="flex gap-3">
