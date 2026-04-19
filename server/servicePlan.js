@@ -3,9 +3,9 @@
  * Valores en master_admin_control.service_plan: basico | intermedio | profesional
  *
  * Alineación con comercial:
- * - Básico: pedidos (salón/delivery), ventas/caja, almacén base, informes, productos, configuración.
- * - Intermedio: + QR auto-pedido, clientes/créditos, cocina/bar, ofertas/descuentos, indicadores, tiempo trabajado.
- * - Profesional: + Mi restaurante (SUNAT / facturación electrónica).
+ * - Básico: lo anterior + Mi Restaurante (sin pestaña SUNAT), ofertas y descuentos.
+ * - Intermedio: + QR auto-pedido, clientes/créditos, cocina/bar, indicadores, tiempo trabajado.
+ * - Profesional: + pestaña Bot facturación SUNAT en Mi Restaurante (mismo módulo).
  */
 
 const MODULE_IDS = [
@@ -17,14 +17,13 @@ const MODULE_IDS = [
 const BASICO = new Set([
   'escritorio', 'ventas', 'caja', 'mesas', 'reservas', 'delivery',
   'almacen', 'informes', 'productos', 'configuracion',
+  'mi_restaurant', 'ofertas', 'descuentos',
 ]);
 
 const INTERMEDIO = new Set([
   ...BASICO,
   'auto_pedido', 'creditos', 'clientes', 'cocina', 'bar',
-  'ofertas', 'descuentos', 'indicadores', 'tiempo_trabajado',
-  /** Contrato y pagos al proveedor; la pestaña SUNAT queda solo en Profesional (UI). */
-  'mi_restaurant',
+  'indicadores', 'tiempo_trabajado',
 ]);
 
 const PROFESIONAL = new Set(MODULE_IDS);
