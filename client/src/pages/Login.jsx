@@ -16,8 +16,8 @@ function getRoleRoute(role) {
   return '/admin';
 }
 
-/** Nombre del producto (app); no debe confundirse con el nombre comercial del restaurante en Mi Restaurante. */
-const APP_DISPLAY_NAME = 'Resto Fadey App';
+/** Si en Mi empresa no hay nombre guardado, se muestra este texto en el login. */
+const FALLBACK_RESTAURANT_NAME = 'Resto Fadey App';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -32,6 +32,8 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [brandLogo, setBrandLogo] = useState('');
+  /** Nombre comercial del establecimiento (Mi empresa / Mi Restaurante); distinto del subtítulo del producto. */
+  const [restaurantName, setRestaurantName] = useState(FALLBACK_RESTAURANT_NAME);
 
   const photosRequired = attendancePolicy.loginRequired;
   const policyReady = !attendancePolicy.loading;
@@ -40,6 +42,8 @@ export default function Login() {
     api
       .get('/restaurant')
       .then((r) => {
+        const n = String(r?.name || '').trim();
+        setRestaurantName(n || FALLBACK_RESTAURANT_NAME);
         setBrandLogo(String(r?.logo || '').trim());
       })
       .catch(() => {});
@@ -117,7 +121,7 @@ export default function Login() {
             {brandLogo ? (
               <img
                 src={resolveMediaUrl(brandLogo)}
-                alt={APP_DISPLAY_NAME}
+                alt={restaurantName}
                 className="h-full w-full object-cover object-center"
               />
             ) : (
@@ -126,8 +130,8 @@ export default function Login() {
               </div>
             )}
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight select-none cursor-default">{APP_DISPLAY_NAME}</h1>
-          <p className="text-[#9CA3AF] mt-2 text-sm">Sistema de Gestión para Restaurantes</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight px-1">{restaurantName}</h1>
+          <p className="text-[#9CA3AF] mt-2 text-sm select-none">Sistema de Gestión para Restaurantes</p>
         </div>
 
         <div className="bg-[#1F2937]/85 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-[#3B82F6]/35">
@@ -240,8 +244,8 @@ export default function Login() {
           )}
         </div>
 
-        <p className="text-center text-[#9CA3AF] text-xs mt-6 select-none cursor-default">
-          &copy; {new Date().getFullYear()} {APP_DISPLAY_NAME} &mdash; Sistema de Gestión
+        <p className="text-center text-[#9CA3AF] text-xs mt-6">
+          &copy; {new Date().getFullYear()} {restaurantName} &mdash; Sistema de Gestión
         </p>
       </div>
     </div>
