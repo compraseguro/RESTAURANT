@@ -22,6 +22,10 @@ const MI_RESTAURANT_VIEWS = [
 export default function MiRestaurant() {
   const { user } = useAuth();
   const isMasterAdmin = user?.role === 'master_admin';
+  const planAllowsSunatView = isMasterAdmin || user?.service_plan === 'profesional';
+  const miRestaurantViewsForPlan = planAllowsSunatView
+    ? MI_RESTAURANT_VIEWS
+    : MI_RESTAURANT_VIEWS.filter((v) => v.id !== 'facturacion_electronica');
   const isRestaurantAdmin = user?.role === 'admin';
   const canEditContrato = isMasterAdmin;
   /** Bot SUNAT + series contingencia + URL bot: solo maestro. */
@@ -173,11 +177,16 @@ export default function MiRestaurant() {
     const requestedView = searchParams.get('view');
 
     if (requestedView === 'series_contingencia') {
+      if (!planAllowsSunatView) {
+        setActiveView('mi_empresa');
+        setSearchParams({ view: 'mi_empresa' }, { replace: true });
+        return;
+      }
       setActiveView('facturacion_electronica');
       setSearchParams({ view: 'facturacion_electronica' }, { replace: true });
       return;
     }
-    const isValidView = MI_RESTAURANT_VIEWS.some(option => option.id === requestedView);
+    const isValidView = miRestaurantViewsForPlan.some(option => option.id === requestedView);
     if (isValidView && requestedView !== activeView) {
       setActiveView(requestedView);
       return;
@@ -189,7 +198,7 @@ export default function MiRestaurant() {
     if (!isValidView && !requestedView) {
       setSearchParams({ view: 'mi_empresa' }, { replace: true });
     }
-  }, [activeView, searchParams, setSearchParams]);
+  }, [activeView, searchParams, setSearchParams, miRestaurantViewsForPlan, planAllowsSunatView]);
 
   const save = async () => {
     try {
@@ -438,7 +447,7 @@ export default function MiRestaurant() {
   };
 
   if (!restaurant) return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
-  const activeViewLabel = MI_RESTAURANT_VIEWS.find(option => option.id === activeView)?.label || 'Mi empresa';
+  const activeViewLabel = miRestaurantViewsForPlan.find(option => option.id === activeView)?.label || 'Mi empresa';
   const showSaveButton =
     (activeView !== 'contrato' || canEditContrato)
     && (activeView !== 'facturacion_electronica' || canEditBillingMaster)

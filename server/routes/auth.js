@@ -4,7 +4,8 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { queryOne, runSql } = require('../database');
 const { JWT_SECRET, authenticateToken } = require('../middleware/auth');
-const { getLockState, verifyMasterCredentials, getMasterCredentialsPublic } = require('../masterAdminService');
+const { getLockState, verifyMasterCredentials, getMasterCredentialsPublic, getControlConfig } = require('../masterAdminService');
+const { getEffectivePermissions, normalizePlan } = require('../servicePlan');
 const { advanceStaffChatCycleIfDue, markAllStaffOfflineIfNeeded } = require('../staffChatService');
 const { getActiveCajaById } = require('../cajaSettings');
 
@@ -229,7 +230,9 @@ router.post('/login', (req, res) => {
     JWT_SECRET, { expiresIn: '24h' }
   );
 
-  const permissions = getUserPermissions(user.id);
+  const control = getControlConfig();
+  const plan = normalizePlan(control.service_plan);
+  const permissions = getEffectivePermissions(plan, user.role, getUserPermissions(user.id));
   const cajaMeta =
     String(user.role || '').toLowerCase() === 'cajero'
       ? (() => {
@@ -247,6 +250,7 @@ router.post('/login', (req, res) => {
       role: user.role,
       avatar: user.avatar,
       permissions,
+      service_plan: plan,
       ...cajaMeta,
     },
   });
@@ -324,7 +328,9 @@ router.get('/me', authenticateToken, (req, res) => {
     'SELECT id, username, email, full_name, role, avatar, phone, caja_station_id FROM users WHERE id = ?',
     [req.user.id]
   );
-  const permissions = getUserPermissions(req.user.id);
+  const control = getControlConfig();
+  const plan = normalizePlan(control.service_plan);
+  const permissions = getEffectivePermissions(plan, user.role, getUserPermissions(req.user.id));
   const caja =
     String(user?.role || '').toLowerCase() === 'cajero'
       ? getActiveCajaById(user?.caja_station_id)
@@ -332,6 +338,7 @@ router.get('/me', authenticateToken, (req, res) => {
   res.json({
     ...user,
     permissions,
+    service_plan: plan,
     type: 'staff',
     caja_name: caja?.name || '',
   });

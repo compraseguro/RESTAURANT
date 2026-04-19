@@ -42,6 +42,8 @@ const DEFAULT_CONTROL = {
   billing_alert_sent_for: '',
   /** 1 si el bloqueo global lo puso la regla del comprobante de pago por uso */
   pago_uso_comprobante_lock_auto: 0,
+  /** basico | intermedio | profesional — limita módulos para admin y personal */
+  service_plan: 'profesional',
 };
 
 function parseJsonSafe(value, fallback) {
@@ -500,6 +502,15 @@ function setControlConfig(patch = {}, actorName = '') {
     ...current,
     ...patch,
   };
+  if (patch.service_plan !== undefined) {
+    const raw = String(patch.service_plan || '').trim().toLowerCase();
+    let norm = 'profesional';
+    if (['basico', 'básico', 'basic'].includes(raw)) norm = 'basico';
+    else if (['intermedio', 'intermediate'].includes(raw)) norm = 'intermedio';
+    else if (['profesional', 'professional', 'pro'].includes(raw)) norm = 'profesional';
+    else throw new Error('Plan inválido: use basico, intermedio o profesional');
+    next.service_plan = norm;
+  }
   if (patch.global_lock_enabled !== undefined) {
     const enabled = Number(patch.global_lock_enabled || 0) === 1 ? 1 : 0;
     next.global_lock_enabled = enabled;

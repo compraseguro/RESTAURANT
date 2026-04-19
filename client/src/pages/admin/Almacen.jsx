@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, formatCurrency } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { MdSearch, MdWarning, MdAdd, MdRemove, MdDownload } from 'react-icons/md';
 import Modal from '../../components/Modal';
@@ -71,6 +72,12 @@ const ALMACEN_VIEWS = [
 ];
 
 export default function Almacen() {
+  const { user } = useAuth();
+  const planAllowsAlmacenAvanzado = user?.service_plan !== 'basico';
+  const almacenViewsForPlan = planAllowsAlmacenAvanzado
+    ? ALMACEN_VIEWS
+    : ALMACEN_VIEWS.filter((v) => !['requerimiento', 'recepcion'].includes(v.id));
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -227,8 +234,15 @@ export default function Almacen() {
     setItemForm(prev => ({ ...prev, category_id: '' }));
   }, [categories]);
   useEffect(() => {
+    if (!planAllowsAlmacenAvanzado && (activeView === 'requerimiento' || activeView === 'recepcion')) {
+      setActiveView('movimiento_interno');
+      setSearchParams({ view: 'movimiento_interno' }, { replace: true });
+    }
+  }, [planAllowsAlmacenAvanzado, activeView, setSearchParams]);
+
+  useEffect(() => {
     const requestedView = searchParams.get('view');
-    const isValidView = ALMACEN_VIEWS.some(option => option.id === requestedView);
+    const isValidView = almacenViewsForPlan.some(option => option.id === requestedView);
     if (isValidView && requestedView !== activeView) {
       setActiveView(requestedView);
       return;
@@ -240,7 +254,7 @@ export default function Almacen() {
     if (!isValidView && !requestedView) {
       setSearchParams({ view: 'movimiento_interno' }, { replace: true });
     }
-  }, [activeView, searchParams, setSearchParams]);
+  }, [activeView, searchParams, setSearchParams, almacenViewsForPlan]);
 
   const scopedProducts = products.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
@@ -614,7 +628,7 @@ export default function Almacen() {
   };
 
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
-  const activeViewLabel = ALMACEN_VIEWS.find(option => option.id === activeView)?.label || 'Movimiento interno';
+  const activeViewLabel = almacenViewsForPlan.find(option => option.id === activeView)?.label || 'Movimiento interno';
 
   if (activeView !== 'movimiento_interno') {
     return (

@@ -22,11 +22,13 @@ import {
   MdDelete,
   MdReceipt,
   MdPayment,
+  MdLayers,
 } from 'react-icons/md';
 import MasterRestaurantBillingWorkspace from '../../components/master/MasterRestaurantBillingWorkspace';
 
 const TABS = [
   { id: 'usuarios', label: 'Usuario administrador', icon: MdAdminPanelSettings },
+  { id: 'plan', label: 'Plan comercial', icon: MdLayers },
   { id: 'contrato', label: 'Contrato del servicio', icon: MdReceiptLong },
   { id: 'sunat_bot', label: 'Bot facturación SUNAT', icon: MdReceipt },
   { id: 'pago_uso_sistema', label: 'Pago por uso del sistema', icon: MdPayment },
@@ -387,6 +389,55 @@ export default function MasterAdmin() {
                   </div>
                 ))}
                 {adminUsers.length === 0 && <p className="text-sm text-slate-500">No hay administradores registrados.</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'plan' && (
+          <div className="card max-w-3xl">
+            <h2 className="font-semibold text-slate-800 mb-2">Plan comercial del restaurante</h2>
+            <p className="text-sm text-slate-500 mb-4">
+              Define qué módulos pueden usar el administrador y el personal. Coincide con los planes Básico, Intermedio y Profesional comercializados.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Plan activo</label>
+                <select
+                  className="input-field"
+                  value={control.service_plan === 'basico' || control.service_plan === 'básico' ? 'basico' : control.service_plan === 'intermedio' ? 'intermedio' : 'profesional'}
+                  onChange={(e) =>
+                    setDashboard((p) => ({
+                      ...(p || {}),
+                      control: { ...(p?.control || {}), service_plan: e.target.value },
+                    }))
+                  }
+                >
+                  <option value="basico">Básico — operación central (salón, delivery, caja, almacén base, informes, productos, configuración)</option>
+                  <option value="intermedio">
+                    Intermedio — incluye Básico + QR auto-pedido, clientes/créditos, cocina/bar, ofertas/descuentos, indicadores, tiempo trabajado, almacén avanzado (requerimiento/recepción)
+                  </option>
+                  <option value="profesional">
+                    Profesional — incluye Intermedio + Mi restaurante (facturación electrónica / SUNAT)
+                  </option>
+                </select>
+              </div>
+              <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
+                Tras guardar, los usuarios deben <strong>volver a iniciar sesión</strong> (o recargar) para aplicar los cambios en menús y rutas.
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="btn-primary flex items-center gap-2"
+                  onClick={() =>
+                    updateControl(
+                      { service_plan: control.service_plan || 'profesional' },
+                      'Plan comercial actualizado'
+                    )
+                  }
+                >
+                  <MdSave /> Guardar plan
+                </button>
               </div>
             </div>
           </div>

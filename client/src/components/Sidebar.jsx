@@ -45,7 +45,7 @@ const cajaSubOptions = [
   { id: 'consulta_precios', label: 'Consulta de precios' },
 ];
 
-const miRestaurantSubOptions = [
+const miRestaurantSubOptionsAll = [
   { id: 'mi_empresa', label: 'Mi empresa' },
   { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
   { id: 'pagos_sistema', label: 'Pagos de créditos' },
@@ -54,7 +54,7 @@ const miRestaurantSubOptions = [
   { id: 'informacion', label: 'Información' },
 ];
 
-const almacenSubOptions = [
+const almacenSubOptionsAll = [
   { id: 'movimiento_interno', label: 'Movimiento interno' },
   { id: 'requerimiento', label: 'Requerimiento' },
   { id: 'recepcion', label: 'Recepción' },
@@ -96,13 +96,20 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
   const [isMiRestaurantExpanded, setIsMiRestaurantExpanded] = useState(location.pathname.startsWith('/admin/mi-restaurant'));
   const [isAlmacenExpanded, setIsAlmacenExpanded] = useState(location.pathname.startsWith('/admin/almacen'));
   const hasLinkPermission = (link) => {
-    if (user?.role === 'admin') return true;
     if (Array.isArray(link.roles) && link.roles.length > 0 && !link.roles.includes(user?.role)) return false;
     if (!link.moduleId) return link.roles.includes(user?.role);
     if (!user || typeof user.permissions !== 'object' || user.permissions === null) return false;
     return isPermissionEnabled(user.permissions[link.moduleId]);
   };
   const filtered = allLinks.filter(hasLinkPermission);
+  const planAllowsAlmacenAvanzado = user?.service_plan !== 'basico';
+  const almacenSubOptions = planAllowsAlmacenAvanzado
+    ? almacenSubOptionsAll
+    : almacenSubOptionsAll.filter((o) => !['requerimiento', 'recepcion'].includes(o.id));
+  const planProfesional = user?.service_plan === 'profesional';
+  const miRestaurantSubOptions = planProfesional
+    ? miRestaurantSubOptionsAll
+    : miRestaurantSubOptionsAll.filter((o) => o.id !== 'facturacion_electronica');
   const visibleLinks = user?.role === 'cajero'
     ? [
         filtered.find(l => l.to === '/admin/caja'),

@@ -62,7 +62,6 @@ function isPermissionEnabled(value) {
 function hasModulePermission(user, moduleId) {
   if (!moduleId) return true;
   if (user?.role === 'master_admin') return true;
-  if (user?.role === 'admin') return true;
   if (!user || typeof user.permissions !== 'object' || user.permissions === null) return false;
   return isPermissionEnabled(user.permissions[moduleId]);
 }
