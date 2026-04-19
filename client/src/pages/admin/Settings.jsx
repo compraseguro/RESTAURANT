@@ -271,6 +271,12 @@ const EMPTY_USER_FORM = {
   username: '', email: '', password: '', full_name: '', role: 'mozo', phone: '', is_active: 1, caja_station_id: '',
 };
 
+/** WhatsApp proveedor: nuevas sucursales/locales son contratación aparte. */
+const WHATSAPP_PROVEEDOR_LOCALES =
+  'https://wa.me/51935968198?text=' + encodeURIComponent(
+    'Hola, solicito información para agregar una sucursal o local adicional a mi sistema.'
+  );
+
 export default function Settings() {
   const [activeSection, setActiveSection] = useState(null);
   const [users, setUsers] = useState([]);
@@ -1672,40 +1678,64 @@ export default function Settings() {
           title={`${settingsCrudModal.index === null ? 'Nuevo' : 'Editar'} ${SETTINGS_SECTION_FORMS[settingsCrudModal.section]?.title || 'registro'}`}
           size={settingsCrudModal.section === 'impresoras' ? 'md' : 'sm'}
         >
-          <form onSubmit={submitSettingsCrudModal} className="space-y-4">
-            {(SETTINGS_SECTION_FORMS[settingsCrudModal.section]?.fields || []).map(field => (
-              <div key={field.key}>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{field.label}</label>
-                {field.type === 'select' && field.options ? (
-                  <select
-                    value={settingsCrudForm[field.key] ?? ''}
-                    onChange={e => setSettingsCrudForm(prev => ({ ...prev, [field.key]: e.target.value }))}
-                    className="input-field"
-                    required={!!field.required}
-                  >
-                    {field.options.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type={field.type === 'number' ? 'number' : 'text'}
-                    step={field.type === 'number' ? '1' : undefined}
-                    min={field.type === 'number' && field.key === 'port' ? 1 : undefined}
-                    max={field.type === 'number' && field.key === 'port' ? 65535 : undefined}
-                    value={settingsCrudForm[field.key] ?? ''}
-                    onChange={e => setSettingsCrudForm(prev => ({ ...prev, [field.key]: e.target.value }))}
-                    className="input-field"
-                    required={!!field.required}
-                  />
-                )}
+          {settingsCrudModal.section === 'locales' && settingsCrudModal.index === null ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                <p className="font-medium text-amber-900 mb-1">Sucursal o local adicional</p>
+                <p className="text-amber-900/90">
+                  Cada nueva sucursal o local tiene un <strong>costo adicional</strong>. Para contratarlo o coordinar los detalles, debes{' '}
+                  <strong>contactar al proveedor</strong>; no se puede activar desde aquí de forma automática.
+                </p>
               </div>
-            ))}
-            <div className="flex gap-3">
-              <button type="button" onClick={closeSettingsCrudModal} className="btn-secondary flex-1">Cancelar</button>
-              <button type="submit" className="btn-primary flex-1">Guardar</button>
+              <div className="flex gap-3">
+                <button type="button" onClick={closeSettingsCrudModal} className="btn-secondary flex-1">Cancelar</button>
+                <a
+                  href={WHATSAPP_PROVEEDOR_LOCALES}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary flex-1 inline-flex items-center justify-center gap-2 no-underline"
+                  onClick={() => closeSettingsCrudModal()}
+                >
+                  WhatsApp proveedor (935 968 198)
+                </a>
+              </div>
             </div>
-          </form>
+          ) : (
+            <form onSubmit={submitSettingsCrudModal} className="space-y-4">
+              {(SETTINGS_SECTION_FORMS[settingsCrudModal.section]?.fields || []).map(field => (
+                <div key={field.key}>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{field.label}</label>
+                  {field.type === 'select' && field.options ? (
+                    <select
+                      value={settingsCrudForm[field.key] ?? ''}
+                      onChange={e => setSettingsCrudForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                      className="input-field"
+                      required={!!field.required}
+                    >
+                      {field.options.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={field.type === 'number' ? 'number' : 'text'}
+                      step={field.type === 'number' ? '1' : undefined}
+                      min={field.type === 'number' && field.key === 'port' ? 1 : undefined}
+                      max={field.type === 'number' && field.key === 'port' ? 65535 : undefined}
+                      value={settingsCrudForm[field.key] ?? ''}
+                      onChange={e => setSettingsCrudForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                      className="input-field"
+                      required={!!field.required}
+                    />
+                  )}
+                </div>
+              ))}
+              <div className="flex gap-3">
+                <button type="button" onClick={closeSettingsCrudModal} className="btn-secondary flex-1">Cancelar</button>
+                <button type="submit" className="btn-primary flex-1">Guardar</button>
+              </div>
+            </form>
+          )}
         </Modal>
 
         <Modal
