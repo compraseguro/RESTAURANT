@@ -1,10 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api, ORDER_TYPES, formatTime } from '../../utils/api';
-
-/** Pedido auto-pedido con cuenta de cliente (sin mesa física). */
-function isCuentaClienteSelfOrder(order) {
-  return String(order?.table_number || '') === 'Cliente' && String(order?.customer_id || '').trim() !== '';
-}
 import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
@@ -16,11 +11,52 @@ import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTabl
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+/** Pedido auto-pedido con cuenta de cliente (sin mesa física). */
+function isCuentaClienteSelfOrder(order) {
+  return String(order?.table_number || '') === 'Cliente' && String(order?.customer_id || '').trim() !== '';
+}
+
+/** Misma lógica que el servidor para decidir si un pedido va a bar o a cocina. */
+function isBarItemClient(item) {
+  if (String(item?.production_area || '').toLowerCase() === 'bar') return true;
+  const name = String(item?.product_name || '').toLowerCase();
+  return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some((t) =>
+    name.includes(t)
+  );
+}
+function isBarOnlyOrderClient(order) {
+  const items = order?.items || [];
+  if (!items.length) return false;
+  return items.every(isBarItemClient);
+}
+/** @param {'cocina'|'bar'} st */
+function orderAppliesToStation(order, st) {
+  const barOnly = isBarOnlyOrderClient(order);
+  if (st === 'bar') return barOnly;
+  if (st === 'cocina') return !barOnly;
+  return true;
+}
+
 export default function KitchenPanel({ station = 'cocina' }) {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
   const [printConfig, setPrintConfig] = useState({ cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
+  const storageKeyAutoPrint = `resto_kitchen_auto_print_${station}`;
+  const [autoPrint, setAutoPrint] = useState(() =>
+    typeof localStorage !== 'undefined' && localStorage.getItem(`resto_kitchen_auto_print_${station}`) === '1'
+  );
+  const autoPrintRef = useRef(false);
+  useEffect(() => {
+    autoPrintRef.current = autoPrint;
+  }, [autoPrint]);
+  useEffect(() => {
+    try {
+      setAutoPrint(localStorage.getItem(storageKeyAutoPrint) === '1');
+    } catch (_) {
+      setAutoPrint(false);
+    }
+  }, [storageKeyAutoPrint]);
   const { user } = useAuth();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
   const navigate = useNavigate();
@@ -55,28 +91,21 @@ export default function KitchenPanel({ station = 'cocina' }) {
     }
   };
 
-  const printQueue = async (scope = 'all') => {
-    const qs = new URLSearchParams();
-    qs.set('station', station);
-    if (scope === 'delivery') qs.set('type', 'delivery');
-    if (scope === 'salon') qs.set('type', 'dine_in');
-    let list = orders;
-    try {
-      list = await api.get(`/orders/kitchen?${qs.toString()}`);
-    } catch (_) {
-      list = orders;
-    }
-    if (!list.length) {
-      toast.error('No hay pedidos para imprimir');
+  /**
+   * @param {object[]} list
+   * @param {string} title
+   * @param {{ silent?: boolean }} opts silent: no toasts de error/vacío (impresión automática)
+   */
+  const printOrdersList = async (list, title, opts = {}) => {
+    const { silent = false } = opts;
+    if (!list?.length) {
+      if (!silent) toast.error('No hay pedidos para imprimir');
       return;
     }
     const stationConfig = station === 'bar' ? printConfig?.bar : printConfig?.cocina;
     const width = [58, 80].includes(Number(stationConfig?.width_mm)) ? Number(stationConfig.width_mm) : 80;
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
     const ticketWidth = width === 58 ? '50mm' : '72mm';
-    const titleBase = isBar ? 'Comandas de Bar' : 'Comandas de Cocina';
-    const scopeLabel = scope === 'delivery' ? 'Delivery' : scope === 'salon' ? 'Mesas/Salón' : 'Todas';
-    const title = `${titleBase} - ${scopeLabel}`;
     const stationKey = isBar ? 'bar' : 'cocina';
     if (String(stationConfig?.connection || '').toLowerCase() === 'wifi' && String(stationConfig?.ip_address || '').trim()) {
       const plain = buildKitchenTicketPlainText({
@@ -87,10 +116,10 @@ export default function KitchenPanel({ station = 'cocina' }) {
       });
       try {
         await api.post('/orders/print-network', { station: stationKey, text: plain, copies });
-        toast.success('Enviado a impresora de red');
+        if (!silent) toast.success('Enviado a impresora de red');
         return;
       } catch (err) {
-        toast.error(err.message || 'No se pudo imprimir por red; se abrirá el navegador');
+        if (!silent) toast.error(err.message || 'No se pudo imprimir por red; se abrirá el navegador');
       }
     }
     const htmlRows = list.map((order) => {
@@ -131,7 +160,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     const doc = iframe.contentWindow?.document;
     if (!doc || !iframe.contentWindow) {
       if (document.body.contains(iframe)) document.body.removeChild(iframe);
-      toast.error('No se pudo abrir el documento de impresión');
+      if (!silent) toast.error('No se pudo abrir el documento de impresión');
       return;
     }
     doc.open();
@@ -175,6 +204,23 @@ export default function KitchenPanel({ station = 'cocina' }) {
     }, 120);
   };
 
+  const printQueue = async (scope = 'all') => {
+    const qs = new URLSearchParams();
+    qs.set('station', station);
+    if (scope === 'delivery') qs.set('type', 'delivery');
+    if (scope === 'salon') qs.set('type', 'dine_in');
+    let list = orders;
+    try {
+      list = await api.get(`/orders/kitchen?${qs.toString()}`);
+    } catch (_) {
+      list = orders;
+    }
+    const titleBase = isBar ? 'Comandas de Bar' : 'Comandas de Cocina';
+    const scopeLabel = scope === 'delivery' ? 'Delivery' : scope === 'salon' ? 'Mesas/Salón' : 'Todas';
+    const title = `${titleBase} - ${scopeLabel}`;
+    await printOrdersList(list, title, { silent: false });
+  };
+
   const loadOrders = async () => {
     try {
       const qs = new URLSearchParams();
@@ -203,6 +249,13 @@ export default function KitchenPanel({ station = 'cocina' }) {
     loadOrders();
     playStationAlert();
     toast.success(`Nuevo pedido #${order.order_number} (${isBar ? 'bar' : 'cocina'})`, { icon: '🔔', duration: 5000 });
+    if (!order || !autoPrintRef.current) return;
+    if (!orderAppliesToStation(order, station)) return;
+    const items = order.items || [];
+    if (!items.length) return;
+    const titleBase = isBar ? 'Comandas de Bar' : 'Comandas de Cocina';
+    const title = `${titleBase} · Automático · #${order.order_number}`;
+    void printOrdersList([order], title, { silent: true });
   });
 
   useSocket('order-update', () => loadOrders());
@@ -235,10 +288,28 @@ export default function KitchenPanel({ station = 'cocina' }) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {[{ v: 'all', l: 'Todos' }, { v: 'dine_in', l: 'Mesas' }, { v: 'delivery', l: 'Delivery' }].map(f => (
               <button key={f.v} onClick={() => setFilter(f.v)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f.v ? 'bg-[#3B82F6] text-white' : 'bg-[#111827]/60 text-[#F9FAFB] hover:bg-[#1F2937] border border-[#3B82F6]/25'}`}>{f.l}</button>
             ))}
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-[#E5E7EB] border border-[#3B82F6]/35 rounded-lg px-3 py-2 bg-[#111827]/80 hover:bg-[#1F2937]">
+              <input
+                type="checkbox"
+                className="rounded border-[#3B82F6]/50"
+                checked={autoPrint}
+                onChange={(e) => {
+                  const v = e.target.checked;
+                  setAutoPrint(v);
+                  try {
+                    localStorage.setItem(storageKeyAutoPrint, v ? '1' : '0');
+                  } catch (_) {
+                    /* noop */
+                  }
+                }}
+              />
+              <MdPrint className="text-[#93C5FD] shrink-0" />
+              <span>Impresión automática al nuevo pedido</span>
+            </label>
           </div>
           <button onClick={() => printQueue('salon')} className="px-3 py-2 bg-[#111827]/60 hover:bg-[#1F2937] border border-[#3B82F6]/25 rounded-lg text-sm font-medium flex items-center gap-2">
             <MdPrint /> Imprimir Mesas
