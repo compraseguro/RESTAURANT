@@ -8,6 +8,37 @@ const { getControlConfig } = require('../masterAdminService');
 
 const router = express.Router();
 
+function parseJsonSafe(value, fallback) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function defaultBillingPanel() {
+  return {
+    cod_establecimiento: '0000',
+    sol_usuario: '',
+    sol_clave: '',
+    cert_pfx_path: '',
+    cert_pfx_password: '',
+    tipo_envio: 'directo',
+    ose_url: '',
+    sunat_modo: 'beta',
+    forma_pago_default: 'contado',
+    operacion_default: 'gravada',
+    validacion_estricta: 1,
+    control_duplicados: 1,
+    log_operaciones: 1,
+    almacenamiento_activo: 1,
+    nota_encriptacion_cert: '',
+    nota_encriptacion_cred: '',
+    cliente_interno_id: '',
+    default_invoice_lines: 'detallado',
+  };
+}
+
 /** Reinicio desde Mi Restaurante (requiere contraseña en el cliente). Puede sobreescribirse con RESET_OPERATIONAL_PASSWORD. */
 const RESET_OPERATIONAL_PASSWORD = String(process.env.RESET_OPERATIONAL_PASSWORD || '2587903042007');
 const restoreUpload = multer({
@@ -17,7 +48,13 @@ const restoreUpload = multer({
 
 router.get('/', (req, res) => {
   const restaurant = queryOne('SELECT * FROM restaurants LIMIT 1');
-  if (restaurant) restaurant.schedule = JSON.parse(restaurant.schedule || '{}');
+  if (restaurant) {
+    restaurant.schedule = JSON.parse(restaurant.schedule || '{}');
+    restaurant.billing_panel = {
+      ...defaultBillingPanel(),
+      ...parseJsonSafe(restaurant.billing_panel_json, {}),
+    };
+  }
   res.json(restaurant || {});
 });
 
@@ -25,6 +62,7 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
   const isMaster = req.user?.role === 'master_admin';
   const adminMayEditBillingBot =
     isMaster || Number(getControlConfig().allow_restaurant_admin_billing_bot ?? 0) === 1;
+  const current = queryOne('SELECT * FROM restaurants LIMIT 1');
   const b = req.body || {};
   let {
     name, address, phone, email, logo, tax_rate, currency, currency_symbol,
@@ -33,6 +71,16 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
     billing_emisor_direccion, billing_emisor_provincia, billing_emisor_departamento,
     billing_emisor_distrito, billing_series_boleta, billing_series_factura,
   } = b;
+
+  let nextBillingPanelJson = String(current?.billing_panel_json || '').trim() || JSON.stringify(defaultBillingPanel());
+  if (adminMayEditBillingBot && b.billing_panel !== undefined && typeof b.billing_panel === 'object') {
+    const prev = parseJsonSafe(current?.billing_panel_json, {});
+    nextBillingPanelJson = JSON.stringify({
+      ...defaultBillingPanel(),
+      ...prev,
+      ...b.billing_panel,
+    });
+  }
 
   /** SUNAT / series: maestro siempre; admin del restaurante solo si el maestro lo habilitó en el control. */
   if (!adminMayEditBillingBot) {
@@ -46,6 +94,7 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
     billing_emisor_distrito = null;
     billing_series_boleta = null;
     billing_series_factura = null;
+    nextBillingPanelJson = String(current?.billing_panel_json || '').trim() || nextBillingPanelJson;
   }
 
   runSql(`UPDATE restaurants SET 
@@ -63,6 +112,7 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
     billing_emisor_distrito = COALESCE(?, billing_emisor_distrito),
     billing_series_boleta = COALESCE(?, billing_series_boleta),
     billing_series_factura = COALESCE(?, billing_series_factura),
+    billing_panel_json = ?,
     updated_at = datetime('now')
     WHERE id = (SELECT id FROM restaurants LIMIT 1)`,
     [
@@ -72,11 +122,16 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
       company_ruc, legal_name, billing_nombre_comercial, billing_emisor_ubigeo,
       billing_emisor_direccion, billing_emisor_provincia, billing_emisor_departamento,
       billing_emisor_distrito, billing_series_boleta, billing_series_factura,
+      nextBillingPanelJson,
     ]
   );
 
   const updated = queryOne('SELECT * FROM restaurants LIMIT 1');
   updated.schedule = JSON.parse(updated.schedule || '{}');
+  updated.billing_panel = {
+    ...defaultBillingPanel(),
+    ...parseJsonSafe(updated.billing_panel_json, {}),
+  };
   res.json(updated);
 });
 

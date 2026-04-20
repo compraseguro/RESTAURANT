@@ -4,6 +4,16 @@
 
 const { effectiveEfactApiUrl, effectiveEfactHttpSecret } = require('./efactConnection');
 
+function parseBillingPanelJson(restaurant) {
+  try {
+    const raw = restaurant?.billing_panel_json;
+    const o = raw ? JSON.parse(raw) : {};
+    return o && typeof o === 'object' ? o : {};
+  } catch (_) {
+    return {};
+  }
+}
+
 function toNumber(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -75,7 +85,14 @@ function buildEfactSaleJson({
   const departamento = String(restaurant.billing_emisor_departamento || '').trim() || 'LIMA';
   const distrito = String(restaurant.billing_emisor_distrito || '').trim() || 'LIMA';
 
-  return {
+  const panel = parseBillingPanelJson(restaurant);
+  const usuarioSol = String(panel.sol_usuario || '').trim();
+  const claveSol = String(panel.sol_clave || '').trim();
+  const ambiente = panel.sunat_modo === 'produccion' ? 'produccion' : 'beta';
+  const certPath = String(panel.cert_pfx_path || '').trim();
+  const certPwd = String(panel.cert_pfx_password || '').trim();
+
+  const payload = {
     tipo: docType === 'factura' ? '01' : '03',
     serie: series,
     correlativo,
@@ -102,6 +119,20 @@ function buildEfactSaleJson({
     },
     lineas,
   };
+
+  if (usuarioSol && claveSol) {
+    payload.panel_credenciales = {
+      ruc,
+      usuario_sol: usuarioSol,
+      clave_sol: claveSol,
+      ambiente,
+    };
+  }
+  if (certPath && certPwd) {
+    payload.panel_certificado = { ruta_pfx: certPath, password: certPwd };
+  }
+
+  return payload;
 }
 
 function mapEfactResponseToProviderResult(parsed, responseOk) {

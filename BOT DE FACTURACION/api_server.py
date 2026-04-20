@@ -36,6 +36,8 @@ except ImportError:
 from main import procesar_venta, venta_desde_dict
 from restaurant_efact.config import (
     AmbienteSunat,
+    CertificadoConfig,
+    SunatConfig,
     load_certificado_from_env,
     load_rutas_from_env,
     load_sunat_config_from_env,
@@ -48,6 +50,31 @@ logging.basicConfig(
 logger = logging.getLogger("api_server")
 
 SECRET = os.environ.get("EFACT_HTTP_SECRET", "").strip()
+
+
+def _merge_sunat_from_payload(data: dict, env_cfg: SunatConfig) -> SunatConfig:
+    """Credenciales SOL y ambiente: JSON del panel Node (panel_credenciales) o .env del bot."""
+    pc = data.get("panel_credenciales") or {}
+    em = data.get("emisor") or {}
+    ruc = str(pc.get("ruc") or em.get("ruc") or env_cfg.ruc or "").strip()
+    usu = str(pc.get("usuario_sol") or env_cfg.usuario_sol or "").strip()
+    cla = str(pc.get("clave_sol") or env_cfg.clave_sol or "").strip()
+    amb_s = str(pc.get("ambiente") or "beta").lower()
+    ambiente = AmbienteSunat.PRODUCCION if amb_s == "produccion" else AmbienteSunat.BETA
+    return SunatConfig(ruc=ruc, usuario_sol=usu, clave_sol=cla, ambiente=ambiente)
+
+
+def _merge_cert_from_payload(data: dict, env_cert: CertificadoConfig | None) -> CertificadoConfig | None:
+    """Certificado .pfx: JSON del panel (panel_certificado) o variables CERT_* del bot."""
+    pc = data.get("panel_certificado") or {}
+    ruta = str(pc.get("ruta_pfx") or "").strip()
+    pwd = str(pc.get("password") or "").strip()
+    if ruta and pwd:
+        pth = Path(ruta)
+        if not pth.is_absolute():
+            pth = (ROOT / ruta).resolve()
+        return CertificadoConfig(ruta_pfx=pth, password_pfx=pwd)
+    return env_cert
 
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
@@ -100,15 +127,23 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         rutas = load_rutas_from_env()
-        cert_cfg = load_certificado_from_env()
-        if cert_cfg and not cert_cfg.password_pfx:
+        cert_env = load_certificado_from_env()
+        if cert_env and not cert_env.password_pfx:
             logger.warning("CERT_PFX_PASSWORD vacío; se omite firma SUNAT")
-            cert_cfg = None
-        if cert_cfg and not cert_cfg.ruta_pfx.exists():
+            cert_env = None
+        if cert_env and not cert_env.ruta_pfx.exists():
             logger.warning("No existe CERT_PFX_PATH; se omite firma SUNAT")
-            cert_cfg = None
+            cert_env = None
 
-        sunat_cfg = load_sunat_config_from_env()
+        cert_cfg = _merge_cert_from_payload(data, cert_env)
+        if cert_cfg and (not cert_cfg.password_pfx or not cert_cfg.ruta_pfx.exists()):
+            cert_cfg = (
+                cert_env
+                if cert_env and cert_env.password_pfx and cert_env.ruta_pfx.exists()
+                else None
+            )
+
+        sunat_cfg = _merge_sunat_from_payload(data, load_sunat_config_from_env())
         if sunat_cfg.ambiente == AmbienteSunat.PRODUCCION:
             logger.warning("Ambiente SUNAT PRODUCCIÓN activo.")
 

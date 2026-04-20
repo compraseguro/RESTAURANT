@@ -6,7 +6,8 @@ import { api, resolveMediaUrl } from '../../utils/api';
 import { proximaFechaFromControlAnchor } from '../../utils/nextBillingFromAnchor';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
-import BillingSunatLexiconPanel from '../../components/billing/BillingSunatLexiconPanel';
+import Sunat47FieldsTable from '../../components/billing/Sunat47FieldsTable';
+import { defaultBillingPanel } from '../../data/sunat47Catalog';
 import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt } from 'react-icons/md';
 
 const DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
@@ -89,6 +90,7 @@ export default function MiRestaurant() {
   const [billingAnchorDate, setBillingAnchorDate] = useState('');
   /** Ventana de carga del comprobante (servidor): enlazada a fecha_proxima_facturación y días de gracia. */
   const [pagoUsoComprobanteUi, setPagoUsoComprobanteUi] = useState(null);
+  const [billingPanel, setBillingPanel] = useState(() => defaultBillingPanel());
 
   const canReadBillingConfig = user?.role === 'admin' || user?.role === 'master_admin';
 
@@ -117,6 +119,11 @@ export default function MiRestaurant() {
         if (!data.schedule || typeof data.schedule !== 'object') data.schedule = {};
         DAYS.forEach(d => { if (!data.schedule[d]) data.schedule[d] = { open: '11:00', close: '23:00', enabled: true }; });
         setRestaurant(data);
+        if (data?.billing_panel && typeof data.billing_panel === 'object') {
+          setBillingPanel({ ...defaultBillingPanel(), ...data.billing_panel });
+        } else {
+          setBillingPanel(defaultBillingPanel());
+        }
 
         if (billingData) {
           setAllowRestaurantAdminBillingBot(Boolean(billingData.allow_restaurant_admin_billing_bot));
@@ -219,8 +226,11 @@ export default function MiRestaurant() {
           );
           return;
         }
-        const savedRestaurant = await api.put('/restaurant', restaurant);
+        const savedRestaurant = await api.put('/restaurant', { ...restaurant, billing_panel: billingPanel });
         setRestaurant(savedRestaurant);
+        if (savedRestaurant?.billing_panel && typeof savedRestaurant.billing_panel === 'object') {
+          setBillingPanel({ ...defaultBillingPanel(), ...savedRestaurant.billing_panel });
+        }
         const saved = await api.put('/billing/config', {
           billing_offline_mode: billingConfig.billing_offline_mode,
           billing_auto_retry_enabled: billingConfig.billing_auto_retry_enabled,
@@ -568,7 +578,9 @@ export default function MiRestaurant() {
                 <div>
                   <h3 className="font-bold text-slate-800 text-lg">Facturación SUNAT (emisor + bot)</h3>
                   <p className="text-sm text-slate-500 mt-0.5">
-                    Emisor SUNAT, series normales y de contingencia, y conexión al bot. Pulse <strong>Guardar cambios</strong> una vez. En caja, solo datos del comprador. Use el glosario inferior para ver qué significa cada dato.
+                    Tabla de los <strong>47 parámetros</strong> (dato, función y valor). Credenciales SOL y certificado se
+                    envían al bot al emitir si los completa aquí; si los deja vacíos, el bot usa su <code className="text-xs">.env</code>.
+                    Pulse <strong>Guardar cambios</strong> una vez.
                   </p>
                 </div>
               </div>
@@ -593,51 +605,22 @@ export default function MiRestaurant() {
               ) : null}
 
               <fieldset disabled={!canEditBillingBot} className="border-0 p-0 m-0 min-w-0 space-y-5">
-              <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
-                <h4 className="font-semibold text-slate-800 text-sm">Empresa y ubicación SUNAT (emisor)</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">RUC (11 dígitos)</label>
-                    <input className="input-field" value={restaurant.company_ruc ?? ''} onChange={e => update('company_ruc', e.target.value.replace(/\D/g, '').slice(0, 11))} placeholder="" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Razón social</label>
-                    <input className="input-field" value={restaurant.legal_name ?? ''} onChange={e => update('legal_name', e.target.value)} placeholder="" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Nombre comercial (SUNAT)</label>
-                    <input className="input-field" value={restaurant.billing_nombre_comercial ?? ''} onChange={e => update('billing_nombre_comercial', e.target.value)} placeholder="" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Ubigeo</label>
-                    <input className="input-field" value={restaurant.billing_emisor_ubigeo ?? ''} onChange={e => update('billing_emisor_ubigeo', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="150101" />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Dirección fiscal (si vacío, se usa la dirección del restaurante en Mi empresa)</label>
-                    <input className="input-field" value={restaurant.billing_emisor_direccion ?? ''} onChange={e => update('billing_emisor_direccion', e.target.value)} placeholder="" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Departamento</label>
-                    <input className="input-field" value={restaurant.billing_emisor_departamento ?? ''} onChange={e => update('billing_emisor_departamento', e.target.value)} placeholder="" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Provincia</label>
-                    <input className="input-field" value={restaurant.billing_emisor_provincia ?? ''} onChange={e => update('billing_emisor_provincia', e.target.value)} placeholder="" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Distrito</label>
-                    <input className="input-field" value={restaurant.billing_emisor_distrito ?? ''} onChange={e => update('billing_emisor_distrito', e.target.value)} placeholder="" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Serie boleta</label>
-                    <input className="input-field" value={restaurant.billing_series_boleta ?? ''} onChange={e => update('billing_series_boleta', (e.target.value || '').toUpperCase())} placeholder="B001" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Serie factura</label>
-                    <input className="input-field" value={restaurant.billing_series_factura ?? ''} onChange={e => update('billing_series_factura', (e.target.value || '').toUpperCase())} placeholder="F001" />
-                  </div>
-                </div>
-              </div>
+              <Sunat47FieldsTable
+                variant="light"
+                restaurant={restaurant}
+                onRestaurantField={update}
+                billingPanel={billingPanel}
+                onBillingPanelField={(k, v) => setBillingPanel((p) => ({ ...p, [k]: v }))}
+                billingExtras={billingConfig}
+                onBillingExtrasField={updateBilling}
+                disabled={!canEditBillingBot}
+                billingFlags={{
+                  billing_api_url_from_env: billingConfig.billing_api_url_from_env,
+                  billing_api_secret_from_env: billingConfig.billing_api_secret_from_env,
+                  has_billing_api_token: billingConfig.has_billing_api_token,
+                  hasStoredUrl: Boolean((billingConfig.billing_api_url || '').trim()),
+                }}
+              />
 
               <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
                 <h4 className="font-semibold text-slate-800 text-sm">Series de contingencia</h4>
@@ -709,19 +692,9 @@ export default function MiRestaurant() {
                     <option value="0">Inactivo (errores de red quedan como fallo)</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Reintento automático</label>
-                  <select
-                    className="input-field"
-                    value={billingConfig.billing_auto_retry_enabled ? '1' : '0'}
-                    onChange={e => updateBilling('billing_auto_retry_enabled', Number(e.target.value))}
-                  >
-                    <option value="1">Activo</option>
-                    <option value="0">Inactivo</option>
-                  </select>
-                </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Intervalo de reintento (segundos)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Intervalo entre reintentos (segundos)</label>
+                  <p className="text-xs text-slate-500 mb-1">El interruptor «Reintentos automáticos» está en la tabla de 47 parámetros.</p>
                   <input
                     type="number"
                     min="30"
@@ -733,8 +706,6 @@ export default function MiRestaurant() {
                 </div>
               </div>
               </fieldset>
-
-              <BillingSunatLexiconPanel className="mt-2" />
 
               <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-900">
                 En local: ejecute <code className="text-xs bg-amber-100 px-1 rounded">python api_server.py</code> en{' '}

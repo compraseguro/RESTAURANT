@@ -990,6 +990,11 @@ async function initDatabase() {
       db.run("ALTER TABLE restaurants ADD COLUMN billing_emisor_distrito TEXT DEFAULT 'LIMA'");
     }
 
+    const rcPanelJson = queryAll('PRAGMA table_info(restaurants)');
+    if (!rcPanelJson.some((col) => col.name === 'billing_panel_json')) {
+      db.run("ALTER TABLE restaurants ADD COLUMN billing_panel_json TEXT DEFAULT '{}'");
+    }
+
     const billingBotDefaultsMigrated = queryOne(
       'SELECT 1 AS ok FROM app_settings WHERE key = ?',
       ['billing_sunat_bot_defaults_v1']
