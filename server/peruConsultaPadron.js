@@ -6,7 +6,12 @@
 const DECOLECTA_BASE = 'https://api.decolecta.com/v1';
 
 function getToken() {
-  return String(process.env.PERU_CONSULTAS_TOKEN || process.env.APIS_NET_PE_TOKEN || '').trim();
+  return String(
+    process.env.PERU_CONSULTAS_TOKEN ||
+      process.env.DECOLECTA_API_KEY ||
+      process.env.APIS_NET_PE_TOKEN ||
+      ''
+  ).trim();
 }
 
 function unwrapPayload(json) {
@@ -31,7 +36,14 @@ function pickRazonSocial(u) {
 }
 
 function pickDireccion(u) {
-  const raw = u.direccion || u.direccion_completa || u.direccionCompleta || u.domicilio_fiscal || u.domicilioFiscal || '';
+  const raw =
+    u.direccion ||
+    u['dirección'] ||
+    u.direccion_completa ||
+    u.direccionCompleta ||
+    u.domicilio_fiscal ||
+    u.domicilioFiscal ||
+    '';
   return String(raw || '').trim();
 }
 
@@ -51,14 +63,29 @@ function pickNombreDni(u) {
 }
 
 async function fetchJson(url, token) {
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  const text = await res.text();
+  const baseHeaders = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+
+  let res = await fetch(url, { method: 'GET', headers: baseHeaders });
+  let text = await res.text();
+
+  /** Decolecta permite el token en querystring si el header falla en algún proxy. */
+  if ((res.status === 401 || res.status === 403) && token) {
+    const sep = url.includes('?') ? '&' : '?';
+    const fallbackUrl = `${url}${sep}token=${encodeURIComponent(token)}`;
+    res = await fetch(fallbackUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+    text = await res.text();
+  }
+
   let data = null;
   try {
     data = text ? JSON.parse(text) : null;
@@ -90,7 +117,7 @@ async function consultarPadronPeru(docType, numero) {
   const token = getToken();
   if (!token) {
     const err = new Error(
-      'Consulta DNI/RUC no configurada. Defina PERU_CONSULTAS_TOKEN en el servidor (token de apis.net.pe / Decolecta).'
+      'Consulta DNI/RUC no configurada. En el servidor defina PERU_CONSULTAS_TOKEN o DECOLECTA_API_KEY con el token de https://decolecta.com/profile (también Docker/Render: variables de entorno; reinicie el proceso Node).'
     );
     err.code = 'NO_TOKEN';
     throw err;

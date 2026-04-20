@@ -1,4 +1,10 @@
 require('dotenv').config();
+const { getToken: getPadronConsultaToken } = require('./peruConsultaPadron');
+if (!getPadronConsultaToken()) {
+  console.warn(
+    '[consulta padrón] Defina PERU_CONSULTAS_TOKEN o DECOLECTA_API_KEY (https://decolecta.com/profile) para el botón DNI/RUC en caja.'
+  );
+}
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');

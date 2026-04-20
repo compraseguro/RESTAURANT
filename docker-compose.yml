@@ -30,6 +30,8 @@ services:
       CASH_CLOSE_NOTIFY_ENABLED: ${CASH_CLOSE_NOTIFY_ENABLED:-1}
       CASH_CLOSE_FORM_URL: ${CASH_CLOSE_FORM_URL:-https://formspree.io/f/mlgpdblo}
       CASH_CLOSE_EMAIL: ${CASH_CLOSE_EMAIL:-}
+      # Token https://decolecta.com/profile — consulta RUC/DNI en caja (botón Padrón)
+      PERU_CONSULTAS_TOKEN: ${PERU_CONSULTAS_TOKEN:-}
     volumes:
       - restaurant_data:/data
       # Bot: copia BOT DE FACTURACION/.env.example a docker/bot.env, completa y descomenta:
