@@ -1063,6 +1063,37 @@ export default function POSPanel() {
 
   const closingAmt = parseFloat(closingAmount) || 0;
   const difference = closingAmt - expectedCash;
+
+  /** Totales por método según el turno; filas según métodos habilitados en configuración (getPaymentMethodOptions). */
+  const registerPaymentRows = useMemo(() => {
+    const by = {
+      efectivo: Number(register?.total_cash || 0),
+      yape: Number(register?.total_yape || 0),
+      plin: Number(register?.total_plin || 0),
+      tarjeta: Number(register?.total_card || 0),
+    };
+    return (paymentOptions || []).map((opt) => ({
+      value: opt.value,
+      label: opt.label,
+      amount: by[opt.value] ?? 0,
+    }));
+  }, [register, paymentOptions]);
+
+  const paymentRowAmountClass = (value) => {
+    switch (value) {
+      case 'efectivo':
+        return 'text-emerald-400';
+      case 'yape':
+        return 'text-fuchsia-400';
+      case 'plin':
+        return 'text-sky-400';
+      case 'tarjeta':
+        return 'text-amber-300';
+      default:
+        return 'text-[#f9fafb]';
+    }
+  };
+
   const selectedOrders = (selectedTable?.orders || []).filter(o => selectedOrderIds.includes(o.id));
   const selectedTotal = selectedOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
   const selectionEnabled = splitMode;
@@ -2333,8 +2364,8 @@ export default function POSPanel() {
       {/* Modal Cerrar Caja / Arqueo */}
       <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="Arqueo y Cierre de Caja" size="wide">
         {closingData && (
-          <div className="cash-close-light">
-            <div ref={printRef}>
+          <div className="text-[#e2e8f0]">
+            <div ref={printRef} className="cash-close-print space-y-0.5">
               <h2>ARQUEO DE CAJA</h2>
               <h3>{user?.full_name} — {new Date().toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
               <div className="sep"></div>
@@ -2343,16 +2374,18 @@ export default function POSPanel() {
               <div className="sep"></div>
               <div className="row bold"><span>MONTO APERTURA</span><span>{formatCurrency(openingAmt)}</span></div>
               <div className="sep"></div>
-              <div className="row"><span>Ventas en Efectivo</span><span>{formatCurrency(totalCash)}</span></div>
-              <div className="row"><span>Ventas en Yape</span><span>{formatCurrency(totalYape)}</span></div>
-              <div className="row"><span>Ventas en Plin</span><span>{formatCurrency(totalPlin)}</span></div>
-              <div className="row"><span>Ventas en Tarjeta</span><span>{formatCurrency(totalCard)}</span></div>
+              {registerPaymentRows.map((row) => (
+                <div key={row.value} className="row">
+                  <span>Ventas ({row.label})</span>
+                  <span>{formatCurrency(row.amount)}</span>
+                </div>
+              ))}
               <div className="sep"></div>
               <div className="row total-row"><span>TOTAL VENTAS</span><span>{formatCurrency(registerSales)}</span></div>
               <div className="row bold"><span>N° de operaciones</span><span>{closingData.order_count || 0}</span></div>
               <div className="sep"></div>
               <div className="row bold"><span>EFECTIVO ESPERADO</span><span>{formatCurrency(expectedCash)}</span></div>
-              <div className="row"><span style={{ fontSize: '10px', color: '#888' }}>(Apertura + Ventas Efectivo)</span></div>
+              <div className="row"><span style={{ fontSize: '10px', color: '#94a3b8' }}>(Apertura + ventas en efectivo del turno)</span></div>
               <div className="sep"></div>
               <div className="row bold"><span>DETALLE ARQUEO</span><span></span></div>
               {denomDefs
@@ -2369,40 +2402,30 @@ export default function POSPanel() {
             </div>
 
             <div className="mt-4 space-y-4">
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2"><MdAccountBalanceWallet /> Resumen de Ventas</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white rounded-lg p-3 border">
-                    <p className="text-xs text-slate-400">Efectivo</p>
-                    <p className="font-bold text-lg text-emerald-600">{formatCurrency(totalCash)}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border">
-                    <p className="text-xs text-slate-400">Yape</p>
-                    <p className="font-bold text-lg text-purple-600">{formatCurrency(totalYape)}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border">
-                    <p className="text-xs text-slate-400">Plin</p>
-                    <p className="font-bold text-lg text-sky-600">{formatCurrency(totalPlin)}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border">
-                    <p className="text-xs text-slate-400">Tarjeta</p>
-                    <p className="font-bold text-lg text-gold-600">{formatCurrency(totalCard)}</p>
-                  </div>
+              <div className="rounded-xl p-4 border border-[#475569] bg-[#1e293b]">
+                <h3 className="font-semibold text-[#f8fafc] mb-3 flex items-center gap-2"><MdAccountBalanceWallet className="text-[#93c5fd]" /> Resumen de ventas (métodos activos)</h3>
+                <div className={`grid gap-3 ${registerPaymentRows.length <= 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 lg:grid-cols-4'}`}>
+                  {registerPaymentRows.map((row) => (
+                    <div key={row.value} className="rounded-lg p-3 border border-[#475569] bg-[#111827]">
+                      <p className="text-xs text-[#94a3b8]">{row.label}</p>
+                      <p className={`font-bold text-lg ${paymentRowAmountClass(row.value)}`}>{formatCurrency(row.amount)}</p>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-200">
-                  <span className="font-bold text-slate-700">Total Ventas</span>
-                  <span className="font-bold text-xl text-emerald-600">{formatCurrency(registerSales)}</span>
+                <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#475569]">
+                  <span className="font-bold text-[#f1f5f9]">Total ventas</span>
+                  <span className="font-bold text-xl text-emerald-400">{formatCurrency(registerSales)}</span>
                 </div>
               </div>
 
-              <div className="bg-gold-50 rounded-xl p-4 border border-gold-200">
-                <h3 className="font-semibold text-slate-700 mb-3">Conteo de Efectivo</h3>
+              <div className="rounded-xl p-4 border border-[#475569] bg-[#1e293b]">
+                <h3 className="font-semibold text-[#f8fafc] mb-1">Conteo de efectivo</h3>
                 <div className="mb-3">
-                  <p className="text-xs font-semibold text-slate-700 mb-2">Arqueo por denominación</p>
+                  <p className="text-xs font-semibold text-[#cbd5e1] mb-2">Arqueo por denominación (soles)</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {denomDefs.map(d => (
-                      <div key={d.key} className="bg-white rounded-lg border p-2">
-                        <label className="block text-xs text-slate-500 mb-1">{d.label}</label>
+                      <div key={d.key} className="rounded-lg border border-[#475569] bg-[#111827] p-2">
+                        <label className="block text-xs text-[#cbd5e1] mb-1">{d.label}</label>
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
@@ -2413,29 +2436,29 @@ export default function POSPanel() {
                             className="input-field py-1.5 text-sm"
                             placeholder="0"
                           />
-                          <span className="text-xs font-semibold text-slate-500 min-w-16 text-right">
+                          <span className="text-xs font-semibold text-[#e2e8f0] min-w-16 text-right tabular-nums">
                             {formatCurrency((parseFloat(denominations[d.key]) || 0) * d.value)}
                           </span>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <div className="flex justify-between items-center mt-2 p-2 rounded-lg bg-white border border-gold-200">
-                    <span className="text-xs font-medium text-slate-600">Total por arqueo</span>
-                    <span className="font-bold text-gold-700">{formatCurrency(calculateDenominationTotal())}</span>
+                  <div className="flex justify-between items-center mt-2 p-2 rounded-lg border border-[#475569] bg-[#0f172a]">
+                    <span className="text-xs font-medium text-[#cbd5e1]">Total por arqueo</span>
+                    <span className="font-bold text-amber-300 tabular-nums">{formatCurrency(calculateDenominationTotal())}</span>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Efectivo esperado en caja</label>
-                    <div className="bg-white rounded-lg p-3 border">
-                      <p className="font-bold text-lg">{formatCurrency(expectedCash)}</p>
+                    <label className="block text-xs font-medium text-[#cbd5e1] mb-1">Efectivo esperado en caja</label>
+                    <div className="rounded-lg p-3 border border-[#475569] bg-[#111827]">
+                      <p className="font-bold text-lg text-[#f9fafb] tabular-nums">{formatCurrency(expectedCash)}</p>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Efectivo contado real</label>
+                    <label className="block text-xs font-medium text-[#cbd5e1] mb-1">Efectivo contado real</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">S/</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8] font-medium text-sm">S/</span>
                       <input
                         type="number"
                         step="0.01"
@@ -2450,23 +2473,23 @@ export default function POSPanel() {
                 </div>
 
                 {closingAmount !== '' && (
-                  <div className={`flex items-center justify-between p-3 rounded-lg ${
-                    difference === 0 ? 'bg-emerald-100 border border-emerald-300' :
-                    difference > 0 ? 'bg-sky-100 border border-sky-300' :
-                    'bg-red-100 border border-red-300'
+                  <div className={`flex items-center justify-between p-3 rounded-lg border ${
+                    difference === 0 ? 'bg-emerald-950/50 border-emerald-600/60' :
+                    difference > 0 ? 'bg-sky-950/40 border-sky-600/50' :
+                    'bg-red-950/40 border-red-600/50'
                   }`}>
-                    <div className="flex items-center gap-2 text-[#0f172a]">
-                      {difference === 0 ? <MdCheckCircle className="text-emerald-600 text-xl" /> :
-                       difference > 0 ? <MdTrendingUp className="text-sky-600 text-xl" /> :
-                       <MdTrendingDown className="text-red-600 text-xl" />}
+                    <div className="flex items-center gap-2 text-[#e2e8f0]">
+                      {difference === 0 ? <MdCheckCircle className="text-emerald-400 text-xl" /> :
+                       difference > 0 ? <MdTrendingUp className="text-sky-400 text-xl" /> :
+                       <MdTrendingDown className="text-red-400 text-xl" />}
                       <span className="font-medium text-sm">
                         {difference === 0 ? 'Caja cuadrada' :
                          difference > 0 ? 'Sobrante' : 'Faltante'}
                       </span>
                     </div>
-                    <span className={`font-bold text-lg ${
-                      difference === 0 ? 'text-emerald-700' :
-                      difference > 0 ? 'text-sky-700' : 'text-red-700'
+                    <span className={`font-bold text-lg tabular-nums ${
+                      difference === 0 ? 'text-emerald-300' :
+                      difference > 0 ? 'text-sky-300' : 'text-red-300'
                     }`}>
                       {difference > 0 ? '+' : ''}{formatCurrency(difference)}
                     </span>
@@ -2475,7 +2498,7 @@ export default function POSPanel() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Observaciones</label>
+                <label className="block text-sm font-medium text-[#cbd5e1] mb-1">Observaciones</label>
                 <textarea
                   value={closingNotes}
                   onChange={e => setClosingNotes(e.target.value)}
@@ -2486,15 +2509,15 @@ export default function POSPanel() {
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4 mt-4 border-t border-slate-200">
-              <button onClick={() => setShowCloseModal(false)} className="btn-secondary flex-1">Cancelar</button>
-              <button onClick={handlePrint} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium text-sm border border-slate-300">
+            <div className="flex flex-wrap gap-3 pt-4 mt-4 border-t border-[#475569]">
+              <button onClick={() => setShowCloseModal(false)} className="btn-secondary flex-1 min-w-[120px]">Cancelar</button>
+              <button onClick={handlePrint} className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm border border-[#475569] bg-[#374151] text-[#f9fafb] hover:bg-[#4b5563] min-w-[140px]">
                 <MdPrint /> Enviar a impresora
               </button>
               <button
                 onClick={sendCloseByEmail}
                 disabled={sendingCloseMail}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium text-sm border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm border border-[#475569] bg-[#374151] text-[#f9fafb] hover:bg-[#4b5563] disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
               >
                 <MdEmail /> {sendingCloseMail ? 'Enviando...' : 'Enviar a correo'}
               </button>

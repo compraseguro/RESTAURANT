@@ -77,31 +77,42 @@
     color: #9ca3af !important;
   }
 
-  /* Cierre de caja: tarjetas claras (slate invertido + labels forzados rompen contraste sin esto) */
-  .modal-sheet-body .cash-close-light {
-    color: #0f172a;
+  /* Vista previa “ARQUEO DE CAJA” en el modal: texto blanco / gris claro (no heredar gris ilegible) */
+  .modal-sheet-body .cash-close-print {
+    color: #e2e8f0 !important;
   }
-  .modal-sheet-body .cash-close-light h2,
-  .modal-sheet-body .cash-close-light h3 {
-    color: #0f172a !important;
+  .modal-sheet-body .cash-close-print h2 {
+    color: #ffffff !important;
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
   }
-  .modal-sheet-body .cash-close-light label {
-    color: #475569 !important;
+  .modal-sheet-body .cash-close-print h3 {
+    color: #cbd5e1 !important;
+    font-size: 0.875rem;
+    font-weight: 500;
   }
-  .modal-sheet-body .cash-close-light .text-slate-900,
-  .modal-sheet-body .cash-close-light .text-slate-800,
-  .modal-sheet-body .cash-close-light .text-slate-700 {
-    color: #0f172a !important;
+  .modal-sheet-body .cash-close-print .row {
+    color: #e2e8f0 !important;
   }
-  .modal-sheet-body .cash-close-light .text-slate-600 {
-    color: #334155 !important;
+  .modal-sheet-body .cash-close-print .row span {
+    color: inherit !important;
   }
-  .modal-sheet-body .cash-close-light .text-slate-500,
-  .modal-sheet-body .cash-close-light .text-slate-400 {
-    color: #64748b !important;
+  .modal-sheet-body .cash-close-print .row.bold {
+    color: #f8fafc !important;
   }
-  .modal-sheet-body .cash-close-light .border-slate-200 {
-    border-color: #e2e8f0 !important;
+  .modal-sheet-body .cash-close-print .total-row {
+    color: #f8fafc !important;
+  }
+  .modal-sheet-body .cash-close-print .sep {
+    border-top: 1px dashed #64748b;
+    margin: 8px 0;
+  }
+  .modal-sheet-body .cash-close-print .diff-pos {
+    color: #86efac !important;
+  }
+  .modal-sheet-body .cash-close-print .diff-neg {
+    color: #fca5a5 !important;
   }
 }
 
