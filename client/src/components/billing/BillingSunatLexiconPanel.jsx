@@ -96,23 +96,30 @@ const GROUPS = [
 export default function BillingSunatLexiconPanel({ className = '' }) {
   return (
     <details className={`rounded-lg border border-slate-200 bg-white/80 ${className}`}>
-      <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800">
+      <summary className="cursor-pointer select-none px-5 py-4 text-sm font-semibold text-slate-800 leading-snug">
         Glosario: datos del comprobante y del bot (SUNAT)
       </summary>
-      <div className="px-4 pb-4 pt-0 max-h-[min(70vh,520px)] overflow-y-auto border-t border-slate-100">
-        <p className="text-xs text-slate-500 py-3">
+      <div className="px-5 pb-6 pt-1 max-h-[min(70vh,560px)] overflow-y-auto border-t border-slate-100">
+        <p className="text-xs text-slate-500 py-4 leading-relaxed max-w-prose">
           Lista de referencia. En el formulario superior se configuran emisor, series, contingencia y conexión al bot; el
           resto se completa al emitir desde caja o en el motor del bot.
         </p>
-        <div className="space-y-4 text-sm text-slate-700">
+        <div className="space-y-10 text-sm text-slate-700">
           {GROUPS.map((g) => (
-            <div key={g.title}>
-              <h4 className="font-semibold text-slate-800 text-xs uppercase tracking-wide">{g.title}</h4>
-              <ul className="mt-1.5 space-y-1 list-none pl-0">
+            <div key={g.title} className="scroll-mt-2">
+              <h4 className="font-semibold text-slate-800 text-xs uppercase tracking-wide mb-4 pb-2 border-b border-slate-200">
+                {g.title}
+              </h4>
+              <ul className="list-none pl-0 space-y-0">
                 {g.items.map(([name, desc]) => (
-                  <li key={name} className="pl-0 border-l-2 border-slate-200 pl-2">
-                    <span className="font-medium text-slate-900">{name}</span>
-                    <span className="text-slate-600"> ({desc})</span>
+                  <li
+                    key={name}
+                    className="border-l-2 border-slate-300 pl-4 pr-2 py-3.5 mb-3 last:mb-0 rounded-r-md bg-slate-50/60"
+                  >
+                    <div className="font-medium text-slate-900 leading-snug">{name}</div>
+                    <div className="text-slate-600 text-[13px] mt-2.5 ml-0.5 leading-relaxed">
+                      ({desc})
+                    </div>
                   </li>
                 ))}
               </ul>
