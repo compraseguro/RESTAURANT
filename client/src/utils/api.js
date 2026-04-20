@@ -89,6 +89,48 @@ export const parseApiDate = (value) => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
+/**
+ * Fecha/hora sin zona (típico SQLite) → hora local del navegador.
+ * Evita desfasar el día al forzar "Z" como parseApiDate en timestamps locales.
+ */
+export function parseLocalNaiveDateTime(value) {
+  if (value == null || value === '') return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  if (/Z$|[+-]\d{2}:?\d{2}$/.test(normalized)) {
+    const d = new Date(normalized);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(normalized);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Apertura de caja: prioriza naive local; si no, parseApiDate. */
+export function parseCashRegisterOpenedAt(value) {
+  const naive = parseLocalNaiveDateTime(value);
+  if (naive) return naive;
+  return parseApiDate(value);
+}
+
+function peDateTimePartsFromDate(d) {
+  return {
+    date: d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    time: d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true }),
+  };
+}
+
+/** Fecha (dd/mm/aaaa) y hora solo hh:mm (12h) para arqueo / impresión. */
+export function formatPeDateTimeParts(value) {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return { date: '—', time: '—' };
+    return peDateTimePartsFromDate(value);
+  }
+  const d = parseCashRegisterOpenedAt(value);
+  if (!d) return { date: '—', time: '—' };
+  return peDateTimePartsFromDate(d);
+}
+
 export const toLocalDateKey = (value) => {
   const d = parseApiDate(value);
   if (!d) return '';
@@ -170,38 +212,42 @@ export const getPaymentMethodOptions = (appConfig, { includeOnline = false } = {
       ? appConfig.settings.formas_pago
       : [];
 
-  const enabledFromForms = new Set(
-    formasPago
-      .filter((item) => Number(item?.active ?? 1) === 1)
-      .map((item) => mapMethodNameToId(item?.name))
-      .filter(Boolean)
-  );
+  const activeFormas = formasPago.filter((item) => Number(item?.active ?? 1) === 1);
 
-  const hasFormsConfig = enabledFromForms.size > 0;
+  /**
+   * Con formas activas en Ajustes → Formas de pago: orden y texto mostrado = configuración del sistema.
+   * Solo se incluyen métodos reconocidos (efectivo / tarjeta / yape / plin).
+   */
+  if (activeFormas.length > 0) {
+    const seen = new Set();
+    const options = [];
+    for (const item of activeFormas) {
+      const id = mapMethodNameToId(item?.name);
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const rawName = String(item?.name || '').trim();
+      const label = rawName || PAYMENT_METHODS[id] || id;
+      options.push({ value: id, label });
+    }
+    if (includeOnline) options.push({ value: 'online', label: PAYMENT_METHODS.online });
+    if (options.length === 0) {
+      return [
+        { value: 'efectivo', label: PAYMENT_METHODS.efectivo },
+        { value: 'tarjeta', label: PAYMENT_METHODS.tarjeta },
+      ];
+    }
+    return options;
+  }
+
+  /* Sin filas activas en formas_pago: mismos interruptores que Mi restaurante → pagos_sistema */
   const base = [
-    {
-      value: 'efectivo',
-      label: PAYMENT_METHODS.efectivo,
-      enabled: hasFormsConfig ? enabledFromForms.has('efectivo') : Number(pagos.acepta_efectivo ?? 1) === 1,
-    },
-    {
-      value: 'tarjeta',
-      label: PAYMENT_METHODS.tarjeta,
-      enabled: hasFormsConfig ? enabledFromForms.has('tarjeta') : Number(pagos.acepta_tarjeta ?? 1) === 1,
-    },
-    {
-      value: 'yape',
-      label: PAYMENT_METHODS.yape,
-      enabled: hasFormsConfig ? enabledFromForms.has('yape') : Number(pagos.acepta_yape ?? 0) === 1,
-    },
-    {
-      value: 'plin',
-      label: PAYMENT_METHODS.plin,
-      enabled: hasFormsConfig ? enabledFromForms.has('plin') : Number(pagos.acepta_plin ?? 0) === 1,
-    },
+    { value: 'efectivo', label: PAYMENT_METHODS.efectivo, enabled: Number(pagos.acepta_efectivo ?? 1) === 1 },
+    { value: 'tarjeta', label: PAYMENT_METHODS.tarjeta, enabled: Number(pagos.acepta_tarjeta ?? 1) === 1 },
+    { value: 'yape', label: PAYMENT_METHODS.yape, enabled: Number(pagos.acepta_yape ?? 0) === 1 },
+    { value: 'plin', label: PAYMENT_METHODS.plin, enabled: Number(pagos.acepta_plin ?? 0) === 1 },
   ];
 
-  const options = base.filter(opt => opt.enabled).map(({ value, label }) => ({ value, label }));
+  const options = base.filter((opt) => opt.enabled).map(({ value, label }) => ({ value, label }));
   if (includeOnline) options.push({ value: 'online', label: PAYMENT_METHODS.online });
   if (options.length === 0) {
     return [

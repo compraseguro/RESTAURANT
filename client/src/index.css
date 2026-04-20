@@ -93,10 +93,11 @@
     font-weight: 500;
   }
   .modal-sheet-body .cash-close-print .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
     color: #e2e8f0 !important;
-  }
-  .modal-sheet-body .cash-close-print .row span {
-    color: inherit !important;
   }
   .modal-sheet-body .cash-close-print .row.bold {
     color: #f8fafc !important;

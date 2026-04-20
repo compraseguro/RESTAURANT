@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
-import { api, formatCurrency, getPaymentMethodOptions } from '../../utils/api';
+import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts } from '../../utils/api';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -130,6 +130,8 @@ export default function POSPanel() {
   const [sendingCloseMail, setSendingCloseMail] = useState(false);
   const [activeCajaOption, setActiveCajaOption] = useState(searchParams.get('view') || 'cobrar');
   const [closingData, setClosingData] = useState(null);
+  /** Momento fijo al abrir el cierre (misma referencia que “Cierre” en el arqueo). */
+  const [closingAtPreview, setClosingAtPreview] = useState(null);
   const [closingAmount, setClosingAmount] = useState('');
   const [closingNotes, setClosingNotes] = useState('');
   const [denominations, setDenominations] = useState({
@@ -464,6 +466,7 @@ export default function POSPanel() {
   };
 
   const prepareClose = () => {
+    setClosingAtPreview(new Date());
     setClosingData(register);
     setClosingAmount('');
     setClosingNotes('');
@@ -512,6 +515,7 @@ export default function POSPanel() {
       });
       toast.success('Caja cerrada — Informe guardado');
       setShowCloseModal(false);
+      setClosingAtPreview(null);
       setRegister(null);
       if (String(user?.role || '').toLowerCase() === 'admin') {
         try {
@@ -569,6 +573,7 @@ export default function POSPanel() {
         }
       }
     }
+    const printedAt = formatPeDateTimeParts(new Date());
     const printWin = window.open('', '_blank', 'width=400,height=700');
     printWin.document.write(`
       <html><head><title>Arqueo de Caja</title>
@@ -577,7 +582,7 @@ export default function POSPanel() {
         h2 { text-align: center; margin: 5px 0; font-size: 16px; }
         h3 { text-align: center; margin: 3px 0; font-size: 12px; font-weight: normal; color: #666; }
         .sep { border-top: 1px dashed #333; margin: 8px 0; }
-        .row { display: flex; justify-content: space-between; padding: 2px 0; }
+        .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 2px 0; }
         .row.bold { font-weight: bold; }
         .center { text-align: center; }
         .total-row { font-size: 14px; font-weight: bold; border-top: 2px solid #333; padding-top: 5px; margin-top: 5px; }
@@ -586,7 +591,7 @@ export default function POSPanel() {
       </style></head><body>
       ${content.innerHTML}
       <div class="sep"></div>
-      <p class="center" style="font-size:10px;color:#999">Impreso: ${new Date().toLocaleString('es-PE')}</p>
+      <p class="center" style="font-size:10px;color:#999">Impreso: ${printedAt.date} · ${printedAt.time}</p>
       <script>window.print();window.onafterprint=()=>window.close();</script>
       </body></html>
     `);
@@ -1093,6 +1098,18 @@ export default function POSPanel() {
         return 'text-[#f9fafb]';
     }
   };
+
+  const arqueoOpeningParts = useMemo(
+    () => (closingData?.opened_at ? formatPeDateTimeParts(closingData.opened_at) : { date: '—', time: '—' }),
+    [closingData?.opened_at]
+  );
+  const { arqueoClosingParts, arqueoHeaderDayLabel } = useMemo(() => {
+    const inst = closingAtPreview || new Date();
+    return {
+      arqueoClosingParts: formatPeDateTimeParts(inst),
+      arqueoHeaderDayLabel: inst.toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    };
+  }, [closingAtPreview]);
 
   const selectedOrders = (selectedTable?.orders || []).filter(o => selectedOrderIds.includes(o.id));
   const selectedTotal = selectedOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
@@ -2362,15 +2379,27 @@ export default function POSPanel() {
       </Modal>
 
       {/* Modal Cerrar Caja / Arqueo */}
-      <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="Arqueo y Cierre de Caja" size="wide">
+      <Modal isOpen={showCloseModal} onClose={() => { setShowCloseModal(false); setClosingAtPreview(null); }} title="Arqueo y Cierre de Caja" size="wide">
         {closingData && (
           <div className="text-[#e2e8f0]">
             <div ref={printRef} className="cash-close-print space-y-0.5">
               <h2>ARQUEO DE CAJA</h2>
-              <h3>{user?.full_name} — {new Date().toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
+              <h3>{user?.full_name} — {arqueoHeaderDayLabel}</h3>
               <div className="sep"></div>
-              <div className="row"><span>Apertura:</span><span>{new Date(closingData.opened_at).toLocaleString('es-PE')}</span></div>
-              <div className="row"><span>Cierre:</span><span>{new Date().toLocaleString('es-PE')}</span></div>
+              <div className="row">
+                <span>Apertura: </span>
+                <span className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-0.5 text-right">
+                  <span className="text-[#f8fafc]">{arqueoOpeningParts.date}</span>
+                  <span className="tabular-nums text-[#cbd5e1]">{arqueoOpeningParts.time}</span>
+                </span>
+              </div>
+              <div className="row">
+                <span>Cierre: </span>
+                <span className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-0.5 text-right">
+                  <span className="text-[#f8fafc]">{arqueoClosingParts.date}</span>
+                  <span className="tabular-nums text-[#cbd5e1]">{arqueoClosingParts.time}</span>
+                </span>
+              </div>
               <div className="sep"></div>
               <div className="row bold"><span>MONTO APERTURA</span><span>{formatCurrency(openingAmt)}</span></div>
               <div className="sep"></div>
