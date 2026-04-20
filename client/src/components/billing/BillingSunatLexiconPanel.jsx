@@ -1,22 +1,22 @@
 /**
- * Referencia de campos del comprobante electrónico y del bot SUNAT (texto orientativo).
+ * Lista completa de referencia SUNAT / comprobante / bot (47 ítems según definición del negocio).
  * Los que no tienen campo en el panel se generan en caja o en el servidor/bot al emitir.
  */
 const GROUPS = [
   {
-    title: 'Emisor (contribuyente)',
+    title: 'Emisor y establecimiento',
     items: [
       ['RUC', 'identifica al contribuyente ante la SUNAT'],
       ['Razón social', 'nombre legal para el comprobante'],
       ['Nombre comercial', 'nombre visible opcional'],
       ['Dirección fiscal', 'ubicación legal del negocio'],
       ['Ubigeo', 'código geográfico exigido por SUNAT'],
-      ['Departamento / provincia / distrito', 'detalle de ubicación'],
-      ['Código de establecimiento', 'identifica el local emisor (suele configurarse en el entorno del bot o en resoluciones SUNAT)'],
+      ['Departamento/provincia/distrito', 'detalle de ubicación'],
+      ['Código de establecimiento', 'identifica el local emisor'],
     ],
   },
   {
-    title: 'Credenciales y certificado (típicamente en el .env del bot Python)',
+    title: 'Credenciales y certificado (típicamente en el .env del bot)',
     items: [
       ['Usuario SOL', 'permite autenticarse en SUNAT'],
       ['Clave SOL', 'permite enviar comprobantes y validar acceso'],
@@ -25,13 +25,13 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Comprobante y numeración',
+    title: 'Comprobante, numeración e impuestos generales',
     items: [
       ['Tipo de comprobante', 'define si es factura o boleta'],
       ['Serie del comprobante', 'identifica el tipo de documento emitido como F001 o B001'],
       ['Correlativo', 'número secuencial del comprobante'],
       ['Moneda', 'define la divisa usada como PEN'],
-      ['IGV porcentaje', 'define el impuesto aplicado; normalmente 18% (también en «Mi empresa» / tasa del restaurante)'],
+      ['IGV porcentaje', 'define el impuesto aplicado normalmente 18%'],
       ['Tipo de operación', 'define si la venta es gravada, exonerada u otra'],
       ['Fecha de emisión', 'indica cuándo se genera el comprobante'],
       ['Hora de emisión', 'precisa el momento exacto de emisión'],
@@ -39,7 +39,7 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Cliente (en caja / facturación al cobrar)',
+    title: 'Cliente',
     items: [
       ['Tipo de documento del cliente', 'define si es DNI o RUC'],
       ['Número de documento del cliente', 'identifica al comprador'],
@@ -48,7 +48,7 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Detalle por ítem y totales (por cada venta)',
+    title: 'Detalle por ítem y totales',
     items: [
       ['Descripción del producto o servicio', 'detalle de lo vendido'],
       ['Cantidad', 'número de unidades vendidas'],
@@ -61,14 +61,11 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Envío electrónico y conexión al bot',
+    title: 'Envío electrónico',
     items: [
       ['Tipo de envío', 'define si se envía directo o mediante OSE hacia la SUNAT'],
-      ['URL del servicio', 'dirección del endpoint para envío electrónico (en este sistema: API HTTP del bot)'],
-      ['Modo de operación', 'define si es pruebas o producción (en el bot: ambiente SUNAT beta / producción)'],
-      ['Reintentos automáticos', 'permite reenviar si falla el envío'],
-      ['Validación de datos', 'evita errores antes de enviar'],
-      ['Control de duplicados', 'evita emitir comprobantes repetidos'],
+      ['URL del servicio', 'dirección del endpoint para envío electrónico'],
+      ['Modo de operación', 'define si es pruebas o producción'],
     ],
   },
   {
@@ -79,6 +76,14 @@ const GROUPS = [
       ['CDR', 'respuesta de aceptación o rechazo de SUNAT'],
       ['PDF representativo', 'documento visual para el cliente'],
       ['Logs del sistema', 'registro de errores y operaciones'],
+    ],
+  },
+  {
+    title: 'Operación del sistema',
+    items: [
+      ['Reintentos automáticos', 'permite reenviar si falla el envío'],
+      ['Validación de datos', 'evita errores antes de enviar'],
+      ['Control de duplicados', 'evita emitir comprobantes repetidos'],
       ['Almacenamiento de archivos', 'guarda XML, CDR y PDF'],
     ],
   },
@@ -88,21 +93,22 @@ const GROUPS = [
       ['Encriptación de certificado', 'protege la firma digital'],
       ['Encriptación de credenciales', 'protege accesos del cliente'],
       ['Identificación de cliente interno', 'permite manejar múltiples empresas dentro del sistema'],
-      ['Secreto HTTP (X-EFACT-SECRET)', 'autentica las peticiones del servidor Node al bot'],
     ],
   },
 ];
+
+const ITEM_COUNT = GROUPS.reduce((n, g) => n + g.items.length, 0);
 
 export default function BillingSunatLexiconPanel({ className = '' }) {
   return (
     <details className={`rounded-lg border border-slate-200 bg-white/80 ${className}`}>
       <summary className="cursor-pointer select-none px-5 py-4 text-sm font-semibold text-slate-800 leading-snug">
-        Glosario: datos del comprobante y del bot (SUNAT)
+        Glosario: datos del comprobante y del bot (SUNAT) — {ITEM_COUNT} datos
       </summary>
       <div className="px-5 pb-6 pt-1 max-h-[min(70vh,560px)] overflow-y-auto border-t border-slate-100">
         <p className="text-xs text-slate-500 py-4 leading-relaxed max-w-prose">
-          Lista de referencia. En el formulario superior se configuran emisor, series, contingencia y conexión al bot; el
-          resto se completa al emitir desde caja o en el motor del bot.
+          Lista de referencia con la función de cada dato entre paréntesis. En el formulario superior se configuran emisor,
+          series, contingencia y conexión al bot; el resto se completa al emitir desde caja o en el motor del bot.
         </p>
         <div className="space-y-10 text-sm text-slate-700">
           {GROUPS.map((g) => (
@@ -126,6 +132,11 @@ export default function BillingSunatLexiconPanel({ className = '' }) {
             </div>
           ))}
         </div>
+        <p className="text-[11px] text-slate-400 mt-6 pt-4 border-t border-slate-100 leading-relaxed">
+          Nota técnica de esta aplicación (no forma parte de la lista SUNAT anterior): el secreto HTTP{' '}
+          <code className="text-[10px] bg-slate-100 px-1 rounded">X-EFACT-SECRET</code> autentica las peticiones del servidor
+          Node al bot Python.
+        </p>
       </div>
     </details>
   );

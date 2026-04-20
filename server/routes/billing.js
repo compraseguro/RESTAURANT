@@ -465,20 +465,28 @@ router.put('/config', authenticateToken, requireRole('admin', 'master_admin'), (
     const current = queryOne('SELECT * FROM restaurants LIMIT 1');
     if (!current) return res.status(404).json({ error: 'Restaurante no encontrado' });
 
+    const body = req.body || {};
     const {
-      billing_api_url,
-      billing_api_token,
       billing_offline_mode,
       billing_auto_retry_enabled,
       billing_auto_retry_interval_sec,
-    } = req.body || {};
+    } = body;
+    const urlInBody = Object.prototype.hasOwnProperty.call(body, 'billing_api_url');
+    const tokenInBody = Object.prototype.hasOwnProperty.call(body, 'billing_api_token');
+    const billing_api_url = body.billing_api_url;
+    const billing_api_token = body.billing_api_token;
 
     const urlLocked = billingEfactUrlFromEnv();
     const secretLocked = billingEfactSecretFromEnv();
 
-    let nextUrl = urlLocked
-      ? effectiveEfactApiUrl(current)
-      : String(billing_api_url || '').trim();
+    let nextUrl;
+    if (urlLocked) {
+      nextUrl = effectiveEfactApiUrl(current);
+    } else if (urlInBody) {
+      nextUrl = String(billing_api_url || '').trim();
+    } else {
+      nextUrl = String(current.billing_api_url || '').trim();
+    }
     if (!urlLocked && nextUrl && !isAcceptableEfactApiUrlForStorage(nextUrl)) {
       return res.status(400).json({
         error:
@@ -489,10 +497,11 @@ router.put('/config', authenticateToken, requireRole('admin', 'master_admin'), (
     let nextToken;
     if (secretLocked) {
       nextToken = String(current.billing_api_token || '').trim();
+    } else if (tokenInBody) {
+      const incoming = String(billing_api_token || '').trim();
+      nextToken = incoming || String(current.billing_api_token || '').trim();
     } else {
-      nextToken = String(billing_api_token || '').trim()
-        ? String(billing_api_token || '').trim()
-        : String(current.billing_api_token || '').trim();
+      nextToken = String(current.billing_api_token || '').trim();
     }
 
     runSql(

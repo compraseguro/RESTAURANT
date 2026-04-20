@@ -222,8 +222,6 @@ export default function MiRestaurant() {
         const savedRestaurant = await api.put('/restaurant', restaurant);
         setRestaurant(savedRestaurant);
         const saved = await api.put('/billing/config', {
-          billing_api_url: billingConfig.billing_api_url,
-          billing_api_token: billingConfig.billing_api_token,
           billing_offline_mode: billingConfig.billing_offline_mode,
           billing_auto_retry_enabled: billingConfig.billing_auto_retry_enabled,
           billing_auto_retry_interval_sec: billingConfig.billing_auto_retry_interval_sec,
@@ -679,51 +677,27 @@ export default function MiRestaurant() {
                 </div>
               </div>
 
-              {(billingConfig.billing_api_url_from_env || billingConfig.billing_api_secret_from_env) ? (
-                <div className="rounded-lg border border-blue-200 bg-blue-50/90 p-3 text-sm text-slate-700">
-                  <strong>Conexión fijada en el servidor:</strong> la URL y/o el secreto las define el API Node con{' '}
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 space-y-2">
+                <p>
+                  <strong>Conexión al bot (Node → Python):</strong> la URL del API y el secreto{' '}
+                  <code className="text-xs bg-white px-1 rounded border">X-EFACT-SECRET</code> no se configuran en este
+                  panel. Defínalos en el entorno del servidor API con{' '}
                   <code className="text-xs bg-white px-1 rounded border">EFACT_API_URL</code> y{' '}
-                  <code className="text-xs bg-white px-1 rounded border">EFACT_HTTP_SECRET</code>
-                  {' '}en el <code className="text-xs bg-white px-1 rounded border">.env</code> (p. ej. Docker Compose). Coinciden con el bot en el mismo despliegue; los campos de abajo son solo lectura.
-                </div>
-              ) : null}
+                  <code className="text-xs bg-white px-1 rounded border">EFACT_HTTP_SECRET</code> (archivo{' '}
+                  <code className="text-xs bg-white px-1 rounded border">.env</code> o Docker Compose). Deben coincidir
+                  con el <code className="text-xs bg-white px-1 rounded border">.env</code> del bot Python.
+                </p>
+                <p className="text-xs text-slate-600">
+                  Estado (sin mostrar valores):{' '}
+                  {billingConfig.billing_api_url_from_env || billingConfig.billing_api_secret_from_env
+                    ? 'prioridad por variables de entorno en el API Node.'
+                    : billingConfig.has_billing_api_token || (billingConfig.billing_api_url && String(billingConfig.billing_api_url).trim())
+                      ? 'valores ya almacenados en el servidor; al guardar esta pantalla no se modifican.'
+                      : 'defina EFACT_API_URL y EFACT_HTTP_SECRET en el servidor para habilitar el envío al bot.'}
+                </p>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">URL del API del bot (Node → Python)</label>
-                  <input
-                    className={`input-field ${billingConfig.billing_api_url_from_env ? 'bg-slate-100 cursor-not-allowed' : ''}`}
-                    value={billingConfig.billing_api_url}
-                    onChange={e => updateBilling('billing_api_url', e.target.value)}
-                    placeholder="http://127.0.0.1:8765"
-                    disabled={billingConfig.billing_api_url_from_env}
-                    autoComplete="off"
-                    name="billing-efact-api-base-url"
-                    inputMode="url"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Secreto HTTP (X-EFACT-SECRET){' '}
-                    {billingConfig.has_billing_api_token ? '(activo)' : ''}
-                  </label>
-                  <input
-                    className={`input-field ${billingConfig.billing_api_secret_from_env ? 'bg-slate-100 cursor-not-allowed' : ''}`}
-                    value={billingConfig.billing_api_token}
-                    onChange={e => updateBilling('billing_api_token', e.target.value)}
-                    placeholder={
-                      billingConfig.billing_api_secret_from_env
-                        ? 'Definido por EFACT_HTTP_SECRET en el servidor'
-                        : billingConfig.has_billing_api_token
-                          ? 'Vacío = mantener; debe coincidir con EFACT_HTTP_SECRET en el .env del bot'
-                          : 'Opcional: mismo valor que EFACT_HTTP_SECRET en el .env del bot'
-                    }
-                    type="password"
-                    disabled={billingConfig.billing_api_secret_from_env}
-                    autoComplete="new-password"
-                    name="billing-efact-http-secret"
-                  />
-                </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Modo offline</label>
                   <select
