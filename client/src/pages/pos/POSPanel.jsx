@@ -2331,9 +2331,9 @@ export default function POSPanel() {
       </Modal>
 
       {/* Modal Cerrar Caja / Arqueo */}
-      <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="Arqueo y Cierre de Caja" size="lg">
+      <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="Arqueo y Cierre de Caja" size="wide">
         {closingData && (
-          <div>
+          <div className="cash-close-light">
             <div ref={printRef}>
               <h2>ARQUEO DE CAJA</h2>
               <h3>{user?.full_name} — {new Date().toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
@@ -2398,8 +2398,8 @@ export default function POSPanel() {
               <div className="bg-gold-50 rounded-xl p-4 border border-gold-200">
                 <h3 className="font-semibold text-slate-700 mb-3">Conteo de Efectivo</h3>
                 <div className="mb-3">
-                  <p className="text-xs font-medium text-slate-600 mb-2">Arqueo por denominación</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <p className="text-xs font-semibold text-slate-700 mb-2">Arqueo por denominación</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {denomDefs.map(d => (
                       <div key={d.key} className="bg-white rounded-lg border p-2">
                         <label className="block text-xs text-slate-500 mb-1">{d.label}</label>
@@ -2455,7 +2455,7 @@ export default function POSPanel() {
                     difference > 0 ? 'bg-sky-100 border border-sky-300' :
                     'bg-red-100 border border-red-300'
                   }`}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-[#0f172a]">
                       {difference === 0 ? <MdCheckCircle className="text-emerald-600 text-xl" /> :
                        difference > 0 ? <MdTrendingUp className="text-sky-600 text-xl" /> :
                        <MdTrendingDown className="text-red-600 text-xl" />}
