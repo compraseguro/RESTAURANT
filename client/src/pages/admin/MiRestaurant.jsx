@@ -6,6 +6,7 @@ import { api, resolveMediaUrl } from '../../utils/api';
 import { proximaFechaFromControlAnchor } from '../../utils/nextBillingFromAnchor';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
+import BillingSunatLexiconPanel from '../../components/billing/BillingSunatLexiconPanel';
 import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt } from 'react-icons/md';
 
 const DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
@@ -28,8 +29,10 @@ export default function MiRestaurant() {
     : MI_RESTAURANT_VIEWS.filter((v) => v.id !== 'facturacion_electronica');
   const isRestaurantAdmin = user?.role === 'admin';
   const canEditContrato = isMasterAdmin;
-  /** Bot SUNAT + series contingencia + URL bot: solo maestro. */
+  /** Bot SUNAT + series contingencia + URL bot: maestro, o admin si el maestro lo habilitó en el control. */
   const canEditBillingMaster = isMasterAdmin;
+  const [allowRestaurantAdminBillingBot, setAllowRestaurantAdminBillingBot] = useState(false);
+  const canEditBillingBot = isMasterAdmin || (isRestaurantAdmin && allowRestaurantAdminBillingBot);
   /** Comprobante de pago por uso: maestro o admin del restaurante. */
   const canEditPagoUsoComprobante = isMasterAdmin || isRestaurantAdmin;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -116,6 +119,7 @@ export default function MiRestaurant() {
         setRestaurant(data);
 
         if (billingData) {
+          setAllowRestaurantAdminBillingBot(Boolean(billingData.allow_restaurant_admin_billing_bot));
           setBillingConfig(prev => ({
             ...prev,
             billing_api_url: billingData.billing_api_url || '',
@@ -127,6 +131,8 @@ export default function MiRestaurant() {
             billing_auto_retry_interval_sec: Number(billingData.billing_auto_retry_interval_sec || 120),
             billing_api_token: '',
           }));
+        } else {
+          setAllowRestaurantAdminBillingBot(false);
         }
         if (schedule?.billing_date) {
           setBillingAnchorDate(String(schedule.billing_date).trim());
@@ -207,8 +213,10 @@ export default function MiRestaurant() {
         return;
       }
       if (activeView === 'facturacion_electronica') {
-        if (!canEditBillingMaster) {
-          toast.error('Solo el administrador maestro puede guardar la facturación electrónica, contingencia y conexión al bot.');
+        if (!canEditBillingBot) {
+          toast.error(
+            'No tiene permiso para guardar el bot de facturación. El administrador maestro debe activar la edición para administradores del restaurante, o guardar él mismo esta sección.'
+          );
           return;
         }
         const savedRestaurant = await api.put('/restaurant', restaurant);
@@ -562,18 +570,31 @@ export default function MiRestaurant() {
                 <div>
                   <h3 className="font-bold text-slate-800 text-lg">Facturación SUNAT (emisor + bot)</h3>
                   <p className="text-sm text-slate-500 mt-0.5">
-                    Único lugar para emisor SUNAT, series normales y de contingencia, y conexión al bot. Pulse <strong>Guardar cambios</strong> una vez. En caja, solo datos del comprador.
+                    Emisor SUNAT, series normales y de contingencia, y conexión al bot. Pulse <strong>Guardar cambios</strong> una vez. En caja, solo datos del comprador. Use el glosario inferior para ver qué significa cada dato.
                   </p>
                 </div>
               </div>
 
-              {!canEditBillingMaster ? (
+              {!canEditBillingBot ? (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                  Solo el <strong>administrador maestro</strong> puede modificar esta sección. Los datos se muestran en solo lectura.
+                  {isRestaurantAdmin ? (
+                    <>
+                      El <strong>administrador maestro</strong> aún no ha permitido que el admin del restaurante edite esta sección; los datos se muestran en solo lectura. Puede pedirle que active la opción en{' '}
+                      <strong>Administrador maestro → Bot facturación SUNAT</strong>.
+                    </>
+                  ) : (
+                    <>
+                      Solo el <strong>administrador maestro</strong> o un <strong>admin del restaurante</strong> (si el maestro lo autorizó) pueden modificar esta sección.
+                    </>
+                  )}
+                </div>
+              ) : isRestaurantAdmin && !isMasterAdmin ? (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/90 p-3 text-sm text-emerald-900">
+                  El maestro le ha permitido editar el <strong>bot de facturación</strong>. Los cambios quedan registrados con su usuario.
                 </div>
               ) : null}
 
-              <fieldset disabled={!canEditBillingMaster} className="border-0 p-0 m-0 min-w-0 space-y-5">
+              <fieldset disabled={!canEditBillingBot} className="border-0 p-0 m-0 min-w-0 space-y-5">
               <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
                 <h4 className="font-semibold text-slate-800 text-sm">Empresa y ubicación SUNAT (emisor)</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -738,6 +759,8 @@ export default function MiRestaurant() {
                 </div>
               </div>
               </fieldset>
+
+              <BillingSunatLexiconPanel className="mt-2" />
 
               <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-900">
                 En local: ejecute <code className="text-xs bg-amber-100 px-1 rounded">python api_server.py</code> en{' '}

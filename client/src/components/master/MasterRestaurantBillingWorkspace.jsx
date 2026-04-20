@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { api, resolveMediaUrl } from '../../utils/api';
 import { proximaFechaFromControlAnchor } from '../../utils/nextBillingFromAnchor';
 import { normalizeContratoFromApi } from '../RestaurantServiceContractForm';
+import BillingSunatLexiconPanel from '../billing/BillingSunatLexiconPanel';
 import { MdReceipt, MdPayment, MdSave, MdUpload } from 'react-icons/md';
 
 const DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
@@ -44,6 +45,8 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
   const [saving, setSaving] = useState(false);
   const [billingAnchorDate, setBillingAnchorDate] = useState('');
   const [pagoUsoComprobanteUi, setPagoUsoComprobanteUi] = useState(null);
+  const [allowRestaurantAdminBillingBot, setAllowRestaurantAdminBillingBot] = useState(false);
+  const [permSaving, setPermSaving] = useState(false);
   const comprobanteUsoInputRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -63,6 +66,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
       setRestaurant(data);
 
       if (billingData) {
+        setAllowRestaurantAdminBillingBot(Boolean(billingData.allow_restaurant_admin_billing_bot));
         setBillingConfig({
           billing_api_url: billingData.billing_api_url || '',
           has_billing_api_token: Boolean(billingData.has_billing_api_token),
@@ -74,6 +78,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
           billing_api_token: '',
         });
       } else {
+        setAllowRestaurantAdminBillingBot(false);
         setBillingConfig(defaultBillingConfig());
       }
 
@@ -125,6 +130,25 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
     ...prev,
     [section]: { ...(prev[section] || {}), [field]: value },
   }));
+
+  const saveAllowRestaurantAdminBilling = async (checked) => {
+    setPermSaving(true);
+    try {
+      const next = await api.put('/master-admin/control', {
+        allow_restaurant_admin_billing_bot: checked ? 1 : 0,
+      });
+      setAllowRestaurantAdminBillingBot(Number(next.allow_restaurant_admin_billing_bot) === 1);
+      toast.success(
+        checked
+          ? 'Los administradores del restaurante pueden editar «Bot facturación SUNAT» en Mi Restaurante.'
+          : 'Solo el maestro puede editar el bot de facturación desde ahora.'
+      );
+    } catch (err) {
+      toast.error(err.message || 'No se pudo actualizar el permiso');
+    } finally {
+      setPermSaving(false);
+    }
+  };
 
   const uploadComprobantePagoUso = async (file) => {
     if (!file) return;
@@ -222,7 +246,8 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-500 px-1">
-        Misma configuración que en <strong className="text-slate-700">Mi Restaurante</strong>. Los administradores del restaurante pueden verla; solo el maestro la modifica desde aquí o desde allí.
+        Misma configuración que en <strong className="text-slate-700">Mi Restaurante → Bot facturación SUNAT</strong>. Los
+        administradores del restaurante pueden verla; si activa la casilla de abajo, también podrán editarla desde su panel.
       </p>
 
       {isSunat ? (
@@ -236,6 +261,27 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
               </p>
             </div>
           </div>
+
+          <div className="rounded-lg border border-violet-200 bg-violet-50/90 p-4 space-y-2">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="mt-1 rounded border-violet-300 text-violet-700 focus:ring-violet-500"
+                checked={allowRestaurantAdminBillingBot}
+                disabled={permSaving}
+                onChange={(e) => void saveAllowRestaurantAdminBilling(e.target.checked)}
+              />
+              <span>
+                <span className="font-semibold text-slate-800">Permitir que el administrador del restaurante edite el bot SUNAT</span>
+                <span className="block text-xs text-slate-600 mt-1">
+                  Si está activo, el usuario admin puede cambiar en Mi Restaurante la misma sección (emisor, series, contingencia,
+                  URL del bot, reintentos). Si está desactivado, solo usted (maestro) puede guardar esos datos.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <BillingSunatLexiconPanel />
 
           <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
             <h4 className="font-semibold text-slate-800 text-sm">Empresa y ubicación SUNAT (emisor)</h4>

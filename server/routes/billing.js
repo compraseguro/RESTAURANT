@@ -10,6 +10,7 @@ const {
   billingEfactSecretFromEnv,
   isAcceptableEfactApiUrlForStorage,
 } = require('../efactConnection');
+const { getControlConfig } = require('../masterAdminService');
 
 const router = express.Router();
 
@@ -444,11 +445,23 @@ router.get('/config', authenticateToken, requireRole('admin', 'master_admin'), (
     billing_emisor_provincia: restaurant.billing_emisor_provincia || '',
     billing_emisor_departamento: restaurant.billing_emisor_departamento || '',
     billing_emisor_distrito: restaurant.billing_emisor_distrito || '',
+    allow_restaurant_admin_billing_bot:
+      Number(getControlConfig().allow_restaurant_admin_billing_bot ?? 0) === 1,
   });
 });
 
-router.put('/config', authenticateToken, requireRole('master_admin'), (req, res) => {
+router.put('/config', authenticateToken, requireRole('admin', 'master_admin'), (req, res) => {
   try {
+    const isMaster = req.user?.role === 'master_admin';
+    if (
+      !isMaster
+      && Number(getControlConfig().allow_restaurant_admin_billing_bot ?? 0) !== 1
+    ) {
+      return res.status(403).json({
+        error:
+          'Solo el administrador maestro puede guardar el bot de facturación. Pídale al maestro que active «Permitir que el admin del restaurante edite el bot SUNAT» en Administrador maestro.',
+      });
+    }
     const current = queryOne('SELECT * FROM restaurants LIMIT 1');
     if (!current) return res.status(404).json({ error: 'Restaurante no encontrado' });
 
@@ -527,6 +540,8 @@ router.put('/config', authenticateToken, requireRole('master_admin'), (req, res)
       billing_emisor_provincia: updated.billing_emisor_provincia || '',
       billing_emisor_departamento: updated.billing_emisor_departamento || '',
       billing_emisor_distrito: updated.billing_emisor_distrito || '',
+      allow_restaurant_admin_billing_bot:
+        Number(getControlConfig().allow_restaurant_admin_billing_bot ?? 0) === 1,
     });
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo guardar la configuración de facturación' });

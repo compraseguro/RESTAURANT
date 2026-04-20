@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { queryOne, runSql, createBackupFile, restoreDbFromBuffer, resetOperationalData } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { getControlConfig } = require('../masterAdminService');
 
 const router = express.Router();
 
@@ -22,6 +23,8 @@ router.get('/', (req, res) => {
 
 router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, res) => {
   const isMaster = req.user?.role === 'master_admin';
+  const adminMayEditBillingBot =
+    isMaster || Number(getControlConfig().allow_restaurant_admin_billing_bot ?? 0) === 1;
   const b = req.body || {};
   let {
     name, address, phone, email, logo, tax_rate, currency, currency_symbol,
@@ -31,8 +34,8 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
     billing_emisor_distrito, billing_series_boleta, billing_series_factura,
   } = b;
 
-  /** SUNAT / series: solo administrador maestro (el admin del restaurante no las cambia aquí). */
-  if (!isMaster) {
+  /** SUNAT / series: maestro siempre; admin del restaurante solo si el maestro lo habilitó en el control. */
+  if (!adminMayEditBillingBot) {
     company_ruc = null;
     legal_name = null;
     billing_nombre_comercial = null;

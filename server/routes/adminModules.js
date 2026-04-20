@@ -189,10 +189,15 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
     return res.status(403).json({ error: 'Solo el administrador maestro puede modificar el contrato del servicio.' });
   }
 
+  const billingBotUnlocked =
+    isMaster || Number(getControlConfig().allow_restaurant_admin_billing_bot ?? 0) === 1;
   if (!isMaster) {
     const keys = Object.keys(payload).filter((k) => payload[k] !== undefined);
-    if (keys.includes('series_contingencia')) {
-      return res.status(403).json({ error: 'Solo el administrador maestro puede modificar la configuración de series de contingencia.' });
+    if (keys.includes('series_contingencia') && !billingBotUnlocked) {
+      return res.status(403).json({
+        error:
+          'Solo el administrador maestro puede modificar las series de contingencia, salvo que active la edición del bot SUNAT para administradores del restaurante.',
+      });
     }
     /** Admin del restaurante: solo puede actualizar la URL del comprobante de pago por uso; el resto lo conserva la BD. */
     if (payload.pago_uso_sistema !== undefined) {

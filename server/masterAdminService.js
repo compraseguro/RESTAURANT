@@ -44,6 +44,8 @@ const DEFAULT_CONTROL = {
   pago_uso_comprobante_lock_auto: 0,
   /** basico | intermedio | profesional — limita módulos para admin y personal */
   service_plan: 'profesional',
+  /** 1 = el admin del restaurante puede editar «Bot facturación SUNAT» (emisor, series, bot); el maestro siempre puede. */
+  allow_restaurant_admin_billing_bot: 0,
 };
 
 function parseJsonSafe(value, fallback) {
@@ -510,6 +512,9 @@ function setControlConfig(patch = {}, actorName = '') {
     else if (['profesional', 'professional', 'pro'].includes(raw)) norm = 'profesional';
     else throw new Error('Plan inválido: use basico, intermedio o profesional');
     next.service_plan = norm;
+  }
+  if (patch.allow_restaurant_admin_billing_bot !== undefined) {
+    next.allow_restaurant_admin_billing_bot = Number(patch.allow_restaurant_admin_billing_bot) === 1 ? 1 : 0;
   }
   if (patch.global_lock_enabled !== undefined) {
     const enabled = Number(patch.global_lock_enabled || 0) === 1 ? 1 : 0;
