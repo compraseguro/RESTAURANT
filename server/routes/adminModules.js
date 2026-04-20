@@ -11,6 +11,7 @@ const {
 } = require('../masterAdminService');
 const { getOrderWithItems } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
+const { consultarPadronPeru } = require('../peruConsultaPadron');
 
 router.use(authenticateToken, requireRole('admin', 'cajero', 'mozo'));
 
@@ -386,6 +387,19 @@ router.get('/customers/by-document', requireRole('admin', 'cajero', 'mozo'), (re
     [docNumber]
   );
   res.json(customer || null);
+});
+
+/** Consulta nombre/dirección por DNI o RUC (padrón vía API; token PERU_CONSULTAS_TOKEN en servidor). */
+router.get('/consulta-padron', async (req, res) => {
+  try {
+    const docType = normalizeDocType(req.query?.doc_type);
+    const numero = normalizeDocNumber(req.query?.numero);
+    const out = await consultarPadronPeru(docType, numero);
+    res.json(out);
+  } catch (err) {
+    const code = err.code === 'NO_TOKEN' ? 503 : 400;
+    res.status(code).json({ error: err.message || 'Consulta no disponible' });
+  }
 });
 
 router.post('/customers', requireRole('admin', 'cajero'), (req, res) => {

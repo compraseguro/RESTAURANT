@@ -17,7 +17,7 @@ import {
   MdCheckCircle, MdAttachMoney, MdPeople, MdClose,
   MdAccountBalanceWallet, MdTrendingUp, MdTrendingDown,
   MdRestaurantMenu,
-  MdAccessTime, MdPersonAdd, MdEmail,
+  MdAccessTime, MdPersonAdd, MdEmail, MdSearch,
 } from 'react-icons/md';
 
 /** Mesa sintética al cobrar cuenta desde Clientes (no existe fila en `tables`). */
@@ -125,6 +125,7 @@ export default function POSPanel() {
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [matchedCustomer, setMatchedCustomer] = useState(null);
   const [searchingCustomer, setSearchingCustomer] = useState(false);
+  const [consultaPadronLoading, setConsultaPadronLoading] = useState(false);
   const [openingAmount, setOpeningAmount] = useState('');
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [sendingCloseMail, setSendingCloseMail] = useState(false);
@@ -608,6 +609,45 @@ export default function POSPanel() {
   const normalizeDocNumber = (value) => String(value || '').replace(/\D/g, '');
 
   const getActiveDocType = () => (billingForm.doc_type === 'factura' ? '6' : billingForm.customer_doc_type);
+
+  const handleConsultaPadron = useCallback(async () => {
+    const docType = billingForm.doc_type === 'factura' ? '6' : billingForm.customer_doc_type;
+    if (docType !== '1' && docType !== '6') {
+      toast.error('Seleccione DNI o RUC');
+      return;
+    }
+    const num = normalizeDocNumber(billingForm.customer_doc_number);
+    const okLen = docType === '6' ? num.length === 11 : num.length === 8;
+    if (!okLen) {
+      toast.error(docType === '6' ? 'Ingrese RUC de 11 dígitos' : 'Ingrese DNI de 8 dígitos');
+      return;
+    }
+    try {
+      setConsultaPadronLoading(true);
+      const data = await api.get(
+        `/admin-modules/consulta-padron?doc_type=${encodeURIComponent(docType)}&numero=${encodeURIComponent(num)}`
+      );
+      const nombre = String(data?.nombre || '').trim();
+      if (!nombre) {
+        toast.error('No se recibió el nombre del padrón');
+        return;
+      }
+      setBillingForm((prev) => ({
+        ...prev,
+        customer_name: nombre,
+        customer_address:
+          data?.direccion != null && String(data.direccion).trim()
+            ? String(data.direccion).trim()
+            : prev.customer_address,
+      }));
+      setMatchedCustomer(null);
+      toast.success(docType === '6' ? 'Razón social obtenida del padrón' : 'Nombre obtenido del padrón');
+    } catch (err) {
+      toast.error(err?.message || 'No se pudo consultar el padrón');
+    } finally {
+      setConsultaPadronLoading(false);
+    }
+  }, [billingForm.customer_doc_number, billingForm.doc_type, billingForm.customer_doc_type]);
 
   const applyCustomerToBilling = (customer) => {
     if (!customer) return;
@@ -1805,14 +1845,28 @@ export default function POSPanel() {
                           </label>
                         </div>
                       </div>
-                      <input
-                        className="input-field"
-                        placeholder="N° documento"
-                        value={billingForm.customer_doc_number}
-                        onChange={(e) =>
-                          setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
-                        }
-                      />
+                      <div className="flex gap-2 items-stretch">
+                        <input
+                          className="input-field flex-1 min-w-0"
+                          placeholder="N° documento"
+                          value={billingForm.customer_doc_number}
+                          onChange={(e) =>
+                            setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
+                          }
+                        />
+                        {(billingForm.customer_doc_type === '1' || billingForm.customer_doc_type === '6') && (
+                          <button
+                            type="button"
+                            title="Consultar nombre o razón social en padrón (requiere PERU_CONSULTAS_TOKEN en el servidor)"
+                            onClick={() => void handleConsultaPadron()}
+                            disabled={consultaPadronLoading}
+                            className="shrink-0 px-2.5 py-2 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center justify-center gap-1 disabled:opacity-50"
+                          >
+                            <MdSearch className="text-lg shrink-0" />
+                            <span className="hidden sm:inline">Padrón</span>
+                          </button>
+                        )}
+                      </div>
                       <input
                         className="input-field"
                         placeholder={billingForm.doc_type === 'factura' ? 'Razón social' : 'Nombre cliente'}
@@ -1821,11 +1875,17 @@ export default function POSPanel() {
                       />
                       <input
                         className="input-field"
+                        placeholder="Dirección (opcional)"
+                        value={billingForm.customer_address}
+                        onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_address: e.target.value }))}
+                      />
+                      <input
+                        className="input-field"
                         placeholder="Celular del cliente (para enviar comprobante por WhatsApp)"
                         value={billingForm.customer_phone}
                         onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_phone: e.target.value }))}
                       />
-                      {searchingCustomer && <p className="text-[11px] text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
+                      {searchingCustomer && <p className="text-[11px] text-[#9CA3AF]">Buscando cliente en el registro local...</p>}
                       {matchedCustomer && (
                         <p className="text-[11px] text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
                       )}
@@ -2090,16 +2150,30 @@ export default function POSPanel() {
                                 </label>
                               </div>
                             </div>
+                            <div className="sm:col-span-2 flex gap-2 items-stretch">
+                              <input
+                                className="input-field text-sm flex-1 min-w-0"
+                                placeholder="N° documento"
+                                value={billingForm.customer_doc_number}
+                                onChange={(e) =>
+                                  setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
+                                }
+                              />
+                              {(billingForm.customer_doc_type === '1' || billingForm.customer_doc_type === '6') && (
+                                <button
+                                  type="button"
+                                  title="Consultar nombre o razón social en padrón (requiere PERU_CONSULTAS_TOKEN en el servidor)"
+                                  onClick={() => void handleConsultaPadron()}
+                                  disabled={consultaPadronLoading}
+                                  className="shrink-0 px-2.5 py-2 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center justify-center gap-1 disabled:opacity-50"
+                                >
+                                  <MdSearch className="text-lg shrink-0" />
+                                  <span className="hidden sm:inline">Padrón</span>
+                                </button>
+                              )}
+                            </div>
                             <input
-                              className="input-field text-sm"
-                              placeholder="N° documento"
-                              value={billingForm.customer_doc_number}
-                              onChange={(e) =>
-                                setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
-                              }
-                            />
-                            <input
-                              className="input-field text-sm"
+                              className="input-field text-sm sm:col-span-2"
                               placeholder={billingForm.doc_type === 'factura' ? 'Razón social' : 'Nombre cliente'}
                               value={billingForm.customer_name}
                               onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_name: e.target.value }))}
@@ -2120,7 +2194,7 @@ export default function POSPanel() {
                               />
                             </div>
                             <div className="sm:col-span-2">
-                              {searchingCustomer && <p className="text-xs text-[#9CA3AF]">Buscando cliente por DNI/RUC...</p>}
+                              {searchingCustomer && <p className="text-xs text-[#9CA3AF]">Buscando cliente en el registro local...</p>}
                               {matchedCustomer && (
                                 <p className="text-xs text-emerald-400">Cliente encontrado: {matchedCustomer.name}</p>
                               )}
