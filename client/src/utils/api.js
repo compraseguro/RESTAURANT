@@ -79,6 +79,20 @@ export const api = {
     if (!res.ok) throw new Error(data?.error || 'No se pudo subir el archivo');
     return data;
   },
+  /** Certificado SUNAT .pfx / .p12 → `uploads/billing-certs/` en el servidor Node. */
+  uploadBillingCert: async (file) => {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('cert', file);
+    const res = await fetch(`${API_BASE}/upload/billing-cert`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || 'No se pudo subir el certificado');
+    return data;
+  },
 };
 
 export const parseApiDate = (value) => {

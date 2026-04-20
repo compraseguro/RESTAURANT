@@ -6,8 +6,8 @@ import { api, resolveMediaUrl } from '../../utils/api';
 import { proximaFechaFromControlAnchor } from '../../utils/nextBillingFromAnchor';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
-import Sunat47FieldsTable from '../../components/billing/Sunat47FieldsTable';
-import { defaultBillingPanel } from '../../data/sunat47Catalog';
+import BillingSunatManualForm from '../../components/billing/BillingSunatManualForm';
+import { defaultBillingPanel, defaultBillingPanelPresence } from '../../data/sunat47Catalog';
 import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt } from 'react-icons/md';
 
 const DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
@@ -91,8 +91,14 @@ export default function MiRestaurant() {
   /** Ventana de carga del comprobante (servidor): enlazada a fecha_proxima_facturación y días de gracia. */
   const [pagoUsoComprobanteUi, setPagoUsoComprobanteUi] = useState(null);
   const [billingPanel, setBillingPanel] = useState(() => defaultBillingPanel());
+  const [billingPanelPresence, setBillingPanelPresence] = useState(defaultBillingPanelPresence);
 
   const canReadBillingConfig = user?.role === 'admin' || user?.role === 'master_admin';
+
+  const handleBillingCertUpload = useCallback(async (file) => {
+    const r = await api.uploadBillingCert(file);
+    setBillingPanel((p) => ({ ...p, cert_pfx_path: r.url }));
+  }, []);
 
   const refreshPagoUsoComprobanteSchedule = useCallback(async () => {
     if (!canReadBillingConfig) return;
@@ -124,6 +130,11 @@ export default function MiRestaurant() {
         } else {
           setBillingPanel(defaultBillingPanel());
         }
+        setBillingPanelPresence(
+          data?.billing_panel_presence && typeof data.billing_panel_presence === 'object'
+            ? { ...defaultBillingPanelPresence(), ...data.billing_panel_presence }
+            : defaultBillingPanelPresence()
+        );
 
         if (billingData) {
           setAllowRestaurantAdminBillingBot(Boolean(billingData.allow_restaurant_admin_billing_bot));
@@ -230,6 +241,9 @@ export default function MiRestaurant() {
         setRestaurant(savedRestaurant);
         if (savedRestaurant?.billing_panel && typeof savedRestaurant.billing_panel === 'object') {
           setBillingPanel({ ...defaultBillingPanel(), ...savedRestaurant.billing_panel });
+        }
+        if (savedRestaurant?.billing_panel_presence && typeof savedRestaurant.billing_panel_presence === 'object') {
+          setBillingPanelPresence({ ...defaultBillingPanelPresence(), ...savedRestaurant.billing_panel_presence });
         }
         const saved = await api.put('/billing/config', {
           billing_offline_mode: billingConfig.billing_offline_mode,
@@ -578,9 +592,9 @@ export default function MiRestaurant() {
                 <div>
                   <h3 className="font-bold text-slate-800 text-lg">Facturación SUNAT (emisor + bot)</h3>
                   <p className="text-sm text-slate-500 mt-0.5">
-                    Tabla de los <strong>47 parámetros</strong> (dato, función y valor). Credenciales SOL y certificado se
-                    envían al bot al emitir si los completa aquí; si los deja vacíos, el bot usa su <code className="text-xs">.env</code>.
-                    Pulse <strong>Guardar cambios</strong> una vez.
+                    Complete solo los datos del emisor y del bot que aplica SUNAT. Al emitir, el servidor envía SOL,
+                    certificado y series al bot; si deja credenciales vacías, el bot puede usar su{' '}
+                    <code className="text-xs">.env</code>. Pulse <strong>Guardar cambios</strong> una vez.
                   </p>
                 </div>
               </div>
@@ -605,60 +619,18 @@ export default function MiRestaurant() {
               ) : null}
 
               <fieldset disabled={!canEditBillingBot} className="border-0 p-0 m-0 min-w-0 space-y-5">
-              <Sunat47FieldsTable
+              <BillingSunatManualForm
                 variant="light"
                 restaurant={restaurant}
                 onRestaurantField={update}
                 billingPanel={billingPanel}
                 onBillingPanelField={(k, v) => setBillingPanel((p) => ({ ...p, [k]: v }))}
-                billingExtras={billingConfig}
-                onBillingExtrasField={updateBilling}
+                billingPanelPresence={billingPanelPresence}
+                onUploadBillingCert={canEditBillingBot ? handleBillingCertUpload : undefined}
                 disabled={!canEditBillingBot}
-                billingFlags={{
-                  billing_api_url_from_env: billingConfig.billing_api_url_from_env,
-                  billing_api_secret_from_env: billingConfig.billing_api_secret_from_env,
-                  has_billing_api_token: billingConfig.has_billing_api_token,
-                  hasStoredUrl: Boolean((billingConfig.billing_api_url || '').trim()),
-                }}
+                appConfig={appConfig}
+                onSeriesContingencia={(field, value) => updateAppCfg('series_contingencia', field, value)}
               />
-
-              <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
-                <h4 className="font-semibold text-slate-800 text-sm">Series de contingencia</h4>
-                <p className="text-xs text-slate-500">
-                  Para comprobantes en contingencia cuando no hay comunicación con SUNAT (según normativa y su resolución).
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Serie boleta contingencia</label>
-                    <input
-                      className="input-field"
-                      value={appConfig.series_contingencia?.boleta || ''}
-                      onChange={e => updateAppCfg('series_contingencia', 'boleta', e.target.value.toUpperCase())}
-                      placeholder="BC01"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Serie factura contingencia</label>
-                    <input
-                      className="input-field"
-                      value={appConfig.series_contingencia?.factura || ''}
-                      onChange={e => updateAppCfg('series_contingencia', 'factura', e.target.value.toUpperCase())}
-                      placeholder="FC01"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Modo contingencia</label>
-                    <select
-                      className="input-field"
-                      value={appConfig.series_contingencia?.enabled ? '1' : '0'}
-                      onChange={e => updateAppCfg('series_contingencia', 'enabled', Number(e.target.value))}
-                    >
-                      <option value="1">Activo</option>
-                      <option value="0">Inactivo</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
 
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 space-y-2">
                 <p>
@@ -692,9 +664,19 @@ export default function MiRestaurant() {
                     <option value="0">Inactivo (errores de red quedan como fallo)</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Reintentos automáticos</label>
+                  <select
+                    className="input-field"
+                    value={billingConfig.billing_auto_retry_enabled ? '1' : '0'}
+                    onChange={e => updateBilling('billing_auto_retry_enabled', Number(e.target.value))}
+                  >
+                    <option value="1">Activo</option>
+                    <option value="0">Inactivo</option>
+                  </select>
+                </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Intervalo entre reintentos (segundos)</label>
-                  <p className="text-xs text-slate-500 mb-1">El interruptor «Reintentos automáticos» está en la tabla de 47 parámetros.</p>
                   <input
                     type="number"
                     min="30"

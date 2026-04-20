@@ -80,12 +80,28 @@ function normalizeCustomerForDoc(docType, customer = {}) {
   return { customerDocType, customerDocNumber, customerName, customerAddress };
 }
 
-function getNextCorrelative(docType, series) {
+function parseBillingPanelJsonForCorrelative(restaurant) {
+  try {
+    const raw = restaurant?.billing_panel_json;
+    const o = raw ? JSON.parse(raw) : {};
+    return o && typeof o === 'object' ? o : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+/** Primer número por serie cuando aún no hay comprobantes emitidos en esa serie. */
+function getNextCorrelative(docType, series, restaurant) {
   const row = queryOne(
     'SELECT COALESCE(MAX(correlative), 0) as max_number FROM electronic_documents WHERE doc_type = ? AND series = ?',
     [docType, series]
   );
-  return Number(row?.max_number || 0) + 1;
+  const maxNum = Number(row?.max_number || 0);
+  const panel = parseBillingPanelJsonForCorrelative(restaurant);
+  const key = docType === 'factura' ? 'correlativo_inicial_factura' : 'correlativo_inicial_boleta';
+  const initial = Math.max(1, Math.floor(Number(panel[key]) || 1));
+  if (maxNum === 0) return initial;
+  return maxNum + 1;
 }
 
 function canSendToNubefact(restaurant) {
@@ -669,7 +685,7 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
     docType === 'factura' ? restaurant.billing_series_factura : restaurant.billing_series_boleta,
     DOCS[docType].fallbackSeries
   );
-  const correlative = getNextCorrelative(docType, series);
+  const correlative = getNextCorrelative(docType, series, restaurant);
   const fullNumber = `${series}-${String(correlative).padStart(8, '0')}`;
 
   const providerPayload = useEfact

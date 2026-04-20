@@ -16,6 +16,7 @@ function parseJsonSafe(value, fallback) {
   }
 }
 
+/** Panel tal como se guarda en DB (incluye secretos). */
 function defaultBillingPanel() {
   return {
     cod_establecimiento: '0000',
@@ -36,7 +37,43 @@ function defaultBillingPanel() {
     nota_encriptacion_cred: '',
     cliente_interno_id: '',
     default_invoice_lines: 'detallado',
+    correlativo_inicial_factura: 1,
+    correlativo_inicial_boleta: 1,
   };
+}
+
+/** Respuesta API: sin secretos ni usuario SOL; flags para placeholders en el cliente. */
+function publicBillingPanelFromStoredJson(rawJson) {
+  const full = { ...defaultBillingPanel(), ...parseJsonSafe(rawJson, {}) };
+  const presence = {
+    sol_usuario: Boolean(String(full.sol_usuario || '').trim()),
+    sol_clave: Boolean(String(full.sol_clave || '').trim()),
+    cert_pfx_password: Boolean(String(full.cert_pfx_password || '').trim()),
+  };
+  const panel = { ...full };
+  delete panel.sol_usuario;
+  delete panel.sol_clave;
+  delete panel.cert_pfx_password;
+  return { panel, presence };
+}
+
+function attachPublicBillingPanel(restaurant) {
+  if (!restaurant) return;
+  const rawJson = restaurant.billing_panel_json;
+  delete restaurant.billing_panel_json;
+  const { panel, presence } = publicBillingPanelFromStoredJson(rawJson);
+  restaurant.billing_panel = panel;
+  restaurant.billing_panel_presence = presence;
+}
+
+function mergeBillingPanelStored(prevJsonStr, incoming) {
+  const prev = parseJsonSafe(prevJsonStr, {});
+  const inc = incoming && typeof incoming === 'object' ? incoming : {};
+  const merged = { ...defaultBillingPanel(), ...prev, ...inc };
+  if (!String(inc.sol_usuario || '').trim()) merged.sol_usuario = String(prev.sol_usuario || '');
+  if (!String(inc.sol_clave || '').trim()) merged.sol_clave = String(prev.sol_clave || '');
+  if (!String(inc.cert_pfx_password || '').trim()) merged.cert_pfx_password = String(prev.cert_pfx_password || '');
+  return merged;
 }
 
 /** Reinicio desde Mi Restaurante (requiere contraseña en el cliente). Puede sobreescribirse con RESET_OPERATIONAL_PASSWORD. */
@@ -50,10 +87,7 @@ router.get('/', (req, res) => {
   const restaurant = queryOne('SELECT * FROM restaurants LIMIT 1');
   if (restaurant) {
     restaurant.schedule = JSON.parse(restaurant.schedule || '{}');
-    restaurant.billing_panel = {
-      ...defaultBillingPanel(),
-      ...parseJsonSafe(restaurant.billing_panel_json, {}),
-    };
+    attachPublicBillingPanel(restaurant);
   }
   res.json(restaurant || {});
 });
@@ -74,12 +108,8 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
 
   let nextBillingPanelJson = String(current?.billing_panel_json || '').trim() || JSON.stringify(defaultBillingPanel());
   if (adminMayEditBillingBot && b.billing_panel !== undefined && typeof b.billing_panel === 'object') {
-    const prev = parseJsonSafe(current?.billing_panel_json, {});
-    nextBillingPanelJson = JSON.stringify({
-      ...defaultBillingPanel(),
-      ...prev,
-      ...b.billing_panel,
-    });
+    const prevStr = String(current?.billing_panel_json || '').trim() || '{}';
+    nextBillingPanelJson = JSON.stringify(mergeBillingPanelStored(prevStr, b.billing_panel));
   }
 
   /** SUNAT / series: maestro siempre; admin del restaurante solo si el maestro lo habilitó en el control. */
@@ -128,10 +158,7 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
 
   const updated = queryOne('SELECT * FROM restaurants LIMIT 1');
   updated.schedule = JSON.parse(updated.schedule || '{}');
-  updated.billing_panel = {
-    ...defaultBillingPanel(),
-    ...parseJsonSafe(updated.billing_panel_json, {}),
-  };
+  attachPublicBillingPanel(updated);
   res.json(updated);
 });
 

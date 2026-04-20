@@ -77,6 +77,8 @@ app.use((req, res, next) => {
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+const billingCertsDir = path.join(uploadsDir, 'billing-certs');
+if (!fs.existsSync(billingCertsDir)) fs.mkdirSync(billingCertsDir, { recursive: true });
 app.use('/uploads', express.static(uploadsDir));
 
 const storage = multer.diskStorage({
@@ -101,6 +103,34 @@ const upload = multer({
 app.post('/api/upload', authenticateToken, requireRole('admin', 'cajero', 'mozo', 'master_admin'), upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
   res.json({ url: `/uploads/${req.file.filename}` });
+});
+
+const certStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, billingCertsDir),
+  filename: (req, file, cb) => {
+    const ext = (path.extname(file.originalname || '') || '').toLowerCase();
+    const safe = ext === '.p12' ? '.p12' : '.pfx';
+    cb(null, `${Date.now()}-${Math.random().toString(36).substr(2, 9)}${safe}`);
+  },
+});
+const certUpload = multer({
+  storage: certStorage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = (path.extname(file.originalname || '') || '').toLowerCase();
+    if (ext !== '.pfx' && ext !== '.p12') {
+      return cb(new Error('Solo archivos .pfx o .p12'));
+    }
+    return cb(null, true);
+  },
+});
+
+app.post('/api/upload/billing-cert', authenticateToken, requireRole('admin', 'master_admin'), (req, res) => {
+  certUpload.single('cert')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'No se pudo guardar el certificado' });
+    if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
+    res.json({ url: `/uploads/billing-certs/${req.file.filename}` });
+  });
 });
 
 app.get('/api/healthz', (req, res) => res.json({ ok: true, uptime: process.uptime() }));

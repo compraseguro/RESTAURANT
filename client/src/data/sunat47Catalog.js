@@ -1,87 +1,17 @@
 /**
- * Los 47 datos SUNAT / comprobante / bot (orden del listado del negocio).
- * bind: r.* restaurant | p.* billing_panel_json | x.* billing/config | emit | meta
+ * Valores por defecto de `billing_panel_json` y flags que devuelve el API sin secretos.
+ * El formulario de facturación manual solo expone los campos que el usuario debe llenar.
  */
-export const SUNAT_47_CATALOG = [
-  { id: 'ruc', label: 'RUC', help: 'identifica al contribuyente ante la SUNAT', bind: 'r.company_ruc', input: 'text', maxLen: 11 },
-  { id: 'razon', label: 'Razón social', help: 'nombre legal para el comprobante', bind: 'r.legal_name', input: 'text' },
-  { id: 'nomcom', label: 'Nombre comercial', help: 'nombre visible opcional', bind: 'r.billing_nombre_comercial', input: 'text' },
-  { id: 'dirfis', label: 'Dirección fiscal', help: 'ubicación legal del negocio', bind: 'r.billing_emisor_direccion', input: 'text' },
-  { id: 'ubigeo', label: 'Ubigeo', help: 'código geográfico exigido por SUNAT', bind: 'r.billing_emisor_ubigeo', input: 'text', maxLen: 6 },
-  {
-    id: 'tri',
-    label: 'Departamento/provincia/distrito',
-    help: 'detalle de ubicación',
-    bind: 'r.tri',
-    input: 'triple',
-    fields: [
-      { key: 'billing_emisor_departamento', ph: 'Departamento' },
-      { key: 'billing_emisor_provincia', ph: 'Provincia' },
-      { key: 'billing_emisor_distrito', ph: 'Distrito' },
-    ],
-  },
-  { id: 'codest', label: 'Código de establecimiento', help: 'identifica el local emisor', bind: 'p.cod_establecimiento', input: 'text', maxLen: 4 },
-  { id: 'solu', label: 'Usuario SOL', help: 'permite autenticarse en SUNAT', bind: 'p.sol_usuario', input: 'text' },
-  { id: 'solc', label: 'Clave SOL', help: 'permite enviar comprobantes y validar acceso', bind: 'p.sol_clave', input: 'password' },
-  { id: 'certp', label: 'Certificado digital .pfx o .p12', help: 'ruta del archivo en el servidor donde corre el bot', bind: 'p.cert_pfx_path', input: 'text', placeholder: './certs/emisor.pfx' },
-  { id: 'certw', label: 'Contraseña del certificado', help: 'permite usar el certificado para firmar', bind: 'p.cert_pfx_password', input: 'password' },
-  { id: 'tipocomp', label: 'Tipo de comprobante', help: 'define si es factura o boleta', bind: 'emit', input: 'readonly' },
-  {
-    id: 'serie',
-    label: 'Serie del comprobante',
-    help: 'identifica el tipo de documento emitido como F001 o B001',
-    bind: 'r.series',
-    input: 'dual_series',
-    fields: [
-      { key: 'billing_series_boleta', ph: 'Boleta (B001)' },
-      { key: 'billing_series_factura', ph: 'Factura (F001)' },
-    ],
-  },
-  { id: 'corr', label: 'Correlativo', help: 'número secuencial del comprobante', bind: 'emit', input: 'readonly' },
-  { id: 'mon', label: 'Moneda', help: 'define la divisa usada como PEN', bind: 'r.currency', input: 'select', options: [{ v: 'PEN', l: 'PEN' }, { v: 'USD', l: 'USD' }] },
-  { id: 'igv', label: 'IGV porcentaje', help: 'define el impuesto aplicado normalmente 18%', bind: 'r.tax_rate', input: 'number' },
-  { id: 'op', label: 'Tipo de operación', help: 'define si la venta es gravada, exonerada u otra', bind: 'p.operacion_default', input: 'select', options: [{ v: 'gravada', l: 'Gravada' }, { v: 'exonerada', l: 'Exonerada' }, { v: 'inafecta', l: 'Inafecta' }] },
-  { id: 'fecha', label: 'Fecha de emisión', help: 'indica cuándo se genera el comprobante', bind: 'emit', input: 'readonly' },
-  { id: 'hora', label: 'Hora de emisión', help: 'precisa el momento exacto de emisión', bind: 'emit', input: 'readonly' },
-  { id: 'fpago', label: 'Forma de pago', help: 'indica si es contado o crédito', bind: 'p.forma_pago_default', input: 'select', options: [{ v: 'contado', l: 'Contado' }, { v: 'credito', l: 'Crédito' }] },
-  { id: 'tdoc', label: 'Tipo de documento del cliente', help: 'define si es DNI o RUC', bind: 'emit', input: 'readonly' },
-  { id: 'ndoc', label: 'Número de documento del cliente', help: 'identifica al comprador', bind: 'emit', input: 'readonly' },
-  { id: 'nomc', label: 'Nombre o razón social del cliente', help: 'identifica al receptor del comprobante', bind: 'emit', input: 'readonly' },
-  { id: 'dirc', label: 'Dirección del cliente', help: 'ubicación del receptor en facturas', bind: 'emit', input: 'readonly' },
-  { id: 'desc', label: 'Descripción del producto o servicio', help: 'detalle de lo vendido', bind: 'emit', input: 'readonly' },
-  { id: 'cant', label: 'Cantidad', help: 'número de unidades vendidas', bind: 'emit', input: 'readonly' },
-  { id: 'pu', label: 'Precio unitario', help: 'valor por unidad', bind: 'emit', input: 'readonly' },
-  { id: 'tigv', label: 'Tipo de IGV por ítem', help: 'indica si aplica impuesto o está exonerado', bind: 'emit', input: 'readonly' },
-  { id: 'titem', label: 'Total por ítem', help: 'importe por producto', bind: 'emit', input: 'readonly' },
-  { id: 'sub', label: 'Subtotal', help: 'suma de valores antes de impuestos', bind: 'emit', input: 'readonly' },
-  { id: 'migv', label: 'Monto de IGV', help: 'impuesto calculado', bind: 'emit', input: 'readonly' },
-  { id: 'tot', label: 'Total final', help: 'importe total a pagar', bind: 'emit', input: 'readonly' },
-  { id: 'tenv', label: 'Tipo de envío', help: 'define si se envía directo o mediante OSE hacia la SUNAT', bind: 'p.tipo_envio', input: 'select', options: [{ v: 'directo', l: 'Directo SUNAT' }, { v: 'ose', l: 'Mediante OSE' }] },
-  { id: 'urls', label: 'URL del servicio', help: 'dirección del endpoint para envío electrónico (EFACT_API_URL en servidor; si usa OSE, indique URL en notas internas o variables de entorno)', bind: 'meta', input: 'readonly' },
-  { id: 'modo', label: 'Modo de operación', help: 'define si es pruebas o producción', bind: 'p.sunat_modo', input: 'select', options: [{ v: 'beta', l: 'Pruebas (beta)' }, { v: 'produccion', l: 'Producción' }] },
-  { id: 'xmlg', label: 'XML generado', help: 'archivo estructurado del comprobante', bind: 'emit', input: 'readonly' },
-  { id: 'xmls', label: 'XML firmado', help: 'archivo con firma digital válida', bind: 'emit', input: 'readonly' },
-  { id: 'cdr', label: 'CDR', help: 'respuesta de aceptación o rechazo de SUNAT', bind: 'emit', input: 'readonly' },
-  { id: 'pdf', label: 'PDF representativo', help: 'documento visual para el cliente', bind: 'emit', input: 'readonly' },
-  { id: 'log', label: 'Logs del sistema', help: 'registro de errores y operaciones', bind: 'p.log_operaciones', input: 'checkbox' },
-  { id: 'reint', label: 'Reintentos automáticos', help: 'permite reenviar si falla el envío', bind: 'x.billing_auto_retry_enabled', input: 'select', options: [{ v: 1, l: 'Activo' }, { v: 0, l: 'Inactivo' }] },
-  { id: 'ival', label: 'Validación de datos', help: 'evita errores antes de enviar', bind: 'p.validacion_estricta', input: 'checkbox' },
-  { id: 'dup', label: 'Control de duplicados', help: 'evita emitir comprobantes repetidos', bind: 'p.control_duplicados', input: 'checkbox' },
-  { id: 'alm', label: 'Almacenamiento de archivos', help: 'guarda XML, CDR y PDF', bind: 'p.almacenamiento_activo', input: 'checkbox' },
-  { id: 'enc', label: 'Encriptación de certificado', help: 'protege la firma digital', bind: 'p.nota_encriptacion_cert', input: 'text' },
-  { id: 'encr', label: 'Encriptación de credenciales', help: 'protege accesos del cliente', bind: 'p.nota_encriptacion_cred', input: 'text' },
-  { id: 'cid', label: 'Identificación de cliente interno', help: 'permite manejar múltiples empresas dentro del sistema', bind: 'p.cliente_interno_id', input: 'text' },
-];
 
-export const SUNAT_47_COUNT = SUNAT_47_CATALOG.length;
+export function defaultBillingPanelPresence() {
+  return { sol_usuario: false, sol_clave: false, cert_pfx_password: false };
+}
 
+/** Estado en cliente: SOL/claves no vienen del GET hasta que el usuario escribe. */
 export function defaultBillingPanel() {
   return {
     cod_establecimiento: '0000',
-    sol_usuario: '',
-    sol_clave: '',
     cert_pfx_path: '',
-    cert_pfx_password: '',
     tipo_envio: 'directo',
     ose_url: '',
     sunat_modo: 'beta',
@@ -95,5 +25,7 @@ export function defaultBillingPanel() {
     nota_encriptacion_cred: '',
     cliente_interno_id: '',
     default_invoice_lines: 'detallado',
+    correlativo_inicial_factura: 1,
+    correlativo_inicial_boleta: 1,
   };
 }

@@ -2,7 +2,21 @@
  * Construye el JSON esperado por el bot Python (BOT DE FACTURACION) y llama a su API HTTP.
  */
 
+const path = require('path');
 const { effectiveEfactApiUrl, effectiveEfactHttpSecret } = require('./efactConnection');
+
+/** Rutas subidas por el panel (/uploads/...) → ruta absoluta en el mismo host que Node. */
+function resolveCertPathForBot(certPath) {
+  const s = String(certPath || '').trim();
+  if (!s) return '';
+  const norm = s.replace(/\\/g, '/');
+  if (/^\/?uploads\//i.test(norm)) {
+    const rel = norm.replace(/^\/?uploads\/?/i, '');
+    return path.join(__dirname, '..', 'uploads', rel);
+  }
+  if (path.isAbsolute(s)) return s;
+  return path.resolve(process.cwd(), s);
+}
 
 function parseBillingPanelJson(restaurant) {
   try {
@@ -129,7 +143,8 @@ function buildEfactSaleJson({
     };
   }
   if (certPath && certPwd) {
-    payload.panel_certificado = { ruta_pfx: certPath, password: certPwd };
+    const abs = resolveCertPathForBot(certPath);
+    payload.panel_certificado = { ruta_pfx: abs || certPath, password: certPwd };
   }
 
   return payload;

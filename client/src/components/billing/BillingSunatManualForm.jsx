@@ -1,0 +1,292 @@
+import { useRef } from 'react';
+import toast from 'react-hot-toast';
+
+function panelHint(presence, key) {
+  const pr = presence || {};
+  if (key === 'sol_usuario' && pr.sol_usuario) return 'Vacío = conservar el usuario SOL guardado';
+  if (key === 'sol_clave' && pr.sol_clave) return 'Vacío = conservar la clave SOL guardada';
+  if (key === 'cert_pfx_password' && pr.cert_pfx_password) return 'Vacío = conservar la contraseña del .pfx guardada';
+  return '';
+}
+
+/**
+ * Solo los campos que el emisor debe completar para enlazar con el bot (SUNAT).
+ */
+export default function BillingSunatManualForm({
+  variant = 'light',
+  restaurant,
+  onRestaurantField,
+  billingPanel,
+  onBillingPanelField,
+  billingPanelPresence,
+  onUploadBillingCert,
+  disabled,
+  appConfig,
+  onSeriesContingencia,
+}) {
+  const certFileRef = useRef(null);
+  const isDark = variant === 'dark';
+  const inputCls = isDark
+    ? 'input-field bg-[#0f172a] border-slate-600 text-slate-100'
+    : 'input-field';
+  const labelCls = isDark ? 'text-slate-300' : 'text-slate-600';
+  const sectionCls = isDark
+    ? 'rounded-lg border border-slate-600 bg-slate-900/50 p-4 space-y-3'
+    : 'rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3';
+  const hCls = isDark ? 'font-semibold text-slate-100 text-sm' : 'font-semibold text-slate-800 text-sm';
+
+  const corrFact = Math.max(1, Math.floor(Number(billingPanel?.correlativo_inicial_factura) || 1));
+  const corrBol = Math.max(1, Math.floor(Number(billingPanel?.correlativo_inicial_boleta) || 1));
+
+  return (
+    <form autoComplete="off" className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+      <div className={sectionCls}>
+        <h4 className={hCls}>Emisor (comprobante)</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>RUC (11 dígitos)</label>
+            <input
+              className={inputCls}
+              value={String(restaurant?.company_ruc ?? '').replace(/\D/g, '').slice(0, 11)}
+              disabled={disabled}
+              autoComplete="off"
+              onChange={(e) => onRestaurantField('company_ruc', e.target.value.replace(/\D/g, '').slice(0, 11))}
+            />
+          </div>
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Razón social</label>
+            <input
+              className={inputCls}
+              value={restaurant?.legal_name ?? ''}
+              disabled={disabled}
+              autoComplete="off"
+              onChange={(e) => onRestaurantField('legal_name', e.target.value)}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Dirección fiscal</label>
+            <input
+              className={inputCls}
+              value={restaurant?.billing_emisor_direccion ?? ''}
+              disabled={disabled}
+              autoComplete="off"
+              placeholder="Si vacío, se puede usar la dirección de «Mi empresa» según configuración del servidor"
+              onChange={(e) => onRestaurantField('billing_emisor_direccion', e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className={sectionCls}>
+        <h4 className={hCls}>SOL y certificado (firma en el bot)</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Usuario SOL</label>
+            <input
+              className={inputCls}
+              value={billingPanel?.sol_usuario != null ? String(billingPanel.sol_usuario) : ''}
+              disabled={disabled}
+              autoComplete="off"
+              name="sunat-manual-sol-user"
+              data-1p-ignore
+              data-lpignore="true"
+              placeholder={panelHint(billingPanelPresence, 'sol_usuario')}
+              onChange={(e) => onBillingPanelField('sol_usuario', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Clave SOL</label>
+            <input
+              type="password"
+              className={inputCls}
+              value={billingPanel?.sol_clave != null ? String(billingPanel.sol_clave) : ''}
+              disabled={disabled}
+              autoComplete="new-password"
+              name="sunat-manual-sol-pass"
+              placeholder={panelHint(billingPanelPresence, 'sol_clave')}
+              onChange={(e) => onBillingPanelField('sol_clave', e.target.value)}
+            />
+          </div>
+          <div className="md:col-span-2 space-y-2">
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Certificado digital (.pfx o .p12)</label>
+            <input
+              type="text"
+              className={inputCls}
+              value={billingPanel?.cert_pfx_path ?? ''}
+              disabled={disabled}
+              autoComplete="off"
+              placeholder="/uploads/billing-certs/… o ruta absoluta en el servidor"
+              onChange={(e) => onBillingPanelField('cert_pfx_path', e.target.value)}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={certFileRef}
+                type="file"
+                accept=".pfx,.p12,application/x-pkcs12"
+                className="hidden"
+                disabled={disabled}
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!f || !onUploadBillingCert) return;
+                  try {
+                    await onUploadBillingCert(f);
+                    toast.success('Certificado subido. Guarde los cambios para registrar la ruta.');
+                  } catch (err) {
+                    toast.error(err?.message || 'No se pudo subir el certificado');
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className={`text-xs font-medium rounded-lg px-3 py-2 border ${isDark ? 'border-slate-500 bg-slate-800 text-slate-100' : 'border-slate-300 bg-white text-slate-800'}`}
+                disabled={disabled || !onUploadBillingCert}
+                onClick={() => certFileRef.current?.click()}
+              >
+                Subir .pfx / .p12
+              </button>
+            </div>
+          </div>
+          <div className="md:col-span-2">
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Contraseña del certificado</label>
+            <input
+              type="password"
+              className={inputCls}
+              value={billingPanel?.cert_pfx_password != null ? String(billingPanel.cert_pfx_password) : ''}
+              disabled={disabled}
+              autoComplete="new-password"
+              name="sunat-manual-cert-pass"
+              placeholder={panelHint(billingPanelPresence, 'cert_pfx_password')}
+              onChange={(e) => onBillingPanelField('cert_pfx_password', e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className={sectionCls}>
+        <h4 className={hCls}>Series y correlativos</h4>
+        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          El correlativo inicial se usa la primera vez que emite en esa serie (sin comprobantes previos en base de datos); después sigue el máximo + 1.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Serie de factura</label>
+            <input
+              className={inputCls}
+              value={restaurant?.billing_series_factura ?? ''}
+              disabled={disabled}
+              onChange={(e) => onRestaurantField('billing_series_factura', (e.target.value || '').toUpperCase())}
+              placeholder="F001"
+            />
+          </div>
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Serie de boleta</label>
+            <input
+              className={inputCls}
+              value={restaurant?.billing_series_boleta ?? ''}
+              disabled={disabled}
+              onChange={(e) => onRestaurantField('billing_series_boleta', (e.target.value || '').toUpperCase())}
+              placeholder="B001"
+            />
+          </div>
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Correlativo inicial factura</label>
+            <input
+              type="number"
+              min={1}
+              max={99999999}
+              className={inputCls}
+              value={corrFact}
+              disabled={disabled}
+              onChange={(e) => onBillingPanelField('correlativo_inicial_factura', Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+            />
+          </div>
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Correlativo inicial boleta</label>
+            <input
+              type="number"
+              min={1}
+              max={99999999}
+              className={inputCls}
+              value={corrBol}
+              disabled={disabled}
+              onChange={(e) => onBillingPanelField('correlativo_inicial_boleta', Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className={sectionCls}>
+        <h4 className={hCls}>Moneda e IGV</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Moneda</label>
+            <select
+              className={inputCls}
+              value={restaurant?.currency ?? 'PEN'}
+              disabled={disabled}
+              onChange={(e) => onRestaurantField('currency', e.target.value)}
+            >
+              <option value="PEN">PEN</option>
+              <option value="USD">USD</option>
+            </select>
+          </div>
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>IGV (%)</label>
+            <input
+              type="number"
+              step="0.01"
+              min={0}
+              max={100}
+              className={inputCls}
+              value={Number.isFinite(Number(restaurant?.tax_rate)) ? restaurant.tax_rate : 18}
+              disabled={disabled}
+              onChange={(e) => onRestaurantField('tax_rate', parseFloat(e.target.value) || 0)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className={sectionCls}>
+        <h4 className={hCls}>Series de contingencia</h4>
+        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          Cuando no hay comunicación con SUNAT, según su normativa y resolución.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Serie factura contingencia</label>
+            <input
+              className={inputCls}
+              value={appConfig?.series_contingencia?.factura || ''}
+              disabled={disabled}
+              onChange={(e) => onSeriesContingencia('factura', e.target.value.toUpperCase())}
+              placeholder="FC01"
+            />
+          </div>
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Serie boleta contingencia</label>
+            <input
+              className={inputCls}
+              value={appConfig?.series_contingencia?.boleta || ''}
+              disabled={disabled}
+              onChange={(e) => onSeriesContingencia('boleta', e.target.value.toUpperCase())}
+              placeholder="BC01"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Modo contingencia</label>
+            <select
+              className={inputCls}
+              value={appConfig?.series_contingencia?.enabled ? '1' : '0'}
+              disabled={disabled}
+              onChange={(e) => onSeriesContingencia('enabled', Number(e.target.value))}
+            >
+              <option value="1">Activo</option>
+              <option value="0">Inactivo</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </form>
+  );
+}
