@@ -113,14 +113,33 @@ export function parseCashRegisterOpenedAt(value) {
   return parseApiDate(value);
 }
 
+/** Fecha local dd/mm/aaaa (sin depender del locale del navegador). */
+function formatPeDateDdMmYyyy(d) {
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+/** Hora local 12 h, minutos con dos dígitos, sin segundos (ej. 9:05 a.m., 9:50 p.m.). */
+function formatPeTime12hNoSeconds(d) {
+  const h24 = d.getHours();
+  const min = d.getMinutes();
+  let h12 = h24 % 12;
+  if (h12 === 0) h12 = 12;
+  const mm = String(min).padStart(2, '0');
+  const suffix = h24 < 12 ? 'a.m.' : 'p.m.';
+  return `${h12}:${mm} ${suffix}`;
+}
+
 function peDateTimePartsFromDate(d) {
   return {
-    date: d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-    time: d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true }),
+    date: formatPeDateDdMmYyyy(d),
+    time: formatPeTime12hNoSeconds(d),
   };
 }
 
-/** Fecha (dd/mm/aaaa) y hora solo hh:mm (12h) para arqueo / impresión. */
+/** Fecha (dd/mm/aaaa) y hora solo h:mm (12 h, sin segundos) para arqueo / impresión. */
 export function formatPeDateTimeParts(value) {
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) return { date: '—', time: '—' };
@@ -129,6 +148,13 @@ export function formatPeDateTimeParts(value) {
   const d = parseCashRegisterOpenedAt(value);
   if (!d) return { date: '—', time: '—' };
   return peDateTimePartsFromDate(d);
+}
+
+/** Una sola cadena: `dd/mm/aaaa h:mm a.m.|p.m.` */
+export function formatPeDateTimeLine(value) {
+  const { date, time } = formatPeDateTimeParts(value);
+  if (date === '—') return '—';
+  return `${date} ${time}`;
 }
 
 export const toLocalDateKey = (value) => {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
-import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, PAYMENT_METHODS } from '../../utils/api';
+import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS } from '../../utils/api';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -1178,7 +1178,7 @@ export default function POSPanel() {
         table{width:100%;border-collapse:collapse}
       </style></head><body>
       <h3>PRECUENTA - ${selectedTable.name}</h3>
-      <p class="muted">${new Date().toLocaleString('es-PE')} · ${user?.full_name || 'Cajero/a'}</p>
+      <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
       <div class="sep"></div>
       <table>${itemLines}</table>
       <div class="sep"></div>
@@ -1253,9 +1253,7 @@ export default function POSPanel() {
                         {op ? (
                           <p className="text-xs text-slate-500 mt-1">
                             Turno abierto · {op.cajero_name || 'Usuario'}{' '}
-                            {op.opened_at
-                              ? `· ${new Date(`${op.opened_at}Z`).toLocaleString('es-PE')}`
-                              : ''}
+                            {op.opened_at ? `· ${formatPeDateTimeLine(op.opened_at)}` : ''}
                           </p>
                         ) : (
                           <p className="text-xs text-slate-500 mt-1">Sin turno abierto</p>
@@ -1351,7 +1349,7 @@ export default function POSPanel() {
         table{width:100%;border-collapse:collapse}
       </style></head><body>
       <h3>PRECUENTA - ${table.name}</h3>
-      <p class="muted">${new Date().toLocaleString('es-PE')} · ${user?.full_name || 'Cajero/a'}</p>
+      <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
       <div class="sep"></div>
       <table>${itemLines}</table>
       <div class="sep"></div>
@@ -1586,8 +1584,8 @@ export default function POSPanel() {
                 {registerHistory.map(r => (
                   <tr key={r.id} className="border-b border-slate-50">
                     <td className="py-2">{r.user_name}</td>
-                    <td className="py-2">{r.opened_at ? new Date(`${r.opened_at}Z`).toLocaleString('es-PE') : '-'}</td>
-                    <td className="py-2">{r.closed_at ? new Date(`${r.closed_at}Z`).toLocaleString('es-PE') : 'Abierta'}</td>
+                    <td className="py-2">{r.opened_at ? formatPeDateTimeLine(r.opened_at) : '-'}</td>
+                    <td className="py-2">{r.closed_at ? formatPeDateTimeLine(r.closed_at) : 'Abierta'}</td>
                     <td className="py-2 text-right font-semibold">{formatCurrency(r.total_sales || 0)}</td>
                   </tr>
                 ))}
