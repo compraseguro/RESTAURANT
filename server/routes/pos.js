@@ -66,6 +66,42 @@ function getMovementTotals(registerId) {
 }
 const SALES_EVENT_AT_SQL = 'COALESCE(updated_at, created_at)';
 
+/** Ventas del turno de caja (pedidos pagados desde apertura): totales y desglose por método (incl. online). */
+function queryRegisterSessionSales(openedAt) {
+  if (!openedAt) {
+    return {
+      total_sales: 0,
+      total_cash: 0,
+      total_yape: 0,
+      total_plin: 0,
+      total_card: 0,
+      total_online: 0,
+      order_count: 0,
+    };
+  }
+  const row =
+    queryOne(
+      `SELECT COALESCE(SUM(total), 0) as total_sales,
+        COALESCE(SUM(CASE WHEN payment_method = 'efectivo' THEN total ELSE 0 END), 0) as total_cash,
+        COALESCE(SUM(CASE WHEN payment_method = 'yape' THEN total ELSE 0 END), 0) as total_yape,
+        COALESCE(SUM(CASE WHEN payment_method = 'plin' THEN total ELSE 0 END), 0) as total_plin,
+        COALESCE(SUM(CASE WHEN payment_method = 'tarjeta' THEN total ELSE 0 END), 0) as total_card,
+        COALESCE(SUM(CASE WHEN payment_method = 'online' THEN total ELSE 0 END), 0) as total_online,
+        COUNT(*) as order_count
+      FROM orders WHERE ${SALES_EVENT_AT_SQL} >= ? AND status != 'cancelled' AND payment_status = 'paid'`,
+      [openedAt]
+    ) || {};
+  return {
+    total_sales: Number(row.total_sales || 0),
+    total_cash: Number(row.total_cash || 0),
+    total_yape: Number(row.total_yape || 0),
+    total_plin: Number(row.total_plin || 0),
+    total_card: Number(row.total_card || 0),
+    total_online: Number(row.total_online || 0),
+    order_count: Number(row.order_count || 0),
+  };
+}
+
 /**
  * Destino del aviso de cierre: 1) email del usuario administrador (rol admin, el que crea el maestro),
  * 2) CASH_CLOSE_EMAIL, 3) email del registro restaurante.
@@ -131,6 +167,7 @@ async function sendCashCloseNotification({
     `Yape: ${Number(sales.total_yape || 0)}`,
     `Plin: ${Number(sales.total_plin || 0)}`,
     `Tarjeta: ${Number(sales.total_card || 0)}`,
+    `Online / otros digitales: ${Number(sales.total_online || 0)}`,
     `Ingresos caja: ${Number(movements.total_income || 0)}`,
     `Egresos caja: ${Number(movements.total_expense || 0)}`,
     `Efectivo esperado: ${Number(expectedCash || 0)}`,
@@ -155,6 +192,7 @@ async function sendCashCloseNotification({
     total_yape: Number(sales.total_yape || 0),
     total_plin: Number(sales.total_plin || 0),
     total_card: Number(sales.total_card || 0),
+    total_online: Number(sales.total_online || 0),
     total_income: Number(movements.total_income || 0),
     total_expense: Number(movements.total_expense || 0),
     expected_cash: Number(expectedCash || 0),
@@ -293,13 +331,7 @@ router.get('/current-register', authenticateToken, requireRole('admin', 'cajero'
   const register = resolvePosRegister(req);
   if (!register) return res.json(null);
 
-  const sales = queryOne(`SELECT COALESCE(SUM(total), 0) as total_sales,
-    COALESCE(SUM(CASE WHEN payment_method = 'efectivo' THEN total ELSE 0 END), 0) as total_cash,
-    COALESCE(SUM(CASE WHEN payment_method = 'yape' THEN total ELSE 0 END), 0) as total_yape,
-    COALESCE(SUM(CASE WHEN payment_method = 'plin' THEN total ELSE 0 END), 0) as total_plin,
-    COALESCE(SUM(CASE WHEN payment_method = 'tarjeta' THEN total ELSE 0 END), 0) as total_card,
-    COUNT(*) as order_count
-    FROM orders WHERE ${SALES_EVENT_AT_SQL} >= ? AND status != 'cancelled' AND payment_status = 'paid'`, [register.opened_at]);
+  const sales = queryRegisterSessionSales(register.opened_at);
 
   const movements = getMovementTotals(register.id);
   const expectedCash = Number(register.opening_amount || 0)
@@ -321,13 +353,7 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
     return res.status(400).json({ error: 'El efectivo contado no puede ser negativo' });
   }
 
-  const sales = queryOne(`SELECT COALESCE(SUM(total), 0) as total_sales,
-    COALESCE(SUM(CASE WHEN payment_method = 'efectivo' THEN total ELSE 0 END), 0) as total_cash,
-    COALESCE(SUM(CASE WHEN payment_method = 'yape' THEN total ELSE 0 END), 0) as total_yape,
-    COALESCE(SUM(CASE WHEN payment_method = 'plin' THEN total ELSE 0 END), 0) as total_plin,
-    COALESCE(SUM(CASE WHEN payment_method = 'tarjeta' THEN total ELSE 0 END), 0) as total_card,
-    COUNT(*) as order_count
-    FROM orders WHERE ${SALES_EVENT_AT_SQL} >= ? AND status != 'cancelled' AND payment_status = 'paid'`, [register.opened_at]);
+  const sales = queryRegisterSessionSales(register.opened_at);
 
   const movements = getMovementTotals(register.id);
   const expectedCash = Number(register.opening_amount || 0)
@@ -351,6 +377,7 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
       yape: Number(sales.total_yape || 0),
       plin: Number(sales.total_plin || 0),
       tarjeta: Number(sales.total_card || 0),
+      online: Number(sales.total_online || 0),
     },
     cash_movements: {
       income: Number(movements.total_income || 0),
@@ -405,13 +432,7 @@ router.post('/send-close-email', authenticateToken, requireRole('admin', 'cajero
     return res.status(400).json({ error: 'El efectivo contado no puede ser negativo' });
   }
 
-  const sales = queryOne(`SELECT COALESCE(SUM(total), 0) as total_sales,
-    COALESCE(SUM(CASE WHEN payment_method = 'efectivo' THEN total ELSE 0 END), 0) as total_cash,
-    COALESCE(SUM(CASE WHEN payment_method = 'yape' THEN total ELSE 0 END), 0) as total_yape,
-    COALESCE(SUM(CASE WHEN payment_method = 'plin' THEN total ELSE 0 END), 0) as total_plin,
-    COALESCE(SUM(CASE WHEN payment_method = 'tarjeta' THEN total ELSE 0 END), 0) as total_card,
-    COUNT(*) as order_count
-    FROM orders WHERE ${SALES_EVENT_AT_SQL} >= ? AND status != 'cancelled' AND payment_status = 'paid'`, [register.opened_at]);
+  const sales = queryRegisterSessionSales(register.opened_at);
   const movements = getMovementTotals(register.id);
   const expectedCash = Number(register.opening_amount || 0)
     + Number(sales.total_cash || 0)

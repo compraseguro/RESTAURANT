@@ -142,6 +142,8 @@ export default function Reports() {
     lines.push(`Yape: ${formatCurrency(register.total_yape || 0)}`);
     lines.push(`Plin: ${formatCurrency(register.total_plin || 0)}`);
     lines.push(`Tarjeta: ${formatCurrency(register.total_card || 0)}`);
+    const onlineAmt = Number(register.arqueo?.payment_breakdown?.online ?? 0);
+    if (onlineAmt > 0) lines.push(`Online: ${formatCurrency(onlineAmt)}`);
     lines.push(`Efectivo esperado: ${formatCurrency(register.arqueo?.expected_cash || 0)}`);
     lines.push(`Efectivo contado: ${formatCurrency(register.arqueo?.counted_cash ?? register.closing_amount ?? 0)}`);
     lines.push(`Diferencia: ${diff >= 0 ? '+' : ''}${formatCurrency(diff)}`);
@@ -870,9 +872,14 @@ export default function Reports() {
                 <p className="font-bold text-sky-700">{formatCurrency(selectedClosedRegister.total_cash)}</p>
               </div>
               <div className="bg-violet-50 rounded-lg p-3">
-                <p className="text-xs text-violet-600">Digital</p>
+                <p className="text-xs text-violet-600">Digital (Yape + Plin + Tarjeta + Online)</p>
                 <p className="font-bold text-violet-700">
-                  {formatCurrency((selectedClosedRegister.total_yape || 0) + (selectedClosedRegister.total_plin || 0) + (selectedClosedRegister.total_card || 0))}
+                  {formatCurrency(
+                    (selectedClosedRegister.total_yape || 0) +
+                      (selectedClosedRegister.total_plin || 0) +
+                      (selectedClosedRegister.total_card || 0) +
+                      Number(selectedClosedRegister.arqueo?.payment_breakdown?.online || 0)
+                  )}
                 </p>
               </div>
               <div className="bg-gold-50 rounded-lg p-3">

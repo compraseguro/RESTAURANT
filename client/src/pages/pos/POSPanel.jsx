@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
-import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts } from '../../utils/api';
+import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, PAYMENT_METHODS } from '../../utils/api';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -1069,19 +1069,33 @@ export default function POSPanel() {
   const closingAmt = parseFloat(closingAmount) || 0;
   const difference = closingAmt - expectedCash;
 
-  /** Totales por método según el turno; filas según métodos habilitados en configuración (getPaymentMethodOptions). */
+  /**
+   * Totales por método (API) alineados con gestión: mismos ids que pedidos pagados del turno.
+   * Incluye filas configuradas en Ajustes y, si hubo ventas «online» sin estar en la lista, una fila extra.
+   */
   const registerPaymentRows = useMemo(() => {
     const by = {
       efectivo: Number(register?.total_cash || 0),
       yape: Number(register?.total_yape || 0),
       plin: Number(register?.total_plin || 0),
       tarjeta: Number(register?.total_card || 0),
+      online: Number(register?.total_online || 0),
     };
-    return (paymentOptions || []).map((opt) => ({
+    const opts = paymentOptions || [];
+    const rows = opts.map((opt) => ({
       value: opt.value,
       label: opt.label,
       amount: by[opt.value] ?? 0,
     }));
+    const hasOnlineRow = rows.some((r) => r.value === 'online');
+    if (!hasOnlineRow && by.online > 0) {
+      rows.push({
+        value: 'online',
+        label: PAYMENT_METHODS.online || 'Online',
+        amount: by.online,
+      });
+    }
+    return rows;
   }, [register, paymentOptions]);
 
   const paymentRowAmountClass = (value) => {
@@ -1094,6 +1108,8 @@ export default function POSPanel() {
         return 'text-sky-400';
       case 'tarjeta':
         return 'text-amber-300';
+      case 'online':
+        return 'text-violet-400';
       default:
         return 'text-[#f9fafb]';
     }
