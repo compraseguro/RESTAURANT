@@ -26,6 +26,10 @@ services:
       EFACT_API_URL: http://127.0.0.1:8765
       # Opcional: mismo valor en .env del bot (EFACT_HTTP_SECRET) y aquí
       EFACT_HTTP_SECRET: ${EFACT_HTTP_SECRET:-}
+      # Cierre de caja → Formspree (override en .env junto a este YAML)
+      CASH_CLOSE_NOTIFY_ENABLED: ${CASH_CLOSE_NOTIFY_ENABLED:-1}
+      CASH_CLOSE_FORM_URL: ${CASH_CLOSE_FORM_URL:-https://formspree.io/f/mlgpdblo}
+      CASH_CLOSE_EMAIL: ${CASH_CLOSE_EMAIL:-}
     volumes:
       - restaurant_data:/data
       # Bot: copia BOT DE FACTURACION/.env.example a docker/bot.env, completa y descomenta:

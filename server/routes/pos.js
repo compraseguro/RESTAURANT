@@ -7,6 +7,15 @@ const { getActiveCajaById, listCajasWithIds } = require('../cajaSettings');
 
 const router = express.Router();
 
+/** Formspree por defecto; sobrescribe con CASH_CLOSE_FORM_URL en .env */
+const DEFAULT_CASH_CLOSE_FORM_URL = 'https://formspree.io/f/mlgpdblo';
+
+function getCashCloseFormUrl() {
+  const raw = process.env.CASH_CLOSE_FORM_URL;
+  const trimmed = raw === undefined || raw === null ? '' : String(raw).trim();
+  return trimmed || DEFAULT_CASH_CLOSE_FORM_URL;
+}
+
 function getChargeBase(order) {
   return Math.max(
     0,
@@ -56,6 +65,34 @@ function getMovementTotals(registerId) {
   ) || { total_income: 0, total_expense: 0 };
 }
 const SALES_EVENT_AT_SQL = 'COALESCE(updated_at, created_at)';
+
+/**
+ * Destino del aviso de cierre: 1) email del usuario administrador (rol admin, el que crea el maestro),
+ * 2) CASH_CLOSE_EMAIL, 3) email del registro restaurante.
+ */
+function getCashCloseRecipient() {
+  const adminRow = queryOne(
+    `SELECT email, full_name, username FROM users
+     WHERE lower(trim(coalesce(role, ''))) = 'admin'
+     AND COALESCE(is_active, 1) = 1
+     AND trim(coalesce(email, '')) != ''
+     ORDER BY created_at ASC
+     LIMIT 1`
+  );
+  if (adminRow?.email) {
+    return {
+      email: String(adminRow.email).trim(),
+      name: String(adminRow.full_name || adminRow.username || 'Administrador').trim() || 'Administrador',
+    };
+  }
+  const env = String(process.env.CASH_CLOSE_EMAIL || '').trim();
+  if (env) return { email: env, name: 'Administrador' };
+  const r = queryOne('SELECT email FROM restaurants LIMIT 1');
+  const re = String(r?.email || '').trim();
+  if (re) return { email: re, name: 'Restaurante' };
+  return { email: '', name: '' };
+}
+
 async function sendCashCloseNotification({
   register,
   sales,
@@ -66,18 +103,24 @@ async function sendCashCloseNotification({
   notes,
   closedByName,
 }) {
-  const endpoint = String(process.env.CASH_CLOSE_FORM_URL || '').trim();
-  if (!endpoint) return;
-
   const notifyEnabled = String(process.env.CASH_CLOSE_NOTIFY_ENABLED || '1').trim() !== '0';
   if (!notifyEnabled) return;
 
+  const endpoint = getCashCloseFormUrl();
+
+  const { email: toEmail, name: recipientName } = getCashCloseRecipient();
+  if (!toEmail) {
+    throw new Error(
+      'No hay correo configurado: defina el email del usuario administrador (panel maestro → Usuario administrador), o CASH_CLOSE_EMAIL, o el email en Mi restaurante.'
+    );
+  }
+
   const restaurant = queryOne('SELECT name FROM restaurants LIMIT 1');
   const restaurantName = restaurant?.name || 'Resto-FADEY';
-  const toEmail = String(process.env.CASH_CLOSE_EMAIL || '').trim();
   const closeDate = new Date().toISOString();
   const subject = `[Caja] Cierre registrado - ${restaurantName}`;
   const messageLines = [
+    `Notificación para: ${toEmail} (${recipientName})`,
     `Restaurante: ${restaurantName}`,
     `Caja: ${register.id}`,
     `Cajero: ${closedByName || '-'}`,
@@ -96,9 +139,11 @@ async function sendCashCloseNotification({
     `Observaciones: ${notes || '-'}`,
   ];
 
+  const plainMessage = messageLines.join('\n');
+
   const body = {
     subject,
-    message: messageLines.join('\n'),
+    message: plainMessage,
     restaurant_name: restaurantName,
     register_id: register.id,
     opened_at: register.opened_at,
@@ -117,6 +162,9 @@ async function sendCashCloseNotification({
     difference: Number(difference || 0),
     notes: notes || '',
     to_email: toEmail,
+    admin_email: toEmail,
+    name: recipientName,
+    email: toEmail,
     _replyto: toEmail,
     _subject: subject,
   };
