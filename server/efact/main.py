@@ -161,6 +161,23 @@ def venta_desde_json(path: Path) -> VentaInput:
     return venta_desde_dict(data)
 
 
+def _finalize_abs_paths(result: dict) -> None:
+    """Rutas absolutas en JSON para que el API Node copie PDF/XML desde el mismo disco."""
+    p = result.get("paths")
+    if not isinstance(p, dict):
+        return
+    for k, v in list(p.items()):
+        if not v or not isinstance(v, str):
+            continue
+        lv = v.lower()
+        if lv.startswith("http://") or lv.startswith("https://"):
+            continue
+        try:
+            p[k] = str(Path(v).expanduser().resolve(strict=False))
+        except (OSError, RuntimeError):
+            pass
+
+
 def procesar_venta(
     venta: VentaInput,
     *,
@@ -196,6 +213,7 @@ def procesar_venta(
         generar_pdf_comprobante(venta, path_pdf)
         result["paths"]["pdf"] = str(path_pdf)
         result["mensaje"] = motivo_sin_firma or "XML y PDF sin firma SUNAT"
+        _finalize_abs_paths(result)
         return result
 
     signed_bytes = firmar_xml_ubl(xml_bytes, cert_cfg)
@@ -216,6 +234,7 @@ def procesar_venta(
             path_pdf = rutas.pdf / f"{nombre_base}.pdf"
             generar_pdf_comprobante(venta, path_pdf)
             result["paths"]["pdf"] = str(path_pdf)
+            _finalize_abs_paths(result)
             return result
         res = enviar_comprobante(zip_bytes, nombre_zip, sunat_cfg)
         result["sunat"] = {"ok": bool(res.ok), "mensaje": res.mensaje or ""}
@@ -243,6 +262,7 @@ def procesar_venta(
     result["paths"]["pdf"] = str(path_pdf)
     if not result.get("mensaje"):
         result["mensaje"] = "Procesado"
+    _finalize_abs_paths(result)
     return result
 
 

@@ -209,7 +209,9 @@ function parseProviderPayload(rawPayload) {
 }
 
 function applyProviderResultToDocument(docId, result) {
-  const rawPdf = String(result.pdfUrl || '').trim();
+  const pr = result.providerResponse;
+  const fromPaths = pr && typeof pr === 'object' ? String(pr.paths?.pdf || '').trim() : '';
+  const rawPdf = String(result.pdfUrl || '').trim() || fromPaths;
   const pdfStored =
     exportBillingPdfToUploads(docId, rawPdf) || (isHttpPdfUrl(rawPdf) ? rawPdf : '');
   runSql(
@@ -725,6 +727,7 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
     pdfUrl,
     providerResponse,
   } = await sendToProvider(restaurant, providerPayload);
+  const pdfFromPaths = String(providerResponse?.paths?.pdf || '').trim();
 
   assertSunatOutcomeAcceptedOrOfflinePending(restaurant, useEfact, {
     providerStatus,
@@ -737,7 +740,7 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
   }
 
   const docId = uuidv4();
-  const rawPdfInsert = String(pdfUrl || '').trim();
+  const rawPdfInsert = String(pdfUrl || '').trim() || pdfFromPaths;
   const pdfStoredInsert =
     exportBillingPdfToUploads(docId, rawPdfInsert) || (isHttpPdfUrl(rawPdfInsert) ? rawPdfInsert : '');
   runSql(

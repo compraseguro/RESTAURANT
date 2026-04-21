@@ -20,6 +20,32 @@ function resolveLocalPath(raw) {
   return path.resolve(process.cwd(), t);
 }
 
+/** Prueba varias rutas: cwd, carpeta del bot Python, etc. */
+function findExistingPdfSource(raw) {
+  const t = String(raw || '').trim();
+  if (!t || isHttpUrl(t)) return '';
+  const candidates = [];
+  if (path.isAbsolute(t)) candidates.push(t);
+  else {
+    candidates.push(path.resolve(process.cwd(), t));
+    candidates.push(path.join(process.cwd(), 'server', 'efact', t));
+    candidates.push(path.join(process.cwd(), 'server', 'efact', t.replace(/^\.\//, '')));
+  }
+  candidates.push(resolveLocalPath(t));
+  const efactBase = path.join(__dirname, '..', 'server', 'efact');
+  if (!path.isAbsolute(t)) {
+    candidates.push(path.join(efactBase, t));
+    candidates.push(path.join(efactBase, t.replace(/^\.\//, '')));
+  }
+  const seen = new Set();
+  for (const c of candidates) {
+    if (!c || seen.has(c)) continue;
+    seen.add(c);
+    if (fs.existsSync(c)) return c;
+  }
+  return '';
+}
+
 /**
  * @param {string} docId — id del registro electronic_documents (UUID)
  * @param {string} pdfUrl — URL https, o ruta de archivo local devuelta por el bot
@@ -33,8 +59,8 @@ function exportBillingPdfToUploads(docId, pdfUrl) {
   const safeId = String(docId || '').replace(/[^a-zA-Z0-9_-]/g, '');
   if (!safeId) return '';
 
-  const src = resolveLocalPath(raw);
-  if (!src || !fs.existsSync(src)) {
+  const src = findExistingPdfSource(raw);
+  if (!src) {
     console.warn('[billing-pdf] No se encontró el archivo del bot:', raw);
     return '';
   }
@@ -48,7 +74,9 @@ function exportBillingPdfToUploads(docId, pdfUrl) {
     const destName = `${safeId}${safeExt}`;
     const dest = path.join(BILLING_PDF_DIR, destName);
     fs.copyFileSync(src, dest);
-    return `/uploads/billing-documents/${destName}`;
+    const pub = `/uploads/billing-documents/${destName}`;
+    console.info('[billing-pdf] Copiado para acceso web:', pub, '←', src);
+    return pub;
   } catch (e) {
     console.warn('[billing-pdf] Error al copiar a uploads:', e.message || e);
     return '';

@@ -166,10 +166,14 @@ function mapEfactResponseToProviderResult(parsed, responseOk) {
     const msg = typeof parsed?.error === 'string'
       ? parsed.error
       : (parsed?.detail || `Error HTTP en API del bot`);
+    const pathsErr = parsed?.paths && typeof parsed.paths === 'object' ? parsed.paths : {};
     return {
       ...initial,
       providerStatus: 'error',
       providerMessage: msg,
+      pdfUrl: String(pathsErr.pdf || ''),
+      xmlUrl: String(pathsErr.xml_firmado || pathsErr.xml_sin_firma || ''),
+      cdrUrl: String(pathsErr.cdr_xml || pathsErr.cdr_zip || ''),
       providerResponse: parsed || {},
     };
   }
