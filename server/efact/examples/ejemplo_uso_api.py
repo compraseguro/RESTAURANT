@@ -2,7 +2,7 @@
 """
 Ejemplo de uso programático (integración en su app de restaurante).
 
-Ejecutar desde la raíz del proyecto:
+Ejecutar desde server/efact:
   python examples/ejemplo_uso_api.py
 """
 

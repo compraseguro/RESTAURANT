@@ -34,7 +34,7 @@ services:
       PERU_CONSULTAS_TOKEN: ${PERU_CONSULTAS_TOKEN:-}
     volumes:
       - restaurant_data:/data
-      # Bot: copia BOT DE FACTURACION/.env.example a docker/bot.env, completa y descomenta:
+      # Bot: copia server/efact/.env.example a docker/bot.env, completa y descomenta:
       # - ./docker/bot.env:/app/bot/.env:ro
       # - ./docker/certs:/data/certs:ro
     restart: unless-stopped

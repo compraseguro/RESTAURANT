@@ -7,11 +7,11 @@ client/dist
 .env
 .env.*
 !.env.example
-!BOT DE FACTURACION/.env.example
-BOT DE FACTURACION/.env
+!server/efact/.env.example
+server/efact/.env
 **/__pycache__
 **/*.pyc
-BOT DE FACTURACION/output
-BOT DE FACTURACION/**/output
+server/efact/output
+server/efact/**/output
 *.zip
 Resto-*.zip

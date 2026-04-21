@@ -690,9 +690,10 @@ export default function MiRestaurant() {
               </fieldset>
 
               <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-900">
-                En local: ejecute <code className="text-xs bg-amber-100 px-1 rounded">python api_server.py</code> en{' '}
-                <code className="text-xs bg-amber-100 px-1 rounded">BOT DE FACTURACION</code>.
-                Con <strong>Docker</strong>, el <code className="text-xs bg-amber-100 px-1 rounded">entrypoint</code> ya arranca el bot en el mismo contenedor que Node; certificado .pfx y SOL van en el <code className="text-xs bg-amber-100 px-1 rounded">.env</code> del bot.
+                En local, desde la raíz del repo:{' '}
+                <code className="text-xs bg-amber-100 px-1 rounded">python server/efact/api_server.py</code>
+                {' '}(carpeta <code className="text-xs bg-amber-100 px-1 rounded">server/efact</code>).
+                Con <strong>Docker</strong>, el <code className="text-xs bg-amber-100 px-1 rounded">entrypoint</code> ya arranca el bot en el mismo contenedor que Node; certificado .pfx y SOL van en el <code className="text-xs bg-amber-100 px-1 rounded">.env</code> bajo <code className="text-xs bg-amber-100 px-1 rounded">server/efact</code>.
               </div>
               <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-red-800">
                 Al emitir facturas, el cliente debe tener RUC válido (11 dígitos) y razón social.

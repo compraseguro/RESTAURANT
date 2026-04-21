@@ -49,9 +49,9 @@ IMG_20*.png
 docker/bot.env
 docker/certs/
 
-# Bot de facturación: certificados y salida local (no subir)
-BOT DE FACTURACION/certs/
-BOT DE FACTURACION/output/
+# E-fact (Python bajo server/efact): certificados y salida local (no subir)
+server/efact/certs/
+server/efact/output/
 
 # Local archives/backups
 *.zip

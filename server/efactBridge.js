@@ -1,5 +1,5 @@
 /**
- * Construye el JSON esperado por el bot Python (BOT DE FACTURACION) y llama a su API HTTP.
+ * Construye el JSON esperado por el bot Python (server/efact) y llama a su API HTTP.
  */
 
 const path = require('path');
@@ -188,7 +188,7 @@ function mapEfactResponseToProviderResult(parsed, responseOk) {
   else if (noSunatFlow) providerStatus = 'error';
 
   const noCertMsg =
-    'Configure CERT_PFX_PATH y CERT_PFX_PASSWORD en el .env del bot y reinicie python api_server.py para firmar y enviar a SUNAT.';
+    'Configure CERT_PFX_PATH y CERT_PFX_PASSWORD en el .env de server/efact y reinicie python api_server.py (desde esa carpeta) o el contenedor Docker.';
 
   return {
     providerStatus,

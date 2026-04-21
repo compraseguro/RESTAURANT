@@ -3,7 +3,7 @@
 """
 Flujo principal: venta → XML UBL → firma → ZIP → SUNAT (opcional) → CDR → PDF → disco.
 
-Ejecutar desde la raíz del proyecto:
+Ejecutar desde server/efact:
   python main.py --dry-run
   python main.py
 

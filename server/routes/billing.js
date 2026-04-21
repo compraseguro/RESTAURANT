@@ -139,7 +139,7 @@ function assertRestaurantReadyForBillingIssue(restaurant, useEfact, docType) {
   if (useEfact) {
     if (!canSendToEfact(restaurant)) {
       throw new Error(
-        'Configure la URL del bot en el panel o defina EFACT_API_URL en el servidor (p. ej. http://127.0.0.1:8765 con Docker). El bot debe estar en ejecución (python api_server.py o entrypoint Docker).'
+        'Configure la URL del bot en el panel o defina EFACT_API_URL en el servidor (p. ej. http://127.0.0.1:8765 con Docker). El servicio Python debe estar en ejecución (p. ej. python server/efact/api_server.py desde la raíz del repo, o entrypoint Docker).'
       );
     }
     const serie = docType === 'factura'

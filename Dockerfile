@@ -26,7 +26,7 @@ RUN npm ci --omit=dev
 
 COPY server ./server
 COPY --from=builder /app/client/dist ./client/dist
-COPY ["BOT DE FACTURACION", "/app/bot"]
+COPY server/efact /app/bot
 
 RUN python3 -m venv /app/bot/.venv \
   && /app/bot/.venv/bin/pip install --no-cache-dir --upgrade pip \

@@ -8,8 +8,9 @@ Variables de entorno (además de las de `.env` del bot):
   EFACT_HTTP_HOST     — default 127.0.0.1
   EFACT_HTTP_PORT     — default 8765
 
-Ejecutar desde la carpeta del bot:
-  python api_server.py
+Ejecutar desde la raíz del repo:
+  python server/efact/api_server.py
+  (o cd server/efact && python api_server.py)
 """
 
 from __future__ import annotations

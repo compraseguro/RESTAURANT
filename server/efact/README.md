@@ -6,8 +6,10 @@ Sistema **modular en Python** para generar **XML UBL 2.1** (factura `01` / bolet
 
 ## Estructura de carpetas
 
+Este módulo vive **dentro del backend** del monorepo:
+
 ```
-BOT DE FACTURACION/
+server/efact/
 ├── main.py                 # Flujo CLI (entrada → XML → firma → envío → PDF)
 ├── requirements.txt
 ├── .env.example
@@ -53,9 +55,10 @@ Usuario SOAP = **RUC + usuario SOL** (concatenado); el campo `SUNAT_USUARIO_SOL`
 
 ## Cómo ejecutar
 
-Desde la carpeta del proyecto:
+Desde la carpeta `server/efact` (o con rutas relativas desde ahí):
 
 ```bash
+cd server/efact
 # Solo XML + PDF con datos demo (sin firma si no hay PFX / contraseña)
 python main.py --no-sign
 
@@ -72,6 +75,7 @@ python main.py --no-sign --data data/ejemplo_venta.json
 Ejemplo programático:
 
 ```bash
+cd server/efact
 python examples/ejemplo_uso_api.py
 ```
 
