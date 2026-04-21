@@ -9,6 +9,7 @@
     "install-all": "npm install && cd client && npm install",
     "build": "cd client && npm install --include=dev && npm run build",
     "start": "node server/index.js",
+    "start:render": "bash scripts/render-start.sh",
     "efact-api": "python server/efact/api_server.py",
     "smoke": "node scripts/smoke-test.js",
     "verify:roles": "node scripts/verify-roles.js",

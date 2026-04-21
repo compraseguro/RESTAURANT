@@ -65,6 +65,26 @@ El **reinicio completo** de datos del programa sigue siendo solo el que configur
    `https://TU-SERVICIO.onrender.com/api/healthz`  
    Debería responder JSON con `{ "ok": true }` (o similar).
 
+### 1c) Mismo servicio Node (sin Docker ni segundo Web Service): bot e-fact
+
+Render incluye **Python 3** en el runtime nativo de Node ([herramientas disponibles](https://render.com/docs/native-environments)). Puedes levantar **Node + `api_server.py`** en un solo servicio **sin crear otro** ni pasar a Docker:
+
+1. Servicio existente → **Settings** (o el editor del servicio).
+2. **Build command** (sustituye el anterior por este, en una sola línea):
+
+   `npm install && npm run build && pip3 install --user -r server/efact/requirements.txt`
+
+3. **Start command** (sustituye `npm start` por):
+
+   `bash scripts/render-start.sh`
+
+4. Variables (como ya tienes): `EFACT_API_URL=http://127.0.0.1:8765` y `EFACT_HTTP_SECRET=…`  
+   Opcional: `OUTPUT_DIR=/data/efact-output` si tienes disco en `/data` y quieres conservar XML/PDF del bot ahí.
+
+5. **Save** y **Manual Deploy**. En **Logs** deberías ver el mensaje del API Python (puerto **8765**) y luego el arranque de Node.
+
+El script está en el repo: `scripts/render-start.sh`.
+
 ---
 
 ## 2) Frontend en Vercel (React / Vite)
