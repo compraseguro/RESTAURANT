@@ -109,7 +109,7 @@ function buildEfactSaleJson({
   const payload = {
     tipo: docType === 'factura' ? '01' : '03',
     serie: series,
-    correlativo,
+    correlativo: toNumber(correlative, 1),
     fecha_emision: formatIssueDateIso(),
     hora_emision: formatIssueTime(),
     moneda: (restaurant.currency || 'PEN') === 'USD' ? 'USD' : 'PEN',
