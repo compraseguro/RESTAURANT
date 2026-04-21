@@ -11,6 +11,7 @@ const {
   isAcceptableEfactApiUrlForStorage,
 } = require('../efactConnection');
 const { getControlConfig } = require('../masterAdminService');
+const { scheduleWhatsappPdfSend } = require('../whatsappLaptopNotify');
 
 const router = express.Router();
 
@@ -782,7 +783,9 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
     [docType, fullNumber, normalizedCustomer.customerName, orderId]
   );
 
-  return queryOne('SELECT * FROM electronic_documents WHERE id = ?', [docId]);
+  const createdDoc = queryOne('SELECT * FROM electronic_documents WHERE id = ?', [docId]);
+  scheduleWhatsappPdfSend(createdDoc, restaurant);
+  return createdDoc;
 }
 
 router.post('/issue', authenticateToken, requireRole('admin', 'cajero', 'mozo'), async (req, res) => {
@@ -840,6 +843,7 @@ router.post('/:id/retry', authenticateToken, requireRole('admin', 'cajero'), asy
     applyProviderResultToDocument(doc.id, result);
 
     const updated = queryOne('SELECT * FROM electronic_documents WHERE id = ?', [doc.id]);
+    scheduleWhatsappPdfSend(updated, restaurant);
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo reintentar el comprobante' });
@@ -866,6 +870,8 @@ async function retryFailedDocumentsBatch({ limit = 20 } = {}) {
     if (!payload || Object.keys(payload).length === 0) continue;
     const result = await sendToProvider(restaurant, payload);
     applyProviderResultToDocument(row.id, result);
+    const updatedRow = queryOne('SELECT * FROM electronic_documents WHERE id = ?', [row.id]);
+    scheduleWhatsappPdfSend(updatedRow, restaurant);
     processed += 1;
     if (result.providerStatus === 'accepted' || result.providerStatus === 'sent') success += 1;
   }

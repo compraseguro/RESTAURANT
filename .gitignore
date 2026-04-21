@@ -53,6 +53,12 @@ docker/certs/
 server/efact/certs/
 server/efact/output/
 
+# Puente WhatsApp local (sesión + node_modules)
+whatsapp-bridge/node_modules/
+whatsapp-bridge/.wwebjs_auth/
+whatsapp-bridge/.wwebjs_cache/
+whatsapp-bridge/.env
+
 # Local archives/backups
 *.zip
 *.7z
