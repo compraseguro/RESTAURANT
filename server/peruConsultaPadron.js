@@ -48,6 +48,16 @@ function pickDireccion(u) {
 }
 
 function pickNombreDni(u) {
+  /** Formato Decolecta v1/reniec/dni (gitbook integrations-2) */
+  const decoFull = u.full_name || u.fullName;
+  if (String(decoFull || '').trim()) return String(decoFull).trim();
+
+  const fn = u.first_name || u.firstName || u.nombres || u.nombre;
+  const ap1 = u.first_last_name || u.apellidoPaterno || u.apellido_paterno;
+  const ap2 = u.second_last_name || u.apellidoMaterno || u.apellido_materno;
+  const fromParts = [fn, ap1, ap2].filter((x) => x && String(x).trim()).join(' ').trim();
+  if (fromParts) return fromParts;
+
   const full =
     u.nombreCompleto ||
     u.nombre_completo ||
@@ -55,6 +65,7 @@ function pickNombreDni(u) {
     u.nombresApellidos ||
     '';
   if (String(full || '').trim()) return String(full).trim();
+
   const n = u.nombres || u.nombre;
   const ap = u.apellidoPaterno || u.apellido_paterno;
   const am = u.apellidoMaterno || u.apellido_materno;
