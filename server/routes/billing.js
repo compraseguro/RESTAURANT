@@ -12,6 +12,7 @@ const {
 } = require('../efactConnection');
 const { getControlConfig } = require('../masterAdminService');
 const { scheduleWhatsappPdfSend } = require('../whatsappLaptopNotify');
+const { exportBillingPdfToUploads, isHttpUrl: isHttpPdfUrl } = require('../billingPdfStorage');
 
 const router = express.Router();
 
@@ -208,6 +209,9 @@ function parseProviderPayload(rawPayload) {
 }
 
 function applyProviderResultToDocument(docId, result) {
+  const rawPdf = String(result.pdfUrl || '').trim();
+  const pdfStored =
+    exportBillingPdfToUploads(docId, rawPdf) || (isHttpPdfUrl(rawPdf) ? rawPdf : '');
   runSql(
     `UPDATE electronic_documents
      SET provider_status = ?, provider_message = ?, hash_code = ?, sunat_description = ?,
@@ -220,7 +224,7 @@ function applyProviderResultToDocument(docId, result) {
       String(result.sunatDescription || ''),
       String(result.xmlUrl || ''),
       String(result.cdrUrl || ''),
-      String(result.pdfUrl || ''),
+      String(pdfStored || ''),
       JSON.stringify(result.providerResponse || {}),
       docId,
     ]
@@ -733,6 +737,9 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
   }
 
   const docId = uuidv4();
+  const rawPdfInsert = String(pdfUrl || '').trim();
+  const pdfStoredInsert =
+    exportBillingPdfToUploads(docId, rawPdfInsert) || (isHttpPdfUrl(rawPdfInsert) ? rawPdfInsert : '');
   runSql(
     `INSERT INTO electronic_documents (
       id, order_id, order_number, doc_type, series, correlative, full_number,
@@ -767,7 +774,7 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
       String(sunatDescription || ''),
       String(xmlUrl || ''),
       String(cdrUrl || ''),
-      String(pdfUrl || ''),
+      String(pdfStoredInsert || ''),
       JSON.stringify(providerPayload),
       JSON.stringify(providerResponse || {}),
     ]
