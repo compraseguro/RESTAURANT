@@ -13,6 +13,7 @@ const {
 const { getControlConfig } = require('../masterAdminService');
 const { scheduleWhatsappPdfSend } = require('../whatsappLaptopNotify');
 const { exportBillingPdfToUploads, isHttpUrl: isHttpPdfUrl } = require('../billingPdfStorage');
+const { saveLocalFallbackReceiptPdf, ensureLocalFallbackPdfForDocumentRow } = require('../billingLocalReceiptPdf');
 
 const router = express.Router();
 
@@ -206,6 +207,16 @@ function parseProviderPayload(rawPayload) {
   } catch (_) {
     return {};
   }
+}
+
+async function refreshDocWithLocalPdfIfNeeded(docId, restaurant) {
+  let row = queryOne('SELECT * FROM electronic_documents WHERE id = ?', [docId]);
+  const local = await ensureLocalFallbackPdfForDocumentRow(row, restaurant);
+  if (local && !String(row.pdf_url || '').trim()) {
+    runSql('UPDATE electronic_documents SET pdf_url = ? WHERE id = ?', [local, docId]);
+    row = queryOne('SELECT * FROM electronic_documents WHERE id = ?', [docId]);
+  }
+  return row;
 }
 
 function applyProviderResultToDocument(docId, result) {
@@ -741,8 +752,25 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
 
   const docId = uuidv4();
   const rawPdfInsert = String(pdfUrl || '').trim() || pdfFromPaths;
-  const pdfStoredInsert =
+  let pdfFinal =
     exportBillingPdfToUploads(docId, rawPdfInsert) || (isHttpPdfUrl(rawPdfInsert) ? rawPdfInsert : '');
+  if (!pdfFinal) {
+    try {
+      pdfFinal = await saveLocalFallbackReceiptPdf(docId, {
+        restaurant,
+        fullNumber,
+        docType,
+        order,
+        items,
+        customerName: normalizedCustomer.customerName,
+        customerDocType: normalizedCustomer.customerDocType,
+        customerDocNumber: normalizedCustomer.customerDocNumber,
+        customerPhone,
+      });
+    } catch (e) {
+      console.warn('[billing-local-pdf]', e.message || e);
+    }
+  }
   runSql(
     `INSERT INTO electronic_documents (
       id, order_id, order_number, doc_type, series, correlative, full_number,
@@ -777,7 +805,7 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
       String(sunatDescription || ''),
       String(xmlUrl || ''),
       String(cdrUrl || ''),
-      String(pdfStoredInsert || ''),
+      String(pdfFinal || ''),
       JSON.stringify(providerPayload),
       JSON.stringify(providerResponse || {}),
     ]
@@ -793,9 +821,9 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
     [docType, fullNumber, normalizedCustomer.customerName, orderId]
   );
 
-  const createdDoc = queryOne('SELECT * FROM electronic_documents WHERE id = ?', [docId]);
-  scheduleWhatsappPdfSend(createdDoc, restaurant);
-  return createdDoc;
+  const finalDoc = await refreshDocWithLocalPdfIfNeeded(docId, restaurant);
+  scheduleWhatsappPdfSend(finalDoc, restaurant);
+  return finalDoc;
 }
 
 router.post('/issue', authenticateToken, requireRole('admin', 'cajero', 'mozo'), async (req, res) => {
@@ -852,7 +880,7 @@ router.post('/:id/retry', authenticateToken, requireRole('admin', 'cajero'), asy
     const result = await sendToProvider(restaurant, payload);
     applyProviderResultToDocument(doc.id, result);
 
-    const updated = queryOne('SELECT * FROM electronic_documents WHERE id = ?', [doc.id]);
+    const updated = await refreshDocWithLocalPdfIfNeeded(doc.id, restaurant);
     scheduleWhatsappPdfSend(updated, restaurant);
     res.json(updated);
   } catch (err) {
@@ -880,7 +908,7 @@ async function retryFailedDocumentsBatch({ limit = 20 } = {}) {
     if (!payload || Object.keys(payload).length === 0) continue;
     const result = await sendToProvider(restaurant, payload);
     applyProviderResultToDocument(row.id, result);
-    const updatedRow = queryOne('SELECT * FROM electronic_documents WHERE id = ?', [row.id]);
+    const updatedRow = await refreshDocWithLocalPdfIfNeeded(row.id, restaurant);
     scheduleWhatsappPdfSend(updatedRow, restaurant);
     processed += 1;
     if (result.providerStatus === 'accepted' || result.providerStatus === 'sent') success += 1;
