@@ -82,7 +82,24 @@ function ProtectedRoute({ children, roles, moduleId }) {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
   if (!user || user.type === 'customer') return <Navigate to="/" />;
   const hasPermission = moduleId ? hasModulePermission(user, moduleId) : true;
-  if (roles && !roles.includes(user.role) && !hasPermission) return <Navigate to="/admin" />;
+  if (roles && !roles.includes(user.role)) {
+    /** Repartidor: no usa el layout /admin; solo la app móvil en `/delivery`. */
+    if (user.role === 'delivery') {
+      return <Navigate to="/delivery" replace />;
+    }
+    /**
+     * Vista `/delivery` (DeliveryPanel) es solo para rol `delivery`.
+     * Cajero/admin/mozo con permiso de módulo deben usar la misma gestión que el administrador: `/admin/delivery` (Delivery.jsx).
+     */
+    if (
+      moduleId === 'delivery' &&
+      hasPermission &&
+      ['admin', 'cajero', 'mozo'].includes(String(user.role || ''))
+    ) {
+      return <Navigate to="/admin/delivery" replace />;
+    }
+    return <Navigate to="/admin" replace />;
+  }
   if (moduleId && !hasPermission) return <Navigate to="/admin" replace />;
   return children;
 }
@@ -166,7 +183,7 @@ export default function App() {
 
       <Route path="/kitchen" element={<ProtectedRoute roles={['admin', 'cocina']} moduleId="cocina"><KitchenPanel station="cocina" /></ProtectedRoute>} />
       <Route path="/bar" element={<ProtectedRoute roles={['admin', 'bar']} moduleId="bar"><KitchenPanel station="bar" /></ProtectedRoute>} />
-      <Route path="/delivery" element={<ProtectedRoute roles={['admin', 'delivery']} moduleId="delivery"><DeliveryPanel /></ProtectedRoute>} />
+      <Route path="/delivery" element={<ProtectedRoute roles={['delivery']} moduleId="delivery"><DeliveryPanel /></ProtectedRoute>} />
       <Route path="/master" element={<ProtectedRoute roles={['master_admin']}><MasterAdmin /></ProtectedRoute>} />
       <Route path="/customer" element={<CustomerLayout />}>
         <Route index element={<Menu />} />
