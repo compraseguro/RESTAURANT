@@ -921,6 +921,13 @@ async function initDatabase() {
     if (!orderColumns.some(col => col.name === 'created_by_user_name')) {
       db.run("ALTER TABLE orders ADD COLUMN created_by_user_name TEXT DEFAULT ''");
     }
+    const addOrderColIfMissing = (colName, ddl) => {
+      const cols = queryAll('PRAGMA table_info(orders)');
+      if (!cols.some((col) => col.name === colName)) db.run(ddl);
+    };
+    addOrderColIfMissing('delivery_driver_started_at', 'ALTER TABLE orders ADD COLUMN delivery_driver_started_at TEXT');
+    addOrderColIfMissing('delivery_driver_completed_at', 'ALTER TABLE orders ADD COLUMN delivery_driver_completed_at TEXT');
+    addOrderColIfMissing('delivery_route_driver_id', "ALTER TABLE orders ADD COLUMN delivery_route_driver_id TEXT DEFAULT ''");
     db.run("UPDATE orders SET sale_document_type = COALESCE(NULLIF(sale_document_type, ''), 'nota_venta')");
     db.run(
       "UPDATE orders SET sale_document_number = printf('001-%08d', COALESCE(order_number, 0)) WHERE COALESCE(sale_document_number, '') = ''"

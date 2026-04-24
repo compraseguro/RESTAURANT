@@ -178,8 +178,23 @@ router.get('/', authenticateToken, (req, res) => {
 
   if (req.user.type === 'customer') { query += ' AND customer_id = ?'; params.push(req.user.id); }
   if (req.user.role === 'delivery') {
-    // Delivery role can only consume active delivery queue (no history).
-    query += " AND type = 'delivery' AND status IN ('pending', 'preparing', 'ready')";
+    const uid = req.user.id;
+    query += ` AND type = 'delivery' AND status != 'cancelled' AND (
+      (
+        COALESCE(payment_status, '') != 'paid'
+        AND (delivery_driver_completed_at IS NULL OR delivery_driver_completed_at = '')
+        AND (
+          delivery_driver_started_at IS NULL OR delivery_driver_started_at = ''
+          OR delivery_route_driver_id = ?
+        )
+      )
+      OR (
+        delivery_route_driver_id = ?
+        AND delivery_driver_completed_at IS NOT NULL AND TRIM(delivery_driver_completed_at) != ''
+        AND date(delivery_driver_completed_at) = date('now')
+      )
+    )`;
+    params.push(uid, uid);
   } else {
     if (status) { query += ' AND status = ?'; params.push(status); }
     if (type) { query += ' AND type = ?'; params.push(type); }
@@ -279,6 +294,49 @@ router.post('/print-network', authenticateToken, requireRole('admin', 'cajero', 
   }
 });
 
+router.post('/:id/delivery-driver-action', authenticateToken, requireRole('delivery'), (req, res) => {
+  const action = String(req.body?.action || '').trim().toLowerCase();
+  if (!['start', 'complete'].includes(action)) {
+    return res.status(400).json({ error: 'Acción inválida (use start o complete)' });
+  }
+  const order = queryOne('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+  if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+  if (order.type !== 'delivery') return res.status(400).json({ error: 'Solo aplica a pedidos delivery' });
+  if (order.status === 'cancelled') return res.status(400).json({ error: 'Pedido anulado' });
+
+  if (action === 'start') {
+    if (String(order.delivery_driver_started_at || '').trim()) {
+      return res.status(400).json({ error: 'Este pedido ya fue iniciado por reparto' });
+    }
+    if (String(order.delivery_driver_completed_at || '').trim()) {
+      return res.status(400).json({ error: 'Este pedido ya figura como completado en ruta' });
+    }
+    runSql(
+      "UPDATE orders SET delivery_driver_started_at = datetime('now'), delivery_route_driver_id = ?, updated_at = datetime('now') WHERE id = ?",
+      [req.user.id, req.params.id]
+    );
+  } else {
+    if (String(order.delivery_route_driver_id || '') !== String(req.user.id)) {
+      return res.status(403).json({ error: 'Solo quien inició la ruta puede marcarlo como listo' });
+    }
+    if (!String(order.delivery_driver_started_at || '').trim()) {
+      return res.status(400).json({ error: 'Debe iniciar la entrega antes de marcar listo' });
+    }
+    if (String(order.delivery_driver_completed_at || '').trim()) {
+      return res.status(400).json({ error: 'Ya consta como completado en su ruta' });
+    }
+    runSql(
+      "UPDATE orders SET delivery_driver_completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
+      [req.params.id]
+    );
+  }
+
+  const updated = getOrderWithItems(req.params.id);
+  const io = req.app.get('io');
+  if (io) io.emit('order-update', updated);
+  res.json(updated);
+});
+
 router.get('/:id', authenticateToken, (req, res) => {
   const order = getOrderWithItems(req.params.id);
   if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
@@ -286,8 +344,23 @@ router.get('/:id', authenticateToken, (req, res) => {
     return res.status(403).json({ error: 'No tienes acceso a este pedido' });
   }
   if (req.user.role === 'delivery') {
+    if (order.type !== 'delivery') {
+      return res.status(403).json({ error: 'No tienes acceso a este pedido' });
+    }
+    const mine = String(order.delivery_route_driver_id || '') === String(req.user.id);
     const visibleStatuses = ['pending', 'preparing', 'ready'];
-    if (order.type !== 'delivery' || !visibleStatuses.includes(order.status)) {
+    let allow = visibleStatuses.includes(order.status);
+    if (!allow && mine && String(order.delivery_driver_completed_at || '').trim()) {
+      const raw = String(order.delivery_driver_completed_at).replace(' ', 'T');
+      const d = new Date(raw.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(raw) ? raw : `${raw}Z`);
+      const t = new Date();
+      allow =
+        Number.isFinite(d.getTime()) &&
+        d.getFullYear() === t.getFullYear() &&
+        d.getMonth() === t.getMonth() &&
+        d.getDate() === t.getDate();
+    }
+    if (!allow) {
       return res.status(403).json({ error: 'No tienes acceso a este pedido' });
     }
   }
