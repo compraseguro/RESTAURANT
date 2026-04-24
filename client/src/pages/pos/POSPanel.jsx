@@ -18,6 +18,7 @@ import {
   MdAccountBalanceWallet, MdTrendingUp, MdTrendingDown,
   MdRestaurantMenu,
   MdAccessTime, MdPersonAdd, MdEmail, MdSearch,
+  MdDeliveryDining,
 } from 'react-icons/md';
 
 /** Mesa sintética al cobrar cuenta desde Clientes (no existe fila en `tables`). */
@@ -28,6 +29,14 @@ function isClientCheckoutTable(table) {
   return Boolean(table && String(table.id || '').startsWith(CLIENT_CHECKOUT_TABLE_PREFIX));
 }
 
+/** Recuadro sintético en caja: un slot por pedido delivery pendiente de cobro (misma UX que mesa). */
+const POS_DELIVERY_SLOT_PREFIX = 'pos-delivery-slot:';
+function isDeliveryCheckoutTable(table) {
+  return Boolean(table && String(table.id || '').startsWith(POS_DELIVERY_SLOT_PREFIX));
+}
+function deliveryOrderIdFromSlotTable(table) {
+  return String(table?.id || '').slice(POS_DELIVERY_SLOT_PREFIX.length);
+}
 const CAJA_OPTIONS = [
   { id: 'cobrar', label: 'Cobrar' },
   { id: 'reservas', label: 'Reservas' },
@@ -74,6 +83,29 @@ const getOrderChargeTotal = (order) => {
   const discount = Number(order.discount || 0);
   return Math.max(0, base - discount);
 };
+
+function filterUnpaidDeliveryOrdersForCaja(orders) {
+  return (orders || [])
+    .filter(
+      (o) =>
+        o.type === 'delivery' &&
+        String(o.payment_status || '') !== 'paid' &&
+        ['pending', 'preparing', 'ready'].includes(String(o.status || ''))
+    )
+    .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+}
+function buildDeliveryCajaSlots(orders) {
+  return filterUnpaidDeliveryOrdersForCaja(orders).map((o, idx) => ({
+    id: `${POS_DELIVERY_SLOT_PREFIX}${o.id}`,
+    number: o.order_number,
+    name: `DELIVERY ${idx + 1}`,
+    zone: 'delivery',
+    orders: [o],
+    status: 'occupied',
+    order_total: getOrderChargeTotal(o),
+    order_count: 1,
+  }));
+}
 
 export default function POSPanel() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -258,14 +290,31 @@ export default function POSPanel() {
           setSelectedTable((prev) =>
             prev && isClientCheckoutTable(prev) ? { ...prev, orders: fresh } : prev
           );
+        } else if (isDeliveryCheckoutTable(selectedTable)) {
+          const slots = buildDeliveryCajaSlots(ordersData);
+          const next = slots.find((s) => s.id === selectedTable.id);
+          if (next) setSelectedTable(next);
+          else {
+            setSelectedTable(null);
+            setShowBill(false);
+            setSplitMode(false);
+            setSelectedOrderIds([]);
+          }
         } else {
           const updated = tablesData.find((t) => t.id === selectedTable.id);
           if (updated) setSelectedTable(updated);
         }
       }
       if (tableDetail) {
-        const updatedDetail = tablesData.find(t => t.id === tableDetail.id);
-        if (updatedDetail) setTableDetail(updatedDetail);
+        if (isDeliveryCheckoutTable(tableDetail)) {
+          const slots = buildDeliveryCajaSlots(ordersData);
+          const next = slots.find((s) => s.id === tableDetail.id);
+          if (next) setTableDetail(next);
+          else setTableDetail(null);
+        } else {
+          const updatedDetail = tablesData.find(t => t.id === tableDetail.id);
+          if (updatedDetail) setTableDetail(updatedDetail);
+        }
       }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -860,7 +909,7 @@ export default function POSPanel() {
         discounts_by_order: discountsByOrder,
       });
 
-      if (!isClientCheckoutTable(selectedTable)) {
+      if (!isClientCheckoutTable(selectedTable) && !isDeliveryCheckoutTable(selectedTable)) {
         const updatedTable = await api.get(`/tables/${selectedTable.id}`);
         if (!updatedTable.orders || updatedTable.orders.length === 0) {
           await api.patch(`/tables/${selectedTable.id}/status`, { status: 'available' });
@@ -925,6 +974,7 @@ export default function POSPanel() {
   };
 
   const openMenuForTable = (table) => {
+    if (isDeliveryCheckoutTable(table)) return;
     setQuickSaleMode(false);
     setSelectedTable(table);
     setShowMenu(true);
@@ -1088,6 +1138,7 @@ export default function POSPanel() {
     }).filter((entry) => entry.linkedOrders.length > 0);
   }, [reservations, allOrders]);
   const stableTables = [...tables].sort((a, b) => Number(a.number || 0) - Number(b.number || 0));
+  const deliveryCajaSlots = useMemo(() => buildDeliveryCajaSlots(allOrders), [allOrders]);
   const filteredProducts = products.filter(p => {
     if (selectedCat !== 'all' && p.category_id !== selectedCat) return false;
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -1469,25 +1520,68 @@ export default function POSPanel() {
         })}
       </div>
 
+      <h2 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><MdDeliveryDining /> Delivery en caja</h2>
+      <p className="text-sm text-slate-500 mb-3">Un recuadro por pedido delivery pendiente de cobro. Al cobrar, desaparece de esta lista.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        {deliveryCajaSlots.length === 0 ? (
+          <div className="col-span-full card text-slate-500 text-sm py-6 text-center border-dashed border-2 border-slate-200">
+            No hay delivery pendiente de cobro en caja
+          </div>
+        ) : (
+          deliveryCajaSlots.map((slot) => {
+            const isSelected = tableDetail?.id === slot.id;
+            return (
+              <button
+                key={slot.id}
+                type="button"
+                onClick={() => setTableDetail(slot)}
+                className={`card text-left transition-all border-l-4 border-l-sky-500 hover:shadow-lg bg-slate-50/80 ${isSelected ? 'ring-2 ring-gold-400' : ''}`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-sky-100">
+                    <MdDeliveryDining className="text-sky-700 text-xl" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800">{slot.name}</p>
+                    <p className="text-xs text-slate-500">Pedido #{slot.orders?.[0]?.order_number ?? '—'}</p>
+                  </div>
+                </div>
+                <p className="text-xs font-semibold text-sky-800">Por cobrar · {formatCurrency((slot.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0))}</p>
+              </button>
+            );
+          })
+        )}
+      </div>
+
       {tableDetail && (
         <div className="card mb-6">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="font-bold text-slate-800">{tableDetail.name}</h3>
               <p className="text-xs text-slate-500">
-                {tableDetail.orders?.length ? `${tableDetail.orders.length} pedido(s) activo(s)` : 'Sin pedidos activos'}
+                {isDeliveryCheckoutTable(tableDetail)
+                  ? (() => {
+                      const o = tableDetail.orders?.[0];
+                      if (!o) return 'Sin pedido';
+                      return [o.customer_name, o.delivery_address].filter(Boolean).join(' · ') || 'Delivery';
+                    })()
+                  : tableDetail.orders?.length
+                    ? `${tableDetail.orders.length} pedido(s) activo(s)`
+                    : 'Sin pedidos activos'}
               </p>
             </div>
             <p className="text-xl font-bold text-gold-600">{formatCurrency((tableDetail.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <button
-              onClick={() => openMenuForTable(tableDetail)}
-              className="w-full py-2 rounded-lg text-sm font-medium bg-sky-100 text-sky-700 hover:bg-sky-200 flex items-center justify-center gap-2"
-            >
-              <MdRestaurantMenu /> Tomar Pedido
-            </button>
+          <div className={`grid gap-2 ${isDeliveryCheckoutTable(tableDetail) ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'}`}>
+            {!isDeliveryCheckoutTable(tableDetail) && (
+              <button
+                onClick={() => openMenuForTable(tableDetail)}
+                className="w-full py-2 rounded-lg text-sm font-medium bg-sky-100 text-sky-700 hover:bg-sky-200 flex items-center justify-center gap-2"
+              >
+                <MdRestaurantMenu /> Tomar Pedido
+              </button>
+            )}
             <button
               onClick={() => {
                 setSelectedTable(tableDetail);
@@ -1501,7 +1595,7 @@ export default function POSPanel() {
               disabled={!tableDetail.orders?.length}
               className="btn-primary w-full py-2 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <MdAttachMoney /> Cobrar Mesa
+              <MdAttachMoney /> {isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar Mesa'}
             </button>
             <button
               onClick={() => printTableOrder(tableDetail)}
@@ -2012,7 +2106,13 @@ export default function POSPanel() {
           setAmountReceived('');
           resetBillingForm();
         }}
-        title={selectedTable && isClientCheckoutTable(selectedTable) ? 'COBRAR CUENTA CLIENTE' : 'COBRAR MESA'}
+        title={
+          selectedTable && isClientCheckoutTable(selectedTable)
+            ? 'COBRAR CUENTA CLIENTE'
+            : selectedTable && isDeliveryCheckoutTable(selectedTable)
+              ? 'COBRAR DELIVERY'
+              : 'COBRAR MESA'
+        }
         size="xl"
         headerClassName="bg-[#1D4ED8]/40 border-b border-[#3B82F6]/30"
         titleClassName="text-[#F9FAFB] font-extrabold tracking-wide uppercase"
