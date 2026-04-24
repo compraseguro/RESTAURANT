@@ -22,6 +22,7 @@ function escHtml(s) {
 
 export default function Delivery() {
   const { user } = useAuth();
+  const isMozo = String(user?.role || '') === 'mozo';
   const [orders, setOrders] = useState([]);
   const [tab, setTab] = useState('active');
   const [loading, setLoading] = useState(true);
@@ -68,8 +69,12 @@ export default function Delivery() {
   }, [paymentOptions, paymentMethod]);
 
   useEffect(() => {
-    load();
     loadProducts();
+    if (isMozo) {
+      setLoading(false);
+      return;
+    }
+    load();
     api.get('/orders/print-config')
       .then((d) => {
         setPrintMeta({
@@ -79,9 +84,9 @@ export default function Delivery() {
         });
       })
       .catch(() => {});
-  }, []);
-  useActiveInterval(load, 10000);
-  useSocket('order-update', load);
+  }, [isMozo]);
+  useActiveInterval(load, isMozo ? 0 : 10000);
+  useSocket('order-update', isMozo ? () => {} : load);
 
   const activeOrders = orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
   const completedOrders = orders.filter(o => ['delivered', 'cancelled'].includes(o.status));
@@ -250,7 +255,7 @@ export default function Delivery() {
       setShowNewOrder(false);
       setCart([]);
       setNoteEditorProductId('');
-      load();
+      if (!isMozo) load();
     } catch (err) { toast.error(err.message); }
   };
 
@@ -266,65 +271,80 @@ export default function Delivery() {
     <div>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
         <h1 className="text-2xl font-bold text-slate-800">Delivery</h1>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={openNewOrder} className="btn-primary flex items-center gap-2 text-sm">
-            <MdAdd /> Nuevo Pedido
+        {!isMozo && (
+          <div className="flex flex-wrap gap-2">
+            <button onClick={openNewOrder} className="btn-primary flex items-center gap-2 text-sm">
+              <MdAdd /> Nuevo Pedido
+            </button>
+            <button onClick={() => setTab('active')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'active' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Activos ({activeOrders.length})</button>
+            <button onClick={() => setTab('today')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'today' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Hoy ({todayDeliveries.length})</button>
+            <button onClick={() => setTab('completed')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'completed' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Completados ({completedOrders.length})</button>
+          </div>
+        )}
+      </div>
+
+      {isMozo ? (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-10 text-center max-w-lg mx-auto">
+          <MdDeliveryDining className="text-5xl text-gold-500 mx-auto mb-4" />
+          <p className="text-slate-700 font-medium mb-1">Registrar pedido a domicilio</p>
+          <p className="text-sm text-slate-500 mb-6">Aquí solo puedes crear el pedido. El seguimiento lo gestionan caja y administración.</p>
+          <button type="button" onClick={openNewOrder} className="btn-primary inline-flex items-center gap-2 px-6 py-3 text-base">
+            <MdAdd /> Nuevo pedido de delivery
           </button>
-          <button onClick={() => setTab('active')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'active' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Activos ({activeOrders.length})</button>
-          <button onClick={() => setTab('today')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'today' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Hoy ({todayDeliveries.length})</button>
-          <button onClick={() => setTab('completed')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'completed' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Completados ({completedOrders.length})</button>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-        <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-gold-100 rounded-xl flex items-center justify-center"><MdTimer className="text-gold-600" /></div><div><p className="text-xs text-slate-500">En proceso</p><p className="text-xl font-bold">{activeOrders.length}</p></div></div>
-        <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center"><MdCheck className="text-emerald-600" /></div><div><p className="text-xs text-slate-500">Entregados hoy</p><p className="text-xl font-bold">{todayDeliveries.length}</p></div></div>
-        <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center"><MdDeliveryDining className="text-sky-600" /></div><div><p className="text-xs text-slate-500">Total Delivery</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(orders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + (o.total || 0), 0))}</p></div></div>
-      </div>
-
-      {displayed.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border p-12 text-center text-slate-400"><MdDeliveryDining className="text-5xl mx-auto mb-3" /><p className="font-medium">No hay pedidos de delivery {tab === 'active' ? 'activos' : tab === 'today' ? 'entregados hoy' : 'completados'}</p></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {displayed.map(o => (
-            <div key={o.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg">#{o.order_number}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[o.status]}`}>{statusNames[o.status]}</span>
-                </div>
-                <p className="text-xs text-slate-400">{formatDateTime(o.created_at)}</p>
-              </div>
-              <div className="space-y-1 mb-3 text-sm">
-                {o.customer_name && <p className="text-slate-600 flex items-center gap-1"><MdPerson className="text-slate-400" />{o.customer_name}</p>}
-                <p className="text-slate-600 flex items-center gap-1"><MdLocationOn className="text-slate-400" />{o.delivery_address || 'Sin dirección'}</p>
-                {o.notes && <p className="text-slate-500 flex items-center gap-1"><MdPhone className="text-slate-400" />{o.notes}</p>}
-              </div>
-              <div className="border-t border-slate-100 pt-3 mb-3">
-                <p className="text-xs font-semibold text-slate-500 mb-1">Detalle de lo pedido</p>
-                {(o.items || []).map((it, i) => (
-                  <div key={i} className="flex justify-between text-sm py-0.5"><span>{it.quantity}x {it.product_name}</span><span className="text-slate-500">{formatCurrency(it.subtotal)}</span></div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                <div>
-                  <p className="text-xs text-slate-500">Total compra</p>
-                  <p className="font-bold text-lg">{formatCurrency(o.total)}</p>
-                </div>
-                {tab === 'active' && ['pending', 'preparing', 'ready'].includes(o.status) && (
-                  <div className="flex flex-wrap gap-2 justify-end items-center">
-                    <button type="button" onClick={() => printDeliveryOrder(o)} className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium inline-flex items-center gap-1">
-                      <MdPrint className="text-sm" /> Imprimir
-                    </button>
-                    {o.status === 'ready' && canMarkDeliveredFromAdmin && (
-                      <button type="button" onClick={() => updateStatus(o.id, 'delivered')} className="text-xs px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 font-medium">Entregado</button>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+            <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-gold-100 rounded-xl flex items-center justify-center"><MdTimer className="text-gold-600" /></div><div><p className="text-xs text-slate-500">En proceso</p><p className="text-xl font-bold">{activeOrders.length}</p></div></div>
+            <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center"><MdCheck className="text-emerald-600" /></div><div><p className="text-xs text-slate-500">Entregados hoy</p><p className="text-xl font-bold">{todayDeliveries.length}</p></div></div>
+            <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center"><MdDeliveryDining className="text-sky-600" /></div><div><p className="text-xs text-slate-500">Total Delivery</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(orders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + (o.total || 0), 0))}</p></div></div>
+          </div>
+
+          {displayed.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm border p-12 text-center text-slate-400"><MdDeliveryDining className="text-5xl mx-auto mb-3" /><p className="font-medium">No hay pedidos de delivery {tab === 'active' ? 'activos' : tab === 'today' ? 'entregados hoy' : 'completados'}</p></div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {displayed.map(o => (
+                <div key={o.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-lg">#{o.order_number}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[o.status]}`}>{statusNames[o.status]}</span>
+                    </div>
+                    <p className="text-xs text-slate-400">{formatDateTime(o.created_at)}</p>
+                  </div>
+                  <div className="space-y-1 mb-3 text-sm">
+                    {o.customer_name && <p className="text-slate-600 flex items-center gap-1"><MdPerson className="text-slate-400" />{o.customer_name}</p>}
+                    <p className="text-slate-600 flex items-center gap-1"><MdLocationOn className="text-slate-400" />{o.delivery_address || 'Sin dirección'}</p>
+                    {o.notes && <p className="text-slate-500 flex items-center gap-1"><MdPhone className="text-slate-400" />{o.notes}</p>}
+                  </div>
+                  <div className="border-t border-slate-100 pt-3 mb-3">
+                    <p className="text-xs font-semibold text-slate-500 mb-1">Detalle de lo pedido</p>
+                    {(o.items || []).map((it, i) => (
+                      <div key={i} className="flex justify-between text-sm py-0.5"><span>{it.quantity}x {it.product_name}</span><span className="text-slate-500">{formatCurrency(it.subtotal)}</span></div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                    <div>
+                      <p className="text-xs text-slate-500">Total compra</p>
+                      <p className="font-bold text-lg">{formatCurrency(o.total)}</p>
+                    </div>
+                    {tab === 'active' && ['pending', 'preparing', 'ready'].includes(o.status) && (
+                      <div className="flex flex-wrap gap-2 justify-end items-center">
+                        <button type="button" onClick={() => printDeliveryOrder(o)} className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium inline-flex items-center gap-1">
+                          <MdPrint className="text-sm" /> Imprimir
+                        </button>
+                        {o.status === 'ready' && canMarkDeliveredFromAdmin && (
+                          <button type="button" onClick={() => updateStatus(o.id, 'delivered')} className="text-xs px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 font-medium">Entregado</button>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       <Modal isOpen={showNewOrder} onClose={() => setShowNewOrder(false)} title="Nuevo Pedido de Delivery" size="xl">

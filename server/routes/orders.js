@@ -172,6 +172,9 @@ function assertStationRole(req, station) {
 }
 
 router.get('/', authenticateToken, (req, res) => {
+  if (req.user.role === 'mozo') {
+    return res.json([]);
+  }
   const { status, type, date, limit: lim } = req.query;
   let query = 'SELECT * FROM orders WHERE 1=1';
   const params = [];
@@ -401,6 +404,10 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'moz
 
   const order = queryOne('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+
+  if (req.user.role === 'mozo' && order.type === 'delivery') {
+    return res.status(403).json({ error: 'Los mozos solo pueden crear pedidos de delivery; no gestionar su estado.' });
+  }
 
   /** Delivery: pendiente → preparación → listo solo cocina/bar (o admin); no cajero/mozo/delivery. */
   if (order.type === 'delivery' && (status === 'preparing' || status === 'ready')) {
