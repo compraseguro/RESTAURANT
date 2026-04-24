@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, ORDER_TYPES, formatTime } from '../../utils/api';
+import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
 import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
@@ -268,11 +268,21 @@ export default function KitchenPanel({ station = 'cocina' }) {
     } catch (err) { toast.error(err.message); }
   };
 
+  const KITCHEN_OVERDUE_MS = 15 * 60 * 1000;
+
   const getTimeDiff = (created) => {
-    const diff = Math.floor((Date.now() - new Date(created + 'Z').getTime()) / 60000);
+    const d = parseApiDate(created);
+    if (!d) return '';
+    const diff = Math.floor((Date.now() - d.getTime()) / 60000);
     if (diff < 1) return 'Ahora';
     if (diff < 60) return `${diff} min`;
     return `${Math.floor(diff / 60)}h ${diff % 60}m`;
+  };
+
+  const isKitchenOrderOverdue = (created) => {
+    const d = parseApiDate(created);
+    if (!d) return false;
+    return Date.now() - d.getTime() >= KITCHEN_OVERDUE_MS;
   };
 
   const typeIcons = { dine_in: MdTableBar, delivery: MdDeliveryDining, pickup: MdRestaurant };
@@ -336,12 +346,28 @@ export default function KitchenPanel({ station = 'cocina' }) {
       <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {orders.map(order => {
           const TypeIcon = typeIcons[order.type] || MdRestaurant;
-          const isUrgent = (Date.now() - new Date(order.created_at + 'Z').getTime()) > 15 * 60000;
+          const isOverdue = !isBar && isKitchenOrderOverdue(order.created_at);
 
           const cuentaCliente = isCuentaClienteSelfOrder(order);
+          const cardBorder = isOverdue
+            ? order.status === 'pending'
+              ? 'border-2 border-red-500 shadow-[0_0_24px_rgba(239,68,68,0.22)]'
+              : 'border-2 border-red-500/75'
+            : order.status === 'pending'
+              ? 'border-2 border-[#3B82F6]/60'
+              : 'border border-[#3B82F6]/25';
+          const cardBg = order.status === 'pending' ? 'bg-[#1F2937]' : 'bg-[#1F2937]/85';
+          const headerBg = isOverdue
+            ? order.status === 'pending'
+              ? 'bg-red-950/55'
+              : 'bg-red-950/40'
+            : order.status === 'pending'
+              ? 'bg-[#3B82F6]/20'
+              : 'bg-[#111827]/45';
+
           return (
-            <div key={order.id} className={`rounded-xl overflow-hidden backdrop-blur-xl ${order.status === 'pending' ? 'bg-[#1F2937] border-2 border-[#3B82F6]/60' : 'bg-[#1F2937]/85 border border-[#3B82F6]/25'} ${isUrgent ? 'ring-2 ring-[#3B82F6]/45' : ''}`}>
-              <div className={`px-4 py-3 ${order.status === 'pending' ? 'bg-[#3B82F6]/20' : 'bg-[#111827]/45'}`}>
+            <div key={order.id} className={`rounded-xl overflow-hidden backdrop-blur-xl ${cardBg} ${cardBorder} ${isOverdue ? 'ring-2 ring-red-500/45' : ''}`}>
+              <div className={`px-4 py-3 ${headerBg}`}>
                 {cuentaCliente ? (
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -351,8 +377,8 @@ export default function KitchenPanel({ station = 'cocina' }) {
                       <p className="mt-1 text-xs text-[#9CA3AF]">Pedido #{order.order_number}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1 text-sm">
-                      <MdAccessTime className={isUrgent ? 'text-[#F9FAFB]' : 'text-[#9CA3AF]'} />
-                      <span className={isUrgent ? 'font-bold text-[#F9FAFB]' : 'text-[#9CA3AF]'}>{getTimeDiff(order.created_at)}</span>
+                      <MdAccessTime className={isOverdue ? 'text-red-400' : 'text-[#9CA3AF]'} />
+                      <span className={isOverdue ? 'font-bold text-red-300' : 'text-[#9CA3AF]'}>{getTimeDiff(order.created_at)}</span>
                     </div>
                   </div>
                 ) : (
@@ -365,8 +391,8 @@ export default function KitchenPanel({ station = 'cocina' }) {
                       ) : null}
                     </div>
                     <div className="flex items-center gap-1 text-sm">
-                      <MdAccessTime className={isUrgent ? 'text-[#F9FAFB]' : 'text-[#9CA3AF]'} />
-                      <span className={isUrgent ? 'font-bold text-[#F9FAFB]' : 'text-[#9CA3AF]'}>{getTimeDiff(order.created_at)}</span>
+                      <MdAccessTime className={isOverdue ? 'text-red-400' : 'text-[#9CA3AF]'} />
+                      <span className={isOverdue ? 'font-bold text-red-300' : 'text-[#9CA3AF]'}>{getTimeDiff(order.created_at)}</span>
                     </div>
                   </div>
                 )}
