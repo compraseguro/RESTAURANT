@@ -227,6 +227,19 @@ export const PAYMENT_METHODS = {
   online: 'Online',
 };
 
+/** Al crear pedido delivery: anticipado vs contra entrega (distinto del medio de pago en caja). */
+export const DELIVERY_PAYMENT_MODALITY_OPTIONS = [
+  { value: 'anticipado', label: 'Anticipado' },
+  { value: 'contra_entrega', label: 'Contra entrega' },
+];
+
+export function labelDeliveryPaymentModality(raw) {
+  const k = String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+  if (k === 'anticipado') return 'Anticipado';
+  if (k === 'contra_entrega') return 'Contra entrega';
+  return '';
+}
+
 const normalizeMethodName = (value) => String(value || '')
   .trim()
   .toLowerCase()

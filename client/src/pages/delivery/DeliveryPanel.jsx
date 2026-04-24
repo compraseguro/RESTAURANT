@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { api, formatCurrency, formatDate } from '../../utils/api';
+import { api, formatCurrency, formatDate, labelDeliveryPaymentModality } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
@@ -152,7 +152,8 @@ export default function DeliveryPanel() {
         const name = escHtml(o.customer_name || '—');
         const pedido = escHtml(orderLinesSummary(o));
         const total = formatCurrency(o.total || 0);
-        return `<tr><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0">${name}</td><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;font-size:12px">${pedido}</td><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap">${total}</td></tr>`;
+        const mod = escHtml(labelDeliveryPaymentModality(o.delivery_payment_modality) || '—');
+        return `<tr><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0">${name}</td><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;font-size:12px">${pedido}</td><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;font-size:12px;white-space:nowrap">${mod}</td><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap">${total}</td></tr>`;
       })
       .join('');
     const sum = completadosHoy.reduce((s, o) => s + Number(o.total || 0), 0);
@@ -168,8 +169,8 @@ export default function DeliveryPanel() {
         <h1>Pedidos completados (mi ruta)</h1>
         <p class="d">Fecha: ${escHtml(todayLabel)} · ${escHtml(user?.full_name || '')}</p>
         <table>
-          <thead><tr><th>Cliente</th><th>Pedido</th><th>Costo</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="3" style="padding:12px;color:#94a3b8">Sin entregas completadas hoy</td></tr>'}</tbody>
+          <thead><tr><th>Cliente</th><th>Pedido</th><th>Modalidad de pago</th><th>Costo</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="4" style="padding:12px;color:#94a3b8">Sin entregas completadas hoy</td></tr>'}</tbody>
         </table>
         <p class="tot">Total: ${formatCurrency(sum)}</p>
         <script>window.print();window.onafterprint=function(){window.close()};</script>
@@ -219,6 +220,10 @@ export default function DeliveryPanel() {
           <p className="text-[#F9FAFB] font-semibold">{o.customer_name || 'Cliente'}</p>
         </div>
         <p className="text-[#BFDBFE] font-bold text-lg">{formatCurrency(o.total)}</p>
+        <p className="text-sm text-[#E5E7EB]">
+          <span className="text-[#9CA3AF]">Modalidad de pago:</span>{' '}
+          <span className="font-semibold text-[#BFDBFE]">{labelDeliveryPaymentModality(o.delivery_payment_modality) || '—'}</span>
+        </p>
         {o.notes ? (
           <p className="text-sm text-[#9CA3AF] bg-[#0f172A]/50 rounded-xl px-3 py-2 border border-[#3B82F6]/20">
             {o.notes}

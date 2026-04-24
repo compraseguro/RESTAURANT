@@ -29,6 +29,7 @@ function createOrderInTransaction(tx, orderId, body, actor) {
     delivery_address,
     notes,
     payment_method,
+    delivery_payment_modality,
     customer_name,
     discount,
     customer_id,
@@ -150,6 +151,12 @@ function createOrderInTransaction(tx, orderId, body, actor) {
   const requestedPaymentMethod = String(payment_method || '').trim().toLowerCase();
   const paymentMethod = normalizePaymentMethod(requestedPaymentMethod || 'efectivo', { allowOnline: true, fallback: 'efectivo' });
 
+  let deliveryModality = '';
+  if (orderType === 'delivery') {
+    const rawMod = String(delivery_payment_modality ?? '').trim().toLowerCase().replace(/-/g, '_');
+    deliveryModality = rawMod === 'anticipado' ? 'anticipado' : 'contra_entrega';
+  }
+
   let createdByUserId = '';
   let createdByUserName = '';
   if (actor.kind === 'customer' && actor.user) {
@@ -169,8 +176,8 @@ function createOrderInTransaction(tx, orderId, body, actor) {
   tx.run(
     `INSERT INTO orders (
       id, order_number, customer_id, customer_name, restaurant_id, type, subtotal, tax, discount, delivery_fee, total,
-      payment_method, table_number, delivery_address, notes, sale_document_type, sale_document_number, created_by_user_id, created_by_user_name
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      payment_method, table_number, delivery_address, delivery_payment_modality, notes, sale_document_type, sale_document_number, created_by_user_id, created_by_user_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       orderId,
       orderNumber,
@@ -186,6 +193,7 @@ function createOrderInTransaction(tx, orderId, body, actor) {
       paymentMethod,
       table_number || '',
       delivery_address || '',
+      deliveryModality,
       notes || '',
       'nota_venta',
       saleDocumentNumber,

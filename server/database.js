@@ -928,6 +928,17 @@ async function initDatabase() {
     addOrderColIfMissing('delivery_driver_started_at', 'ALTER TABLE orders ADD COLUMN delivery_driver_started_at TEXT');
     addOrderColIfMissing('delivery_driver_completed_at', 'ALTER TABLE orders ADD COLUMN delivery_driver_completed_at TEXT');
     addOrderColIfMissing('delivery_route_driver_id', "ALTER TABLE orders ADD COLUMN delivery_route_driver_id TEXT DEFAULT ''");
+    addOrderColIfMissing(
+      'delivery_payment_modality',
+      "ALTER TABLE orders ADD COLUMN delivery_payment_modality TEXT DEFAULT ''"
+    );
+    try {
+      db.run(
+        "UPDATE orders SET delivery_payment_modality = 'contra_entrega' WHERE type = 'delivery' AND (delivery_payment_modality IS NULL OR TRIM(delivery_payment_modality) = '')"
+      );
+    } catch (_) {
+      /* columna recién añadida en instancias antiguas */
+    }
     db.run("UPDATE orders SET sale_document_type = COALESCE(NULLIF(sale_document_type, ''), 'nota_venta')");
     db.run(
       "UPDATE orders SET sale_document_number = printf('001-%08d', COALESCE(order_number, 0)) WHERE COALESCE(sale_document_number, '') = ''"

@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
-import { api, formatCurrency, formatDate, formatDateTime, getPaymentMethodOptions, PAYMENT_METHODS } from '../../utils/api';
+import {
+  api,
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  DELIVERY_PAYMENT_MODALITY_OPTIONS,
+  labelDeliveryPaymentModality,
+  PAYMENT_METHODS,
+} from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { useSocket } from '../../hooks/useSocket';
@@ -40,8 +48,7 @@ export default function Delivery() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('efectivo');
-  const [paymentOptions, setPaymentOptions] = useState(getPaymentMethodOptions(null, { includeOnline: false }));
+  const [deliveryPaymentModality, setDeliveryPaymentModality] = useState('contra_entrega');
 
   const load = () => {
     api.get('/orders').then(data => {
@@ -53,20 +60,11 @@ export default function Delivery() {
     Promise.all([
       api.get('/products?active_only=true'),
       api.get('/categories/active'),
-      api.get('/admin-modules/config/app').catch(() => null),
-    ]).then(([prods, cats, cfg]) => {
+    ]).then(([prods, cats]) => {
       setProducts(prods);
       setCategories(cats);
-      const nextOptions = getPaymentMethodOptions(cfg, { includeOnline: false });
-      setPaymentOptions(nextOptions);
     }).catch(console.error);
   };
-
-  useEffect(() => {
-    if (!paymentOptions.some(opt => opt.value === paymentMethod)) {
-      setPaymentMethod(paymentOptions[0]?.value || 'efectivo');
-    }
-  }, [paymentOptions, paymentMethod]);
 
   useEffect(() => {
     loadProducts();
@@ -114,6 +112,7 @@ export default function Delivery() {
   };
 
   const printDeliveryOrder = (o) => {
+    const modalityLabel = labelDeliveryPaymentModality(o.delivery_payment_modality) || '—';
     const payLabel = PAYMENT_METHODS[o.payment_method] || o.payment_method || '—';
     const subtotal = Number(o.subtotal || 0);
     const discount = Number(o.discount || 0);
@@ -149,7 +148,8 @@ export default function Delivery() {
         <p><strong>Cliente:</strong> ${escHtml(o.customer_name || '—')}</p>
         <p><strong>Dirección:</strong> ${escHtml(o.delivery_address || '—')}</p>
         ${o.notes ? `<p><strong>Contacto / notas:</strong> ${escHtml(o.notes)}</p>` : ''}
-        <p><strong>Método de pago:</strong> ${escHtml(payLabel)}</p>
+        <p><strong>Modalidad de pago:</strong> ${escHtml(modalityLabel)}</p>
+        ${o.payment_status === 'paid' ? `<p><strong>Medio de pago (caja):</strong> ${escHtml(payLabel)}</p>` : ''}
         <hr/>
         <p style="font-size:12px;font-weight:600;color:#64748b;margin-bottom:8px;">Detalle de lo pedido</p>
         <table>
@@ -193,7 +193,7 @@ export default function Delivery() {
     setCustomerName('');
     setCustomerPhone('');
     setDeliveryAddress('');
-    setPaymentMethod('efectivo');
+    setDeliveryPaymentModality('contra_entrega');
   };
 
   const addToCart = (product) => {
@@ -248,7 +248,7 @@ export default function Delivery() {
         type: 'delivery',
         customer_name: customerName.trim(),
         delivery_address: deliveryAddress.trim(),
-        payment_method: paymentMethod,
+        delivery_payment_modality: deliveryPaymentModality,
         notes: customerPhone ? `Tel: ${customerPhone}` : '',
       });
       toast.success('Pedido de delivery creado');
@@ -317,6 +317,13 @@ export default function Delivery() {
                     {o.customer_name && <p className="text-slate-600 flex items-center gap-1"><MdPerson className="text-slate-400" />{o.customer_name}</p>}
                     <p className="text-slate-600 flex items-center gap-1"><MdLocationOn className="text-slate-400" />{o.delivery_address || 'Sin dirección'}</p>
                     {o.notes && <p className="text-slate-500 flex items-center gap-1"><MdPhone className="text-slate-400" />{o.notes}</p>}
+                    <p className="text-slate-600 text-sm">
+                      <span className="text-slate-500">Modalidad de pago:</span>{' '}
+                      <span className="font-medium">{labelDeliveryPaymentModality(o.delivery_payment_modality) || '—'}</span>
+                      {o.payment_status === 'paid' ? (
+                        <span className="text-slate-500"> · Caja: {PAYMENT_METHODS[o.payment_method] || o.payment_method}</span>
+                      ) : null}
+                    </p>
                   </div>
                   <div className="border-t border-slate-100 pt-3 mb-3">
                     <p className="text-xs font-semibold text-slate-500 mb-1">Detalle de lo pedido</p>
@@ -363,13 +370,18 @@ export default function Delivery() {
                 <label className="block text-xs font-medium text-slate-600 mb-1"><MdHome className="inline mr-1" />Dirección de entrega *</label>
                 <input value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} placeholder="Av. ejemplo 123, distrito" className="input-field text-sm" />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Método de pago</label>
-                <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="input-field text-sm">
-                  {paymentOptions.map(opt => (
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Modalidad de pago</label>
+                <select
+                  value={deliveryPaymentModality}
+                  onChange={(e) => setDeliveryPaymentModality(e.target.value)}
+                  className="input-field text-sm max-w-md"
+                >
+                  {DELIVERY_PAYMENT_MODALITY_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
+                <p className="text-[11px] text-slate-500 mt-1">Anticipado o contra entrega; el medio de pago en caja lo registra caja al cobrar.</p>
               </div>
             </div>
 
