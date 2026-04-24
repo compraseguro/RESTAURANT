@@ -68,8 +68,11 @@ function todayLocalYyyyMmDd() {
   return `${y}-${m}-${d}`;
 }
 
+const TAB_KEYS = { activos: 'activos', proceso: 'proceso', completados: 'completados' };
+
 export default function DeliveryPanel() {
   const [orders, setOrders] = useState([]);
+  const [tab, setTab] = useState(TAB_KEYS.activos);
   const { user } = useAuth();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
   const [reportGateOpen, setReportGateOpen] = useState(false);
@@ -123,10 +126,12 @@ export default function DeliveryPanel() {
         }
       }
     }
-    const sortCreated = (x, y) => String(x.created_at || '').localeCompare(String(y.created_at || ''));
-    a.sort(sortCreated);
-    p.sort(sortCreated);
-    c.sort((x, y) => String(x.delivery_driver_completed_at || '').localeCompare(String(y.delivery_driver_completed_at || '')));
+    const sortCreatedDesc = (x, y) => String(y.created_at || '').localeCompare(String(x.created_at || ''));
+    const sortCompletedDesc = (x, y) =>
+      String(y.delivery_driver_completed_at || '').localeCompare(String(x.delivery_driver_completed_at || ''));
+    a.sort(sortCreatedDesc);
+    p.sort(sortCreatedDesc);
+    c.sort(sortCompletedDesc);
     return { activos: a, enProceso: p, completadosHoy: c };
   }, [orders, uid]);
 
@@ -195,35 +200,35 @@ export default function DeliveryPanel() {
   const renderCard = (o, { showIniciar, showListo }) => (
     <div
       key={o.id}
-      className="rounded-xl overflow-hidden bg-[#1F2937]/95 border border-[#3B82F6]/30 shadow-sm"
+      className="rounded-2xl overflow-hidden bg-[#1F2937]/95 border border-[#3B82F6]/35 shadow-md min-h-0"
     >
-      <div className="px-3 py-2.5 flex items-center justify-between gap-2 border-b border-[#3B82F6]/25 bg-[#111827]/50">
-        <span className="font-bold text-[#F9FAFB] text-sm tabular-nums">#{o.order_number}</span>
-        <div className="flex items-center gap-1 text-xs text-[#9CA3AF] shrink-0">
-          <MdAccessTime className="text-sm" />
+      <div className="px-3.5 py-3 sm:px-4 sm:py-3.5 flex items-center justify-between gap-2 border-b border-[#3B82F6]/25 bg-[#111827]/50">
+        <span className="font-bold text-[#F9FAFB] text-base sm:text-lg tabular-nums">#{o.order_number}</span>
+        <div className="flex items-center gap-1 text-sm text-[#9CA3AF] shrink-0">
+          <MdAccessTime className="text-lg" />
           <span>{getTimeDiffShort(o.created_at)}</span>
         </div>
       </div>
-      <div className="px-3 py-2.5 space-y-2 text-sm">
+      <div className="px-3.5 py-3 sm:px-4 sm:py-4 space-y-2.5 text-base">
         <div className="flex items-start gap-2">
-          <MdLocationOn className="text-[#93C5FD] mt-0.5 shrink-0 text-base" />
-          <p className="text-[#F9FAFB] leading-snug">{o.delivery_address || 'Sin dirección'}</p>
+          <MdLocationOn className="text-[#93C5FD] mt-0.5 shrink-0 text-xl" />
+          <p className="text-[#F9FAFB] leading-snug text-[15px] sm:text-base">{o.delivery_address || 'Sin dirección'}</p>
         </div>
         <div className="flex items-center gap-2">
-          <MdPhone className="text-[#93C5FD] shrink-0 text-base" />
-          <p className="text-[#F9FAFB] font-medium">{o.customer_name || 'Cliente'}</p>
+          <MdPhone className="text-[#93C5FD] shrink-0 text-xl" />
+          <p className="text-[#F9FAFB] font-semibold">{o.customer_name || 'Cliente'}</p>
         </div>
-        <p className="text-[#BFDBFE] font-bold">{formatCurrency(o.total)}</p>
+        <p className="text-[#BFDBFE] font-bold text-lg">{formatCurrency(o.total)}</p>
         {o.notes ? (
-          <p className="text-xs text-[#9CA3AF] bg-[#0f172A]/50 rounded-lg px-2 py-1.5 border border-[#3B82F6]/20">
+          <p className="text-sm text-[#9CA3AF] bg-[#0f172A]/50 rounded-xl px-3 py-2 border border-[#3B82F6]/20">
             {o.notes}
           </p>
         ) : null}
         {o.items && o.items.length > 0 ? (
-          <div className="pt-1 border-t border-[#3B82F6]/20">
-            <p className="text-[10px] uppercase tracking-wide text-[#9CA3AF] mb-1">Productos</p>
+          <div className="pt-2 border-t border-[#3B82F6]/20">
+            <p className="text-xs uppercase tracking-wide text-[#9CA3AF] mb-1.5 font-semibold">Productos</p>
             {o.items.map((it) => (
-              <p key={it.id} className="text-xs text-[#E5E7EB]">
+              <p key={it.id} className="text-sm text-[#E5E7EB] leading-relaxed">
                 {it.quantity}× {it.product_name}
               </p>
             ))}
@@ -231,12 +236,12 @@ export default function DeliveryPanel() {
         ) : null}
       </div>
       {(showIniciar || showListo) && (
-        <div className="px-3 py-2.5 border-t border-[#3B82F6]/25">
+        <div className="px-3.5 py-3 sm:px-4 border-t border-[#3B82F6]/25">
           {showIniciar && (
             <button
               type="button"
               onClick={() => driverAction(o.id, 'start')}
-              className="w-full py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white active:opacity-90"
+              className="w-full min-h-[48px] py-3 rounded-xl font-bold text-base bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white active:opacity-90 touch-manipulation"
             >
               INICIAR
             </button>
@@ -245,7 +250,7 @@ export default function DeliveryPanel() {
             <button
               type="button"
               onClick={() => driverAction(o.id, 'complete')}
-              className="w-full py-2.5 rounded-lg font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white active:opacity-90"
+              className="w-full min-h-[48px] py-3 rounded-xl font-bold text-base bg-emerald-600 hover:bg-emerald-500 text-white active:opacity-90 touch-manipulation"
             >
               LISTO
             </button>
@@ -255,40 +260,68 @@ export default function DeliveryPanel() {
     </div>
   );
 
-  const section = (title, count, children) => (
-    <section className="mb-5">
-      <h2 className="text-sm font-bold text-[#F9FAFB] tracking-wide uppercase mb-2 px-0.5 border-b border-[#3B82F6]/35 pb-1.5">
-        {title}
-        <span className="text-[#9CA3AF] font-semibold normal-case text-xs ml-1">({count})</span>
-      </h2>
-      <div className="space-y-3">{children}</div>
-    </section>
-  );
+  const displayedOrders =
+    tab === TAB_KEYS.activos ? activos : tab === TAB_KEYS.proceso ? enProceso : completadosHoy;
+
+  const tabCount = (k) =>
+    k === TAB_KEYS.activos ? activos.length : k === TAB_KEYS.proceso ? enProceso.length : completadosHoy.length;
+
+  const tabButton = (key, label, position) => {
+    const selected = tab === key;
+    const rounded =
+      position === 'left' ? 'rounded-l-2xl' : position === 'right' ? 'rounded-r-2xl' : '';
+    return (
+      <button
+        type="button"
+        onClick={() => setTab(key)}
+        className={`flex-1 min-h-[56px] sm:min-h-[60px] px-1 sm:px-2 py-2 text-center font-bold text-[11px] sm:text-sm leading-snug touch-manipulation transition-colors ${rounded} ${
+          selected
+            ? 'bg-[#2563EB] text-white shadow-inner z-10'
+            : 'bg-[#111827]/90 text-[#E5E7EB] hover:bg-[#1F2937]'
+        }`}
+      >
+        <span className="block hyphens-auto">{label}</span>
+        <span className={`block text-[10px] sm:text-xs font-semibold mt-1 ${selected ? 'text-[#BFDBFE]' : 'text-[#9CA3AF]'}`}>
+          ({tabCount(key)})
+        </span>
+      </button>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-[#111827] text-[#F9FAFB] pb-safe">
-      <header className="sticky top-0 z-30 bg-[#1F2937]/95 backdrop-blur-md border-b border-[#3B82F6]/30 px-3 py-3">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <MdDeliveryDining className="text-2xl text-[#93C5FD] shrink-0" />
+    <div className="min-h-screen bg-[#111827] text-[#F9FAFB] pb-safe pb-28">
+      <header className="sticky top-0 z-30 bg-[#1F2937]/95 backdrop-blur-md border-b border-[#3B82F6]/30 px-3 sm:px-4 pt-3 pb-3">
+        <div className="flex flex-col gap-3 max-w-3xl mx-auto w-full">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <MdDeliveryDining className="text-3xl sm:text-4xl text-[#93C5FD] shrink-0" />
               <div className="min-w-0">
-                <h1 className="text-lg font-bold leading-tight truncate">Panel de Delivery</h1>
-                <p className="text-xs text-[#9CA3AF] truncate">
+                <h1 className="text-xl sm:text-2xl font-bold leading-tight truncate">Panel de Delivery</h1>
+                <p className="text-sm text-[#9CA3AF] truncate mt-0.5">
                   {user?.username || user?.full_name} · {activos.length + enProceso.length} en bandeja
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 shrink-0 pt-0.5">
               <NotificationCenter />
             </div>
           </div>
+
+          <div className="flex w-full shadow-lg rounded-2xl overflow-hidden ring-1 ring-[#3B82F6]/25 divide-x divide-[#3B82F6]/35">
+            {tabButton(TAB_KEYS.activos, 'Pedidos activos', 'left')}
+            {tabButton(TAB_KEYS.proceso, 'Pedidos en proceso', 'middle')}
+            {tabButton(TAB_KEYS.completados, 'Pedidos completados', 'right')}
+          </div>
+          <p className="text-[11px] sm:text-xs text-center text-[#64748B] -mt-1 px-1">
+            Lista ordenada: los más recientes arriba; los más antiguos abajo en la cuadrícula.
+          </p>
+
           <div className="flex flex-wrap gap-2">
             {canReturnToAdmin && (
               <button
                 type="button"
                 onClick={() => navigate('/admin')}
-                className="flex-1 min-w-[8rem] px-2 py-2 bg-[#2563EB] rounded-lg text-white text-xs font-medium border border-[#3B82F6]/30"
+                className="flex-1 min-w-[10rem] min-h-[44px] px-3 py-2.5 bg-[#2563EB] rounded-xl text-white text-sm font-semibold border border-[#3B82F6]/30 touch-manipulation"
               >
                 Centro operativo
               </button>
@@ -296,47 +329,35 @@ export default function DeliveryPanel() {
             <button
               type="button"
               onClick={openEndShiftFlow}
-              className="flex-1 min-w-[8rem] px-2 py-2 rounded-lg text-[#F9FAFB] text-xs font-medium border border-[#3B82F6]/35 bg-[#111827]/80 hover:bg-[#1F2937] inline-flex items-center justify-center gap-1"
+              className="flex-1 min-w-[10rem] min-h-[44px] px-3 py-2.5 rounded-xl text-[#F9FAFB] text-sm font-semibold border border-[#3B82F6]/35 bg-[#111827]/80 hover:bg-[#1F2937] inline-flex items-center justify-center gap-2 touch-manipulation"
             >
-              <MdLogout className="text-base" /> Finalizar jornada
+              <MdLogout className="text-xl shrink-0" /> Finalizar jornada
             </button>
           </div>
         </div>
       </header>
 
-      <main className="px-3 pt-4 max-w-lg mx-auto w-full">
-        <p className="text-center text-sm text-[#9CA3AF] mb-4">
-          Fecha del día: <span className="text-[#E5E7EB] font-semibold">{formatDate(todayLocalYyyyMmDd())}</span>
+      <main className="px-3 sm:px-4 pt-4 pb-6 max-w-3xl mx-auto w-full">
+        <p className="text-center text-base text-[#9CA3AF] mb-4">
+          Fecha del día:{' '}
+          <span className="text-[#E5E7EB] font-bold">{formatDate(todayLocalYyyyMmDd())}</span>
         </p>
 
-        {section(
-          'Pedidos activos',
-          activos.length,
-          activos.length === 0 ? (
-            <p className="text-sm text-[#9CA3AF] py-6 text-center border border-dashed border-[#3B82F6]/25 rounded-xl">Ninguno</p>
-          ) : (
-            activos.map((o) => renderCard(o, { showIniciar: true, showListo: false }))
-          )
-        )}
-
-        {section(
-          'Pedidos en proceso',
-          enProceso.length,
-          enProceso.length === 0 ? (
-            <p className="text-sm text-[#9CA3AF] py-6 text-center border border-dashed border-[#3B82F6]/25 rounded-xl">Ninguno</p>
-          ) : (
-            enProceso.map((o) => renderCard(o, { showIniciar: false, showListo: true }))
-          )
-        )}
-
-        {section(
-          'Pedidos completados',
-          completadosHoy.length,
-          completadosHoy.length === 0 ? (
-            <p className="text-sm text-[#9CA3AF] py-6 text-center border border-dashed border-[#3B82F6]/25 rounded-xl">Ninguno hoy</p>
-          ) : (
-            completadosHoy.map((o) => renderCard(o, { showIniciar: false, showListo: false }))
-          )
+        {displayedOrders.length === 0 ? (
+          <p className="text-base text-[#9CA3AF] py-12 text-center border-2 border-dashed border-[#3B82F6]/30 rounded-2xl">
+            {tab === TAB_KEYS.activos && 'No hay pedidos activos'}
+            {tab === TAB_KEYS.proceso && 'No hay pedidos en proceso'}
+            {tab === TAB_KEYS.completados && 'No hay pedidos completados hoy'}
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {displayedOrders.map((o) =>
+              renderCard(o, {
+                showIniciar: tab === TAB_KEYS.activos,
+                showListo: tab === TAB_KEYS.proceso,
+              })
+            )}
+          </div>
         )}
       </main>
 
