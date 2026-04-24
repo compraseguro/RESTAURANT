@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, formatCurrency, formatDate, formatDateTime, getPaymentMethodOptions, PAYMENT_METHODS } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -20,10 +21,13 @@ function escHtml(s) {
 }
 
 export default function Delivery() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [tab, setTab] = useState('active');
   const [loading, setLoading] = useState(true);
   const [printMeta, setPrintMeta] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
+  /** Preparación/listo solo en cocina/bar; aquí solo cierre operativo por personal autorizado. */
+  const canMarkDeliveredFromAdmin = ['admin', 'cajero', 'mozo'].includes(String(user?.role || ''));
 
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [products, setProducts] = useState([]);
@@ -307,31 +311,13 @@ export default function Delivery() {
                   <p className="text-xs text-slate-500">Total compra</p>
                   <p className="font-bold text-lg">{formatCurrency(o.total)}</p>
                 </div>
-                {tab === 'active' && (
-                  <div className="flex flex-wrap gap-2 justify-end">
-                    {o.status === 'pending' && (
-                      <>
-                        <button type="button" onClick={() => updateStatus(o.id, 'preparing')} className="text-xs px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-100 font-medium">Preparar</button>
-                        <button type="button" onClick={() => printDeliveryOrder(o)} className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium inline-flex items-center gap-1">
-                          <MdPrint className="text-sm" /> Imprimir
-                        </button>
-                      </>
-                    )}
-                    {o.status === 'preparing' && (
-                      <>
-                        <button type="button" onClick={() => updateStatus(o.id, 'ready')} className="text-xs px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-100 font-medium">Listo</button>
-                        <button type="button" onClick={() => printDeliveryOrder(o)} className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium inline-flex items-center gap-1">
-                          <MdPrint className="text-sm" /> Imprimir
-                        </button>
-                      </>
-                    )}
-                    {o.status === 'ready' && (
-                      <>
-                        <button type="button" onClick={() => updateStatus(o.id, 'delivered')} className="text-xs px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 font-medium">Entregado</button>
-                        <button type="button" onClick={() => printDeliveryOrder(o)} className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium inline-flex items-center gap-1">
-                          <MdPrint className="text-sm" /> Imprimir
-                        </button>
-                      </>
+                {tab === 'active' && ['pending', 'preparing', 'ready'].includes(o.status) && (
+                  <div className="flex flex-wrap gap-2 justify-end items-center">
+                    <button type="button" onClick={() => printDeliveryOrder(o)} className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium inline-flex items-center gap-1">
+                      <MdPrint className="text-sm" /> Imprimir
+                    </button>
+                    {o.status === 'ready' && canMarkDeliveredFromAdmin && (
+                      <button type="button" onClick={() => updateStatus(o.id, 'delivered')} className="text-xs px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 font-medium">Entregado</button>
                     )}
                   </div>
                 )}

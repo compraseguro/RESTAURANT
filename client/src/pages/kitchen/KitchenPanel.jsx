@@ -137,14 +137,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
       if (cliente) {
         header = `<strong>${esc(order.customer_name)}</strong><br/><strong>#${order.order_number}</strong> - ${orderTypeLabel}<br/>${timeSmall}`;
       } else if (order.type === 'delivery') {
-        const contact = [
-          order.customer_name && `Cliente: ${esc(order.customer_name)}`,
-          order.delivery_address && esc(order.delivery_address),
-          order.notes && esc(order.notes),
-        ]
-          .filter(Boolean)
-          .join(' · ');
-        header = `<strong>Delivery</strong><br/>${timeSmall}${contact ? `<br/><small>${contact}</small>` : ''}`;
+        header = `<strong>Delivery</strong><br/>${timeSmall}`;
       } else {
         const mesa = order.table_number ? ` - Mesa ${esc(order.table_number)}` : '';
         header = `<strong>#${order.order_number}</strong> - ${orderTypeLabel}${mesa}<br/>${timeSmall}`;

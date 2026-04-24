@@ -157,17 +157,10 @@ export default function DeliveryPanel() {
                 </div>
               )}
 
-              {d.status !== 'delivered' && (
+              {d.status === 'ready' && (
                 <div className="px-4 py-3 border-t border-[#3B82F6]/25">
-                  {d.status === 'pending' && (
-                    <button onClick={() => updateStatus(d.id, 'preparing')} className="w-full py-2.5 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] rounded-lg font-bold text-sm transition-all">PREPARAR</button>
-                  )}
-                  {d.status === 'preparing' && (
-                    <button onClick={() => updateStatus(d.id, 'ready')} className="w-full py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg font-bold text-sm transition-colors">LISTO</button>
-                  )}
-                  {d.status === 'ready' && (
-                    <button onClick={() => updateStatus(d.id, 'delivered')} className="w-full py-2.5 bg-[#1E40AF] hover:bg-[#1E3A8A] rounded-lg font-bold text-sm transition-colors">ENTREGADO</button>
-                  )}
+                  <p className="text-xs text-[#9CA3AF] mb-2">La preparación la marca cocina/bar. Cuando esté listo, confirma la entrega.</p>
+                  <button type="button" onClick={() => updateStatus(d.id, 'delivered')} className="w-full py-2.5 bg-[#1E40AF] hover:bg-[#1E3A8A] rounded-lg font-bold text-sm transition-colors">ENTREGADO</button>
                 </div>
               )}
 

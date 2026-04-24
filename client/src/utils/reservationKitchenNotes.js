@@ -30,6 +30,8 @@ export function getKitchenReservationFooterLines(order) {
 }
 
 export function getKitchenOrderNotesDisplay(order) {
+  /** En cocina/bar: delivery se identifica solo con la etiqueta "Delivery"; el teléfono va en notas del pedido y no se muestra aquí. */
+  if (String(order?.type || '') === 'delivery') return '';
   const raw = String(order?.notes || '').trim();
   if (!raw) return '';
   const formatted = getKitchenReservationFooterLines(order);

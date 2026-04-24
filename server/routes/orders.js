@@ -328,6 +328,24 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'moz
 
   const order = queryOne('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+
+  /** Delivery: pendiente → preparación → listo solo cocina/bar (o admin); no cajero/mozo/delivery. */
+  if (order.type === 'delivery' && (status === 'preparing' || status === 'ready')) {
+    if (!['admin', 'cocina', 'bar'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Solo cocina, bar o administración pueden actualizar la preparación de pedidos delivery' });
+    }
+    if (req.user.role === 'cocina' || req.user.role === 'bar') {
+      const areaItems = getOrderItemsWithArea(order.id);
+      const barOnly = isBarOnlyOrder(areaItems);
+      if (req.user.role === 'cocina' && barOnly) {
+        return res.status(403).json({ error: 'Este pedido corresponde al panel de bar' });
+      }
+      if (req.user.role === 'bar' && !barOnly) {
+        return res.status(403).json({ error: 'Este pedido corresponde al panel de cocina' });
+      }
+    }
+  }
+
   if (req.user.role === 'delivery') {
     if (order.type !== 'delivery') {
       return res.status(403).json({ error: 'El rol delivery solo puede actualizar pedidos delivery' });
