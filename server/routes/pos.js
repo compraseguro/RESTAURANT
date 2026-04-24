@@ -316,6 +316,8 @@ router.post('/open-register', authenticateToken, requireRole('admin', 'cajero'),
     'INSERT INTO cash_registers (id, user_id, restaurant_id, opening_amount, caja_station_id) VALUES (?, ?, ?, ?, ?)',
     [id, req.user.id, restaurant?.id, Number(opening_amount), stationId]
   );
+  /** Nuevo turno de caja: la numeración de pedidos vuelve a empezar desde #1. */
+  runSql('UPDATE order_sequence SET current_number = 0 WHERE id = 1');
   logAudit({
     actorUserId: req.user.id,
     actorName: req.user.full_name || req.user.username || '',
@@ -393,6 +395,8 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
 
   runSql("UPDATE cash_registers SET closed_at = datetime('now'), closing_amount = ?, total_sales = ?, total_cash = ?, total_yape = ?, total_plin = ?, total_card = ?, notes = ?, arqueo_data = ? WHERE id = ?",
     [countedCash, sales.total_sales, sales.total_cash, sales.total_yape, sales.total_plin, sales.total_card, notes || '', arqueoData, register.id]);
+  /** Cierre de caja: reinicio de numeración para el próximo turno / apertura. */
+  runSql('UPDATE order_sequence SET current_number = 0 WHERE id = 1');
   logAudit({
     actorUserId: req.user.id,
     actorName: req.user.full_name || req.user.username || '',
@@ -505,14 +509,6 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
       });
       return updated;
     });
-
-    /** Demo/pruebas: si ya no queda ningún pedido sin cobrar, el siguiente pedido vuelve a numerarse desde #1. */
-    const unpaidRow = queryOne(
-      "SELECT COUNT(*) as c FROM orders WHERE status != 'cancelled' AND IFNULL(payment_status, '') != 'paid'"
-    );
-    if (Number(unpaidRow?.c || 0) === 0) {
-      runSql('UPDATE order_sequence SET current_number = 0 WHERE id = 1');
-    }
 
     const paidOrders = result.map((id) => queryOne('SELECT * FROM orders WHERE id = ?', [id])).filter(Boolean);
     logAudit({

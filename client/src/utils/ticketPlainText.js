@@ -26,6 +26,8 @@ export function buildKitchenTicketPlainText({
     if (isCuentaClienteSelfOrder(order)) {
       lines.push(clip(order.customer_name || 'Cliente', 42));
       lines.push(`#${order.order_number} ${orderTypeLabel}`);
+    } else if (order.type === 'delivery') {
+      lines.push('Delivery');
     } else {
       const tbl = order.table_number ? ` Mesa ${order.table_number}` : '';
       lines.push(`#${order.order_number} ${orderTypeLabel}${tbl}`);

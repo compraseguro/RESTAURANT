@@ -136,6 +136,15 @@ export default function KitchenPanel({ station = 'cocina' }) {
       let header;
       if (cliente) {
         header = `<strong>${esc(order.customer_name)}</strong><br/><strong>#${order.order_number}</strong> - ${orderTypeLabel}<br/>${timeSmall}`;
+      } else if (order.type === 'delivery') {
+        const contact = [
+          order.customer_name && `Cliente: ${esc(order.customer_name)}`,
+          order.delivery_address && esc(order.delivery_address),
+          order.notes && esc(order.notes),
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        header = `<strong>Delivery</strong><br/>${timeSmall}${contact ? `<br/><small>${contact}</small>` : ''}`;
       } else {
         const mesa = order.table_number ? ` - Mesa ${esc(order.table_number)}` : '';
         header = `<strong>#${order.order_number}</strong> - ${orderTypeLabel}${mesa}<br/>${timeSmall}`;
@@ -383,9 +392,13 @@ export default function KitchenPanel({ station = 'cocina' }) {
                   </div>
                 ) : (
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold">#{order.order_number}</span>
-                      <TypeIcon className="text-xl" />
+                    <div className="flex items-center gap-2 min-w-0">
+                      {order.type === 'delivery' ? (
+                        <span className="text-lg font-bold tracking-tight">Delivery</span>
+                      ) : (
+                        <span className="text-lg font-bold">#{order.order_number}</span>
+                      )}
+                      <TypeIcon className="text-xl shrink-0" />
                       {order.table_number ? (
                         <span className="rounded border border-[#3B82F6]/25 bg-[#111827]/60 px-2 py-0.5 text-sm">Mesa {order.table_number}</span>
                       ) : null}
