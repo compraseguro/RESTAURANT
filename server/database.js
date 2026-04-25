@@ -990,6 +990,13 @@ async function initDatabase() {
     if (!productColumns.some(col => col.name === 'note_required')) {
       db.run("ALTER TABLE products ADD COLUMN note_required INTEGER DEFAULT 0");
     }
+    const addProductColIfMissing = (col, ddl) => {
+      const cols = queryAll('PRAGMA table_info(products)');
+      if (!cols.some((c) => c.name === col)) db.run(ddl);
+    };
+    addProductColIfMissing('kardex_insumo_id', "ALTER TABLE products ADD COLUMN kardex_insumo_id TEXT DEFAULT ''");
+    addProductColIfMissing('kardex_insumo_num', "ALTER TABLE products ADD COLUMN kardex_insumo_num REAL DEFAULT 1");
+    addProductColIfMissing('kardex_insumo_den', "ALTER TABLE products ADD COLUMN kardex_insumo_den REAL DEFAULT 1");
 
     const orderColumns = queryAll('PRAGMA table_info(orders)');
     if (!orderColumns.some(col => col.name === 'sale_document_type')) {

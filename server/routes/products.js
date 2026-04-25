@@ -144,6 +144,9 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
     tax_type,
     modifier_id,
     note_required,
+    kardex_insumo_id,
+    kardex_insumo_num,
+    kardex_insumo_den,
   } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error: 'Nombre y precio son requeridos' });
 
@@ -161,11 +164,22 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
     : 'inafecto';
   const safeModifierId = String(modifier_id || '').trim();
   const safeNoteRequired = Number(note_required) === 1 ? 1 : 0;
+  const safeKardexInsumo =
+    safeProcessType === 'transformed' ? String(kardex_insumo_id || '').trim() : '';
+  let safeKardexNum = 1;
+  let safeKardexDen = 1;
+  if (safeKardexInsumo) {
+    const n = Number(kardex_insumo_num);
+    const d = Number(kardex_insumo_den);
+    safeKardexNum = n > 0 && Number.isFinite(n) ? n : 1;
+    safeKardexDen = d > 0 && Number.isFinite(d) ? d : 1;
+  }
   runSql(
     `INSERT INTO products (
       id, name, description, price, image, category_id, restaurant_id, stock,
-      process_type, stock_warehouse_id, production_area, tax_type, modifier_id, note_required
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      process_type, stock_warehouse_id, production_area, tax_type, modifier_id, note_required,
+      kardex_insumo_id, kardex_insumo_num, kardex_insumo_den
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       name,
@@ -181,6 +195,9 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
       safeTaxType,
       safeModifierId,
       safeNoteRequired,
+      safeKardexInsumo,
+      safeKardexNum,
+      safeKardexDen,
     ]
   );
   if (safeProcessType === 'non_transformed') {
@@ -212,6 +229,9 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
     tax_type,
     modifier_id,
     note_required,
+    kardex_insumo_id,
+    kardex_insumo_num,
+    kardex_insumo_den,
   } = req.body;
   const current = queryOne('SELECT * FROM products WHERE id = ?', [req.params.id]);
   if (!current) return res.status(404).json({ error: 'Producto no encontrado' });
@@ -241,6 +261,29 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
     safeCategoryId = catPut.id;
   }
   const safeIsActive = is_active === undefined ? null : is_active;
+
+  const safeKardexInsumoUpd =
+    kardex_insumo_id === undefined
+      ? null
+      : (finalProcessType === 'transformed' ? String(kardex_insumo_id || '').trim() : '');
+  const safeKardexNumUpd = kardex_insumo_num === undefined ? null : Number(kardex_insumo_num);
+  const safeKardexDenUpd = kardex_insumo_den === undefined ? null : Number(kardex_insumo_den);
+  let finalKardexInsumo = safeKardexInsumoUpd === null ? (current.kardex_insumo_id || '') : safeKardexInsumoUpd;
+  let finalKardexNum = safeKardexNumUpd === null || !Number.isFinite(safeKardexNumUpd) || safeKardexNumUpd <= 0
+    ? (Number(current.kardex_insumo_num) > 0 ? Number(current.kardex_insumo_num) : 1)
+    : safeKardexNumUpd;
+  let finalKardexDen = safeKardexDenUpd === null || !Number.isFinite(safeKardexDenUpd) || safeKardexDenUpd <= 0
+    ? (Number(current.kardex_insumo_den) > 0 ? Number(current.kardex_insumo_den) : 1)
+    : safeKardexDenUpd;
+  if (finalProcessType === 'non_transformed') {
+    finalKardexInsumo = '';
+    finalKardexNum = 1;
+    finalKardexDen = 1;
+  } else if (!String(finalKardexInsumo || '').trim()) {
+    finalKardexNum = 1;
+    finalKardexDen = 1;
+  }
+
   runSql(
     `UPDATE products SET
       name = COALESCE(?, name),
@@ -256,6 +299,9 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       tax_type = COALESCE(?, tax_type),
       modifier_id = COALESCE(?, modifier_id),
       note_required = COALESCE(?, note_required),
+      kardex_insumo_id = ?,
+      kardex_insumo_num = ?,
+      kardex_insumo_den = ?,
       updated_at = datetime('now')
     WHERE id = ?`,
     [
@@ -272,6 +318,9 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       safeTaxType,
       safeModifierId,
       safeNoteRequired,
+      finalProcessType === 'non_transformed' ? '' : (finalKardexInsumo || ''),
+      finalProcessType === 'non_transformed' ? 1 : finalKardexNum,
+      finalProcessType === 'non_transformed' ? 1 : finalKardexDen,
       req.params.id,
     ]
   );

@@ -42,6 +42,9 @@ export default function Productos() {
     tax_type: 'inafecto',
     modifier_id: '',
     note_required: 0,
+    kardex_insumo_id: '',
+    kardex_insumo_num: '1',
+    kardex_insumo_den: '1',
   });
 
   const [showCatModal, setShowCatModal] = useState(false);
@@ -55,6 +58,7 @@ export default function Productos() {
   const [modifiers, setModifiers] = useState([]);
   const [showModModal, setShowModModal] = useState(false);
   const [modForm, setModForm] = useState({ name: '', options: '', required: false });
+  const [insumosKardex, setInsumosKardex] = useState([]);
 
   const defaultWarehouseId =
     warehouses.find(w => (w.name || '').toLowerCase() === 'almacen principal')?.id ||
@@ -68,13 +72,15 @@ export default function Productos() {
       api.get('/inventory/warehouses'),
       api.get('/admin-modules/combos'),
       api.get('/admin-modules/modifiers'),
+      api.get('/kardex-inventory/insumos').catch(() => []),
     ])
-      .then(([p, c, w, combosData, modifiersData]) => {
+      .then(([p, c, w, combosData, modifiersData, ins]) => {
         setProducts(p);
         setCategories(c);
         setWarehouses(w || []);
         setCombos(combosData || []);
         setModifiers(modifiersData || []);
+        setInsumosKardex(Array.isArray(ins) ? ins : []);
       })
       .catch(console.error).finally(() => setLoading(false));
   };
@@ -121,6 +127,9 @@ export default function Productos() {
       tax_type: 'inafecto',
       modifier_id: '',
       note_required: 0,
+      kardex_insumo_id: '',
+      kardex_insumo_num: '1',
+      kardex_insumo_den: '1',
     });
     setShowProductModal(true);
   };
@@ -142,6 +151,9 @@ export default function Productos() {
         : 'igv',
       modifier_id: p.modifier_id || '',
       note_required: Number(p.note_required || 0) === 1 ? 1 : 0,
+      kardex_insumo_id: p.kardex_insumo_id || '',
+      kardex_insumo_num: p.kardex_insumo_num != null && p.kardex_insumo_num !== '' ? String(p.kardex_insumo_num) : '1',
+      kardex_insumo_den: p.kardex_insumo_den != null && p.kardex_insumo_den !== '' ? String(p.kardex_insumo_den) : '1',
     });
     setShowProductModal(true);
   };
@@ -170,10 +182,15 @@ export default function Productos() {
         return;
       }
 
+      const kn = parseFloat(productForm.kardex_insumo_num) || 1;
+      const kd = parseFloat(productForm.kardex_insumo_den) || 1;
       const payload = {
         ...productForm,
         stock: isNonTransformed ? stockAmount : 0,
         stock_warehouse_id: isNonTransformed ? warehouseId : '',
+        kardex_insumo_id: !isNonTransformed ? (productForm.kardex_insumo_id || '').trim() : '',
+        kardex_insumo_num: !isNonTransformed && (productForm.kardex_insumo_id || '').trim() ? kn : 1,
+        kardex_insumo_den: !isNonTransformed && (productForm.kardex_insumo_id || '').trim() ? kd : 1,
       };
       if (editProduct) {
         const updated = await api.put(`/products/${editProduct.id}`, payload);
@@ -496,7 +513,15 @@ export default function Productos() {
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setProductForm({ ...productForm, process_type: 'transformed', stock: 0, stock_warehouse_id: '' })}
+              onClick={() => setProductForm({
+                ...productForm,
+                process_type: 'transformed',
+                stock: 0,
+                stock_warehouse_id: '',
+                kardex_insumo_id: productForm.kardex_insumo_id || '',
+                kardex_insumo_num: productForm.kardex_insumo_num || '1',
+                kardex_insumo_den: productForm.kardex_insumo_den || '1',
+              })}
               className={`py-2 rounded-lg border text-sm font-medium ${
                 productForm.process_type === 'transformed'
                   ? 'bg-emerald-600 border-emerald-600 text-white'
@@ -507,7 +532,14 @@ export default function Productos() {
             </button>
             <button
               type="button"
-              onClick={() => setProductForm({ ...productForm, process_type: 'non_transformed', stock_warehouse_id: productForm.stock_warehouse_id || defaultWarehouseId })}
+              onClick={() => setProductForm({
+                ...productForm,
+                process_type: 'non_transformed',
+                stock_warehouse_id: productForm.stock_warehouse_id || defaultWarehouseId,
+                kardex_insumo_id: '',
+                kardex_insumo_num: '1',
+                kardex_insumo_den: '1',
+              })}
               className={`py-2 rounded-lg border text-sm font-medium ${
                 productForm.process_type === 'non_transformed'
                   ? 'bg-sky-600 border-sky-600 text-white'
@@ -523,18 +555,63 @@ export default function Productos() {
             </p>
           )}
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label><textarea value={productForm.description} onChange={e => setProductForm({ ...productForm, description: e.target.value })} className="input-field" rows="2" placeholder="Descripción del producto..." /></div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Precio (S/)</label><input type="number" step="0.01" value={productForm.price} onChange={e => setProductForm({ ...productForm, price: e.target.value })} className="input-field" required placeholder="0.00" /></div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Stock Inicial</label>
-              <input
-                type="number"
-                value={productForm.process_type === 'transformed' ? 0 : productForm.stock}
-                onChange={e => setProductForm({ ...productForm, stock: e.target.value })}
-                className="input-field"
-                placeholder="0"
-                disabled={productForm.process_type === 'transformed'}
-              />
+              {productForm.process_type === 'non_transformed' ? (
+                <>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Stock inicial</label>
+                  <input
+                    type="number"
+                    value={productForm.stock}
+                    onChange={e => setProductForm({ ...productForm, stock: e.target.value })}
+                    className="input-field"
+                    placeholder="0"
+                    min="0"
+                  />
+                </>
+              ) : (
+                <>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Insumo a descontar (kardex)</label>
+                  <p className="text-[11px] text-slate-500 mb-1.5">
+                    Mismo lugar que el stock en no transformados: vincula el insumo (ej. 8/8 o 4/4 = 1 unidad de pollo). Si eliges insumo aquí, tiene prioridad sobre la receta al cobrar.
+                  </p>
+                  <select
+                    value={productForm.kardex_insumo_id}
+                    onChange={e => setProductForm({ ...productForm, kardex_insumo_id: e.target.value })}
+                    className="input-field text-sm"
+                  >
+                    <option value="">— Sin vínculo directo (se usa receta si existe) —</option>
+                    {insumosKardex.filter((i) => Number(i.activo) !== 0).map((i) => (
+                      <option key={i.id} value={i.id}>{i.nombre} ({i.unidad_medida})</option>
+                    ))}
+                  </select>
+                  {productForm.kardex_insumo_id ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={productForm.kardex_insumo_num}
+                        onChange={e => setProductForm({ ...productForm, kardex_insumo_num: e.target.value })}
+                        className="input-field w-20 text-sm py-1.5"
+                        title="Numerador"
+                      />
+                      <span className="text-slate-500 font-medium">/</span>
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={productForm.kardex_insumo_den}
+                        onChange={e => setProductForm({ ...productForm, kardex_insumo_den: e.target.value })}
+                        className="input-field w-20 text-sm py-1.5"
+                        title="Denominador"
+                      />
+                      <span className="text-xs text-slate-500">por 1 plato · factor = a/b</span>
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría *</label>
               <select

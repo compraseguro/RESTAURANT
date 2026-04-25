@@ -150,6 +150,29 @@ function aplicarSalidasVentaPedido(tx, orderId, userId) {
   for (const line of items) {
     const pid = line.product_id;
     if (!pid) continue;
+    const qtyLine = Number(line.quantity || 0);
+    if (qtyLine <= 0) continue;
+
+    const product = tx.queryOne('SELECT * FROM products WHERE id = ?', [pid]);
+    const directInsumo = product ? String(product.kardex_insumo_id || '').trim() : '';
+    if (directInsumo) {
+      const num = Number(product.kardex_insumo_num);
+      const den = Number(product.kardex_insumo_den);
+      const n = num > 0 && Number.isFinite(num) ? num : 1;
+      const d = den > 0 && Number.isFinite(den) ? den : 1;
+      const need = (n / d) * qtyLine;
+      if (need > 0) {
+        registrarSalida(tx, {
+          insumoId: directInsumo,
+          cantidad: need,
+          referencia: 'venta',
+          referenciaId: orderId,
+          userId,
+        });
+      }
+      continue;
+    }
+
     const rec = tx.queryOne(
       `SELECT * FROM recetas WHERE product_id = ? AND activo = 1 LIMIT 1`,
       [pid]
@@ -157,9 +180,6 @@ function aplicarSalidasVentaPedido(tx, orderId, userId) {
     if (!rec) continue;
 
     const dets = tx.queryAll('SELECT * FROM receta_detalle WHERE receta_id = ?', [rec.id]);
-    const qtyLine = Number(line.quantity || 0);
-    if (qtyLine <= 0) continue;
-
     for (const d of dets) {
       const need = Number(d.cantidad_usada) * qtyLine;
       if (need <= 0) continue;
