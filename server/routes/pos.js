@@ -1,6 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql, withTransaction, logAudit } = require('../database');
+const kardexInventory = require('../services/kardexInventoryService');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { assertPaymentMethodAllowed, normalizePaymentMethod } = require('../businessRules');
 const { getActiveCajaById, listCajasWithIds } = require('../cajaSettings');
@@ -505,6 +506,7 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
           "UPDATE electronic_documents SET payment_method = ?, updated_at = datetime('now') WHERE order_id = ?",
           [paymentMethod, order.id]
         );
+        kardexInventory.aplicarSalidasVentaPedido(tx, order.id, req.user.id);
         updated.push(order.id);
       });
       return updated;

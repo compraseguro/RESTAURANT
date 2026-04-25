@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { MdSearch, MdWarning, MdAdd, MdRemove, MdDownload } from 'react-icons/md';
 import Modal from '../../components/Modal';
+import LogisticaKardexModule from '../../components/LogisticaKardexModule';
 
 const WAREHOUSE_CATEGORY_NAMES = {
   products: 'PRODUCTOS ALMACEN',
@@ -68,7 +69,7 @@ const ALMACEN_VIEWS = [
   { id: 'requerimiento', label: 'Requerimiento' },
   { id: 'recepcion', label: 'Recepción' },
   { id: 'ir_modulo_gastos', label: 'Ir a módulo de gastos' },
-  { id: 'ir_modulo_logistica', label: 'Ir a módulo de logística' },
+  { id: 'ir_modulo_logistica', label: 'Inventario y kardex' },
 ];
 
 export default function Almacen() {
@@ -100,10 +101,6 @@ export default function Almacen() {
   const [receptionForm, setReceptionForm] = useState({});
   const [receptionNotes, setReceptionNotes] = useState('');
   const [expenseHistory, setExpenseHistory] = useState([]);
-  const [logisticsCounted, setLogisticsCounted] = useState({});
-  const [logisticsWarehouseFilter, setLogisticsWarehouseFilter] = useState('');
-  const [showReconciliationsModal, setShowReconciliationsModal] = useState(false);
-  const [reconciliationHistory, setReconciliationHistory] = useState([]);
   const [warehouseForm, setWarehouseForm] = useState({ name: '', description: '' });
   const [itemForm, setItemForm] = useState({
     name: '',
@@ -133,9 +130,6 @@ export default function Almacen() {
     }
     if (stockWarehouse && warehouses.some(w => sameWarehouseId(w.id, stockWarehouse))) {
       return String(stockWarehouse);
-    }
-    if (logisticsWarehouseFilter && warehouses.some(w => sameWarehouseId(w.id, logisticsWarehouseFilter))) {
-      return String(logisticsWarehouseFilter);
     }
     return String(principalWarehouse?.id || warehouses[0]?.id || '');
   };
@@ -197,10 +191,6 @@ export default function Almacen() {
           const expenses = await api.get('/inventory/expenses');
           setExpenseHistory(expenses || []);
         }
-        if (activeView === 'ir_modulo_logistica') {
-          const reconciliations = await api.get('/inventory/reconciliations');
-          setReconciliationHistory(reconciliations || []);
-        }
       } catch (err) {
         toast.error(err.message || 'No se pudo cargar la información');
       }
@@ -221,13 +211,7 @@ export default function Almacen() {
     const defaultWarehouseId = getDefaultCreateWarehouseId();
     if (!defaultWarehouseId) return;
     setItemForm(prev => ({ ...prev, stock_warehouse: defaultWarehouseId }));
-  }, [showCreateModal, selectedWarehouseView, stockWarehouse, logisticsWarehouseFilter, warehouses]);
-  useEffect(() => {
-    if (!warehouses.length) return;
-    if (!logisticsWarehouseFilter) {
-      setLogisticsWarehouseFilter(principalWarehouse?.id || warehouses[0]?.id || '');
-    }
-  }, [warehouses, principalWarehouse, logisticsWarehouseFilter]);
+  }, [showCreateModal, selectedWarehouseView, stockWarehouse, warehouses]);
   useEffect(() => {
     if (!categories.length) return;
     if (itemForm.category_id) return;
@@ -282,12 +266,6 @@ export default function Almacen() {
     (p) => p.process === 'non_transformed' && Number(p.stock || 0) <= 10
   );
   const totalValue = productsForSelectedWarehouse.reduce((s, p) => s + (p.price * p.stock), 0);
-  const logisticsProducts = [...products]
-    .filter(product => {
-      if (!logisticsWarehouseFilter) return true;
-      return (product.warehouse_stocks || []).some(ws => ws.warehouse_id === logisticsWarehouseFilter);
-    })
-    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const expenseGroups = Object.values(
     (expenseHistory || []).reduce((acc, expense) => {
       const key = expense.requirement_id || expense.id;
@@ -567,66 +545,6 @@ export default function Almacen() {
     return qty * cost;
   };
 
-  const getLogisticsDiff = (product) => {
-    const currentStock = logisticsWarehouseFilter
-      ? Number((product.warehouse_stocks || []).find(ws => ws.warehouse_id === logisticsWarehouseFilter)?.quantity || 0)
-      : Number(product.stock || 0);
-    const raw = logisticsCounted[product.id];
-    if (raw === '' || raw === undefined) return null;
-    const counted = Number(raw);
-    if (Number.isNaN(counted)) return null;
-    return counted - currentStock;
-  };
-
-  const getLogisticsCurrentStock = (product) => {
-    if (!logisticsWarehouseFilter) return Number(product.stock || 0);
-    return Number((product.warehouse_stocks || []).find(ws => ws.warehouse_id === logisticsWarehouseFilter)?.quantity || 0);
-  };
-
-  const saveWarehouseReconciliation = async () => {
-    if (!logisticsWarehouseFilter) {
-      toast.error('Selecciona un almacén para guardar el cuadre');
-      return;
-    }
-    const selectedWarehouse = warehouses.find(w => w.id === logisticsWarehouseFilter);
-    if (!selectedWarehouse) {
-      toast.error('Selecciona un almacén válido');
-      return;
-    }
-    const items = logisticsProducts
-      .filter(product => logisticsCounted[product.id] !== '' && logisticsCounted[product.id] !== undefined)
-      .map(product => {
-        const current = getLogisticsCurrentStock(product);
-        const counted = Number(logisticsCounted[product.id] || 0);
-        const diff = counted - current;
-        return {
-          product_id: product.id,
-          product_name: product.name,
-          current_stock: current,
-          counted_stock: counted,
-          difference: diff,
-          unit_cost: Number(product.price || 0),
-          valuation: Number(product.price || 0) * current,
-        };
-      });
-    if (!items.length) {
-      toast.error('Ingresa cantidades contadas antes de guardar el cuadre');
-      return;
-    }
-    try {
-      await api.post('/inventory/reconciliations', {
-        warehouse_id: selectedWarehouse.id,
-        items,
-      });
-      const history = await api.get('/inventory/reconciliations');
-      setReconciliationHistory(history || []);
-      setLogisticsCounted({});
-      toast.success('Cuadre guardado');
-    } catch (err) {
-      toast.error(err.message || 'No se pudo guardar el cuadre');
-    }
-  };
-
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
   const activeViewLabel = almacenViewsForPlan.find(option => option.id === activeView)?.label || 'Movimiento interno';
 
@@ -761,137 +679,13 @@ export default function Almacen() {
 
         {activeView === 'ir_modulo_logistica' && (
           <div className="bg-slate-800/90 rounded-xl shadow-lg border border-slate-600/50 p-5 text-slate-200">
-            <h3 className="font-bold text-slate-100 mb-3">Módulo de logística</h3>
-            <div className="text-sm mb-3 text-slate-400 flex items-center justify-between gap-3 flex-wrap">
-              <div>
-              Filtros habilitados:
-                <span className="ml-2 inline-flex items-center px-2.5 py-1 rounded-md bg-slate-700/80 text-slate-200 border border-slate-500/50 gap-2">
-                  Almacén:
-                  <select
-                    value={logisticsWarehouseFilter}
-                    onChange={(e) => setLogisticsWarehouseFilter(e.target.value)}
-                    className="bg-slate-900 border border-slate-500 rounded px-2 py-0.5 text-xs text-slate-100"
-                  >
-                    {warehouses.map(w => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                    ))}
-                  </select>
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowReconciliationsModal(true)}
-                className="px-3 py-1.5 rounded-lg border border-slate-500 bg-slate-700 text-slate-100 hover:bg-slate-600 text-sm"
-              >
-                Cuadre de almacenes
-              </button>
-            </div>
-            <div className="overflow-x-auto border border-slate-600/60 rounded-lg bg-slate-900/50">
-              <table className="w-full text-sm min-w-[980px]">
-                <thead>
-                  <tr className="bg-slate-700/95 border-b border-slate-600 text-slate-100">
-                    <th className="text-left p-2.5 font-medium w-24">Código</th>
-                    <th className="text-left p-2.5 font-medium">Ítem</th>
-                    <th className="text-left p-2.5 font-medium w-44">Categoría</th>
-                    <th className="text-right p-2.5 font-medium w-24">Stock</th>
-                    <th className="text-right p-2.5 font-medium w-36">Cantidad contada</th>
-                    <th className="text-right p-2.5 font-medium w-36">Variación de stock</th>
-                    <th className="text-right p-2.5 font-medium w-32">Costo UM Base</th>
-                    <th className="text-right p-2.5 font-medium w-32">Valorización</th>
-                    <th className="text-right p-2.5 font-medium w-36">Resultado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logisticsProducts.map((product, idx) => {
-                    const diff = getLogisticsDiff(product);
-                    const unitCost = Number(product.price || 0);
-                    const stock = getLogisticsCurrentStock(product);
-                    const valuation = unitCost * stock;
-                    return (
-                      <tr key={product.id} className="border-b border-slate-600/50 hover:bg-slate-800/50">
-                        <td className="p-2.5 text-slate-400">#{String(idx + 1).padStart(3, '0')}</td>
-                        <td className="p-2.5 font-medium text-slate-200">{product.name}</td>
-                        <td className="p-2.5 text-slate-400">{product.category_name || 'Sin categoría'}</td>
-                        <td className="p-2.5 text-right text-slate-200">{stock}</td>
-                        <td className="p-2.5 text-right">
-                          <input
-                            type="number"
-                            min="0"
-                            value={logisticsCounted[product.id] ?? ''}
-                            onChange={e => setLogisticsCounted(prev => ({ ...prev, [product.id]: e.target.value }))}
-                            className="w-28 ml-auto rounded-lg border border-slate-500 bg-slate-800/90 py-1.5 px-2 text-right text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500/80 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
-                            placeholder="0"
-                          />
-                        </td>
-                        <td className={`p-2.5 text-right font-medium ${
-                          diff === null ? 'text-slate-500' : diff === 0 ? 'text-emerald-400' : diff < 0 ? 'text-red-400' : 'text-sky-400'
-                        }`}>
-                          {diff === null ? '-' : diff}
-                        </td>
-                        <td className="p-2.5 text-right text-slate-200">{formatCurrency(unitCost)}</td>
-                        <td className="p-2.5 text-right text-slate-200">{formatCurrency(valuation)}</td>
-                        <td className="p-2.5 text-right">
-                          {diff === null ? (
-                            <span className="text-slate-500">-</span>
-                          ) : diff === 0 ? (
-                            <span className="text-emerald-400 font-medium">Cuadrado</span>
-                          ) : diff < 0 ? (
-                            <span className="text-red-400 font-medium">Falta {Math.abs(diff)}</span>
-                          ) : (
-                            <span className="text-sky-400 font-medium">Sobra {diff}</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {logisticsProducts.length === 0 && (
-                    <tr>
-                      <td colSpan="9" className="p-8 text-center text-slate-500">No hay productos para cuadre de stock</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-3 flex justify-end">
-              <button type="button" onClick={saveWarehouseReconciliation} className="btn-primary">
-                Guardar cuadre
-              </button>
-            </div>
+            <h3 className="font-bold text-slate-100 mb-1">Inventario y kardex</h3>
+            <p className="text-slate-400 text-sm mb-4">
+              Insumos, compras (entrada y costo promedio), recetas, movimientos, inventario físico y ajustes. Las ventas en caja generan salidas al cobrar.
+            </p>
+            <LogisticaKardexModule />
           </div>
         )}
-        <Modal
-          isOpen={showReconciliationsModal}
-          onClose={() => setShowReconciliationsModal(false)}
-          title="Cuadre de almacenes"
-          size="lg"
-        >
-          <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-            {reconciliationHistory.length === 0 && (
-              <p className="text-sm text-slate-500">No hay cuadres guardados.</p>
-            )}
-            {reconciliationHistory.map(rec => (
-              <div key={rec.id} className="border border-slate-200 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-semibold text-slate-800">{rec.warehouse_name || 'Almacén'}</p>
-                  <p className="text-xs text-slate-500">{formatDateTime(rec.created_at)}</p>
-                </div>
-                <p className="text-xs text-slate-500 mb-2">
-                  Items: {rec.total_items} · Faltante: {rec.total_shortage} · Sobrante: {rec.total_surplus}
-                </p>
-                <div className="space-y-1">
-                  {(rec.items || []).map(item => (
-                    <div key={item.id} className="text-sm flex items-center justify-between border-b border-slate-100 pb-1">
-                      <span>{item.product_name}</span>
-                      <span className={`font-medium ${Number(item.difference || 0) < 0 ? 'text-red-600' : Number(item.difference || 0) > 0 ? 'text-sky-700' : 'text-emerald-600'}`}>
-                        {Number(item.difference || 0) === 0 ? 'Cuadrado' : Number(item.difference || 0) < 0 ? `Falta ${Math.abs(Number(item.difference || 0))}` : `Sobra ${Number(item.difference || 0)}`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Modal>
         <Modal
           isOpen={showRequirementModal}
           onClose={() => setShowRequirementModal(false)}

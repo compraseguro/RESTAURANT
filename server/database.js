@@ -119,6 +119,12 @@ function resetOperationalData({ keepAdminUserId = '', preserveContrato = false }
       'user_permissions',
       'warehouse_locations',
       'staff_internal_messages',
+      'kardex',
+      'receta_detalle',
+      'recetas',
+      'inventario_fisico_detalle',
+      'inventario_fisico',
+      'insumos',
     ];
 
     tablesToClear.forEach((tableName) => {
@@ -613,6 +619,83 @@ async function initDatabase() {
         UNIQUE(product_id, warehouse_id)
       )
     `);
+
+    /* Kardex / insumos / recetas (módulo logística valorizado) */
+    db.run(`
+      CREATE TABLE IF NOT EXISTS insumos (
+        id TEXT PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        unidad_medida TEXT NOT NULL DEFAULT 'unidad',
+        stock_actual REAL NOT NULL DEFAULT 0,
+        stock_minimo REAL NOT NULL DEFAULT 0,
+        costo_promedio REAL NOT NULL DEFAULT 0,
+        activo INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS kardex (
+        id TEXT PRIMARY KEY,
+        id_insumo TEXT NOT NULL,
+        tipo_movimiento TEXT NOT NULL CHECK(tipo_movimiento IN ('entrada','salida','ajuste')),
+        cantidad REAL NOT NULL,
+        costo_unitario REAL NOT NULL DEFAULT 0,
+        costo_total REAL NOT NULL DEFAULT 0,
+        stock_anterior REAL NOT NULL DEFAULT 0,
+        stock_resultante REAL NOT NULL DEFAULT 0,
+        metodo_valorizacion TEXT NOT NULL DEFAULT 'promedio',
+        referencia TEXT NOT NULL,
+        referencia_id TEXT DEFAULT '',
+        fecha TEXT DEFAULT (datetime('now')),
+        created_at TEXT DEFAULT (datetime('now')),
+        created_by TEXT,
+        FOREIGN KEY (id_insumo) REFERENCES insumos(id)
+      )
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS recetas (
+        id TEXT PRIMARY KEY,
+        nombre_plato TEXT NOT NULL,
+        product_id TEXT,
+        activo INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS receta_detalle (
+        id TEXT PRIMARY KEY,
+        receta_id TEXT NOT NULL,
+        insumo_id TEXT NOT NULL,
+        cantidad_usada REAL NOT NULL,
+        FOREIGN KEY (receta_id) REFERENCES recetas(id) ON DELETE CASCADE,
+        FOREIGN KEY (insumo_id) REFERENCES insumos(id)
+      )
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS inventario_fisico (
+        id TEXT PRIMARY KEY,
+        fecha TEXT DEFAULT (datetime('now')),
+        estado TEXT NOT NULL DEFAULT 'pendiente' CHECK(estado IN ('pendiente','cerrado')),
+        created_at TEXT DEFAULT (datetime('now')),
+        created_by TEXT
+      )
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS inventario_fisico_detalle (
+        id TEXT PRIMARY KEY,
+        inventario_id TEXT NOT NULL,
+        insumo_id TEXT NOT NULL,
+        stock_sistema REAL NOT NULL,
+        stock_real REAL NOT NULL,
+        diferencia REAL NOT NULL,
+        FOREIGN KEY (inventario_id) REFERENCES inventario_fisico(id) ON DELETE CASCADE,
+        FOREIGN KEY (insumo_id) REFERENCES insumos(id)
+      )
+    `);
+    db.run('CREATE INDEX IF NOT EXISTS idx_kardex_insumo_fecha ON kardex(id_insumo, fecha)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_kardex_referencia ON kardex(referencia, referencia_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_recetas_product_id ON recetas(product_id)');
 
     db.run(`
       CREATE TABLE IF NOT EXISTS suppliers (

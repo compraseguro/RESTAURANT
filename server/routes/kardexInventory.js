@@ -1,0 +1,381 @@
+/**
+ * API inventario kardex (insumos, recetas, compras, ajustes, inventario físico).
+ */
+
+const express = require('express');
+const { v4: uuidv4 } = require('uuid');
+const { authenticateToken, requireRole } = require('../middleware/auth');
+const { queryAll, queryOne, runSql, withTransaction, logAudit } = require('../database');
+const kx = require('../services/kardexInventoryService');
+
+const router = express.Router();
+router.use(authenticateToken, requireRole('admin'));
+
+/** GET /insumos */
+router.get('/insumos', (req, res) => {
+  try {
+    const rows = queryAll(
+      `SELECT * FROM insumos ORDER BY nombre ASC`
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error al listar insumos' });
+  }
+});
+
+/** POST /insumos */
+router.post('/insumos', (req, res) => {
+  try {
+    const { nombre, unidad_medida, stock_minimo, activo } = req.body || {};
+    const n = String(nombre || '').trim();
+    if (!n) return res.status(400).json({ error: 'Nombre es requerido' });
+    const id = uuidv4();
+    runSql(
+      `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_minimo, costo_promedio, activo, created_at, updated_at)
+       VALUES (?, ?, ?, 0, ?, 0, ?, datetime('now'), datetime('now'))`,
+      [id, n, String(unidad_medida || 'unidad').trim(), Math.max(0, Number(stock_minimo || 0)), activo === false || activo === 0 ? 0 : 1]
+    );
+    logAudit({
+      actorUserId: req.user.id,
+      actorName: req.user.full_name || '',
+      action: 'kardex.insumo.create',
+      resourceType: 'insumo',
+      resourceId: id,
+      details: { nombre: n },
+    });
+    res.status(201).json(queryOne('SELECT * FROM insumos WHERE id = ?', [id]));
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error al crear insumo' });
+  }
+});
+
+/** PUT /insumos/:id */
+router.put('/insumos/:id', (req, res) => {
+  try {
+    const cur = queryOne('SELECT * FROM insumos WHERE id = ?', [req.params.id]);
+    if (!cur) return res.status(404).json({ error: 'Insumo no encontrado' });
+    const { nombre, unidad_medida, stock_minimo, activo } = req.body || {};
+    runSql(
+      `UPDATE insumos SET nombre = COALESCE(?, nombre), unidad_medida = COALESCE(?, unidad_medida),
+       stock_minimo = COALESCE(?, stock_minimo), activo = COALESCE(?, activo), updated_at = datetime('now') WHERE id = ?`,
+      [
+        nombre != null ? String(nombre).trim() : null,
+        unidad_medida != null ? String(unidad_medida).trim() : null,
+        stock_minimo != null ? Math.max(0, Number(stock_minimo)) : null,
+        activo != null ? (activo ? 1 : 0) : null,
+        req.params.id,
+      ]
+    );
+    res.json(queryOne('SELECT * FROM insumos WHERE id = ?', [req.params.id]));
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error al actualizar insumo' });
+  }
+});
+
+/** GET /kardex/:insumoId — kardex valorizado por insumo */
+router.get('/kardex/:insumoId', (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const insumo = queryOne('SELECT * FROM insumos WHERE id = ?', [req.params.insumoId]);
+    if (!insumo) return res.status(404).json({ error: 'Insumo no encontrado' });
+    let sql = `SELECT * FROM kardex WHERE id_insumo = ?`;
+    const p = [req.params.insumoId];
+    if (from) {
+      sql += ` AND date(fecha) >= date(?)`;
+      p.push(from);
+    }
+    if (to) {
+      sql += ` AND date(fecha) <= date(?)`;
+      p.push(to);
+    }
+    sql += ` ORDER BY datetime(created_at) ASC`;
+    const movs = queryAll(sql, p);
+    const valorInv = Number(insumo.stock_actual || 0) * Number(insumo.costo_promedio || 0);
+    res.json({
+      insumo,
+      movimientos: movs,
+      valor_inventario: Number(valorInv.toFixed(4)),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error al leer kardex' });
+  }
+});
+
+/** POST /compras */
+router.post('/compras', (req, res) => {
+  try {
+    const { items } = req.body || {};
+    if (!Array.isArray(items) || !items.length) {
+      return res.status(400).json({ error: 'items[] requerido: insumo_id, cantidad, costo_unitario' });
+    }
+    const opId = withTransaction((tx) => kx.registrarCompraInsumos(tx, items, req.user.id));
+    logAudit({
+      actorUserId: req.user.id,
+      actorName: req.user.full_name || '',
+      action: 'kardex.compra',
+      resourceType: 'kardex_compra',
+      resourceId: opId,
+      details: { items: items.length },
+    });
+    res.status(201).json({ ok: true, operacion_id: opId });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error en compra de insumos' });
+  }
+});
+
+/** GET /recetas */
+router.get('/recetas', (req, res) => {
+  try {
+    const rows = queryAll(
+      `SELECT r.*, p.name as product_name
+       FROM recetas r
+       LEFT JOIN products p ON p.id = r.product_id
+       ORDER BY r.nombre_plato ASC`
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error al listar recetas' });
+  }
+});
+
+/** POST /recetas */
+router.post('/recetas', (req, res) => {
+  try {
+    const { nombre_plato, product_id, activo, detalles } = req.body || {};
+    const n = String(nombre_plato || '').trim();
+    if (!n) return res.status(400).json({ error: 'nombre_plato requerido' });
+    if (!String(product_id || '').trim()) return res.status(400).json({ error: 'product_id requerido para vincular a un plato del menú' });
+    const id = uuidv4();
+    withTransaction((tx) => {
+      tx.run(
+        `INSERT INTO recetas (id, nombre_plato, product_id, activo) VALUES (?, ?, ?, ?)`,
+        [id, n, String(product_id).trim(), activo === false ? 0 : 1]
+      );
+      if (Array.isArray(detalles)) {
+        detalles.forEach((d) => {
+          if (!d.insumo_id || d.cantidad_usada == null) return;
+          tx.run(
+            `INSERT INTO receta_detalle (id, receta_id, insumo_id, cantidad_usada) VALUES (?, ?, ?, ?)`,
+            [uuidv4(), id, d.insumo_id, Number(d.cantidad_usada)]
+          );
+        });
+      }
+    });
+    res.status(201).json(queryOne('SELECT * FROM recetas WHERE id = ?', [id]));
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error al crear receta' });
+  }
+});
+
+/** GET /recetas/:id */
+router.get('/recetas/:id', (req, res) => {
+  try {
+    const r = queryOne('SELECT * FROM recetas WHERE id = ?', [req.params.id]);
+    if (!r) return res.status(404).json({ error: 'Receta no encontrada' });
+    const dets = queryAll(
+      `SELECT rd.*, i.nombre as insumo_nombre, i.unidad_medida
+       FROM receta_detalle rd
+       JOIN insumos i ON i.id = rd.insumo_id
+       WHERE rd.receta_id = ?`,
+      [req.params.id]
+    );
+    res.json({ ...r, detalles: dets });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error' });
+  }
+});
+
+/** PUT /recetas/:id */
+router.put('/recetas/:id', (req, res) => {
+  try {
+    const cur = queryOne('SELECT * FROM recetas WHERE id = ?', [req.params.id]);
+    if (!cur) return res.status(404).json({ error: 'Receta no encontrada' });
+    const { nombre_plato, product_id, activo, detalles } = req.body || {};
+    withTransaction((tx) => {
+      tx.run(
+        `UPDATE recetas SET nombre_plato = COALESCE(?, nombre_plato), product_id = COALESCE(?, product_id), activo = COALESCE(?, activo) WHERE id = ?`,
+        [
+          nombre_plato != null ? String(nombre_plato).trim() : null,
+          product_id != null ? String(product_id).trim() : null,
+          activo != null ? (activo ? 1 : 0) : null,
+          req.params.id,
+        ]
+      );
+      if (Array.isArray(detalles)) {
+        tx.run('DELETE FROM receta_detalle WHERE receta_id = ?', [req.params.id]);
+        detalles.forEach((d) => {
+          if (!d.insumo_id || d.cantidad_usada == null) return;
+          tx.run(
+            `INSERT INTO receta_detalle (id, receta_id, insumo_id, cantidad_usada) VALUES (?, ?, ?, ?)`,
+            [uuidv4(), req.params.id, d.insumo_id, Number(d.cantidad_usada)]
+          );
+        });
+      }
+    });
+    res.json(queryOne('SELECT * FROM recetas WHERE id = ?', [req.params.id]));
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error al actualizar receta' });
+  }
+});
+
+/** POST /inventario-fisico (crea cabecera + detalle) */
+router.post('/inventario-fisico', (req, res) => {
+  try {
+    const { detalles } = req.body || {};
+    if (!Array.isArray(detalles) || !detalles.length) {
+      return res.status(400).json({ error: 'detalles[] requerido: insumo_id, stock_real' });
+    }
+    const id = uuidv4();
+    withTransaction((tx) => {
+      tx.run(
+        `INSERT INTO inventario_fisico (id, fecha, estado, created_by) VALUES (?, datetime('now'), 'pendiente', ?)`,
+        [id, req.user.id]
+      );
+      detalles.forEach((d) => {
+        if (!d.insumo_id) return;
+        const ins = tx.queryOne('SELECT * FROM insumos WHERE id = ?', [d.insumo_id]);
+        if (!ins) throw new Error(`Insumo ${d.insumo_id} no encontrado`);
+        const sys = Number(ins.stock_actual || 0);
+        const real = Number(d.stock_real);
+        if (Number.isNaN(real) || real < 0) throw new Error('stock_real inválido');
+        const dif = real - sys;
+        tx.run(
+          `INSERT INTO inventario_fisico_detalle (id, inventario_id, insumo_id, stock_sistema, stock_real, diferencia) VALUES (?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), id, d.insumo_id, sys, real, dif]
+        );
+      });
+    });
+    res.status(201).json({ id, estado: 'pendiente' });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error al registrar inventario físico' });
+  }
+});
+
+/** POST /inventario-fisico/:id/cerrar */
+router.post('/inventario-fisico/:id/cerrar', (req, res) => {
+  try {
+    withTransaction((tx) => kx.cerrarInventarioFisico(tx, req.params.id, req.user.id));
+    logAudit({
+      actorUserId: req.user.id,
+      action: 'kardex.inventario_fisico.cerrar',
+      resourceId: req.params.id,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error al cerrar inventario' });
+  }
+});
+
+/** GET /inventario-fisico */
+router.get('/inventario-fisico', (req, res) => {
+  try {
+    const rows = queryAll('SELECT * FROM inventario_fisico ORDER BY datetime(created_at) DESC LIMIT 50');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /ajustes — merma o entrada manual (sin compra) */
+router.post('/ajustes', (req, res) => {
+  try {
+    const { insumo_id, cantidad, tipo, referencia } = req.body || {};
+    const t = String(tipo || 'salida').toLowerCase();
+    if (!insumo_id) return res.status(400).json({ error: 'insumo_id requerido' });
+    const c = Number(cantidad);
+    if (c <= 0) return res.status(400).json({ error: 'cantidad > 0 requerida' });
+    const ref = String(referencia || (t === 'entrada' ? 'ajuste' : 'merma'));
+    const opId = uuidv4();
+    withTransaction((tx) => {
+      if (t === 'entrada') {
+        const ins = tx.queryOne('SELECT * FROM insumos WHERE id = ?', [insumo_id]);
+        if (!ins) throw new Error('Insumo no encontrado');
+        kx.registrarAjusteEntrada(tx, {
+          insumoId: insumo_id,
+          cantidad: c,
+          referencia: ref,
+          referenciaId: opId,
+          userId: req.user.id,
+        });
+      } else {
+        kx.registrarAjusteSalida(tx, {
+          insumoId: insumo_id,
+          cantidad: c,
+          referencia: ref,
+          referenciaId: opId,
+          userId: req.user.id,
+        });
+      }
+    });
+    res.status(201).json({ ok: true, operacion_id: opId });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Error en ajuste' });
+  }
+});
+
+/** GET /dashboard — resumen y alertas stock mínimo */
+router.get('/dashboard', (req, res) => {
+  try {
+    const insumos = queryAll('SELECT * FROM insumos WHERE activo = 1 ORDER BY nombre');
+    const bajo = insumos.filter((i) => Number(i.stock_actual) < Number(i.stock_minimo));
+    const valor = insumos.reduce(
+      (s, i) => s + Number(i.stock_actual || 0) * Number(i.costo_promedio || 0),
+      0
+    );
+    res.json({
+      total_insumos: insumos.length,
+      valor_inventario_total: Number(valor.toFixed(2)),
+      insumos_bajo_minimo: bajo,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /export/kardex/:insumoId — CSV simple */
+router.get('/export/kardex/:insumoId', (req, res) => {
+  try {
+    const ins = queryOne('SELECT * FROM insumos WHERE id = ?', [req.params.insumoId]);
+    if (!ins) return res.status(404).json({ error: 'Insumo no encontrado' });
+    const movs = queryAll(
+      `SELECT * FROM kardex WHERE id_insumo = ? ORDER BY datetime(created_at) ASC`,
+      [req.params.insumoId]
+    );
+    const header = [
+      'fecha',
+      'tipo',
+      'cantidad',
+      'costo_unitario',
+      'costo_total',
+      'stock_ant',
+      'stock_res',
+      'referencia',
+      'ref_id',
+    ];
+    const lines = [header.join(',')];
+    movs.forEach((m) => {
+      lines.push(
+        [
+          m.fecha,
+          m.tipo_movimiento,
+          m.cantidad,
+          m.costo_unitario,
+          m.costo_total,
+          m.stock_anterior,
+          m.stock_resultante,
+          m.referencia,
+          m.referencia_id,
+        ]
+          .map((x) => `"${String(x).replace(/"/g, '""')}"`)
+          .join(',')
+      );
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="kardex-${ins.nombre.slice(0, 40).replace(/[^\w]/g, '_')}.csv"`);
+    res.send('\uFEFF' + lines.join('\n'));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

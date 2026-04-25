@@ -166,6 +166,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/staff-chat', require('./routes/staffChat'));
 app.use('/api/inventory', require('./routes/inventory'));
+app.use('/api/kardex-inventory', require('./routes/kardexInventory'));
 app.use('/api/pos', require('./routes/pos'));
 app.use('/api/delivery', require('./routes/delivery'));
 app.use('/api/tables', require('./routes/tables'));

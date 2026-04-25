@@ -12,7 +12,7 @@ if (hasExplicitApi) {
 } else if (import.meta.env.PROD) {
   API_ORIGIN = 'https://resto-fadey-api.onrender.com';
 }
-const API_BASE = API_ORIGIN ? `${API_ORIGIN}/api` : '/api';
+export const API_BASE = API_ORIGIN ? `${API_ORIGIN}/api` : '/api';
 
 /** URL absoluta para `/uploads/...` cuando el front y la API están en hosts distintos. */
 export function resolveMediaUrl(url) {
