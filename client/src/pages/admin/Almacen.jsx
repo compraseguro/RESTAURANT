@@ -634,7 +634,7 @@ export default function Almacen() {
     return (
       <div>
         <div className="flex items-center justify-between mb-5">
-          <h1 className="text-2xl font-bold text-slate-800">Almacén · {activeViewLabel}</h1>
+          <h1 className="text-2xl font-bold text-slate-100">Almacén · {activeViewLabel}</h1>
         </div>
 
         {activeView === 'requerimiento' && (
@@ -760,17 +760,17 @@ export default function Almacen() {
         )}
 
         {activeView === 'ir_modulo_logistica' && (
-          <div className="bg-[#fff7f7] rounded-xl shadow-sm border border-red-200 p-5">
-            <h3 className="font-bold text-[#7a1f2a] mb-3">Módulo de logística</h3>
-            <div className="text-sm mb-3 text-slate-600 flex items-center justify-between gap-3 flex-wrap">
+          <div className="bg-slate-800/90 rounded-xl shadow-lg border border-slate-600/50 p-5 text-slate-200">
+            <h3 className="font-bold text-slate-100 mb-3">Módulo de logística</h3>
+            <div className="text-sm mb-3 text-slate-400 flex items-center justify-between gap-3 flex-wrap">
               <div>
               Filtros habilitados:
-                <span className="ml-2 inline-flex items-center px-2.5 py-1 rounded-md bg-red-100 text-red-700 border border-red-200 gap-2">
+                <span className="ml-2 inline-flex items-center px-2.5 py-1 rounded-md bg-slate-700/80 text-slate-200 border border-slate-500/50 gap-2">
                   Almacén:
                   <select
                     value={logisticsWarehouseFilter}
                     onChange={(e) => setLogisticsWarehouseFilter(e.target.value)}
-                    className="bg-white border border-red-200 rounded px-2 py-0.5 text-xs text-red-700"
+                    className="bg-slate-900 border border-slate-500 rounded px-2 py-0.5 text-xs text-slate-100"
                   >
                     {warehouses.map(w => (
                       <option key={w.id} value={w.id}>{w.name}</option>
@@ -781,15 +781,15 @@ export default function Almacen() {
               <button
                 type="button"
                 onClick={() => setShowReconciliationsModal(true)}
-                className="px-3 py-1.5 rounded-lg border border-red-200 bg-white text-red-700 hover:bg-red-50 text-sm"
+                className="px-3 py-1.5 rounded-lg border border-slate-500 bg-slate-700 text-slate-100 hover:bg-slate-600 text-sm"
               >
                 Cuadre de almacenes
               </button>
             </div>
-            <div className="overflow-x-auto border border-red-200 rounded-lg bg-white">
+            <div className="overflow-x-auto border border-slate-600/60 rounded-lg bg-slate-900/50">
               <table className="w-full text-sm min-w-[980px]">
                 <thead>
-                  <tr className="bg-red-50 border-b border-red-200 text-slate-700">
+                  <tr className="bg-slate-700/95 border-b border-slate-600 text-slate-100">
                     <th className="text-left p-2.5 font-medium w-24">Código</th>
                     <th className="text-left p-2.5 font-medium">Ítem</th>
                     <th className="text-left p-2.5 font-medium w-44">Categoría</th>
@@ -808,37 +808,37 @@ export default function Almacen() {
                     const stock = getLogisticsCurrentStock(product);
                     const valuation = unitCost * stock;
                     return (
-                      <tr key={product.id} className="border-b border-red-100/70 hover:bg-red-50/30">
-                        <td className="p-2.5 text-slate-600">#{String(idx + 1).padStart(3, '0')}</td>
-                        <td className="p-2.5 font-medium text-slate-700">{product.name}</td>
-                        <td className="p-2.5 text-slate-600">{product.category_name || 'Sin categoría'}</td>
-                        <td className="p-2.5 text-right text-slate-700">{stock}</td>
+                      <tr key={product.id} className="border-b border-slate-600/50 hover:bg-slate-800/50">
+                        <td className="p-2.5 text-slate-400">#{String(idx + 1).padStart(3, '0')}</td>
+                        <td className="p-2.5 font-medium text-slate-200">{product.name}</td>
+                        <td className="p-2.5 text-slate-400">{product.category_name || 'Sin categoría'}</td>
+                        <td className="p-2.5 text-right text-slate-200">{stock}</td>
                         <td className="p-2.5 text-right">
                           <input
                             type="number"
                             min="0"
                             value={logisticsCounted[product.id] ?? ''}
                             onChange={e => setLogisticsCounted(prev => ({ ...prev, [product.id]: e.target.value }))}
-                            className="input-field py-1.5 w-28 ml-auto text-right border-red-200 focus:border-red-400"
+                            className="w-28 ml-auto rounded-lg border border-slate-500 bg-slate-800/90 py-1.5 px-2 text-right text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500/80 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
                             placeholder="0"
                           />
                         </td>
                         <td className={`p-2.5 text-right font-medium ${
-                          diff === null ? 'text-slate-400' : diff === 0 ? 'text-emerald-600' : diff < 0 ? 'text-red-600' : 'text-sky-700'
+                          diff === null ? 'text-slate-500' : diff === 0 ? 'text-emerald-400' : diff < 0 ? 'text-red-400' : 'text-sky-400'
                         }`}>
                           {diff === null ? '-' : diff}
                         </td>
-                        <td className="p-2.5 text-right text-slate-700">{formatCurrency(unitCost)}</td>
-                        <td className="p-2.5 text-right text-slate-700">{formatCurrency(valuation)}</td>
+                        <td className="p-2.5 text-right text-slate-200">{formatCurrency(unitCost)}</td>
+                        <td className="p-2.5 text-right text-slate-200">{formatCurrency(valuation)}</td>
                         <td className="p-2.5 text-right">
                           {diff === null ? (
-                            <span className="text-slate-400">-</span>
+                            <span className="text-slate-500">-</span>
                           ) : diff === 0 ? (
-                            <span className="text-emerald-600 font-medium">Cuadrado</span>
+                            <span className="text-emerald-400 font-medium">Cuadrado</span>
                           ) : diff < 0 ? (
-                            <span className="text-red-600 font-medium">Falta {Math.abs(diff)}</span>
+                            <span className="text-red-400 font-medium">Falta {Math.abs(diff)}</span>
                           ) : (
-                            <span className="text-sky-700 font-medium">Sobra {diff}</span>
+                            <span className="text-sky-400 font-medium">Sobra {diff}</span>
                           )}
                         </td>
                       </tr>
@@ -846,7 +846,7 @@ export default function Almacen() {
                   })}
                   {logisticsProducts.length === 0 && (
                     <tr>
-                      <td colSpan="9" className="p-8 text-center text-slate-400">No hay productos para cuadre de stock</td>
+                      <td colSpan="9" className="p-8 text-center text-slate-500">No hay productos para cuadre de stock</td>
                     </tr>
                   )}
                 </tbody>
