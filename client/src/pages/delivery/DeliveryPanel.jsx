@@ -15,7 +15,9 @@ import {
   MdLocationOn,
   MdAccessTime,
   MdPrint,
+  MdMap,
 } from 'react-icons/md';
+import { buildGoogleMapsSearchUrl } from '../../utils/googleMaps';
 
 function escHtml(s) {
   return String(s || '')
@@ -198,10 +200,12 @@ export default function DeliveryPanel() {
     setEndShiftOpen(true);
   };
 
-  const renderCard = (o, { showIniciar, showListo }) => (
+  const renderCard = (o, { showIniciar, showListo }) => {
+    const mapsUrl = buildGoogleMapsSearchUrl(o.delivery_address);
+    return (
     <div
       key={o.id}
-      className="rounded-2xl overflow-hidden bg-[#1F2937]/95 border border-[#3B82F6]/35 shadow-md min-h-0"
+      className="rounded-2xl overflow-hidden bg-[#1F2937]/95 border border-[#3B82F6]/35 shadow-md min-h-0 w-full"
     >
       <div className="px-3.5 py-3 sm:px-4 sm:py-3.5 flex items-center justify-between gap-2 border-b border-[#3B82F6]/25 bg-[#111827]/50">
         <span className="font-bold text-[#F9FAFB] text-base sm:text-lg tabular-nums">#{o.order_number}</span>
@@ -213,7 +217,22 @@ export default function DeliveryPanel() {
       <div className="px-3.5 py-3 sm:px-4 sm:py-4 space-y-2.5 text-base">
         <div className="flex items-start gap-2">
           <MdLocationOn className="text-[#93C5FD] mt-0.5 shrink-0 text-xl" />
-          <p className="text-[#F9FAFB] leading-snug text-[15px] sm:text-base">{o.delivery_address || 'Sin dirección'}</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-[#F9FAFB] leading-snug text-[15px] sm:text-base break-words">
+              {o.delivery_address || 'Sin dirección'}
+            </p>
+            {mapsUrl ? (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center justify-center gap-1.5 w-full min-h-[44px] px-3 py-2 rounded-xl text-sm font-semibold bg-[#1E3A5F] text-[#BFDBFE] border border-[#3B82F6]/50 hover:bg-[#2563EB]/30 active:opacity-90 touch-manipulation"
+              >
+                <MdMap className="text-lg shrink-0" />
+                Abrir en Google Maps
+              </a>
+            ) : null}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <MdPhone className="text-[#93C5FD] shrink-0 text-xl" />
@@ -263,7 +282,8 @@ export default function DeliveryPanel() {
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   const displayedOrders =
     tab === TAB_KEYS.activos ? activos : tab === TAB_KEYS.proceso ? enProceso : completadosHoy;
@@ -294,9 +314,9 @@ export default function DeliveryPanel() {
   };
 
   return (
-    <div className="min-h-screen bg-[#111827] text-[#F9FAFB] pb-safe pb-28">
-      <header className="sticky top-0 z-30 bg-[#1F2937]/95 backdrop-blur-md border-b border-[#3B82F6]/30 px-3 sm:px-4 pt-3 pb-3">
-        <div className="flex flex-col gap-3 max-w-3xl mx-auto w-full">
+    <div className="min-h-screen min-h-[100dvh] bg-[#111827] text-[#F9FAFB] pb-safe pb-28">
+      <header className="sticky top-0 z-30 bg-[#1F2937]/95 backdrop-blur-md border-b border-[#3B82F6]/30 px-3 sm:px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+        <div className="flex flex-col gap-3 max-w-lg mx-auto w-full">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <MdDeliveryDining className="text-3xl sm:text-4xl text-[#93C5FD] shrink-0" />
@@ -313,9 +333,9 @@ export default function DeliveryPanel() {
           </div>
 
           <div className="flex w-full shadow-lg rounded-2xl overflow-hidden ring-1 ring-[#3B82F6]/25 divide-x divide-[#3B82F6]/35">
-            {tabButton(TAB_KEYS.activos, 'Pedidos activos', 'left')}
-            {tabButton(TAB_KEYS.proceso, 'Pedidos en proceso', 'middle')}
-            {tabButton(TAB_KEYS.completados, 'Pedidos completados', 'right')}
+            {tabButton(TAB_KEYS.activos, 'Activos', 'left')}
+            {tabButton(TAB_KEYS.proceso, 'En ruta', 'middle')}
+            {tabButton(TAB_KEYS.completados, 'Hoy', 'right')}
           </div>
           <p className="text-[11px] sm:text-xs text-center text-[#64748B] -mt-1 px-1">
             Lista ordenada: los más recientes arriba; los más antiguos abajo en la cuadrícula.
@@ -342,7 +362,7 @@ export default function DeliveryPanel() {
         </div>
       </header>
 
-      <main className="px-3 sm:px-4 pt-4 pb-6 max-w-3xl mx-auto w-full">
+      <main className="px-3 sm:px-4 pt-4 pb-6 max-w-lg mx-auto w-full">
         <p className="text-center text-base text-[#9CA3AF] mb-4">
           Fecha del día:{' '}
           <span className="text-[#E5E7EB] font-bold">{formatDate(todayLocalYyyyMmDd())}</span>
@@ -355,7 +375,7 @@ export default function DeliveryPanel() {
             {tab === TAB_KEYS.completados && 'No hay pedidos completados hoy'}
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div className="flex flex-col gap-4">
             {displayedOrders.map((o) =>
               renderCard(o, {
                 showIniciar: tab === TAB_KEYS.activos,

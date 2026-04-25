@@ -16,8 +16,9 @@ import Modal from '../../components/Modal';
 import {
   MdDeliveryDining, MdLocationOn, MdCheck, MdTimer, MdAdd,
   MdRemove, MdDelete, MdReceipt, MdSearch, MdShoppingCart,
-  MdPerson, MdPhone, MdHome, MdEditNote, MdPrint,
+  MdPerson, MdPhone, MdHome, MdEditNote, MdPrint, MdMap,
 } from 'react-icons/md';
+import { buildGoogleMapsSearchUrl } from '../../utils/googleMaps';
 import toast from 'react-hot-toast';
 
 function escHtml(s) {
@@ -304,7 +305,9 @@ export default function Delivery() {
             <div className="bg-white rounded-xl shadow-sm border p-12 text-center text-slate-400"><MdDeliveryDining className="text-5xl mx-auto mb-3" /><p className="font-medium">No hay pedidos de delivery {tab === 'active' ? 'activos' : tab === 'today' ? 'entregados hoy' : 'completados'}</p></div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {displayed.map(o => (
+              {displayed.map((o) => {
+                const mapsUrl = buildGoogleMapsSearchUrl(o.delivery_address);
+                return (
                 <div key={o.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -315,7 +318,22 @@ export default function Delivery() {
                   </div>
                   <div className="space-y-1 mb-3 text-sm">
                     {o.customer_name && <p className="text-slate-600 flex items-center gap-1"><MdPerson className="text-slate-400" />{o.customer_name}</p>}
-                    <p className="text-slate-600 flex items-center gap-1"><MdLocationOn className="text-slate-400" />{o.delivery_address || 'Sin dirección'}</p>
+                    <div className="text-slate-600 flex flex-col gap-1.5">
+                      <p className="flex items-start gap-1">
+                        <MdLocationOn className="text-slate-400 shrink-0 mt-0.5" />
+                        <span className="break-words">{o.delivery_address || 'Sin dirección'}</span>
+                      </p>
+                      {mapsUrl && (
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 hover:text-sky-800 w-fit"
+                        >
+                          <MdMap className="text-base" /> Abrir en Google Maps
+                        </a>
+                      )}
+                    </div>
                     {o.notes && <p className="text-slate-500 flex items-center gap-1"><MdPhone className="text-slate-400" />{o.notes}</p>}
                     <p className="text-slate-600 text-sm">
                       <span className="text-slate-500">Modalidad de pago:</span>{' '}
@@ -348,7 +366,8 @@ export default function Delivery() {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
