@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { api, formatCurrency, parseApiDate, toLocalDateKey } from '../../utils/api';
+import { api, formatCurrency, parseApiDate, toLocalDateKey, PAYMENT_METHODS } from '../../utils/api';
 import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useNavigate } from 'react-router-dom';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { MdDateRange, MdKeyboardArrowDown, MdKitchen, MdLocalBar, MdDeliveryDining, MdPointOfSale, MdPrint, MdTableBar } from 'react-icons/md';
 
-const PAYMENT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
+const PAYMENT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#06b6d4', '#a855f7'];
 const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4'];
 const toInputDate = (date) => {
   const d = new Date(date);
@@ -30,6 +30,14 @@ const formatDateForLabel = (value) => {
   if (!y || !m || !d) return value;
   return `${d}/${m}/${y}`;
 };
+
+/** 1 venta = 1 mesa (mismo table_number) o, sin mesa, 1 pedido (delivery / mostrador). */
+function ventaMesaKey(order) {
+  if (!order) return '';
+  const t = String(order.table_number || '').trim();
+  if (t) return `mesa:${t}`;
+  return `pedido:${order.id || ''}`;
+}
 
 export default function Escritorio() {
   const [orders, setOrders] = useState([]);
@@ -128,19 +136,56 @@ export default function Escritorio() {
   const lowHour = hourlySales.reduce((best, item) => item.sales < best.sales ? item : best, { hour: '--:--', sales: Number.MAX_VALUE });
 
   const salesByPayment = useMemo(() => {
-    const map = {
-      efectivo: 0,
-      tarjeta: 0,
-      yape: 0,
-      plin: 0,
-    };
+    const map = { efectivo: 0, tarjeta: 0, yape: 0, plin: 0, online: 0 };
     paidOrders.forEach((o) => {
-      map[o.payment_method] = (map[o.payment_method] || 0) + Number(o.total || 0);
+      const m = o.payment_method || 'efectivo';
+      map[m] = (map[m] || 0) + Number(o.total || 0);
     });
     return map;
   }, [paidOrders]);
 
+  const paymentPieData = useMemo(() => {
+    const rows = [
+      { name: PAYMENT_METHODS.efectivo, value: salesByPayment.efectivo || 0, key: 'efectivo' },
+      { name: PAYMENT_METHODS.tarjeta, value: salesByPayment.tarjeta || 0, key: 'tarjeta' },
+      { name: PAYMENT_METHODS.yape, value: salesByPayment.yape || 0, key: 'yape' },
+      { name: PAYMENT_METHODS.plin, value: salesByPayment.plin || 0, key: 'plin' },
+      { name: PAYMENT_METHODS.online, value: salesByPayment.online || 0, key: 'online' },
+    ].filter((r) => r.value > 0);
+    return rows;
+  }, [salesByPayment]);
+
   const totalSales = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+  const pagoMasUsado = useMemo(() => {
+    if (!paidOrders.length) return null;
+    const countBy = {};
+    paidOrders.forEach((o) => {
+      const m = o.payment_method || 'efectivo';
+      countBy[m] = (countBy[m] || 0) + 1;
+    });
+    let bestKey = null;
+    let bestN = -1;
+    Object.entries(countBy).forEach(([k, n]) => {
+      if (n > bestN) {
+        bestN = n;
+        bestKey = k;
+      }
+    });
+    if (!bestKey) return null;
+    const monto = salesByPayment[bestKey] || 0;
+    const share = totalSales > 0 ? (monto / totalSales) * 100 : 0;
+    return {
+      label: PAYMENT_METHODS[bestKey] || bestKey,
+      operaciones: bestN,
+      porcentajeMonto: share,
+    };
+  }, [paidOrders, salesByPayment, totalSales]);
+
+  const totalVentasMesas = useMemo(
+    () => new Set(scopedOrdersAll.filter((o) => o.status !== 'cancelled').map(ventaMesaKey)).size,
+    [scopedOrdersAll]
+  );
   const totalDiscounts = scopedOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
   const totalCredit = paidOrders
     .filter(o => o.payment_method === 'online')
@@ -655,16 +700,20 @@ export default function Escritorio() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <div className="card p-4">
-          <p className="text-sm text-slate-500">Total ventas (pedidos)</p>
-          <p className="text-2xl font-light text-slate-700">{scopedOrdersAll.length}</p>
+          <p className="text-sm text-slate-500">Total ventas (mesas)</p>
+          <p className="text-2xl font-light text-slate-700">{totalVentasMesas}</p>
+          <p className="text-xs text-slate-500 mt-1">
+            Una mesa con pedidos = 1 venta. Sin mesa (delivery, etc.): 1 venta = 1 pedido.
+          </p>
           <p className="text-xs text-slate-500 mt-2">
-            Cobradas: <strong>{paidOrdersCount}</strong> · Pendientes: <strong>{pendingPaymentCount}</strong> · Canceladas: <strong>{cancelledOrdersCount}</strong>
+            Pedidos — Cobradas: <strong>{paidOrdersCount}</strong> · Pendientes: <strong>{pendingPaymentCount}</strong> ·
+            Canceladas: <strong>{cancelledOrdersCount}</strong>
           </p>
         </div>
         <div className="card p-4">
-          <p className="text-sm text-slate-500">Promedio de consumo por venta y por persona</p>
+          <p className="text-sm text-slate-500">Promedio de consumo por venta (mesa)</p>
           <p className="text-2xl font-light text-slate-700">
-            {formatCurrency(paidOrders.length ? totalSales / paidOrders.length : 0)}
+            {formatCurrency(totalVentasMesas ? totalSales / totalVentasMesas : 0)}
           </p>
         </div>
         <div className="card p-4">
@@ -672,26 +721,50 @@ export default function Escritorio() {
           <p className="text-2xl font-light text-slate-700">{scopedOrders.length}</p>
         </div>
         <div className="card p-4">
-          <p className="text-sm text-slate-500">Por tipo de pago</p>
-          <ResponsiveContainer width="100%" height={90}>
-            <PieChart>
-              <Pie
-                data={[
-                  { name: 'Efectivo', value: salesByPayment.efectivo || 0 },
-                  { name: 'Tarjeta', value: salesByPayment.tarjeta || 0 },
-                  { name: 'Yape', value: salesByPayment.yape || 0 },
-                  { name: 'Plin', value: salesByPayment.plin || 0 },
-                ]}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={35}
-              >
-                {PAYMENT_COLORS.map((c) => <Cell key={c} fill={c} />)}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+          <p className="text-sm text-slate-500">Por tipo de pago (monto)</p>
+          {pagoMasUsado && (
+            <p className="text-xs text-amber-100/90 mb-2 text-center">
+              Más usado: <span className="font-semibold">{pagoMasUsado.label}</span> ({pagoMasUsado.operaciones}{' '}
+              {pagoMasUsado.operaciones === 1 ? 'cobro' : 'cobros'} · {pagoMasUsado.porcentajeMonto.toFixed(0)}% del
+              monto)
+            </p>
+          )}
+          {paymentPieData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={168}>
+              <PieChart>
+                <Pie
+                  data={paymentPieData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={28}
+                  outerRadius={52}
+                  paddingAngle={2}
+                  label={({ name, percent }) => (percent > 0.06 ? `${name} ${(percent * 100).toFixed(0)}%` : '')}
+                >
+                  {paymentPieData.map((row, i) => (
+                    <Cell key={row.key} fill={PAYMENT_COLORS[i % PAYMENT_COLORS.length]} stroke="rgba(15,23,42,0.4)" />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(v) => formatCurrency(v)}
+                  contentStyle={{ background: '#1e293b', border: '1px solid #475569', borderRadius: '8px' }}
+                />
+                <Legend
+                  layout="vertical"
+                  align="right"
+                  verticalAlign="middle"
+                  formatter={(value, entry) => {
+                    const v = entry?.payload?.value;
+                    return `${value}: ${formatCurrency(v)}`;
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-xs text-slate-500 text-center py-6">Sin cobros en el periodo</p>
+          )}
         </div>
       </div>
     </div>
