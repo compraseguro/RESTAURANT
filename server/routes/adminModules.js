@@ -650,13 +650,38 @@ router.delete('/discounts/:id', requireRole('admin'), (req, res) => {
   res.json({ success: true });
 });
 
+/** `products` en offers_catalog: JSON `["id1","id2"]` (ids reales de `products`). Acepta legacy texto separado por comas. */
+function normalizeOfferProductsInput(raw) {
+  if (raw == null || raw === '') return '[]';
+  if (Array.isArray(raw)) {
+    const ids = [...new Set(raw.map((x) => String(x).trim()).filter(Boolean))];
+    return JSON.stringify(ids);
+  }
+  if (typeof raw === 'string') {
+    const t = raw.trim();
+    if (!t) return '[]';
+    if (t.startsWith('[')) {
+      try {
+        const arr = JSON.parse(t);
+        if (Array.isArray(arr)) return normalizeOfferProductsInput(arr);
+      } catch (_) {
+        return '[]';
+      }
+    }
+    return JSON.stringify(t.split(',').map((s) => s.trim()).filter(Boolean));
+  }
+  return '[]';
+}
+
 router.get('/offers', (req, res) => {
   res.json(queryAll('SELECT * FROM offers_catalog ORDER BY created_at DESC'));
 });
 
 router.post('/offers', requireRole('admin'), (req, res) => {
-  const { name, description = '', type = 'promo', discount = 0, start_date = '', end_date = '', products = '', active = 1 } = req.body || {};
+  const { name, description = '', type = 'promo', discount = 0, start_date = '', end_date = '', active = 1 } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Nombre requerido' });
+  const raw = req.body?.product_ids !== undefined ? req.body.product_ids : req.body?.products;
+  const products = normalizeOfferProductsInput(raw);
   const id = uuidv4();
   runSql(
     'INSERT INTO offers_catalog (id, name, description, type, discount, start_date, end_date, products, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -666,14 +691,16 @@ router.post('/offers', requireRole('admin'), (req, res) => {
 });
 
 router.put('/offers/:id', requireRole('admin'), (req, res) => {
-  const { name, description, type, discount, start_date, end_date, products, active } = req.body || {};
+  const { name, description, type, discount, start_date, end_date, products, product_ids, active } = req.body || {};
+  const rawProducts = product_ids !== undefined ? product_ids : products;
+  const productsVal = rawProducts !== undefined ? normalizeOfferProductsInput(rawProducts) : null;
   runSql(
     `UPDATE offers_catalog
      SET name = COALESCE(?, name), description = COALESCE(?, description), type = COALESCE(?, type), discount = COALESCE(?, discount),
          start_date = COALESCE(?, start_date), end_date = COALESCE(?, end_date), products = COALESCE(?, products), active = COALESCE(?, active),
          updated_at = datetime('now')
      WHERE id = ?`,
-    [name, description, type, discount, start_date, end_date, products, active, req.params.id]
+    [name, description, type, discount, start_date, end_date, productsVal, active, req.params.id]
   );
   res.json(queryOne('SELECT * FROM offers_catalog WHERE id = ?', [req.params.id]));
 });
