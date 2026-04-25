@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api, formatCurrency, API_BASE, formatDateTime } from '../utils/api';
 import toast from 'react-hot-toast';
 import { MdDownload, MdWarning, MdInventory2, MdAdd, MdList } from 'react-icons/md';
+import Modal from './Modal';
 
 const TABS = [
   { id: 'dashboard', label: 'Resumen' },
@@ -9,11 +10,36 @@ const TABS = [
   { id: 'compras', label: 'Compras' },
   { id: 'recetas', label: 'Recetas' },
   { id: 'kardex', label: 'Kardex' },
-  { id: 'inv_fisico', label: 'Inventario físico' },
+  { id: 'inv_fisico', label: 'Inventario de transformables' },
+  { id: 'inv_no_transform', label: 'Inventario de no transformables' },
   { id: 'ajustes', label: 'Ajustes / mermas' },
 ];
 
 const BASE = '/kardex-inventory';
+
+function parseWarehouseMeta(description, fallbackStock) {
+  const raw = description || '';
+  const transformedMatch = raw.match(/\[WAREHOUSE_PROCESS:(transformed|non_transformed)\]/);
+  const mainMatch = raw.match(/\[STOCK_MAIN:(-?\d+)\]/);
+  const kitchenMatch = raw.match(/\[STOCK_KITCHEN:(-?\d+)\]/);
+  const notes = raw.replace(/\[(WAREHOUSE_PROCESS|STOCK_MAIN|STOCK_KITCHEN):[^\]]+\]\s*/g, '').trim();
+  const fallback = Math.max(0, Number(fallbackStock || 0));
+  let stockMain = mainMatch ? Math.max(0, parseInt(mainMatch[1], 10) || 0) : fallback;
+  let stockKitchen = kitchenMatch ? Math.max(0, parseInt(kitchenMatch[1], 10) || 0) : 0;
+  if (!mainMatch && kitchenMatch) stockMain = Math.max(0, fallback - stockKitchen);
+  if (!mainMatch && !kitchenMatch) {
+    stockMain = fallback;
+    stockKitchen = 0;
+  }
+  return {
+    process: transformedMatch ? transformedMatch[1] : 'non_transformed',
+    stockMain,
+    stockKitchen,
+    notes,
+  };
+}
+
+const sameWarehouseId = (a, b) => String(a || '') === String(b || '');
 
 export default function LogisticaKardexModule() {
   const [tab, setTab] = useState('dashboard');
@@ -43,6 +69,13 @@ export default function LogisticaKardexModule() {
     insumo_id: '', cantidad: '', tipo: 'salida', referencia: 'merma',
   });
 
+  const [whProducts, setWhProducts] = useState([]);
+  const [whWarehouses, setWhWarehouses] = useState([]);
+  const [cuadreWarehouseId, setCuadreWarehouseId] = useState('');
+  const [logisticsCounted, setLogisticsCounted] = useState({});
+  const [showReconciliationsModal, setShowReconciliationsModal] = useState(false);
+  const [reconciliationHistory, setReconciliationHistory] = useState([]);
+
   const loadCore = useCallback(async () => {
     const [ins, dash, prods, rec, inv] = await Promise.all([
       api.get(`${BASE}/insumos`),
@@ -70,6 +103,49 @@ export default function LogisticaKardexModule() {
       }
     })();
   }, [loadCore]);
+
+  const loadWhData = useCallback(async () => {
+    const data = await api.get('/inventory/warehouse-stock');
+    const wh = data.warehouses || [];
+    const list = (data.products || [])
+      .map((p) => {
+        const parsed = parseWarehouseMeta(p.description, p.stock);
+        return {
+          ...p,
+          process:
+            p.process_type === 'non_transformed'
+              ? 'non_transformed'
+              : p.process_type === 'transformed'
+                ? 'transformed'
+                : parsed.process,
+          warehouse_stocks: p.warehouse_stocks || [],
+          stock: Number(p.total_stock || 0),
+        };
+      })
+      .filter((p) => p.process === 'non_transformed');
+    setWhWarehouses(wh);
+    setWhProducts(list);
+    setCuadreWarehouseId((prev) => {
+      if (prev) return prev;
+      const pr = wh.find((w) => w.name === 'Almacen Principal') || wh[0];
+      return pr ? String(pr.id) : '';
+    });
+  }, []);
+
+  useEffect(() => {
+    if (tab !== 'inv_no_transform') return;
+    loadWhData().catch((e) => toast.error(e.message || 'No se pudo cargar almacén'));
+  }, [tab, loadWhData]);
+
+  useEffect(() => {
+    if (tab !== 'inv_no_transform') return;
+    (async () => {
+      try {
+        const reconciliations = await api.get('/inventory/reconciliations');
+        setReconciliationHistory(reconciliations || []);
+      } catch (_) {}
+    })();
+  }, [tab]);
 
   useEffect(() => {
     if (tab !== 'kardex' || !kardexInsumo) {
@@ -259,6 +335,74 @@ export default function LogisticaKardexModule() {
     URL.revokeObjectURL(url);
   };
 
+  const logisticsProductsFiltered = whProducts
+    .filter((product) => {
+      if (!cuadreWarehouseId) return true;
+      return (product.warehouse_stocks || []).some((ws) => sameWarehouseId(ws.warehouse_id, cuadreWarehouseId));
+    })
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  const getLogisticsCurrentStock = (product) => {
+    if (!cuadreWarehouseId) return Number(product.stock || 0);
+    return Number(
+      (product.warehouse_stocks || []).find((ws) => sameWarehouseId(ws.warehouse_id, cuadreWarehouseId))?.quantity || 0
+    );
+  };
+
+  const getLogisticsDiff = (product) => {
+    const current = getLogisticsCurrentStock(product);
+    const raw = logisticsCounted[product.id];
+    if (raw === '' || raw === undefined) return null;
+    const counted = Number(raw);
+    if (Number.isNaN(counted)) return null;
+    return counted - current;
+  };
+
+  const saveWarehouseReconciliation = async () => {
+    if (!cuadreWarehouseId) {
+      toast.error('Selecciona un almacén');
+      return;
+    }
+    const selectedWarehouse = whWarehouses.find((w) => sameWarehouseId(w.id, cuadreWarehouseId));
+    if (!selectedWarehouse) {
+      toast.error('Almacén no válido');
+      return;
+    }
+    const items = logisticsProductsFiltered
+      .filter((product) => logisticsCounted[product.id] !== '' && logisticsCounted[product.id] !== undefined)
+      .map((product) => {
+        const current = getLogisticsCurrentStock(product);
+        const counted = Number(logisticsCounted[product.id] || 0);
+        const diff = counted - current;
+        return {
+          product_id: product.id,
+          product_name: product.name,
+          current_stock: current,
+          counted_stock: counted,
+          difference: diff,
+          unit_cost: Number(product.price || 0),
+          valuation: Number(product.price || 0) * current,
+        };
+      });
+    if (!items.length) {
+      toast.error('Ingresa cantidades contadas antes de guardar');
+      return;
+    }
+    try {
+      await api.post('/inventory/reconciliations', {
+        warehouse_id: selectedWarehouse.id,
+        items,
+      });
+      const history = await api.get('/inventory/reconciliations');
+      setReconciliationHistory(history || []);
+      setLogisticsCounted({});
+      await loadWhData();
+      toast.success('Cuadre de almacén guardado');
+    } catch (err) {
+      toast.error(err.message || 'No se pudo guardar el cuadre');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -268,8 +412,12 @@ export default function LogisticaKardexModule() {
   }
 
   return (
-    <div className="space-y-4 text-slate-200">
-      <div className="flex flex-wrap gap-1.5 border-b border-slate-600/60 pb-2">
+    <div className="space-y-4 text-[#F9FAFB]">
+      <p className="text-sm text-[#9CA3AF]">
+        Insumos, compras, recetas, kardex, inventario de transformables (insumos) y no transformables (cuadre en almacén).
+        Las ventas en caja descuentan según recetas.
+      </p>
+      <div className="flex flex-wrap gap-1.5 border-b border-[#3B82F6]/25 pb-2">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -277,8 +425,8 @@ export default function LogisticaKardexModule() {
             onClick={() => setTab(t.id)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
               tab === t.id
-                ? 'bg-amber-600/90 text-white'
-                : 'bg-slate-700/80 text-slate-300 hover:bg-slate-600/80'
+                ? 'bg-[#2563EB] text-white shadow-sm border border-[#3B82F6]/40'
+                : 'bg-[#1F2937] text-[#D1D5DB] hover:bg-[#374151] border border-[#3B82F6]/20'
             }`}
           >
             {t.label}
@@ -288,12 +436,12 @@ export default function LogisticaKardexModule() {
 
       {tab === 'dashboard' && dashboard && (
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="bg-slate-800/60 rounded-xl border border-slate-600/50 p-4">
-            <p className="text-slate-400 text-sm">Valor total del inventario (insumos)</p>
+          <div className="bg-[#1F2937] rounded-xl border border-[#3B82F6]/25 p-4">
+            <p className="text-[#9CA3AF] text-sm">Valor total del inventario (insumos)</p>
             <p className="text-2xl font-bold text-emerald-400 mt-1">{formatCurrency(dashboard.valor_inventario_total)}</p>
-            <p className="text-xs text-slate-500 mt-2">{dashboard.total_insumos} insumos activos</p>
+            <p className="text-xs text-[#9CA3AF] mt-2">{dashboard.total_insumos} insumos activos</p>
           </div>
-          <div className="bg-slate-800/60 rounded-xl border border-slate-600/50 p-4">
+          <div className="bg-[#1F2937] rounded-xl border border-[#3B82F6]/25 p-4">
             <p className="text-amber-300/90 text-sm flex items-center gap-1.5">
               <MdWarning className="inline" /> Bajo mínimo
             </p>
@@ -686,8 +834,9 @@ export default function LogisticaKardexModule() {
 
       {tab === 'inv_fisico' && (
         <div className="space-y-4">
-          <p className="text-slate-400 text-sm">
-            Registra conteo físico (pendiente). Luego <strong>cierra</strong> el inventario para ajustar kardex.
+          <p className="text-[#9CA3AF] text-sm">
+            <strong className="text-[#E5E7EB]">Inventario de transformables (insumos):</strong>{' '}
+            conteo físico de materiales del kardex. Registra el conteo (pendiente) y luego <strong>cierra</strong> para generar movimientos valorizados.
           </p>
           <form onSubmit={crearInventarioFisico} className="space-y-2">
             {invDetalles.map((d, i) => (
@@ -748,6 +897,102 @@ export default function LogisticaKardexModule() {
         </div>
       )}
 
+      {tab === 'inv_no_transform' && (
+        <div className="space-y-4">
+          <p className="text-[#9CA3AF] text-sm">
+            <strong className="text-[#E5E7EB]">Inventario de no transformables:</strong>{' '}
+            productos de almacén (sin transformar) para cuadre físico por ubicación. Alinea el stock del almacén con el conteo real.
+          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm text-[#D1D5DB]">
+              Almacén:
+              <select
+                value={cuadreWarehouseId}
+                onChange={(e) => {
+                  setCuadreWarehouseId(e.target.value);
+                  setLogisticsCounted({});
+                }}
+                className="bg-[#1F2937] border border-[#3B82F6]/35 rounded-lg px-2 py-1.5 text-[#F9FAFB] text-sm"
+              >
+                {whWarehouses.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowReconciliationsModal(true)}
+              className="text-sm px-3 py-1.5 rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] text-[#E5E7EB] hover:bg-[#374151]"
+            >
+              Historial de cuadres
+            </button>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-[#3B82F6]/25 bg-[#111827]/50">
+            <table className="w-full text-sm min-w-[900px]">
+              <thead>
+                <tr className="bg-[#1F2937] border-b border-[#3B82F6]/20 text-left text-[#E5E7EB]">
+                  <th className="p-2.5 font-medium w-20">#</th>
+                  <th className="p-2.5 font-medium">Producto</th>
+                  <th className="p-2.5 font-medium">Categoría</th>
+                  <th className="p-2.5 font-medium text-right">Stock sistema</th>
+                  <th className="p-2.5 font-medium text-right">Cantidad contada</th>
+                  <th className="p-2.5 font-medium text-right">Diferencia</th>
+                  <th className="p-2.5 font-medium text-right">Costo UM</th>
+                  <th className="p-2.5 font-medium text-right">Valorización</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logisticsProductsFiltered.map((product, idx) => {
+                  const diff = getLogisticsDiff(product);
+                  const unitCost = Number(product.price || 0);
+                  const stock = getLogisticsCurrentStock(product);
+                  const valuation = unitCost * stock;
+                  return (
+                    <tr key={product.id} className="border-b border-[#3B82F6]/15 hover:bg-[#1F2937]/40">
+                      <td className="p-2.5 text-[#9CA3AF]">#{String(idx + 1).padStart(3, '0')}</td>
+                      <td className="p-2.5 font-medium text-[#F9FAFB]">{product.name}</td>
+                      <td className="p-2.5 text-[#9CA3AF]">{product.category_name || '—'}</td>
+                      <td className="p-2.5 text-right">{stock}</td>
+                      <td className="p-2.5 text-right">
+                        <input
+                          type="number"
+                          min="0"
+                          value={logisticsCounted[product.id] ?? ''}
+                          onChange={(e) => setLogisticsCounted((prev) => ({ ...prev, [product.id]: e.target.value }))}
+                          className="w-24 ml-auto rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] py-1.5 px-2 text-right text-sm text-[#F9FAFB]"
+                          placeholder="0"
+                        />
+                      </td>
+                      <td
+                        className={`p-2.5 text-right font-medium ${
+                          diff === null ? 'text-[#6B7280]' : diff === 0 ? 'text-emerald-400' : diff < 0 ? 'text-red-400' : 'text-sky-400'
+                        }`}
+                      >
+                        {diff === null ? '—' : diff}
+                      </td>
+                      <td className="p-2.5 text-right">{formatCurrency(unitCost)}</td>
+                      <td className="p-2.5 text-right">{formatCurrency(valuation)}</td>
+                    </tr>
+                  );
+                })}
+                {logisticsProductsFiltered.length === 0 && (
+                  <tr>
+                    <td colSpan="8" className="p-8 text-center text-[#9CA3AF]">
+                      No hay productos no transformados en este almacén. Usa Movimiento interno en Almacén para stock.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-end">
+            <button type="button" onClick={saveWarehouseReconciliation} className="btn-primary">
+              Guardar cuadre de almacén
+            </button>
+          </div>
+        </div>
+      )}
+
       {tab === 'ajustes' && (
         <form onSubmit={enviarAjuste} className="max-w-md space-y-3">
           <p className="text-slate-400 text-sm">Entrada manual o salida por merma (al costo promedio al salir).</p>
@@ -797,6 +1042,52 @@ export default function LogisticaKardexModule() {
           <button type="submit" className="btn-primary">Registrar ajuste</button>
         </form>
       )}
+
+      <Modal
+        isOpen={showReconciliationsModal}
+        onClose={() => setShowReconciliationsModal(false)}
+        title="Historial de cuadres de almacén"
+        size="lg"
+      >
+        <div className="modal-sheet-body space-y-3 max-h-[70vh] overflow-y-auto">
+          {reconciliationHistory.length === 0 && (
+            <p className="text-sm text-[#9CA3AF]">No hay cuadres guardados.</p>
+          )}
+          {reconciliationHistory.map((rec) => (
+            <div key={rec.id} className="border border-[#3B82F6]/25 rounded-lg p-3 bg-[#1F2937]/80">
+              <div className="flex items-center justify-between mb-2">
+                <p className="font-semibold text-[#F9FAFB]">{rec.warehouse_name || 'Almacén'}</p>
+                <p className="text-xs text-[#9CA3AF]">{formatDateTime(rec.created_at)}</p>
+              </div>
+              <p className="text-xs text-[#9CA3AF] mb-2">
+                Items: {rec.total_items} · Faltante: {rec.total_shortage} · Sobrante: {rec.total_surplus}
+              </p>
+              <div className="space-y-1">
+                {(rec.items || []).map((item) => (
+                  <div key={item.id} className="text-sm flex items-center justify-between border-b border-[#3B82F6]/15 pb-1 text-[#E5E7EB]">
+                    <span>{item.product_name}</span>
+                    <span
+                      className={`font-medium ${
+                        Number(item.difference || 0) < 0
+                          ? 'text-red-400'
+                          : Number(item.difference || 0) > 0
+                            ? 'text-sky-400'
+                            : 'text-emerald-400'
+                      }`}
+                    >
+                      {Number(item.difference || 0) === 0
+                        ? 'Cuadrado'
+                        : Number(item.difference || 0) < 0
+                          ? `Falta ${Math.abs(Number(item.difference || 0))}`
+                          : `Sobra ${Number(item.difference || 0)}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Modal>
     </div>
   );
 }

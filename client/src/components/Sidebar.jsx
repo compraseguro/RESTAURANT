@@ -59,7 +59,7 @@ const almacenSubOptionsAll = [
   { id: 'requerimiento', label: 'Requerimiento' },
   { id: 'recepcion', label: 'Recepción' },
   { id: 'ir_modulo_gastos', label: 'Ir a módulo de gastos' },
-  { id: 'ir_modulo_logistica', label: 'Ir a módulo de logística' },
+  { id: 'ir_modulo_logistica', label: 'Inventario y kardex' },
 ];
 function isPermissionEnabled(value) {
   return value === true || value === 1 || value === '1' || value === 'true';

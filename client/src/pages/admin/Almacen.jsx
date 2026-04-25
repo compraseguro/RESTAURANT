@@ -677,15 +677,7 @@ export default function Almacen() {
           </div>
         )}
 
-        {activeView === 'ir_modulo_logistica' && (
-          <div className="bg-slate-800/90 rounded-xl shadow-lg border border-slate-600/50 p-5 text-slate-200">
-            <h3 className="font-bold text-slate-100 mb-1">Inventario y kardex</h3>
-            <p className="text-slate-400 text-sm mb-4">
-              Insumos, compras (entrada y costo promedio), recetas, movimientos, inventario físico y ajustes. Las ventas en caja generan salidas al cobrar.
-            </p>
-            <LogisticaKardexModule />
-          </div>
-        )}
+        {activeView === 'ir_modulo_logistica' && <LogisticaKardexModule />}
         <Modal
           isOpen={showRequirementModal}
           onClose={() => setShowRequirementModal(false)}
