@@ -412,7 +412,7 @@ export default function LogisticaKardexModule() {
   }
 
   return (
-    <div className="space-y-4 text-[#F9FAFB]">
+    <div className="logistica-kardex-module space-y-4 text-[#F9FAFB]">
       <p className="text-sm text-[#9CA3AF]">
         Insumos, compras, recetas, kardex, inventario de transformables (insumos) y no transformables (cuadre en almacén).
         Las ventas en caja descuentan según recetas.
@@ -465,11 +465,11 @@ export default function LogisticaKardexModule() {
 
       {tab === 'insumos' && (
         <div className="space-y-4">
-          <form onSubmit={addInsumo} className="flex flex-wrap gap-2 items-end bg-slate-800/40 p-3 rounded-lg border border-slate-600/40">
+          <form onSubmit={addInsumo} className="flex flex-wrap gap-2 items-end bg-[#1F2937]/80 p-3 rounded-lg border border-[#3B82F6]/25">
             <div>
               <label className="block text-xs text-slate-500 mb-0.5">Nombre</label>
               <input
-                className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 w-48"
+                className="input-field text-sm py-1.5 w-48"
                 value={insumoForm.nombre}
                 onChange={(e) => setInsumoForm((f) => ({ ...f, nombre: e.target.value }))}
                 required
@@ -478,7 +478,7 @@ export default function LogisticaKardexModule() {
             <div>
               <label className="block text-xs text-slate-500 mb-0.5">Unidad</label>
               <input
-                className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 w-24"
+                className="input-field text-sm py-1.5 w-24"
                 value={insumoForm.unidad_medida}
                 onChange={(e) => setInsumoForm((f) => ({ ...f, unidad_medida: e.target.value }))}
               />
@@ -489,7 +489,7 @@ export default function LogisticaKardexModule() {
                 type="number"
                 min="0"
                 step="0.01"
-                className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 w-24"
+                className="input-field text-sm py-1.5 w-24"
                 value={insumoForm.stock_minimo}
                 onChange={(e) => setInsumoForm((f) => ({ ...f, stock_minimo: e.target.value }))}
               />
@@ -509,7 +509,7 @@ export default function LogisticaKardexModule() {
           <div className="overflow-x-auto border border-slate-600/50 rounded-lg">
             <table className="w-full text-sm min-w-[640px]">
               <thead>
-                <tr className="bg-slate-700/90 text-slate-100 text-left">
+                <tr className="bg-[#1F2937] text-[#E5E7EB] text-left border-b border-[#3B82F6]/25">
                   <th className="p-2.5">Insumo</th>
                   <th className="p-2.5">U.M.</th>
                   <th className="p-2.5 text-right">Stock</th>
@@ -549,7 +549,7 @@ export default function LogisticaKardexModule() {
             {compraLines.map((row, idx) => (
               <div key={idx} className="flex flex-wrap gap-2 items-center">
                 <select
-                  className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 min-w-[180px]"
+                  className="input-field text-sm py-1.5 min-w-[180px]"
                   value={row.insumo_id}
                   onChange={(e) => {
                     const n = [...compraLines];
@@ -567,7 +567,7 @@ export default function LogisticaKardexModule() {
                   min="0.0001"
                   step="0.0001"
                   placeholder="Cantidad"
-                  className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 w-28"
+                  className="input-field text-sm py-1.5 w-28"
                   value={row.cantidad}
                   onChange={(e) => {
                     const n = [...compraLines];
@@ -580,7 +580,7 @@ export default function LogisticaKardexModule() {
                   min="0"
                   step="0.01"
                   placeholder="Costo u."
-                  className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 w-28"
+                  className="input-field text-sm py-1.5 w-28"
                   value={row.costo_unitario}
                   onChange={(e) => {
                     const n = [...compraLines];
@@ -618,12 +618,12 @@ export default function LogisticaKardexModule() {
           <p className="text-slate-400 text-sm">
             Vincula un plato del menú a insumos. Al cobrar en caja, se descuenta stock según receta × cantidad vendida.
           </p>
-          <form onSubmit={saveReceta} className="bg-slate-800/50 p-4 rounded-xl border border-slate-600/50 space-y-3">
+          <form onSubmit={saveReceta} className="bg-[#1F2937]/70 p-4 rounded-xl border border-[#3B82F6]/25 space-y-3">
             <div className="flex flex-wrap gap-2">
               <div>
                 <label className="block text-xs text-slate-500">Nombre receta / plato</label>
                 <input
-                  className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 w-48"
+                  className="input-field text-sm py-1.5 w-48"
                   value={recetaForm.nombre_plato}
                   onChange={(e) => setRecetaForm((f) => ({ ...f, nombre_plato: e.target.value }))}
                 />
@@ -631,7 +631,7 @@ export default function LogisticaKardexModule() {
               <div>
                 <label className="block text-xs text-slate-500">Producto menú</label>
                 <select
-                  className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 min-w-[200px]"
+                  className="input-field text-sm py-1.5 min-w-[200px]"
                   value={recetaForm.product_id}
                   onChange={(e) => setRecetaForm((f) => ({ ...f, product_id: e.target.value }))}
                 >
@@ -655,7 +655,7 @@ export default function LogisticaKardexModule() {
               {recetaForm.detalles.map((d, di) => (
                 <div key={di} className="flex flex-wrap gap-2 items-center">
                   <select
-                    className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5"
+                    className="input-field text-sm py-1.5"
                     value={d.insumo_id}
                     onChange={(e) => {
                       const n = [...recetaForm.detalles];
@@ -673,7 +673,7 @@ export default function LogisticaKardexModule() {
                     min="0.0001"
                     step="0.0001"
                     placeholder="Cant. usada"
-                    className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 w-32"
+                    className="input-field text-sm py-1.5 w-32"
                     value={d.cantidad_usada}
                     onChange={(e) => {
                       const n = [...recetaForm.detalles];
@@ -740,7 +740,7 @@ export default function LogisticaKardexModule() {
             <div>
               <label className="block text-xs text-slate-500">Insumo</label>
               <select
-                className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5"
+                className="input-field text-sm py-1.5"
                 value={kardexInsumo}
                 onChange={(e) => setKardexInsumo(e.target.value)}
               >
@@ -754,7 +754,7 @@ export default function LogisticaKardexModule() {
               <label className="block text-xs text-slate-500">Desde</label>
               <input
                 type="date"
-                className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5"
+                className="input-field text-sm py-1.5"
                 value={kardexFrom}
                 onChange={(e) => setKardexFrom(e.target.value)}
               />
@@ -763,7 +763,7 @@ export default function LogisticaKardexModule() {
               <label className="block text-xs text-slate-500">Hasta</label>
               <input
                 type="date"
-                className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5"
+                className="input-field text-sm py-1.5"
                 value={kardexTo}
                 onChange={(e) => setKardexTo(e.target.value)}
               />
@@ -772,7 +772,7 @@ export default function LogisticaKardexModule() {
               <button
                 type="button"
                 onClick={() => descargarKardexCsv().catch((e) => toast.error(e.message))}
-                className="flex items-center gap-1 text-sm bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-lg px-2 py-1.5"
+                className="flex items-center gap-1 text-sm bg-[#1F2937] hover:bg-[#374151] border border-[#3B82F6]/35 rounded-lg px-2 py-1.5 text-[#E5E7EB]"
               >
                 <MdDownload /> Excel (CSV)
               </button>
@@ -788,8 +788,8 @@ export default function LogisticaKardexModule() {
           )}
           <div className="overflow-x-auto border border-slate-600/50 rounded-lg max-h-[480px] overflow-y-auto">
             <table className="w-full text-sm min-w-[900px]">
-              <thead className="sticky top-0 bg-slate-700/95 z-10">
-                <tr className="text-left text-slate-100">
+              <thead className="sticky top-0 z-10 bg-[#1F2937] shadow-[0_1px_0_0_rgba(59,130,246,0.25)]">
+                <tr className="text-left text-[#E5E7EB] border-b border-[#3B82F6]/25">
                   <th className="p-2">Fecha</th>
                   <th className="p-2">Tipo</th>
                   <th className="p-2">Ref.</th>
@@ -842,7 +842,7 @@ export default function LogisticaKardexModule() {
             {invDetalles.map((d, i) => (
               <div key={i} className="flex flex-wrap gap-2">
                 <select
-                  className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5"
+                  className="input-field text-sm py-1.5"
                   value={d.insumo_id}
                   onChange={(e) => {
                     const n = [...invDetalles];
@@ -860,7 +860,7 @@ export default function LogisticaKardexModule() {
                   min="0"
                   step="0.0001"
                   placeholder="Stock contado (real)"
-                  className="bg-slate-900 border border-slate-500 rounded px-2 py-1.5 w-44"
+                  className="input-field text-sm py-1.5 w-44"
                   value={d.stock_real}
                   onChange={(e) => {
                     const n = [...invDetalles];
@@ -878,7 +878,7 @@ export default function LogisticaKardexModule() {
           <div className="mt-4 space-y-2">
             <p className="text-slate-500 text-xs flex items-center gap-1"><MdList /> Últimos inventarios</p>
             {invList.map((iv) => (
-              <div key={iv.id} className="flex items-center justify-between bg-slate-800/50 border border-slate-600/40 rounded-lg px-3 py-2">
+              <div key={iv.id} className="flex items-center justify-between bg-[#1F2937]/90 border border-[#3B82F6]/25 rounded-lg px-3 py-2">
                 <div>
                   <span className="text-slate-200">{iv.id?.slice(0, 8)}</span>
                   <span className="text-slate-500 text-sm ml-2">{formatDateTime(iv.fecha || iv.created_at)}</span>
@@ -999,7 +999,7 @@ export default function LogisticaKardexModule() {
           <div>
             <label className="block text-xs text-slate-500">Insumo</label>
             <select
-              className="w-full bg-slate-900 border border-slate-500 rounded px-2 py-1.5"
+              className="input-field text-sm py-1.5 w-full"
               value={ajusteForm.insumo_id}
               onChange={(e) => setAjusteForm((f) => ({ ...f, insumo_id: e.target.value }))}
             >
@@ -1015,7 +1015,7 @@ export default function LogisticaKardexModule() {
               type="number"
               min="0.0001"
               step="0.0001"
-              className="w-full bg-slate-900 border border-slate-500 rounded px-2 py-1.5"
+              className="input-field text-sm py-1.5 w-full"
               value={ajusteForm.cantidad}
               onChange={(e) => setAjusteForm((f) => ({ ...f, cantidad: e.target.value }))}
             />
@@ -1023,7 +1023,7 @@ export default function LogisticaKardexModule() {
           <div>
             <label className="block text-xs text-slate-500">Tipo</label>
             <select
-              className="w-full bg-slate-900 border border-slate-500 rounded px-2 py-1.5"
+              className="input-field text-sm py-1.5 w-full"
               value={ajusteForm.tipo}
               onChange={(e) => setAjusteForm((f) => ({ ...f, tipo: e.target.value }))}
             >
@@ -1034,7 +1034,7 @@ export default function LogisticaKardexModule() {
           <div>
             <label className="block text-xs text-slate-500">Referencia (merma, ajuste, etc.)</label>
             <input
-              className="w-full bg-slate-900 border border-slate-500 rounded px-2 py-1.5"
+              className="input-field text-sm py-1.5 w-full"
               value={ajusteForm.referencia}
               onChange={(e) => setAjusteForm((f) => ({ ...f, referencia: e.target.value }))}
             />

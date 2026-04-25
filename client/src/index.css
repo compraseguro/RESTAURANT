@@ -159,6 +159,46 @@
   background: #2563EB;
 }
 
+/* Inventario y kardex: evitar inputs/selects y cabeceras con aspecto claro (UA / WebKit) */
+@layer components {
+  .logistica-kardex-module {
+    color-scheme: dark;
+  }
+  .logistica-kardex-module input:not([type="checkbox"]):not([type="radio"]),
+  .logistica-kardex-module select,
+  .logistica-kardex-module textarea {
+    background-color: #1f2937 !important;
+    color: #f9fafb !important;
+    -webkit-text-fill-color: #f9fafb;
+    border: 1px solid rgba(59, 130, 246, 0.35) !important;
+  }
+  .logistica-kardex-module input::placeholder,
+  .logistica-kardex-module textarea::placeholder {
+    color: #9ca3af !important;
+    opacity: 1;
+  }
+  .logistica-kardex-module select option {
+    background-color: #1f2937;
+    color: #f9fafb;
+  }
+  .logistica-kardex-module input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.9);
+    opacity: 0.75;
+  }
+  .logistica-kardex-module input:-webkit-autofill,
+  .logistica-kardex-module input:-webkit-autofill:hover,
+  .logistica-kardex-module input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #1f2937 inset !important;
+    -webkit-text-fill-color: #f9fafb !important;
+  }
+  .logistica-kardex-module thead th {
+    background-color: #1f2937 !important;
+    color: #e5e7eb !important;
+  }
+  .logistica-kardex-module thead {
+    --tw-bg-opacity: 1;
+  }
+}
 @media print {
   .no-print { display: none !important; }
 }
