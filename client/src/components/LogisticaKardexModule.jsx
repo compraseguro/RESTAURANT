@@ -49,6 +49,38 @@ function parseWarehouseMeta(description, fallbackStock) {
 
 const sameWarehouseId = (a, b) => String(a || '') === String(b || '');
 
+/** Línea de resumen: contado vs kardex al crear la toma. */
+function InventarioFisicoResumenLine({ f, b, s }) {
+  const nf = Number(f) || 0;
+  const nb = Number(b) || 0;
+  const ns = Number(s) || 0;
+  const total = nf + nb + ns;
+  if (total === 0) {
+    return <span className="text-slate-500">Sin líneas</span>;
+  }
+  if (nf === 0 && ns === 0) {
+    return (
+      <span className="text-emerald-400/95">
+        Está bien: coincide con kardex ({nb} {nb === 1 ? 'ítem' : 'ítems'})
+      </span>
+    );
+  }
+  const parts = [];
+  if (nf > 0) parts.push({ key: 'f', node: <span className="text-rose-400 font-medium">Falta: {nf}</span> });
+  if (nb > 0) parts.push({ key: 'b', node: <span className="text-emerald-400/90">Bien: {nb}</span> });
+  if (ns > 0) parts.push({ key: 's', node: <span className="text-sky-400/95 font-medium">Sobra: {ns}</span> });
+  return (
+    <span className="text-slate-300">
+      {parts.map((p, i) => (
+        <span key={p.key}>
+          {i > 0 && <span className="text-slate-500"> · </span>}
+          {p.node}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export default function LogisticaKardexModule() {
   const [tab, setTab] = useState('dashboard');
   const [insumos, setInsumos] = useState([]);
@@ -299,7 +331,12 @@ export default function LogisticaKardexModule() {
     }
     try {
       const res = await api.post(`${BASE}/inventario-fisico`, { detalles });
-      toast.success(`Inventario físico ${res.id?.slice(0, 8) || ''} creado (pendiente de cierre)`);
+      const cn = res.cuadre_num;
+      toast.success(
+        Number.isFinite(Number(cn)) && Number(cn) > 0
+          ? `CUADRE ${cn} creado (pendiente de cierre)`
+          : 'Toma de inventario creada (pendiente de cierre)'
+      );
       setInvDetalles([{ insumo_id: '', stock_real: '' }]);
       loadCore();
     } catch (err) {
@@ -942,22 +979,49 @@ export default function LogisticaKardexModule() {
           </form>
           <div className="mt-4 space-y-2">
             <p className="text-slate-500 text-xs flex items-center gap-1"><MdList /> Últimos inventarios</p>
-            {invList.map((iv) => (
-              <div key={iv.id} className="flex items-center justify-between bg-[#1F2937]/90 border border-[#3B82F6]/25 rounded-lg px-3 py-2">
-                <div>
-                  <span className="text-slate-200">{iv.id?.slice(0, 8)}</span>
-                  <span className="text-slate-500 text-sm ml-2">{formatDateTime(iv.fecha || iv.created_at)}</span>
-                  <span className={`ml-2 text-xs ${iv.estado === 'cerrado' ? 'text-slate-500' : 'text-amber-400'}`}>
-                    {iv.estado}
-                  </span>
+            {invList.map((iv) => {
+              const n = Number(iv.cuadre_num);
+              const label = Number.isFinite(n) && n > 0 ? `CUADRE ${n}` : `Inventario ${(iv.id || '').slice(0, 8)}`;
+              return (
+                <div
+                  key={iv.id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-[#1F2937]/90 border border-[#3B82F6]/25 rounded-lg px-3 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                      <span className="text-slate-100 font-semibold tracking-tight">{label}</span>
+                      <span className="text-slate-500 text-sm">{formatDateTime(iv.fecha || iv.created_at)}</span>
+                      <span
+                        className={`text-xs uppercase tracking-wide ${
+                          iv.estado === 'cerrado' ? 'text-slate-500' : 'text-amber-400'
+                        }`}
+                      >
+                        {iv.estado}
+                      </span>
+                    </div>
+                    <p
+                      className="text-sm mt-1"
+                      title="Conteo físico vs stock del kardex al guardar la toma (cada insumo: falta, bien o sobra)"
+                    >
+                      <InventarioFisicoResumenLine
+                        f={iv.resumen_falta}
+                        b={iv.resumen_bien}
+                        s={iv.resumen_sobra}
+                      />
+                    </p>
+                  </div>
+                  {iv.estado === 'pendiente' && (
+                    <button
+                      type="button"
+                      onClick={() => cerrarInventario(iv.id)}
+                      className="text-sm text-amber-400/90 shrink-0 self-end sm:self-center"
+                    >
+                      Cerrar y ajustar kardex
+                    </button>
+                  )}
                 </div>
-                {iv.estado === 'pendiente' && (
-                  <button type="button" onClick={() => cerrarInventario(iv.id)} className="text-sm text-amber-400/90">
-                    Cerrar y ajustar kardex
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

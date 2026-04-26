@@ -245,7 +245,16 @@ router.post('/inventario-fisico', (req, res) => {
         );
       });
     });
-    res.status(201).json({ id, estado: 'pendiente' });
+    const meta = queryOne(
+      `SELECT
+         (SELECT COUNT(*) FROM inventario_fisico f2
+          WHERE datetime(f2.created_at) < datetime(f1.created_at)
+            OR (datetime(f2.created_at) = datetime(f1.created_at) AND f2.id < f1.id)
+         ) + 1 AS cuadre_num
+       FROM inventario_fisico f1 WHERE f1.id = ?`,
+      [id]
+    );
+    res.status(201).json({ id, estado: 'pendiente', cuadre_num: Number(meta?.cuadre_num) || 1 });
   } catch (err) {
     res.status(400).json({ error: err.message || 'Error al registrar inventario físico' });
   }
@@ -266,10 +275,36 @@ router.post('/inventario-fisico/:id/cerrar', (req, res) => {
   }
 });
 
-/** GET /inventario-fisico */
+/** GET /inventario-fisico (con número de cuadre y resumen por diferencias) */
 router.get('/inventario-fisico', (req, res) => {
   try {
-    const rows = queryAll('SELECT * FROM inventario_fisico ORDER BY datetime(created_at) DESC LIMIT 50');
+    const rows = queryAll(
+      `SELECT
+        f.id,
+        f.fecha,
+        f.estado,
+        f.created_at,
+        f.created_by,
+        (
+          SELECT COUNT(*) FROM inventario_fisico f2
+          WHERE datetime(f2.created_at) < datetime(f.created_at)
+            OR (datetime(f2.created_at) = datetime(f.created_at) AND f2.id < f.id)
+        ) + 1 AS cuadre_num,
+        COALESCE(d.cnt_falta, 0) AS resumen_falta,
+        COALESCE(d.cnt_bien, 0) AS resumen_bien,
+        COALESCE(d.cnt_sobra, 0) AS resumen_sobra
+      FROM inventario_fisico f
+      LEFT JOIN (
+        SELECT inventario_id,
+          SUM(CASE WHEN COALESCE(diferencia, 0) < -1e-6 THEN 1 ELSE 0 END) AS cnt_falta,
+          SUM(CASE WHEN ABS(COALESCE(diferencia, 0)) <= 1e-6 THEN 1 ELSE 0 END) AS cnt_bien,
+          SUM(CASE WHEN COALESCE(diferencia, 0) > 1e-6 THEN 1 ELSE 0 END) AS cnt_sobra
+        FROM inventario_fisico_detalle
+        GROUP BY inventario_id
+      ) d ON d.inventario_id = f.id
+      ORDER BY datetime(f.created_at) DESC
+      LIMIT 50`
+    );
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
