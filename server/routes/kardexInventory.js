@@ -48,9 +48,12 @@ router.post('/insumos', (req, res) => {
       costo_promedio,
       precio_compra,
       activo,
-      control_por_unidades,
+      cantidad_inicial,
       stock_inicial_masa,
+      stock_actual,
+      stock_minimo,
       minimo_masa,
+      minimo_kg,
     } = req.body || {};
     const n = String(nombre || '').trim();
     if (!n) return res.status(400).json({ error: 'Nombre es requerido' });
@@ -58,24 +61,33 @@ router.post('/insumos', (req, res) => {
     const pc = costo_promedio != null ? Number(costo_promedio) : precio_compra != null ? Number(precio_compra) : 0;
     const costo = !Number.isFinite(pc) || pc < 0 ? 0 : pc;
     const id = uuidv4();
-    const porU = !(control_por_unidades === false || control_por_unidades === 0 || control_por_unidades === '0');
-    if (porU) {
-      const su = Math.max(0, Number(stock_unidades) || 0);
-      const mu = Math.max(0, Number(minimo_unidades) || 0);
-      runSql(
-        `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_unidades, minimo_unidades, kg_por_unidad, stock_minimo, costo_promedio, activo, created_at, updated_at)
-         VALUES (?, ?, ?, 0, ?, ?, 0, 0, ?, ?, datetime('now'), datetime('now'))`,
-        [id, n, umed, su, mu, costo, activo === false || activo === 0 ? 0 : 1]
-      );
-    } else {
-      const sa = Math.max(0, Number(stock_inicial_masa) || 0);
-      const smin = Math.max(0, Number(minimo_masa) || 0);
-      runSql(
-        `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_unidades, minimo_unidades, kg_por_unidad, stock_minimo, costo_promedio, activo, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 0, 0, 0, ?, ?, ?, datetime('now'), datetime('now'))`,
-        [id, n, umed, sa, smin, costo, activo === false || activo === 0 ? 0 : 1]
-      );
-    }
+    const sa = Math.max(
+      0,
+      Number(
+        cantidad_inicial != null
+          ? cantidad_inicial
+          : stock_inicial_masa != null
+            ? stock_inicial_masa
+            : stock_actual
+      ) || 0
+    );
+    const su = Math.max(0, Number(stock_unidades) || 0);
+    const mu = Math.max(0, Number(minimo_unidades) || 0);
+    const smin = Math.max(
+      0,
+      Number(
+        stock_minimo != null
+          ? stock_minimo
+          : minimo_masa != null
+            ? minimo_masa
+            : minimo_kg
+      ) || 0
+    );
+    runSql(
+      `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_unidades, minimo_unidades, kg_por_unidad, stock_minimo, costo_promedio, activo, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, datetime('now'), datetime('now'))`,
+      [id, n, umed, sa, su, mu, smin, costo, activo === false || activo === 0 ? 0 : 1]
+    );
     logAudit({
       actorUserId: req.user.id,
       actorName: req.user.full_name || '',

@@ -94,11 +94,9 @@ export default function LogisticaKardexModule() {
     nombre: '',
     unidad_medida: 'kg',
     precio_compra: '',
-    stock_unidades: '0',
+    cantidad_inicial: '0',
     minimo_unidades: '0',
-    stock_inicial_masa: '0',
-    minimo_masa: '0',
-    control_por_unidades: true,
+    minimo_kg: '0',
     activo: true,
   });
   const [compraLines, setCompraLines] = useState([{ insumo_id: '', cantidad: '', costo_unitario: '', unidades: '' }]);
@@ -218,10 +216,9 @@ export default function LogisticaKardexModule() {
   const addInsumo = async (e) => {
     e.preventDefault();
     try {
-      const su = parseLocaleNumber(insumoForm.stock_unidades);
+      const ci = parseLocaleNumber(insumoForm.cantidad_inicial);
       const mu = parseLocaleNumber(insumoForm.minimo_unidades);
-      const sim = parseLocaleNumber(insumoForm.stock_inicial_masa);
-      const mm = parseLocaleNumber(insumoForm.minimo_masa);
+      const mk = parseLocaleNumber(insumoForm.minimo_kg);
       const rawPrecio = String(insumoForm.precio_compra ?? '').trim();
       const pCompra = rawPrecio === '' ? 0 : parseLocaleNumber(rawPrecio);
       if (rawPrecio !== '' && !Number.isFinite(pCompra)) {
@@ -235,37 +232,23 @@ export default function LogisticaKardexModule() {
       const umed = String(insumoForm.unidad_medida || 'kg')
         .replace(/[0-9]/g, '')
         .trim() || 'kg';
-      if (insumoForm.control_por_unidades) {
-        await api.post(`${BASE}/insumos`, {
-          nombre: insumoForm.nombre.trim(),
-          unidad_medida: umed,
-          costo_promedio: pCompra,
-          control_por_unidades: true,
-          stock_unidades: Number.isFinite(su) && su >= 0 ? su : 0,
-          minimo_unidades: Number.isFinite(mu) && mu >= 0 ? mu : 0,
-          activo: insumoForm.activo,
-        });
-      } else {
-        await api.post(`${BASE}/insumos`, {
-          nombre: insumoForm.nombre.trim(),
-          unidad_medida: umed,
-          costo_promedio: pCompra,
-          control_por_unidades: false,
-          stock_inicial_masa: Number.isFinite(sim) && sim >= 0 ? sim : 0,
-          minimo_masa: Number.isFinite(mm) && mm >= 0 ? mm : 0,
-          activo: insumoForm.activo,
-        });
-      }
+      await api.post(`${BASE}/insumos`, {
+        nombre: insumoForm.nombre.trim(),
+        unidad_medida: umed,
+        costo_promedio: pCompra,
+        cantidad_inicial: Number.isFinite(ci) && ci >= 0 ? ci : 0,
+        minimo_unidades: Number.isFinite(mu) && mu >= 0 ? mu : 0,
+        stock_minimo: Number.isFinite(mk) && mk >= 0 ? mk : 0,
+        activo: insumoForm.activo,
+      });
       toast.success('Insumo creado');
       setInsumoForm({
         nombre: '',
         unidad_medida: 'kg',
         precio_compra: '',
-        stock_unidades: '0',
+        cantidad_inicial: '0',
         minimo_unidades: '0',
-        stock_inicial_masa: '0',
-        minimo_masa: '0',
-        control_por_unidades: true,
+        minimo_kg: '0',
         activo: true,
       });
       loadCore();
@@ -604,34 +587,33 @@ export default function LogisticaKardexModule() {
         <div className="space-y-4">
           <p className="text-slate-500 text-xs max-w-3xl">
             <strong className="text-slate-300">Kardex y recetas usan cantidad en kg/L (o ml).</strong>{' '}
-            <strong>Cant. (U)</strong> y <strong>Prom. kg o L por U</strong> se alimentan con la compra (kg ÷ unidades) y
-            con las ventas receta (p. ej. 1/4 o 1/8 de pollo) se descuentan a la vez <strong>kg</strong> y <strong>U</strong> según
-            ese promedio. El <strong>mínimo</strong> para alertas (en U o en kg/L según elijas al crear) no se muestra en la
-            tabla; solo se configura en este formulario.
+            <strong>Cant. (U)</strong> y el promedio kg/U se alimentan con la compra; las ventas por receta descontarán
+            <strong> kg</strong> y <strong>U</strong> si aplica. Los mínimos (U y kg/L) definen alerta y requisición según
+            rellenes cada uno (0 = no aplicar); no se listan en la tabla de abajo.
           </p>
           <form
             onSubmit={addInsumo}
-            className="space-y-3 bg-[#1F2937]/80 p-3 rounded-lg border border-[#3B82F6]/25"
+            className="bg-[#1F2937]/80 p-3 rounded-lg border border-[#3B82F6]/25"
           >
-            <div className="flex flex-wrap gap-2 items-end">
-              <div>
-                <label className="block text-xs text-slate-500 mb-0.5">Insumo (nombre)</label>
+            <div className="flex flex-nowrap gap-2 items-end overflow-x-auto pb-0.5 min-h-[3rem]">
+              <div className="shrink-0">
+                <label className="block text-xs text-slate-500 mb-0.5">Insumo</label>
                 <input
-                  className="input-field text-sm py-1.5 w-48"
+                  className="input-field text-sm py-1.5 w-40"
                   value={insumoForm.nombre}
                   onChange={(e) => setInsumoForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
                 />
               </div>
-              <div>
-                <label className="block text-xs text-slate-500 mb-0.5">U.M. masa (kg, L, ml…)</label>
+              <div className="shrink-0">
+                <label className="block text-xs text-slate-500 mb-0.5">U.M. kg / L</label>
                 <input
-                  className="input-field text-sm py-1.5 w-24"
+                  className="input-field text-sm py-1.5 w-[4.5rem]"
                   list="kardex-um-masa"
                   autoComplete="off"
                   value={insumoForm.unidad_medida}
                   onChange={(e) => setInsumoForm((f) => ({ ...f, unidad_medida: e.target.value.replace(/[0-9]/g, '') }))}
-                  title="Solo letras, sin números (el kardex y las compras van en kg o litros según elija)"
+                  title="Unidad de medida de masa o volumen (kg, L, ml…)"
                 />
                 <datalist id="kardex-um-masa">
                   <option value="kg" />
@@ -641,29 +623,52 @@ export default function LogisticaKardexModule() {
                   <option value="t" />
                 </datalist>
               </div>
-              <div>
-                <label className="block text-xs text-slate-500 mb-0.5">Precio compra (S/ U.M. masa)</label>
+              <div className="shrink-0">
+                <label className="block text-xs text-slate-500 mb-0.5">Precio compra</label>
                 <input
                   type="text"
                   inputMode="decimal"
-                  className="input-field text-sm py-1.5 w-28"
+                  className="input-field text-sm py-1.5 w-24"
                   value={insumoForm.precio_compra}
                   onChange={(e) => setInsumoForm((f) => ({ ...f, precio_compra: e.target.value }))}
                   placeholder="0,00"
-                  title="S/ por kg, L o según la U.M. de masa (mismo criterio que kardex y compras)"
+                  title="S/ por U.M. kg/L (costo promedio)"
                 />
               </div>
-              <label className="flex items-center gap-2 text-sm pb-0.5">
+              <div className="shrink-0">
+                <label className="block text-xs text-slate-500 mb-0.5">Cant. inicial</label>
                 <input
-                  type="checkbox"
-                  checked={insumoForm.control_por_unidades}
-                  onChange={(e) => setInsumoForm((f) => ({ ...f, control_por_unidades: e.target.checked }))}
+                  type="text"
+                  inputMode="decimal"
+                  className="input-field text-sm py-1.5 w-20"
+                  value={insumoForm.cantidad_inicial}
+                  onChange={(e) => setInsumoForm((f) => ({ ...f, cantidad_inicial: e.target.value }))}
+                  title="Stock inicial en la U.M. kg/L (kardex de masa/volumen)"
                 />
-                <span title="Activo: pollos, cajas, bultos… (mínimo en U). Inactivo: solo kg/L, sin trazabilidad de unidades.">
-                  Control y mínimo por <strong className="text-slate-200">unidades (U)</strong>
-                </span>
-              </label>
-              <label className="flex items-center gap-2 text-sm pb-0.5">
+              </div>
+              <div className="shrink-0">
+                <label className="block text-xs text-slate-500 mb-0.5">Mín. (U)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  className="input-field text-sm py-1.5 w-20"
+                  value={insumoForm.minimo_unidades}
+                  onChange={(e) => setInsumoForm((f) => ({ ...f, minimo_unidades: e.target.value }))}
+                  title="0 = sin alerta por unidades. Si &gt;0, requisición cuando Cant. (U) esté debajo."
+                />
+              </div>
+              <div className="shrink-0">
+                <label className="block text-xs text-slate-500 mb-0.5">Mín. kg / L</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  className="input-field text-sm py-1.5 w-20"
+                  value={insumoForm.minimo_kg}
+                  onChange={(e) => setInsumoForm((f) => ({ ...f, minimo_kg: e.target.value }))}
+                  title="0 = sin alerta por cantidad. Si &gt;0, requisición cuando el stock (misma U.M.) esté debajo."
+                />
+              </div>
+              <label className="flex items-center gap-1.5 text-sm shrink-0 pb-0.5 whitespace-nowrap">
                 <input
                   type="checkbox"
                   checked={insumoForm.activo}
@@ -671,66 +676,9 @@ export default function LogisticaKardexModule() {
                 />
                 Activo
               </label>
-              <button type="submit" className="btn-primary flex items-center gap-1 text-sm">
+              <button type="submit" className="btn-primary flex items-center gap-1 text-sm shrink-0">
                 <MdAdd /> Agregar
               </button>
-            </div>
-            <div className="flex flex-wrap gap-2 items-end border-t border-slate-600/50 pt-2">
-              {insumoForm.control_por_unidades ? (
-                <>
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-0.5">Cant. inicial (U)</label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="input-field text-sm py-1.5 w-24"
-                      value={insumoForm.stock_unidades}
-                      onChange={(e) => setInsumoForm((f) => ({ ...f, stock_unidades: e.target.value }))}
-                      title="Bolsas, cajas u otras unidades (opcional)"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-0.5">Mín. (U) p/ requisición</label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="input-field text-sm py-1.5 w-24"
-                      value={insumoForm.minimo_unidades}
-                      onChange={(e) => setInsumoForm((f) => ({ ...f, minimo_unidades: e.target.value }))}
-                      title="Solo al crear: no se muestra en la tabla. Alerta y requisición cuando Cant. (U) &lt; este valor."
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-0.5">
-                      Cant. inicial (según U.M. masa)
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="input-field text-sm py-1.5 w-28"
-                      value={insumoForm.stock_inicial_masa}
-                      onChange={(e) => setInsumoForm((f) => ({ ...f, stock_inicial_masa: e.target.value }))}
-                      title="Stock inicial solo en kg/L (sin conteo por unidades)"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-0.5">
-                      Mín. p/ requisición (misma U.M. masa)
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="input-field text-sm py-1.5 w-28"
-                      value={insumoForm.minimo_masa}
-                      onChange={(e) => setInsumoForm((f) => ({ ...f, minimo_masa: e.target.value }))}
-                      title="Solo al crear: no se muestra en la tabla. Alerta cuando el stock (kg/L) baje de este mínimo."
-                    />
-                  </div>
-                </>
-              )}
             </div>
           </form>
           <div className="overflow-x-auto border border-slate-600/50 rounded-lg">
