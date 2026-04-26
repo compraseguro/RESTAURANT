@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api, formatCurrency } from '../../utils/api';
+import { api, formatCurrency, formatInsumoQty, formatInsumoWithUnit } from '../../utils/api';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
@@ -572,9 +572,15 @@ export default function Productos() {
                 </>
               ) : (
                 <>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Insumo a descontar (kardex)</label>
-                  <p className="text-[11px] text-slate-500 mb-1.5">
-                    Mismo lugar que el stock en no transformados: vincula el insumo (ej. 8/8 o 4/4 = 1 unidad de pollo). Si eliges insumo aquí, tiene prioridad sobre la receta al cobrar.
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Insumo a descontar (kardex, por unidades / partes)
+                  </label>
+                  <p className="text-[11px] text-slate-500 mb-1.5 leading-relaxed">
+                    <strong className="font-medium text-slate-600">No es descuento “por kilo” en sentido de cocina:</strong> el factor{' '}
+                    <span className="whitespace-nowrap">a / b</span> es <strong>fracción de unidad de insumo</strong> (1 pollo, 1/2 pollo, 1/4
+                    de pollo). Eso baja <strong>Cant. (U)</strong> y el kg se calcula con el promedio de compra (kg ÷ U) para valor y kardex.
+                    Al inventariar, cuentas <strong>pollos / partes en U</strong>, no interpretes 1/4 como 1/4 kg. Si eliges insumo aquí, tiene
+                    prioridad sobre la receta al cobrar.
                   </p>
                   <select
                     value={productForm.kardex_insumo_id}
@@ -582,32 +588,45 @@ export default function Productos() {
                     className="input-field text-sm"
                   >
                     <option value="">— Sin vínculo directo (se usa receta si existe) —</option>
-                    {insumosKardex.filter((i) => Number(i.activo) !== 0).map((i) => (
-                      <option key={i.id} value={i.id}>{i.nombre} ({i.unidad_medida})</option>
-                    ))}
+                    {insumosKardex.filter((i) => Number(i.activo) !== 0).map((i) => {
+                      const um = String(i.unidad_medida || 'kg')
+                        .replace(/[0-9]/g, '')
+                        .trim() || 'kg';
+                      const uS = i.stock_unidades != null ? Number(i.stock_unidades) : 0;
+                      const label = `${i.nombre} — conteo ${formatInsumoQty(uS)} U · stock ${formatInsumoWithUnit(i.stock_actual, um)} (U.M. ${um} para peso/valor)`;
+                      return (
+                        <option key={i.id} value={i.id}>{label}</option>
+                      );
+                    })}
                   </select>
                   {productForm.kardex_insumo_id ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={productForm.kardex_insumo_num}
-                        onChange={e => setProductForm({ ...productForm, kardex_insumo_num: e.target.value })}
-                        className="input-field w-20 text-sm py-1.5"
-                        title="Numerador"
-                      />
-                      <span className="text-slate-500 font-medium">/</span>
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={productForm.kardex_insumo_den}
-                        onChange={e => setProductForm({ ...productForm, kardex_insumo_den: e.target.value })}
-                        className="input-field w-20 text-sm py-1.5"
-                        title="Denominador"
-                      />
-                      <span className="text-xs text-slate-500">por 1 plato · factor = a/b</span>
+                    <div className="mt-2 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={productForm.kardex_insumo_num}
+                          onChange={e => setProductForm({ ...productForm, kardex_insumo_num: e.target.value })}
+                          className="input-field w-20 text-sm py-1.5"
+                          title="Parte (numerador) de unidad de insumo"
+                        />
+                        <span className="text-slate-500 font-medium">/</span>
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={productForm.kardex_insumo_den}
+                          onChange={e => setProductForm({ ...productForm, kardex_insumo_den: e.target.value })}
+                          className="input-field w-20 text-sm py-1.5"
+                          title="Unidad de partes (denominador), p. ej. 4 = cuartos de pollo"
+                        />
+                        <span className="text-xs text-slate-500">por 1 plato = (a ÷ b) de <strong>1 unidad de insumo</strong></span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        Requiere compras con kg y unidades para fijar kg/U. Si no hay promedio kg/U, el sistema trata el factor como cantidad
+                        de masa; usa compras o receta.
+                      </p>
                     </div>
                   ) : null}
                 </>
