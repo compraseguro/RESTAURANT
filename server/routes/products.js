@@ -147,6 +147,8 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
     kardex_insumo_id,
     kardex_insumo_num,
     kardex_insumo_den,
+    kardex_insumo_modo,
+    kardex_insumo_gramos,
   } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error: 'Nombre y precio son requeridos' });
 
@@ -166,20 +168,28 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
   const safeNoteRequired = Number(note_required) === 1 ? 1 : 0;
   const safeKardexInsumo =
     safeProcessType === 'transformed' ? String(kardex_insumo_id || '').trim() : '';
+  const modoRaw = String(kardex_insumo_modo || 'unidad').toLowerCase();
+  const safeKardexModo = safeKardexInsumo && modoRaw === 'peso' ? 'peso' : 'unidad';
   let safeKardexNum = 1;
   let safeKardexDen = 1;
+  let safeKardexGramos = 0;
   if (safeKardexInsumo) {
-    const n = Number(kardex_insumo_num);
-    const d = Number(kardex_insumo_den);
-    safeKardexNum = n > 0 && Number.isFinite(n) ? n : 1;
-    safeKardexDen = d > 0 && Number.isFinite(d) ? d : 1;
+    if (safeKardexModo === 'peso') {
+      const g = Number(kardex_insumo_gramos);
+      safeKardexGramos = g > 0 && Number.isFinite(g) ? g : 0;
+    } else {
+      const n = Number(kardex_insumo_num);
+      const d = Number(kardex_insumo_den);
+      safeKardexNum = n > 0 && Number.isFinite(n) ? n : 1;
+      safeKardexDen = d > 0 && Number.isFinite(d) ? d : 1;
+    }
   }
   runSql(
     `INSERT INTO products (
       id, name, description, price, image, category_id, restaurant_id, stock,
       process_type, stock_warehouse_id, production_area, tax_type, modifier_id, note_required,
-      kardex_insumo_id, kardex_insumo_num, kardex_insumo_den
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      kardex_insumo_id, kardex_insumo_num, kardex_insumo_den, kardex_insumo_modo, kardex_insumo_gramos
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       name,
@@ -196,8 +206,10 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
       safeModifierId,
       safeNoteRequired,
       safeKardexInsumo,
-      safeKardexNum,
-      safeKardexDen,
+      safeKardexModo === 'peso' ? 1 : safeKardexNum,
+      safeKardexModo === 'peso' ? 1 : safeKardexDen,
+      safeKardexInsumo ? safeKardexModo : 'unidad',
+      safeKardexInsumo ? safeKardexGramos : 0,
     ]
   );
   if (safeProcessType === 'non_transformed') {
@@ -232,6 +244,8 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
     kardex_insumo_id,
     kardex_insumo_num,
     kardex_insumo_den,
+    kardex_insumo_modo,
+    kardex_insumo_gramos,
   } = req.body;
   const current = queryOne('SELECT * FROM products WHERE id = ?', [req.params.id]);
   if (!current) return res.status(404).json({ error: 'Producto no encontrado' });
@@ -284,6 +298,31 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
     finalKardexDen = 1;
   }
 
+  const modoIn = kardex_insumo_modo === undefined
+    ? null
+    : String(kardex_insumo_modo || 'unidad').toLowerCase();
+  const gramosIn = kardex_insumo_gramos === undefined ? null : Number(kardex_insumo_gramos);
+  const currentModo = String(current.kardex_insumo_modo || 'unidad').toLowerCase() === 'peso' ? 'peso' : 'unidad';
+  const finalKardexModo = finalProcessType === 'non_transformed' || !String(finalKardexInsumo || '').trim()
+    ? 'unidad'
+    : (modoIn === null
+      ? currentModo
+      : (modoIn === 'peso' ? 'peso' : 'unidad'));
+  let finalKardexNumPut = finalProcessType === 'non_transformed' ? 1 : finalKardexNum;
+  let finalKardexDenPut = finalProcessType === 'non_transformed' ? 1 : finalKardexDen;
+  let finalKardexGramos = 0;
+  if (finalProcessType === 'transformed' && String(finalKardexInsumo || '').trim()) {
+    if (finalKardexModo === 'peso') {
+      finalKardexNumPut = 1;
+      finalKardexDenPut = 1;
+      finalKardexGramos = gramosIn != null && Number.isFinite(gramosIn) && gramosIn > 0
+        ? gramosIn
+        : (Number(current.kardex_insumo_gramos) > 0 ? Number(current.kardex_insumo_gramos) : 0);
+    } else {
+      finalKardexGramos = 0;
+    }
+  }
+
   runSql(
     `UPDATE products SET
       name = COALESCE(?, name),
@@ -302,6 +341,8 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       kardex_insumo_id = ?,
       kardex_insumo_num = ?,
       kardex_insumo_den = ?,
+      kardex_insumo_modo = ?,
+      kardex_insumo_gramos = ?,
       updated_at = datetime('now')
     WHERE id = ?`,
     [
@@ -319,8 +360,10 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       safeModifierId,
       safeNoteRequired,
       finalProcessType === 'non_transformed' ? '' : (finalKardexInsumo || ''),
-      finalProcessType === 'non_transformed' ? 1 : finalKardexNum,
-      finalProcessType === 'non_transformed' ? 1 : finalKardexDen,
+      finalProcessType === 'non_transformed' ? 1 : finalKardexNumPut,
+      finalProcessType === 'non_transformed' ? 1 : finalKardexDenPut,
+      finalProcessType === 'non_transformed' ? 'unidad' : finalKardexModo,
+      finalProcessType === 'non_transformed' ? 0 : (finalKardexModo === 'peso' ? finalKardexGramos : 0),
       req.params.id,
     ]
   );

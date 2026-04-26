@@ -1000,6 +1000,8 @@ async function initDatabase() {
     addProductColIfMissing('kardex_insumo_id', "ALTER TABLE products ADD COLUMN kardex_insumo_id TEXT DEFAULT ''");
     addProductColIfMissing('kardex_insumo_num', "ALTER TABLE products ADD COLUMN kardex_insumo_num REAL DEFAULT 1");
     addProductColIfMissing('kardex_insumo_den', "ALTER TABLE products ADD COLUMN kardex_insumo_den REAL DEFAULT 1");
+    addProductColIfMissing('kardex_insumo_modo', "ALTER TABLE products ADD COLUMN kardex_insumo_modo TEXT DEFAULT 'unidad'");
+    addProductColIfMissing('kardex_insumo_gramos', "ALTER TABLE products ADD COLUMN kardex_insumo_gramos REAL NOT NULL DEFAULT 0");
 
     const addInsumoColIfMissing = (col, ddl) => {
       const cols = queryAll('PRAGMA table_info(insumos)');

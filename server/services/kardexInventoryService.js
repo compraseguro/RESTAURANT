@@ -78,8 +78,9 @@ function registrarEntrada(tx, { insumoId, cantidad, costoUnitario, referencia, r
  * @param {string} p.insumoId
  * @param {number} p.cantidad — kg/L (si hay unidadesSalida + kpu, se reemplaza por U×kpu)
  * @param {number} [p.unidadesSalida] — p. ej. 1/4 = 0,25 U; con kpu>0 el producto vinculado (num/den) descuenta U y kg coherente
+ * @param {boolean} [p.soloMasa] — solo descuenta stock en kg/L; no descuenta unidades (carnes por gramos en el plato)
  */
-function registrarSalida(tx, { insumoId, cantidad, unidadesSalida, referencia, referenciaId, userId }) {
+function registrarSalida(tx, { insumoId, cantidad, unidadesSalida, soloMasa, referencia, referenciaId, userId }) {
   const ins = tx.queryOne('SELECT * FROM insumos WHERE id = ?', [insumoId]);
   if (!ins) throw new Error(`Insumo no encontrado: ${insumoId}`);
   if (!Number(ins.activo)) throw new Error(`Insumo inactivo: ${ins.nombre}`);
@@ -109,8 +110,11 @@ function registrarSalida(tx, { insumoId, cantidad, unidadesSalida, referencia, r
     );
   }
 
+  const soloKilos = soloMasa === true;
   let dU = 0;
-  if (useUnidadExacta && dUin > 0 && kpu > 1e-12) {
+  if (soloKilos) {
+    dU = 0;
+  } else if (useUnidadExacta && dUin > 0 && kpu > 1e-12) {
     dU = dUin;
   } else if (kpu > 1e-12 && uAnt > 1e-12) {
     dU = need / kpu;
@@ -209,6 +213,21 @@ function aplicarSalidasVentaPedido(tx, orderId, userId) {
     const product = tx.queryOne('SELECT * FROM products WHERE id = ?', [pid]);
     const directInsumo = product ? String(product.kardex_insumo_id || '').trim() : '';
     if (directInsumo) {
+      const modo = String(product.kardex_insumo_modo || 'unidad').toLowerCase();
+      if (modo === 'peso') {
+        const g = Number(product.kardex_insumo_gramos) || 0;
+        const needKg = (g / 1000) * qtyLine;
+        if (needKg <= 0) continue;
+        registrarSalida(tx, {
+          insumoId: directInsumo,
+          cantidad: needKg,
+          soloMasa: true,
+          referencia: 'venta',
+          referenciaId: orderId,
+          userId,
+        });
+        continue;
+      }
       const num = Number(product.kardex_insumo_num);
       const den = Number(product.kardex_insumo_den);
       const n = num > 0 && Number.isFinite(num) ? num : 1;
