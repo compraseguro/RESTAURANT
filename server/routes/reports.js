@@ -108,7 +108,7 @@ router.get('/closed-registers/:id', authenticateToken, requireRole('admin', 'caj
     "SELECT cn.*, u.full_name as user_name FROM cash_notes cn LEFT JOIN users u ON u.id = cn.user_id WHERE cn.register_id = ? ORDER BY cn.created_at ASC",
     [register.id]
   );
-  register.sold_products = queryAll(
+  const soldRows = queryAll(
     `SELECT
       oi.product_id,
       oi.product_name,
@@ -122,9 +122,20 @@ router.get('/closed-registers/:id', authenticateToken, requireRole('admin', 'caj
        AND COALESCE(o.updated_at, o.created_at) >= ?
        AND COALESCE(o.updated_at, o.created_at) <= ?
      GROUP BY oi.product_id, oi.product_name
-     ORDER BY total_qty DESC, total_amount DESC, oi.product_name ASC`,
+     ORDER BY oi.product_name ASC, total_amount DESC`,
     [register.opened_at, register.closed_at || new Date().toISOString()]
   );
+  register.sold_products = soldRows.map((row) => {
+    const qty = Number(row.total_qty) || 0;
+    const amt = Number(row.total_amount) || 0;
+    return {
+      ...row,
+      total_qty: qty,
+      total_amount: amt,
+      unit_price: qty > 0 ? amt / qty : 0,
+    };
+  });
+  register.product_sales_total = register.sold_products.reduce((s, r) => s + (Number(r.total_amount) || 0), 0);
   register.sales_orders = queryAll(
     `SELECT
       o.id,
