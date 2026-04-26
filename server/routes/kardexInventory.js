@@ -40,20 +40,42 @@ router.get('/insumos', (req, res) => {
 /** POST /insumos */
 router.post('/insumos', (req, res) => {
   try {
-    const { nombre, unidad_medida, stock_unidades, minimo_unidades, costo_promedio, precio_compra, activo } = req.body || {};
+    const {
+      nombre,
+      unidad_medida,
+      stock_unidades,
+      minimo_unidades,
+      costo_promedio,
+      precio_compra,
+      activo,
+      control_por_unidades,
+      stock_inicial_masa,
+      minimo_masa,
+    } = req.body || {};
     const n = String(nombre || '').trim();
     if (!n) return res.status(400).json({ error: 'Nombre es requerido' });
     const umed = sanitizeUnidadMasa(unidad_medida);
-    const su = Math.max(0, Number(stock_unidades) || 0);
-    const mu = Math.max(0, Number(minimo_unidades) || 0);
     const pc = costo_promedio != null ? Number(costo_promedio) : precio_compra != null ? Number(precio_compra) : 0;
     const costo = !Number.isFinite(pc) || pc < 0 ? 0 : pc;
     const id = uuidv4();
-    runSql(
-      `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_unidades, minimo_unidades, kg_por_unidad, stock_minimo, costo_promedio, activo, created_at, updated_at)
-       VALUES (?, ?, ?, 0, ?, ?, 0, 0, ?, ?, datetime('now'), datetime('now'))`,
-      [id, n, umed, su, mu, costo, activo === false || activo === 0 ? 0 : 1]
-    );
+    const porU = !(control_por_unidades === false || control_por_unidades === 0 || control_por_unidades === '0');
+    if (porU) {
+      const su = Math.max(0, Number(stock_unidades) || 0);
+      const mu = Math.max(0, Number(minimo_unidades) || 0);
+      runSql(
+        `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_unidades, minimo_unidades, kg_por_unidad, stock_minimo, costo_promedio, activo, created_at, updated_at)
+         VALUES (?, ?, ?, 0, ?, ?, 0, 0, ?, ?, datetime('now'), datetime('now'))`,
+        [id, n, umed, su, mu, costo, activo === false || activo === 0 ? 0 : 1]
+      );
+    } else {
+      const sa = Math.max(0, Number(stock_inicial_masa) || 0);
+      const smin = Math.max(0, Number(minimo_masa) || 0);
+      runSql(
+        `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_unidades, minimo_unidades, kg_por_unidad, stock_minimo, costo_promedio, activo, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 0, 0, 0, ?, ?, ?, datetime('now'), datetime('now'))`,
+        [id, n, umed, sa, smin, costo, activo === false || activo === 0 ? 0 : 1]
+      );
+    }
     logAudit({
       actorUserId: req.user.id,
       actorName: req.user.full_name || '',
@@ -373,10 +395,15 @@ router.post('/ajustes', (req, res) => {
 router.get('/dashboard', (req, res) => {
   try {
     const insumos = queryAll('SELECT * FROM insumos WHERE activo = 1 ORDER BY nombre');
-    const bajo = insumos.filter(
-      (i) =>
-        Number(i.minimo_unidades) > 0 && Number(i.stock_unidades) < Number(i.minimo_unidades)
-    );
+    const bajo = insumos.filter((i) => {
+      const uMin = Number(i.minimo_unidades) || 0;
+      const uAct = Number(i.stock_unidades) || 0;
+      const mMin = Number(i.stock_minimo) || 0;
+      const sAct = Number(i.stock_actual) || 0;
+      const bajoU = uMin > 0 && uAct < uMin;
+      const bajoMasa = mMin > 0 && sAct < mMin;
+      return bajoU || bajoMasa;
+    });
     const valor = insumos.reduce(
       (s, i) => s + Number(i.stock_actual || 0) * Number(i.costo_promedio || 0),
       0

@@ -252,13 +252,22 @@ export default function Almacen() {
   const lowFromWarehouse = products.filter(
     (p) => p.process === 'non_transformed' && Number(p.stock || 0) <= 10
   );
-  const lowFromKardex = (kardexBajoMin || []).map((i) => ({
-    id: i.id,
-    name: i.nombre,
-    stock: Number(i.stock_unidades) || 0,
-    minimo: Number(i.minimo_unidades) || 0,
-    isKardex: true,
-  }));
+  const lowFromKardex = (kardexBajoMin || []).map((i) => {
+    const uMin = Number(i.minimo_unidades) || 0;
+    const sMin = Number(i.stock_minimo) || 0;
+    const uAct = Number(i.stock_unidades) || 0;
+    const sAct = Number(i.stock_actual) || 0;
+    const bajoU = uMin > 0 && uAct < uMin;
+    return {
+      id: i.id,
+      name: i.nombre,
+      stock: bajoU ? uAct : sAct,
+      minimo: bajoU ? uMin : sMin,
+      isKardex: true,
+      kardexPorU: bajoU,
+      umed: String(i.unidad_medida || 'kg').replace(/[0-9]/g, '').trim() || 'kg',
+    };
+  });
   const lowStockGlobal = [...lowFromWarehouse, ...lowFromKardex];
   const productsForSelectedWarehouse = selectedWarehouseView
     ? scopedProducts.filter(p =>
@@ -708,7 +717,8 @@ export default function Almacen() {
         >
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
-              Incluye productos de almacén (stock ≤ 10) e <strong>insumos kardex</strong> con unidades por debajo del mínimo. Puedes desmarcar filas.
+              Incluye productos de almacén (stock ≤ 10) e <strong>insumos kardex</strong> bajo el mínimo (en U o en kg/L,
+              según se configuró al crear el insumo). Puedes desmarcar filas.
             </p>
             <div className="max-h-[340px] overflow-y-auto border border-slate-200 rounded-lg">
               <table className="w-full text-sm">
@@ -739,7 +749,9 @@ export default function Almacen() {
                       </td>
                       <td className="p-2.5 text-red-600 font-semibold">
                         {p.isKardex
-                          ? `${p.stock} U (mín. ${p.minimo} U)`
+                          ? (p.kardexPorU
+                            ? `${p.stock} U (mín. ${p.minimo} U)`
+                            : `${p.stock} ${p.umed} (mín. ${p.minimo} ${p.umed})`)
                           : p.stock}
                       </td>
                     </tr>

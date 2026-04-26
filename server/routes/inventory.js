@@ -328,12 +328,14 @@ router.post('/requirements/low-stock', authenticateToken, requireRole('admin'), 
     ).filter(p => !selectedProductIds || selectedProductIds.includes(p.id));
 
     const insumosBajo = queryAll(
-      `SELECT id, nombre, stock_unidades, minimo_unidades, unidad_medida, costo_promedio, kg_por_unidad
+      `SELECT id, nombre, stock_unidades, minimo_unidades, stock_actual, stock_minimo, unidad_medida, costo_promedio, kg_por_unidad
        FROM insumos
        WHERE activo = 1
-         AND minimo_unidades > 0
-         AND stock_unidades + 0.0001 < minimo_unidades
-       ORDER BY (minimo_unidades - stock_unidades) DESC, nombre`
+         AND (
+           (minimo_unidades > 0 AND stock_unidades + 0.0001 < minimo_unidades)
+           OR (stock_minimo > 0 AND stock_actual + 0.0001 < stock_minimo)
+         )
+       ORDER BY nombre`
     ).filter(
       (i) => !selectedInsumoIds || selectedInsumoIds.includes(i.id)
     );
@@ -408,19 +410,22 @@ router.post('/requirements/low-stock', authenticateToken, requireRole('admin'), 
     insumosBajo.forEach((inm) => {
       const uAct = Number(inm.stock_unidades) || 0;
       const uMin = Number(inm.minimo_unidades) || 0;
-      const faltU = Math.max(0, uMin - uAct);
-      const suggestedU = faltU < 0.5 ? 1 : Math.max(0.1, faltU);
+      const sAct = Number(inm.stock_actual) || 0;
+      const sMin = Number(inm.stock_minimo) || 0;
       const kpu = Number(inm.kg_por_unidad) || 0;
-      const suggestedQtyKg = kpu > 0 ? Math.round(suggestedU * kpu * 100) / 100 : 0;
-      const item = {
+      const umc = String(inm.unidad_medida || 'kg')
+        .replace(/[0-9]/g, '')
+        .trim() || 'kg';
+
+      let product_name;
+      let suggestedQtyKg;
+      let current_stock;
+      const base = {
         id: uuidv4(),
         requirement_id: requirementId,
         product_id: inm.id,
-        product_name: `[Kardex] ${inm.nombre} · faltan ≈${suggestedU.toFixed(2)} U (mín. ${uMin} U)`,
         warehouse_id: principal?.id || '',
         warehouse_name: principal?.name || '—',
-        current_stock: uAct,
-        suggested_qty: suggestedQtyKg,
         selected: 1,
         received_qty: 0,
         unit_cost: 0,
@@ -429,16 +434,42 @@ router.post('/requirements/low-stock', authenticateToken, requireRole('admin'), 
         insumo_id: inm.id,
         category_name: 'Kardex insumos',
         price: Number(inm.costo_promedio || 0),
-        uom: inm.unidad_medida || 'kg',
-        faltan_unidades: faltU,
-        sugerir_unidades: suggestedU,
       };
-      const row = { ...item };
-      delete row.uom;
-      delete row.faltan_unidades;
-      delete row.sugerir_unidades;
-      insertItem(row);
-      outItems.push({ ...row, faltan_unidades: faltU, uom: inm.unidad_medida || 'kg' });
+
+      const bajoPorU = uMin > 0 && uAct + 0.0001 < uMin;
+      const bajoPorM = sMin > 0 && sAct + 0.0001 < sMin;
+      if (bajoPorU) {
+        const faltU = Math.max(0, uMin - uAct);
+        const suggestedU = faltU < 0.5 ? 1 : Math.max(0.1, faltU);
+        suggestedQtyKg = kpu > 0 ? Math.round(suggestedU * kpu * 100) / 100 : 0;
+        product_name = `[Kardex] ${inm.nombre} · faltan ≈${suggestedU.toFixed(2)} U (mín. ${uMin} U)`;
+        current_stock = uAct;
+        const item = {
+          ...base,
+          product_name,
+          current_stock,
+          suggested_qty: suggestedQtyKg,
+          uom: umc,
+          faltan_unidades: faltU,
+          sugerir_unidades: suggestedU,
+        };
+        const row = { ...item };
+        delete row.uom;
+        delete row.faltan_unidades;
+        delete row.sugerir_unidades;
+        insertItem(row);
+        outItems.push({ ...row, faltan_unidades: faltU, uom: umc });
+      } else if (bajoPorM) {
+        const faltKg = Math.max(0, sMin - sAct);
+        suggestedQtyKg = faltKg < 0.01 ? 1 : Math.round(faltKg * 100) / 100;
+        product_name = `[Kardex] ${inm.nombre} · faltan ≈${suggestedQtyKg.toFixed(2)} ${umc} (mín. ${sMin} ${umc})`;
+        current_stock = sAct;
+        const item = { ...base, product_name, current_stock, suggested_qty: suggestedQtyKg, uom: umc };
+        const row = { ...item };
+        delete row.uom;
+        insertItem(row);
+        outItems.push({ ...row, uom: umc });
+      }
     });
 
     res.status(201).json({
