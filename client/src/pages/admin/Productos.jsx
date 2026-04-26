@@ -45,7 +45,7 @@ export default function Productos() {
     kardex_insumo_id: '',
     kardex_insumo_num: '1',
     kardex_insumo_den: '1',
-    kardex_insumo_modo: 'unidad',
+    kardex_insumo_modo: '',
     kardex_insumo_gramos: '0',
   });
 
@@ -132,7 +132,7 @@ export default function Productos() {
       kardex_insumo_id: '',
       kardex_insumo_num: '1',
       kardex_insumo_den: '1',
-      kardex_insumo_modo: 'unidad',
+      kardex_insumo_modo: '',
       kardex_insumo_gramos: '0',
     });
     setShowProductModal(true);
@@ -158,7 +158,9 @@ export default function Productos() {
       kardex_insumo_id: p.kardex_insumo_id || '',
       kardex_insumo_num: p.kardex_insumo_num != null && p.kardex_insumo_num !== '' ? String(p.kardex_insumo_num) : '1',
       kardex_insumo_den: p.kardex_insumo_den != null && p.kardex_insumo_den !== '' ? String(p.kardex_insumo_den) : '1',
-      kardex_insumo_modo: String(p.kardex_insumo_modo || 'unidad').toLowerCase() === 'peso' ? 'peso' : 'unidad',
+      kardex_insumo_modo: (p.kardex_insumo_id && String(p.kardex_insumo_id).trim()
+        ? (String(p.kardex_insumo_modo || 'unidad').toLowerCase() === 'peso' ? 'peso' : 'unidad')
+        : ''),
       kardex_insumo_gramos: p.kardex_insumo_gramos != null && p.kardex_insumo_gramos !== ''
         ? String(p.kardex_insumo_gramos)
         : '0',
@@ -189,6 +191,14 @@ export default function Productos() {
         toast.error('Selecciona una categoría para el producto');
         return;
       }
+      if (
+        !isNonTransformed
+        && (productForm.kardex_insumo_modo === 'unidad' || productForm.kardex_insumo_modo === 'peso')
+        && !String(productForm.kardex_insumo_id || '').trim()
+      ) {
+        toast.error('Selecciona un insumo o, en la primera lista, deja el valor en blanco para no vincular kardex');
+        return;
+      }
 
       const kn = parseFloat(productForm.kardex_insumo_num) || 1;
       const kd = parseFloat(productForm.kardex_insumo_den) || 1;
@@ -196,7 +206,7 @@ export default function Productos() {
       const hasK = !isNonTransformed && String(productForm.kardex_insumo_id || '').trim();
       const modoPeso = hasK && productForm.kardex_insumo_modo === 'peso';
       if (modoPeso && kg <= 0) {
-        toast.error('Indica gramos de insumo por plato (mayor a 0) o elige fracción por unidad');
+        toast.error('Indica gramos de insumo por plato (mayor a 0).');
         return;
       }
       const payload = {
@@ -538,7 +548,7 @@ export default function Productos() {
                 kardex_insumo_id: productForm.kardex_insumo_id || '',
                 kardex_insumo_num: productForm.kardex_insumo_num || '1',
                 kardex_insumo_den: productForm.kardex_insumo_den || '1',
-                kardex_insumo_modo: productForm.kardex_insumo_modo || 'unidad',
+                kardex_insumo_modo: (productForm.kardex_insumo_id && productForm.kardex_insumo_modo) ? productForm.kardex_insumo_modo : '',
                 kardex_insumo_gramos: productForm.kardex_insumo_gramos || '0',
               })}
               className={`py-2 rounded-lg border text-sm font-medium ${
@@ -558,7 +568,7 @@ export default function Productos() {
                 kardex_insumo_id: '',
                 kardex_insumo_num: '1',
                 kardex_insumo_den: '1',
-                kardex_insumo_modo: 'unidad',
+                kardex_insumo_modo: '',
                 kardex_insumo_gramos: '0',
               })}
               className={`py-2 rounded-lg border text-sm font-medium ${
@@ -595,63 +605,96 @@ export default function Productos() {
                 <>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Insumo a descontar</label>
                   <select
-                    className="input-field text-sm mb-1.5"
-                    value={productForm.kardex_insumo_modo}
-                    onChange={e => setProductForm({ ...productForm, kardex_insumo_modo: e.target.value })}
-                    title="Cómo se descuenta al cobrar"
-                  >
-                    <option value="unidad">Fracción por unidad (aves, piezas)</option>
-                    <option value="peso">Peso fijo (g de insumo por plato)</option>
-                  </select>
-                  <select
-                    value={productForm.kardex_insumo_id}
-                    onChange={e => setProductForm({ ...productForm, kardex_insumo_id: e.target.value })}
                     className="input-field text-sm"
-                  >
-                    <option value="">— Ninguno (o usar receta) —</option>
-                    {insumosKardex.filter((i) => Number(i.activo) !== 0).map((i) => {
-                      const um = String(i.unidad_medida || 'kg')
-                        .replace(/[0-9]/g, '')
-                        .trim() || 'kg';
-                      if (productForm.kardex_insumo_modo === 'peso') {
-                        return (
-                          <option key={i.id} value={i.id}>
-                            {i.nombre} (U.M. {um} · kardex en kg/L)
-                          </option>
-                        );
+                    value={
+                      productForm.kardex_insumo_modo === 'unidad' || productForm.kardex_insumo_modo === 'peso'
+                        ? productForm.kardex_insumo_modo
+                        : ''
+                    }
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (!v) {
+                        setProductForm({
+                          ...productForm,
+                          kardex_insumo_modo: '',
+                          kardex_insumo_id: '',
+                          kardex_insumo_num: '1',
+                          kardex_insumo_den: '1',
+                          kardex_insumo_gramos: '0',
+                        });
+                        return;
                       }
-                      const uS = i.stock_unidades != null ? Number(i.stock_unidades) : 0;
-                      return (
-                        <option key={i.id} value={i.id}>
-                          {i.nombre} — {formatInsumoQty(uS)} U, {formatInsumoWithUnit(i.stock_actual, um)}
-                        </option>
-                      );
-                    })}
+                      setProductForm({
+                        ...productForm,
+                        kardex_insumo_modo: v,
+                        kardex_insumo_id: '',
+                        kardex_insumo_num: v === 'unidad' ? '1' : '1',
+                        kardex_insumo_den: v === 'unidad' ? '1' : '1',
+                        kardex_insumo_gramos: v === 'peso' ? (productForm.kardex_insumo_gramos && productForm.kardex_insumo_gramos !== '0' ? productForm.kardex_insumo_gramos : '') : '0',
+                      });
+                    }}
+                  >
+                    <option value="">&nbsp;</option>
+                    <option value="unidad">Fracción por unidad</option>
+                    <option value="peso">Peso fijo</option>
                   </select>
+                  {(productForm.kardex_insumo_modo === 'unidad' || productForm.kardex_insumo_modo === 'peso') && (
+                    <>
+                      <label className="block text-xs text-slate-500 mt-2 mb-0.5">Insumo</label>
+                      <select
+                        value={productForm.kardex_insumo_id}
+                        onChange={e => setProductForm({ ...productForm, kardex_insumo_id: e.target.value })}
+                        className="input-field text-sm"
+                      >
+                        <option value="">— Elija insumo —</option>
+                        {insumosKardex.filter((i) => Number(i.activo) !== 0).map((i) => {
+                          const um = String(i.unidad_medida || 'kg')
+                            .replace(/[0-9]/g, '')
+                            .trim() || 'kg';
+                          if (productForm.kardex_insumo_modo === 'peso') {
+                            return (
+                              <option key={i.id} value={i.id}>
+                                {i.nombre} (U.M. {um})
+                              </option>
+                            );
+                          }
+                          const uS = i.stock_unidades != null ? Number(i.stock_unidades) : 0;
+                          return (
+                            <option key={i.id} value={i.id}>
+                              {i.nombre} — {formatInsumoQty(uS)} U, {formatInsumoWithUnit(i.stock_actual, um)}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </>
+                  )}
                   {productForm.kardex_insumo_id && productForm.kardex_insumo_modo === 'unidad' ? (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={productForm.kardex_insumo_num}
-                        onChange={e => setProductForm({ ...productForm, kardex_insumo_num: e.target.value })}
-                        className="input-field w-16 text-sm py-1.5"
-                      />
-                      <span className="text-slate-500 font-medium">/</span>
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={productForm.kardex_insumo_den}
-                        onChange={e => setProductForm({ ...productForm, kardex_insumo_den: e.target.value })}
-                        className="input-field w-16 text-sm py-1.5"
-                      />
+                    <div className="mt-2">
+                      <label className="block text-xs text-slate-500 mb-0.5">Fracción (a / b) por plato</label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={productForm.kardex_insumo_num}
+                          onChange={e => setProductForm({ ...productForm, kardex_insumo_num: e.target.value })}
+                          className="input-field w-16 text-sm py-1.5"
+                        />
+                        <span className="text-slate-500 font-medium">/</span>
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={productForm.kardex_insumo_den}
+                          onChange={e => setProductForm({ ...productForm, kardex_insumo_den: e.target.value })}
+                          className="input-field w-16 text-sm py-1.5"
+                        />
+                      </div>
                     </div>
                   ) : null}
                   {productForm.kardex_insumo_id && productForm.kardex_insumo_modo === 'peso' ? (
-                    <div className="mt-1.5">
-                      <label className="text-[11px] text-slate-500">Gramos / plato</label>
+                    <div className="mt-2">
+                      <label className="block text-xs text-slate-500 mb-0.5">Gramos por plato</label>
                       <input
                         type="number"
                         min="0.1"
@@ -659,8 +702,8 @@ export default function Productos() {
                         value={productForm.kardex_insumo_gramos}
                         onChange={e => setProductForm({ ...productForm, kardex_insumo_gramos: e.target.value })}
                         className="input-field text-sm py-1.5 w-full"
-                        placeholder="p. ej. 250"
-                        title="Gramos de insumo en una porción (se descuenta solo kg del kardex)"
+                        placeholder="ej. 250"
+                        title="Gramos de insumo (descuento en kg al cobrar)"
                       />
                     </div>
                   ) : null}
@@ -681,11 +724,6 @@ export default function Productos() {
               </select>
             </div>
           </div>
-          {productForm.process_type === 'transformed' && (
-            <p className="text-xs text-slate-500 -mt-1 text-center sm:text-left">
-              Fraccion = Unidad, Peso del insumo en el producto
-            </p>
-          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Área de producción</label>
