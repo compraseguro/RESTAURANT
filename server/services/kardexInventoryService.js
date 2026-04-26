@@ -9,7 +9,7 @@ const { v4: uuidv4 } = require('uuid');
  * @param {import('../database').Tx} tx
  * @param {object} p
  */
-function registrarEntrada(tx, { insumoId, cantidad, costoUnitario, referencia, referenciaId, userId }) {
+function registrarEntrada(tx, { insumoId, cantidad, costoUnitario, referencia, referenciaId, userId, unidadesIngreso }) {
   const ins = tx.queryOne('SELECT * FROM insumos WHERE id = ?', [insumoId]);
   if (!ins) throw new Error(`Insumo no encontrado: ${insumoId}`);
   if (!Number(ins.activo)) throw new Error(`Insumo inactivo: ${ins.nombre}`);
@@ -19,6 +19,10 @@ function registrarEntrada(tx, { insumoId, cantidad, costoUnitario, referencia, r
   if (cant <= 0 || Number.isNaN(cant)) throw new Error('La cantidad de entrada debe ser mayor a 0');
   if (costoN < 0 || Number.isNaN(costoN)) throw new Error('Costo unitario inválido');
 
+  const addU = unidadesIngreso;
+  const unidadesSuma =
+    addU != null && addU !== '' && Number.isFinite(Number(addU)) ? Math.max(0, Number(addU)) : null;
+
   const stockAnt = Number(ins.stock_actual || 0);
   const costoAnt = Number(ins.costo_promedio || 0);
   const stockRes = stockAnt + cant;
@@ -26,10 +30,19 @@ function registrarEntrada(tx, { insumoId, cantidad, costoUnitario, referencia, r
     stockRes > 0 ? (stockAnt * costoAnt + cant * costoN) / stockRes : costoN;
   const costoTotal = cant * costoN;
 
-  tx.run(
-    `UPDATE insumos SET stock_actual = ?, costo_promedio = ?, updated_at = datetime('now') WHERE id = ?`,
-    [stockRes, nuevoCosto, insumoId]
-  );
+  if (unidadesSuma != null) {
+    const uAnt = Number(ins.stock_unidades != null ? ins.stock_unidades : 0) || 0;
+    const uRes = uAnt + unidadesSuma;
+    tx.run(
+      `UPDATE insumos SET stock_actual = ?, stock_unidades = ?, costo_promedio = ?, updated_at = datetime('now') WHERE id = ?`,
+      [stockRes, uRes, nuevoCosto, insumoId]
+    );
+  } else {
+    tx.run(
+      `UPDATE insumos SET stock_actual = ?, costo_promedio = ?, updated_at = datetime('now') WHERE id = ?`,
+      [stockRes, nuevoCosto, insumoId]
+    );
+  }
 
   const kid = uuidv4();
   tx.run(
@@ -211,7 +224,8 @@ function aplicarSalidasVentasEnTransaccion(tx, orderIds, userId) {
 /**
  * Compra de insumos (una operación, un referencia_id compartido).
  * @param {import('../database').Tx} tx
- * @param {Array<{ insumo_id: string, cantidad: number, costo_unitario: number }>} items
+ * @param {Array<{ insumo_id: string, cantidad: number, costo_unitario: number, unidades?: number }>} items
+ *   unidades: opcional, suma a `insumos.stock_unidades` (cajas/bultos) en la misma compra
  * @param {string} [userId]
  * @returns {string} id de operación
  */
@@ -225,6 +239,8 @@ function registrarCompraInsumos(tx, items, userId) {
     if (!iid) throw new Error('insumo_id requerido');
     if (cant <= 0 || Number.isNaN(cant)) throw new Error('Cantidad inválida en compra');
     if (cu < 0 || Number.isNaN(cu)) throw new Error('Costo unitario inválido');
+    const uIn = it.unidades != null && it.unidades !== '' ? Number(it.unidades) : null;
+    if (uIn != null && (Number.isNaN(uIn) || uIn < 0)) throw new Error('Unidades de compra inválidas (≥ 0)');
     registrarEntrada(tx, {
       insumoId: iid,
       cantidad: cant,
@@ -232,6 +248,7 @@ function registrarCompraInsumos(tx, items, userId) {
       referencia: 'compra',
       referenciaId: opId,
       userId,
+      unidadesIngreso: uIn,
     });
   }
   return opId;

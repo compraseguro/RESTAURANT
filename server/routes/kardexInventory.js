@@ -11,6 +11,20 @@ const kx = require('../services/kardexInventoryService');
 const router = express.Router();
 router.use(authenticateToken, requireRole('admin'));
 
+/** U.M. de masa/volumen (kg, L, …) sin números accidentales p. ej. "kg5". */
+function sanitizeUnidadMasa(raw) {
+  const s = String(raw || '')
+    .replace(/[0-9]/g, '')
+    .replace(/\s+/g, '')
+    .trim()
+    .toLowerCase();
+  if (!s) return 'kg';
+  const allow = new Set(['kg', 'g', 'mg', 't', 'l', 'ml', 'lt']);
+  if (allow.has(s)) return s;
+  if (s === 'litro' || s === 'lt') return 'L';
+  return s.length <= 8 ? s : s.slice(0, 8);
+}
+
 /** GET /insumos */
 router.get('/insumos', (req, res) => {
   try {
@@ -26,14 +40,17 @@ router.get('/insumos', (req, res) => {
 /** POST /insumos */
 router.post('/insumos', (req, res) => {
   try {
-    const { nombre, unidad_medida, stock_minimo, activo } = req.body || {};
+    const { nombre, unidad_medida, stock_unidades, minimo_unidades, activo } = req.body || {};
     const n = String(nombre || '').trim();
     if (!n) return res.status(400).json({ error: 'Nombre es requerido' });
+    const umed = sanitizeUnidadMasa(unidad_medida);
+    const su = Math.max(0, Number(stock_unidades) || 0);
+    const mu = Math.max(0, Number(minimo_unidades) || 0);
     const id = uuidv4();
     runSql(
-      `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_minimo, costo_promedio, activo, created_at, updated_at)
-       VALUES (?, ?, ?, 0, ?, 0, ?, datetime('now'), datetime('now'))`,
-      [id, n, String(unidad_medida || 'unidad').trim(), Math.max(0, Number(stock_minimo || 0)), activo === false || activo === 0 ? 0 : 1]
+      `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_unidades, minimo_unidades, stock_minimo, costo_promedio, activo, created_at, updated_at)
+       VALUES (?, ?, ?, 0, ?, ?, 0, 0, ?, datetime('now'), datetime('now'))`,
+      [id, n, umed, su, mu, activo === false || activo === 0 ? 0 : 1]
     );
     logAudit({
       actorUserId: req.user.id,
@@ -54,14 +71,16 @@ router.put('/insumos/:id', (req, res) => {
   try {
     const cur = queryOne('SELECT * FROM insumos WHERE id = ?', [req.params.id]);
     if (!cur) return res.status(404).json({ error: 'Insumo no encontrado' });
-    const { nombre, unidad_medida, stock_minimo, activo } = req.body || {};
+    const { nombre, unidad_medida, stock_unidades, minimo_unidades, activo } = req.body || {};
     runSql(
       `UPDATE insumos SET nombre = COALESCE(?, nombre), unidad_medida = COALESCE(?, unidad_medida),
-       stock_minimo = COALESCE(?, stock_minimo), activo = COALESCE(?, activo), updated_at = datetime('now') WHERE id = ?`,
+       stock_unidades = COALESCE(?, stock_unidades), minimo_unidades = COALESCE(?, minimo_unidades),
+       activo = COALESCE(?, activo), updated_at = datetime('now') WHERE id = ?`,
       [
         nombre != null ? String(nombre).trim() : null,
-        unidad_medida != null ? String(unidad_medida).trim() : null,
-        stock_minimo != null ? Math.max(0, Number(stock_minimo)) : null,
+        unidad_medida != null ? sanitizeUnidadMasa(unidad_medida) : null,
+        stock_unidades != null ? Math.max(0, Number(stock_unidades)) : null,
+        minimo_unidades != null ? Math.max(0, Number(minimo_unidades)) : null,
         activo != null ? (activo ? 1 : 0) : null,
         req.params.id,
       ]
@@ -352,7 +371,10 @@ router.post('/ajustes', (req, res) => {
 router.get('/dashboard', (req, res) => {
   try {
     const insumos = queryAll('SELECT * FROM insumos WHERE activo = 1 ORDER BY nombre');
-    const bajo = insumos.filter((i) => Number(i.stock_actual) < Number(i.stock_minimo));
+    const bajo = insumos.filter(
+      (i) =>
+        Number(i.minimo_unidades) > 0 && Number(i.stock_unidades) < Number(i.minimo_unidades)
+    );
     const valor = insumos.reduce(
       (s, i) => s + Number(i.stock_actual || 0) * Number(i.costo_promedio || 0),
       0

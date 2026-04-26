@@ -627,6 +627,8 @@ async function initDatabase() {
         nombre TEXT NOT NULL,
         unidad_medida TEXT NOT NULL DEFAULT 'unidad',
         stock_actual REAL NOT NULL DEFAULT 0,
+        stock_unidades REAL NOT NULL DEFAULT 0,
+        minimo_unidades REAL NOT NULL DEFAULT 0,
         stock_minimo REAL NOT NULL DEFAULT 0,
         costo_promedio REAL NOT NULL DEFAULT 0,
         activo INTEGER NOT NULL DEFAULT 1,
@@ -997,6 +999,29 @@ async function initDatabase() {
     addProductColIfMissing('kardex_insumo_id', "ALTER TABLE products ADD COLUMN kardex_insumo_id TEXT DEFAULT ''");
     addProductColIfMissing('kardex_insumo_num', "ALTER TABLE products ADD COLUMN kardex_insumo_num REAL DEFAULT 1");
     addProductColIfMissing('kardex_insumo_den', "ALTER TABLE products ADD COLUMN kardex_insumo_den REAL DEFAULT 1");
+
+    const addInsumoColIfMissing = (col, ddl) => {
+      const cols = queryAll('PRAGMA table_info(insumos)');
+      if (!cols.some((c) => c.name === col)) db.run(ddl);
+    };
+    addInsumoColIfMissing('stock_unidades', 'ALTER TABLE insumos ADD COLUMN stock_unidades REAL NOT NULL DEFAULT 0');
+    addInsumoColIfMissing('minimo_unidades', 'ALTER TABLE insumos ADD COLUMN minimo_unidades REAL NOT NULL DEFAULT 0');
+    /* Evitar códigos tipo "kg5" en U.M. (solo letras) */
+    try {
+      const insM = queryAll('SELECT id, unidad_medida FROM insumos');
+      for (const row of insM) {
+        const u = String(row.unidad_medida || '')
+          .replace(/[0-9]/g, '')
+          .trim();
+        if (u && u !== row.unidad_medida) {
+          db.run('UPDATE insumos SET unidad_medida = ? WHERE id = ?', [u, row.id]);
+        } else if (!u && String(row.unidad_medida || '').length) {
+          db.run("UPDATE insumos SET unidad_medida = 'kg' WHERE id = ?", [row.id]);
+        }
+      }
+    } catch (_) {
+      /* tabla insumos ausente aún */
+    }
 
     const orderColumns = queryAll('PRAGMA table_info(orders)');
     if (!orderColumns.some(col => col.name === 'sale_document_type')) {

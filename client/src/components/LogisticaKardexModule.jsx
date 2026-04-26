@@ -91,9 +91,9 @@ export default function LogisticaKardexModule() {
   const [loading, setLoading] = useState(true);
 
   const [insumoForm, setInsumoForm] = useState({
-    nombre: '', unidad_medida: 'kg', stock_minimo: '0', activo: true,
+    nombre: '', unidad_medida: 'kg', stock_unidades: '0', minimo_unidades: '0', activo: true,
   });
-  const [compraLines, setCompraLines] = useState([{ insumo_id: '', cantidad: '', costo_unitario: '' }]);
+  const [compraLines, setCompraLines] = useState([{ insumo_id: '', cantidad: '', costo_unitario: '', unidades: '' }]);
   const [recetaForm, setRecetaForm] = useState({
     nombre_plato: '', product_id: '', activo: true, detalles: [{ insumo_id: '', cantidad_usada: '' }],
   });
@@ -210,15 +210,21 @@ export default function LogisticaKardexModule() {
   const addInsumo = async (e) => {
     e.preventDefault();
     try {
-      const minUm = parseLocaleNumber(insumoForm.stock_minimo);
+      const su = parseLocaleNumber(insumoForm.stock_unidades);
+      const mu = parseLocaleNumber(insumoForm.minimo_unidades);
       await api.post(`${BASE}/insumos`, {
         nombre: insumoForm.nombre.trim(),
-        unidad_medida: String(insumoForm.unidad_medida || '').trim(),
-        stock_minimo: Number.isFinite(minUm) && minUm >= 0 ? minUm : 0,
+        unidad_medida: String(insumoForm.unidad_medida || 'kg')
+          .replace(/[0-9]/g, '')
+          .trim() || 'kg',
+        stock_unidades: Number.isFinite(su) && su >= 0 ? su : 0,
+        minimo_unidades: Number.isFinite(mu) && mu >= 0 ? mu : 0,
         activo: insumoForm.activo,
       });
       toast.success('Insumo creado');
-      setInsumoForm({ nombre: '', unidad_medida: 'kg', stock_minimo: '0', activo: true });
+      setInsumoForm({
+        nombre: '', unidad_medida: 'kg', stock_unidades: '0', minimo_unidades: '0', activo: true,
+      });
       loadCore();
     } catch (err) {
       toast.error(err.message);
@@ -233,14 +239,23 @@ export default function LogisticaKardexModule() {
       const cantidad = parseLocaleNumber(l.cantidad);
       const costo_unitario = parseLocaleNumber(l.costo_unitario);
       if (!Number.isFinite(cantidad) || cantidad <= 0) {
-        toast.error('Revisa la cantidad (debe ser un número mayor a 0 en la U.M. del insumo, ej. 10,5 o 10.5).');
+        toast.error('Revisa la cantidad en kg/L (mayor a 0, ej. 10,5 o 10.5).');
         return;
       }
       if (!Number.isFinite(costo_unitario) || costo_unitario < 0) {
-        toast.error('Revisa el costo unitario (S/ por U.M.).');
+        toast.error('Revisa el costo unitario (S/ por kg, L, etc. según el insumo).');
         return;
       }
-      items.push({ insumo_id: l.insumo_id, cantidad, costo_unitario });
+      const row = { insumo_id: l.insumo_id, cantidad, costo_unitario };
+      if (l.unidades != null && String(l.unidades).trim() !== '') {
+        const u = parseLocaleNumber(l.unidades);
+        if (!Number.isFinite(u) || u < 0) {
+          toast.error('Unidades: número ≥ 0 (opcional; suma a Cantidad (U) del insumo).');
+          return;
+        }
+        if (u > 0) row.unidades = u;
+      }
+      items.push(row);
     }
     if (!items.length) {
       toast.error('Agrega líneas con insumo, cantidad y costo unitario');
@@ -249,7 +264,7 @@ export default function LogisticaKardexModule() {
     try {
       await api.post(`${BASE}/compras`, { items });
       toast.success('Compra registrada en kardex');
-      setCompraLines([{ insumo_id: '', cantidad: '', costo_unitario: '' }]);
+      setCompraLines([{ insumo_id: '', cantidad: '', costo_unitario: '', unidades: '' }]);
       loadCore();
     } catch (err) {
       toast.error(err.message);
@@ -364,7 +379,7 @@ export default function LogisticaKardexModule() {
     try {
       const cantidadAjuste = parseLocaleNumber(ajusteForm.cantidad);
       if (!Number.isFinite(cantidadAjuste) || cantidadAjuste <= 0) {
-        toast.error('La cantidad del ajuste debe ser un número mayor a 0 (U.M. del insumo).');
+        toast.error('La cantidad del ajuste debe ser un número mayor a 0 (en kg/L según U.M. del insumo).');
         return;
       }
       await api.post(`${BASE}/ajustes`, {
@@ -513,24 +528,21 @@ export default function LogisticaKardexModule() {
           </div>
           <div className="bg-[#1F2937] rounded-xl border border-[#3B82F6]/25 p-4">
             <p className="text-amber-300/90 text-sm flex items-center gap-1.5">
-              <MdWarning className="inline" /> Bajo mínimo
+              <MdWarning className="inline" /> Bajo mínimo (unidades)
             </p>
             <p className="text-xl font-bold text-amber-400 mt-1">{dashboard.insumos_bajo_minimo?.length || 0}</p>
             <ul className="mt-2 max-h-28 overflow-y-auto text-sm space-y-0.5">
               {(dashboard.insumos_bajo_minimo || []).map((i) => (
-                <li key={i.id} className="flex justify-between text-slate-300">
+                <li key={i.id} className="flex justify-between text-slate-300 gap-2">
                   <span>{i.nombre}</span>
-                  <span className="text-red-400">
-                    {formatInsumoWithUnit(i.stock_actual, i.unidad_medida)} / mín. {formatInsumoWithUnit(
-                      i.stock_minimo,
-                      i.unidad_medida
-                    )}
+                  <span className="text-red-400 text-right">
+                    {formatInsumoQty(i.stock_unidades)} U / mín. {formatInsumoQty(i.minimo_unidades)} U
                   </span>
                 </li>
               ))}
             </ul>
             {(!dashboard.insumos_bajo_minimo || !dashboard.insumos_bajo_minimo.length) && (
-              <p className="text-slate-500 text-sm mt-1">Ninguno por debajo del mínimo.</p>
+              <p className="text-slate-500 text-sm mt-1">Ninguno por debajo del mínimo de unidades.</p>
             )}
           </div>
         </div>
@@ -538,9 +550,14 @@ export default function LogisticaKardexModule() {
 
       {tab === 'insumos' && (
         <div className="space-y-4">
+          <p className="text-slate-500 text-xs max-w-3xl">
+            <strong className="text-slate-300">Kardex y recetas usan la cantidad en kg/L (o ml).</strong> La columna
+            <strong> Cant. (U)</strong> y el <strong>mínimo en U</strong> son para bolsas, cajas, etc. El alerta &quot;Bajo mínimo&quot; y el requerimiento
+            se basan en <strong>unidades</strong>, no en kilos.
+          </p>
           <form onSubmit={addInsumo} className="flex flex-wrap gap-2 items-end bg-[#1F2937]/80 p-3 rounded-lg border border-[#3B82F6]/25">
             <div>
-              <label className="block text-xs text-slate-500 mb-0.5">Nombre</label>
+              <label className="block text-xs text-slate-500 mb-0.5">Insumo (nombre)</label>
               <input
                 className="input-field text-sm py-1.5 w-48"
                 value={insumoForm.nombre}
@@ -549,36 +566,45 @@ export default function LogisticaKardexModule() {
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-0.5">U.M. (unidad de medida)</label>
+              <label className="block text-xs text-slate-500 mb-0.5">U.M. masa (kg, L, ml…)</label>
               <input
-                className="input-field text-sm py-1.5 w-28"
-                list="kardex-um-sugerencias"
+                className="input-field text-sm py-1.5 w-24"
+                list="kardex-um-masa"
                 autoComplete="off"
                 value={insumoForm.unidad_medida}
-                onChange={(e) => setInsumoForm((f) => ({ ...f, unidad_medida: e.target.value }))}
-                title="kg, g, L, unid, etc. Los totales y el stock se expresan en esta unidad"
+                onChange={(e) => setInsumoForm((f) => ({ ...f, unidad_medida: e.target.value.replace(/[0-9]/g, '') }))}
+                title="Solo letras, sin números (el kardex y las compras van en kg o litros según elija)"
               />
-              <datalist id="kardex-um-sugerencias">
+              <datalist id="kardex-um-masa">
                 <option value="kg" />
                 <option value="g" />
                 <option value="L" />
                 <option value="ml" />
-                <option value="unid" />
-                <option value="pz" />
-                <option value="caja" />
-                <option value="bolsa" />
+                <option value="t" />
               </datalist>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-0.5">Mín. (por U.M.)</label>
+              <label className="block text-xs text-slate-500 mb-0.5">Cant. inicial (U)</label>
               <input
                 type="number"
                 min="0"
                 step="0.01"
                 className="input-field text-sm py-1.5 w-24"
-                value={insumoForm.stock_minimo}
-                onChange={(e) => setInsumoForm((f) => ({ ...f, stock_minimo: e.target.value }))}
-                title="Mínimo de stock en la misma U.M. (kg, unid, L…)"
+                value={insumoForm.stock_unidades}
+                onChange={(e) => setInsumoForm((f) => ({ ...f, stock_unidades: e.target.value }))}
+                title="Bolsas, cajas u otras unidades (opcional, suele ajustarse con compras)"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-0.5">Mín. (U) p/ requisición</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="input-field text-sm py-1.5 w-24"
+                value={insumoForm.minimo_unidades}
+                onChange={(e) => setInsumoForm((f) => ({ ...f, minimo_unidades: e.target.value }))}
+                title="Si el stock en unidades baja de este número, se marca bajo mínimo"
               />
             </div>
             <label className="flex items-center gap-2 text-sm">
@@ -594,36 +620,38 @@ export default function LogisticaKardexModule() {
             </button>
           </form>
           <div className="overflow-x-auto border border-slate-600/50 rounded-lg">
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm min-w-[780px]">
               <thead>
                 <tr className="bg-[#1F2937] text-[#E5E7EB] text-left border-b border-[#3B82F6]/25">
                   <th className="p-2.5">Insumo</th>
-                  <th className="p-2.5">U.M.</th>
-                  <th className="p-2.5" title="Stock total expresado con unidad (evita leer 10,0000 como ‘diez mil’)">
-                    Total
-                  </th>
-                  <th className="p-2.5">Mín. (U.M.)</th>
+                  <th className="p-2.5">Cant. (kg / L)</th>
+                  <th className="p-2.5">Cant. (U)</th>
+                  <th className="p-2.5" title="Unidades mínimas para alerta y requerimiento">Mínimo (U)</th>
                   <th
                     className="p-2.5 text-right"
-                    title="Costo promedio ponderado = refleja el precio de compra, por 1 U.M. (kg, L, unid…)"
+                    title="S/ por kg, litro, etc. (kardex — mismo criterio que en compra)"
                   >
-                    P. compra (S/ U.M.)
+                    Costo (S/ U.M. masa)
                   </th>
-                  <th className="p-2.5 text-right">Valor inv.</th>
+                  <th className="p-2.5 text-right" title="Cant. kg/L × costo (valorizado)">
+                    Valor inv.
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {insumos.map((i) => {
-                  const low = Number(i.stock_actual) < Number(i.stock_minimo);
+                  const uAct = Number(i.stock_unidades != null ? i.stock_unidades : 0);
+                  const uMin = Number(i.minimo_unidades != null ? i.minimo_unidades : 0);
+                  const low = uMin > 0 && uAct < uMin;
                   return (
                     <tr key={i.id} className={`border-b border-slate-600/40 ${low ? 'bg-red-950/30' : ''}`}>
                       <td className="p-2.5 font-medium">{i.nombre}</td>
-                      <td className="p-2.5 text-slate-400">{i.unidad_medida}</td>
-                      <td className={`p-2.5 text-slate-200 font-medium ${low ? 'text-red-200' : ''}`} title="Existencia en U.M.">
-                        {formatInsumoWithUnit(i.stock_actual, i.unidad_medida)}
+                      <td className="p-2.5 text-slate-200 tabular-nums">
+                        {formatInsumoWithUnit(i.stock_actual, (i.unidad_medida || 'kg').replace(/[0-9]/g, '').trim() || 'kg')}
                       </td>
-                      <td className="p-2.5 text-slate-300 tabular-nums">
-                        {formatInsumoWithUnit(i.stock_minimo, i.unidad_medida)}
+                      <td className="p-2.5 text-slate-200 tabular-nums">{formatInsumoQty(uAct)} U</td>
+                      <td className={`p-2.5 tabular-nums ${low ? 'text-rose-300 font-medium' : 'text-slate-300'}`}>
+                        {formatInsumoQty(uMin)} U
                       </td>
                       <td className="p-2.5 text-right tabular-nums">{formatCurrency(i.costo_promedio || 0)}</td>
                       <td className="p-2.5 text-right text-emerald-400/90 tabular-nums">
@@ -641,13 +669,13 @@ export default function LogisticaKardexModule() {
       {tab === 'compras' && (
         <div className="space-y-3">
           <p className="text-slate-400 text-sm">
-            Compra: cantidad y costo <strong>por unidad de medida del insumo</strong> (si la U.M. es kg, 10 = 10 kg y el costo es S/ por kg). El
-            listado de insumos usa formato <span className="whitespace-nowrap">es-PE (coma decimal)</span> para no confundir 10,5 con
-            &quot;diez mil&quot;.
+            <strong className="text-slate-200">Cant.</strong> y <strong>costo</strong> = entradas en <strong>kg, L, ml, etc.</strong> (S/ por esa U.M. de masa/volumen).
+            <strong> Unid.</strong> = opcional: suma cajas/bolsas a la columna <em>Cant. (U)</em> del insumo. Números con formato{' '}
+            <span className="whitespace-nowrap">es-PE (coma decimal)</span>.
           </p>
           <form onSubmit={runCompra} className="space-y-2">
             {compraLines.map((row, idx) => (
-              <div key={idx} className="flex flex-wrap gap-2 items-center">
+              <div key={idx} className="flex flex-wrap gap-2 items-end">
                 <select
                   className="input-field text-sm py-1.5 min-w-[180px]"
                   value={row.insumo_id}
@@ -658,40 +686,70 @@ export default function LogisticaKardexModule() {
                   }}
                 >
                   <option value="">— Insumo —</option>
-                  {insumos.map((i) => (
-                    <option key={i.id} value={i.id}>{i.nombre}</option>
-                  ))}
+                  {insumos.map((i) => {
+                    const um = String(i.unidad_medida || 'kg')
+                      .replace(/[0-9]/g, '')
+                      .trim() || 'kg';
+                    return (
+                      <option key={i.id} value={i.id}>
+                        {i.nombre} ({formatInsumoWithUnit(i.stock_actual, um)} · {formatInsumoQty(i.stock_unidades != null ? i.stock_unidades : 0)} U)
+                      </option>
+                    );
+                  })}
                 </select>
-                <input
-                  type="number"
-                  min="0.0001"
-                  step="0.0001"
-                  placeholder="Cantidad"
-                  className="input-field text-sm py-1.5 w-28"
-                  value={row.cantidad}
-                  onChange={(e) => {
-                    const n = [...compraLines];
-                    n[idx] = { ...n[idx], cantidad: e.target.value };
-                    setCompraLines(n);
-                  }}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Costo u."
-                  className="input-field text-sm py-1.5 w-28"
-                  value={row.costo_unitario}
-                  onChange={(e) => {
-                    const n = [...compraLines];
-                    n[idx] = { ...n[idx], costo_unitario: e.target.value };
-                    setCompraLines(n);
-                  }}
-                />
+                <div>
+                  <label className="block text-[10px] text-slate-500">Cant. kg / L</label>
+                  <input
+                    type="number"
+                    min="0.0001"
+                    step="0.0001"
+                    placeholder="0"
+                    className="input-field text-sm py-1.5 w-24"
+                    value={row.cantidad}
+                    onChange={(e) => {
+                      const n = [...compraLines];
+                      n[idx] = { ...n[idx], cantidad: e.target.value };
+                      setCompraLines(n);
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500">Costo S/ U.M.</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0"
+                    className="input-field text-sm py-1.5 w-24"
+                    value={row.costo_unitario}
+                    onChange={(e) => {
+                      const n = [...compraLines];
+                      n[idx] = { ...n[idx], costo_unitario: e.target.value };
+                      setCompraLines(n);
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500">Unid. (opcional)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0"
+                    className="input-field text-sm py-1.5 w-24"
+                    value={row.unidades}
+                    onChange={(e) => {
+                      const n = [...compraLines];
+                      n[idx] = { ...n[idx], unidades: e.target.value };
+                      setCompraLines(n);
+                    }}
+                    title="Suma a unidades (cajas, bultos) si aplica a esta compra"
+                  />
+                </div>
                 {compraLines.length > 1 && (
                   <button
                     type="button"
-                    className="text-red-400 text-sm"
+                    className="text-red-400 text-sm mb-1"
                     onClick={() => setCompraLines((l) => l.filter((_, j) => j !== idx))}
                   >
                     Quitar
@@ -703,7 +761,9 @@ export default function LogisticaKardexModule() {
               <button
                 type="button"
                 className="text-sm text-amber-400/90"
-                onClick={() => setCompraLines((l) => [...l, { insumo_id: '', cantidad: '', costo_unitario: '' }])}
+                onClick={() =>
+                  setCompraLines((l) => [...l, { insumo_id: '', cantidad: '', costo_unitario: '', unidades: '' }])
+                }
               >
                 + Línea
               </button>
@@ -845,9 +905,14 @@ export default function LogisticaKardexModule() {
                 onChange={(e) => setKardexInsumo(e.target.value)}
               >
                 <option value="">— Seleccionar —</option>
-                {insumos.map((i) => (
-                  <option key={i.id} value={i.id}>{i.nombre}</option>
-                ))}
+                {insumos.map((i) => {
+                  const umc = (String(i.unidad_medida || 'kg').replace(/[0-9]/g, '') || 'kg').trim() || 'kg';
+                  return (
+                    <option key={i.id} value={i.id}>
+                      {i.nombre} ({formatInsumoWithUnit(i.stock_actual, umc)} · {formatInsumoQty(i.stock_unidades != null ? i.stock_unidades : 0)} U)
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div>
@@ -1133,15 +1198,18 @@ export default function LogisticaKardexModule() {
               onChange={(e) => setAjusteForm((f) => ({ ...f, insumo_id: e.target.value }))}
             >
               <option value="">—</option>
-              {insumos.map((i) => (
+              {insumos.map((i) => {
+                const umc = (String(i.unidad_medida || 'kg').replace(/[0-9]/g, '') || 'kg').trim() || 'kg';
+                return (
                 <option key={i.id} value={i.id}>
-                  {i.nombre} ({formatInsumoWithUnit(i.stock_actual, i.unidad_medida)})
+                  {i.nombre} ({formatInsumoWithUnit(i.stock_actual, umc)} · {formatInsumoQty(i.stock_unidades != null ? i.stock_unidades : 0)} U)
                 </option>
-              ))}
+                );
+              })}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500">Cantidad &gt; 0</label>
+            <label className="block text-xs text-slate-500">Cantidad (kg / L) &gt; 0</label>
             <input
               type="number"
               min="0.0001"
