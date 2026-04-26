@@ -184,6 +184,47 @@ export const formatCurrency = (amount, symbol = 'S/') => {
   return `${symbol} ${Number(amount || 0).toFixed(2)}`;
 };
 
+const insumoQtyFormatter = new Intl.NumberFormat('es-PE', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 4,
+});
+
+/**
+ * Convierte texto tipeado (p. ej. 10,5 o 1.234,5) a número. Evita `parseFloat` que con "10,5" devuelve 10.
+ */
+export function parseLocaleNumber(value) {
+  if (value == null || value === '') return NaN;
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  let s = String(value).trim().replace(/\s/g, '');
+  if (!s) return NaN;
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  if (lastComma > -1 && lastDot > -1) {
+    if (lastComma > lastDot) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else {
+      s = s.replace(/,/g, '');
+    }
+  } else if (lastComma > -1) {
+    s = s.replace(',', '.');
+  }
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+export function formatInsumoQty(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '—';
+  return insumoQtyFormatter.format(v);
+}
+
+/** Cantidad en U.M. + unidad (ej. "10 kg", "1,5 L") */
+export function formatInsumoWithUnit(qty, unidad) {
+  const u = String(unidad || '').trim();
+  if (!u) return formatInsumoQty(qty);
+  return `${formatInsumoQty(qty)} ${u}`;
+}
+
 export const formatDate = (dateStr) => {
   if (!dateStr) return '';
   const d = parseApiDate(dateStr);

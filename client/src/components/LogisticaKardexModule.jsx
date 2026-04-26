@@ -1,5 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api, formatCurrency, API_BASE, formatDateTime } from '../utils/api';
+import {
+  api,
+  formatCurrency,
+  API_BASE,
+  formatDateTime,
+  parseLocaleNumber,
+  formatInsumoQty,
+  formatInsumoWithUnit,
+} from '../utils/api';
 import toast from 'react-hot-toast';
 import { MdDownload, MdWarning, MdInventory2, MdAdd, MdList } from 'react-icons/md';
 import Modal from './Modal';
@@ -170,10 +178,11 @@ export default function LogisticaKardexModule() {
   const addInsumo = async (e) => {
     e.preventDefault();
     try {
+      const minUm = parseLocaleNumber(insumoForm.stock_minimo);
       await api.post(`${BASE}/insumos`, {
         nombre: insumoForm.nombre.trim(),
-        unidad_medida: insumoForm.unidad_medida,
-        stock_minimo: parseFloat(insumoForm.stock_minimo) || 0,
+        unidad_medida: String(insumoForm.unidad_medida || '').trim(),
+        stock_minimo: Number.isFinite(minUm) && minUm >= 0 ? minUm : 0,
         activo: insumoForm.activo,
       });
       toast.success('Insumo creado');
@@ -186,13 +195,21 @@ export default function LogisticaKardexModule() {
 
   const runCompra = async (e) => {
     e.preventDefault();
-    const items = compraLines
-      .filter((l) => l.insumo_id && l.cantidad && l.costo_unitario)
-      .map((l) => ({
-        insumo_id: l.insumo_id,
-        cantidad: Number(l.cantidad),
-        costo_unitario: Number(l.costo_unitario),
-      }));
+    const items = [];
+    for (const l of compraLines) {
+      if (!l.insumo_id || l.cantidad === '' || l.costo_unitario === '') continue;
+      const cantidad = parseLocaleNumber(l.cantidad);
+      const costo_unitario = parseLocaleNumber(l.costo_unitario);
+      if (!Number.isFinite(cantidad) || cantidad <= 0) {
+        toast.error('Revisa la cantidad (debe ser un número mayor a 0 en la U.M. del insumo, ej. 10,5 o 10.5).');
+        return;
+      }
+      if (!Number.isFinite(costo_unitario) || costo_unitario < 0) {
+        toast.error('Revisa el costo unitario (S/ por U.M.).');
+        return;
+      }
+      items.push({ insumo_id: l.insumo_id, cantidad, costo_unitario });
+    }
     if (!items.length) {
       toast.error('Agrega líneas con insumo, cantidad y costo unitario');
       return;
@@ -213,12 +230,16 @@ export default function LogisticaKardexModule() {
       toast.error('Nombre de plato y producto del menú son obligatorios');
       return;
     }
-    const detalles = recetaForm.detalles
-      .filter((d) => d.insumo_id && d.cantidad_usada !== '')
-      .map((d) => ({
-        insumo_id: d.insumo_id,
-        cantidad_usada: Number(d.cantidad_usada),
-      }));
+    const detalles = [];
+    for (const d of recetaForm.detalles) {
+      if (!d.insumo_id || d.cantidad_usada === '') continue;
+      const q = parseLocaleNumber(d.cantidad_usada);
+      if (!Number.isFinite(q) || q < 0) {
+        toast.error('Revisa la cantidad usada en recetas (número en la U.M. del insumo, ej. 0,1 o 0.1).');
+        return;
+      }
+      detalles.push({ insumo_id: d.insumo_id, cantidad_usada: q });
+    }
     const body = {
       nombre_plato: recetaForm.nombre_plato.trim(),
       product_id: recetaForm.product_id,
@@ -262,9 +283,16 @@ export default function LogisticaKardexModule() {
 
   const crearInventarioFisico = async (e) => {
     e.preventDefault();
-    const detalles = invDetalles
-      .filter((d) => d.insumo_id && d.stock_real !== '')
-      .map((d) => ({ insumo_id: d.insumo_id, stock_real: Number(d.stock_real) }));
+    const detalles = [];
+    for (const d of invDetalles) {
+      if (!d.insumo_id || d.stock_real === '') continue;
+      const stock_real = parseLocaleNumber(d.stock_real);
+      if (!Number.isFinite(stock_real) || stock_real < 0) {
+        toast.error('Revisa el stock contado (número en U.M. del insumo).');
+        return;
+      }
+      detalles.push({ insumo_id: d.insumo_id, stock_real });
+    }
     if (!detalles.length) {
       toast.error('Agrega al menos un insumo con stock real contado');
       return;
@@ -297,9 +325,14 @@ export default function LogisticaKardexModule() {
       return;
     }
     try {
+      const cantidadAjuste = parseLocaleNumber(ajusteForm.cantidad);
+      if (!Number.isFinite(cantidadAjuste) || cantidadAjuste <= 0) {
+        toast.error('La cantidad del ajuste debe ser un número mayor a 0 (U.M. del insumo).');
+        return;
+      }
       await api.post(`${BASE}/ajustes`, {
         insumo_id: ajusteForm.insumo_id,
-        cantidad: Number(ajusteForm.cantidad),
+        cantidad: cantidadAjuste,
         tipo: ajusteForm.tipo,
         referencia: ajusteForm.referencia || (ajusteForm.tipo === 'entrada' ? 'ajuste' : 'merma'),
       });
@@ -451,7 +484,10 @@ export default function LogisticaKardexModule() {
                 <li key={i.id} className="flex justify-between text-slate-300">
                   <span>{i.nombre}</span>
                   <span className="text-red-400">
-                    {Number(i.stock_actual).toFixed(3)} / min {Number(i.stock_minimo).toFixed(3)} {i.unidad_medida}
+                    {formatInsumoWithUnit(i.stock_actual, i.unidad_medida)} / mín. {formatInsumoWithUnit(
+                      i.stock_minimo,
+                      i.unidad_medida
+                    )}
                   </span>
                 </li>
               ))}
@@ -476,15 +512,28 @@ export default function LogisticaKardexModule() {
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-0.5">Unidad</label>
+              <label className="block text-xs text-slate-500 mb-0.5">U.M. (unidad de medida)</label>
               <input
-                className="input-field text-sm py-1.5 w-24"
+                className="input-field text-sm py-1.5 w-28"
+                list="kardex-um-sugerencias"
+                autoComplete="off"
                 value={insumoForm.unidad_medida}
                 onChange={(e) => setInsumoForm((f) => ({ ...f, unidad_medida: e.target.value }))}
+                title="kg, g, L, unid, etc. Los totales y el stock se expresan en esta unidad"
               />
+              <datalist id="kardex-um-sugerencias">
+                <option value="kg" />
+                <option value="g" />
+                <option value="L" />
+                <option value="ml" />
+                <option value="unid" />
+                <option value="pz" />
+                <option value="caja" />
+                <option value="bolsa" />
+              </datalist>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-0.5">Stock mín.</label>
+              <label className="block text-xs text-slate-500 mb-0.5">Mín. (por U.M.)</label>
               <input
                 type="number"
                 min="0"
@@ -492,6 +541,7 @@ export default function LogisticaKardexModule() {
                 className="input-field text-sm py-1.5 w-24"
                 value={insumoForm.stock_minimo}
                 onChange={(e) => setInsumoForm((f) => ({ ...f, stock_minimo: e.target.value }))}
+                title="Mínimo de stock en la misma U.M. (kg, unid, L…)"
               />
             </div>
             <label className="flex items-center gap-2 text-sm">
@@ -512,10 +562,17 @@ export default function LogisticaKardexModule() {
                 <tr className="bg-[#1F2937] text-[#E5E7EB] text-left border-b border-[#3B82F6]/25">
                   <th className="p-2.5">Insumo</th>
                   <th className="p-2.5">U.M.</th>
-                  <th className="p-2.5 text-right">Stock</th>
-                  <th className="p-2.5 text-right">Mín.</th>
-                  <th className="p-2.5 text-right">C. prom.</th>
-                  <th className="p-2.5 text-right">Valor</th>
+                  <th className="p-2.5" title="Stock total expresado con unidad (evita leer 10,0000 como ‘diez mil’)">
+                    Total
+                  </th>
+                  <th className="p-2.5">Mín. (U.M.)</th>
+                  <th
+                    className="p-2.5 text-right"
+                    title="Costo promedio ponderado = refleja el precio de compra, por 1 U.M. (kg, L, unid…)"
+                  >
+                    P. compra (S/ U.M.)
+                  </th>
+                  <th className="p-2.5 text-right">Valor inv.</th>
                 </tr>
               </thead>
               <tbody>
@@ -525,12 +582,14 @@ export default function LogisticaKardexModule() {
                     <tr key={i.id} className={`border-b border-slate-600/40 ${low ? 'bg-red-950/30' : ''}`}>
                       <td className="p-2.5 font-medium">{i.nombre}</td>
                       <td className="p-2.5 text-slate-400">{i.unidad_medida}</td>
-                      <td className={`p-2.5 text-right ${low ? 'text-red-300 font-semibold' : 'text-slate-200'}`}>
-                        {Number(i.stock_actual).toFixed(4)}
+                      <td className={`p-2.5 text-slate-200 font-medium ${low ? 'text-red-200' : ''}`} title="Existencia en U.M.">
+                        {formatInsumoWithUnit(i.stock_actual, i.unidad_medida)}
                       </td>
-                      <td className="p-2.5 text-right text-slate-400">{Number(i.stock_minimo).toFixed(2)}</td>
-                      <td className="p-2.5 text-right">{formatCurrency(i.costo_promedio || 0)}</td>
-                      <td className="p-2.5 text-right text-emerald-400/90">
+                      <td className="p-2.5 text-slate-300 tabular-nums">
+                        {formatInsumoWithUnit(i.stock_minimo, i.unidad_medida)}
+                      </td>
+                      <td className="p-2.5 text-right tabular-nums">{formatCurrency(i.costo_promedio || 0)}</td>
+                      <td className="p-2.5 text-right text-emerald-400/90 tabular-nums">
                         {formatCurrency((Number(i.stock_actual) * Number(i.costo_promedio)) || 0)}
                       </td>
                     </tr>
@@ -544,7 +603,11 @@ export default function LogisticaKardexModule() {
 
       {tab === 'compras' && (
         <div className="space-y-3">
-          <p className="text-slate-400 text-sm">Registro de entradas con costo unitario. Actualiza stock y costo promedio ponderado.</p>
+          <p className="text-slate-400 text-sm">
+            Compra: cantidad y costo <strong>por unidad de medida del insumo</strong> (si la U.M. es kg, 10 = 10 kg y el costo es S/ por kg). El
+            listado de insumos usa formato <span className="whitespace-nowrap">es-PE (coma decimal)</span> para no confundir 10,5 con
+            &quot;diez mil&quot;.
+          </p>
           <form onSubmit={runCompra} className="space-y-2">
             {compraLines.map((row, idx) => (
               <div key={idx} className="flex flex-wrap gap-2 items-center">
@@ -783,7 +846,7 @@ export default function LogisticaKardexModule() {
               <MdInventory2 className="inline mr-1" />
               Valor inventario actual: <span className="text-emerald-400 font-medium">{formatCurrency(kardexData.valor_inventario)}</span>
               {' · '}
-              Stock: {Number(kardexData.insumo?.stock_actual).toFixed(4)} {kardexData.insumo?.unidad_medida}
+              Stock: {formatInsumoWithUnit(kardexData.insumo?.stock_actual, kardexData.insumo?.unidad_medida)}
             </div>
           )}
           <div className="overflow-x-auto border border-slate-600/50 rounded-lg max-h-[480px] overflow-y-auto">
@@ -817,10 +880,12 @@ export default function LogisticaKardexModule() {
                       </span>
                     </td>
                     <td className="p-2 text-slate-500 text-xs">{m.referencia} {m.referencia_id?.slice(0, 8)}</td>
-                    <td className="p-2 text-right">{Number(m.cantidad).toFixed(4)}</td>
+                    <td className="p-2 text-right tabular-nums">{formatInsumoQty(m.cantidad)}</td>
                     <td className="p-2 text-right">{formatCurrency(m.costo_unitario)}</td>
                     <td className="p-2 text-right">{formatCurrency(m.costo_total)}</td>
-                    <td className="p-2 text-right font-medium text-slate-200">{Number(m.stock_resultante).toFixed(4)}</td>
+                    <td className="p-2 text-right font-medium text-slate-200 tabular-nums">
+                      {formatInsumoQty(m.stock_resultante)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1005,7 +1070,9 @@ export default function LogisticaKardexModule() {
             >
               <option value="">—</option>
               {insumos.map((i) => (
-                <option key={i.id} value={i.id}>{i.nombre} ({Number(i.stock_actual).toFixed(2)})</option>
+                <option key={i.id} value={i.id}>
+                  {i.nombre} ({formatInsumoWithUnit(i.stock_actual, i.unidad_medida)})
+                </option>
               ))}
             </select>
           </div>
