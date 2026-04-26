@@ -50,8 +50,8 @@ router.post('/insumos', (req, res) => {
     const costo = !Number.isFinite(pc) || pc < 0 ? 0 : pc;
     const id = uuidv4();
     runSql(
-      `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_unidades, minimo_unidades, stock_minimo, costo_promedio, activo, created_at, updated_at)
-       VALUES (?, ?, ?, 0, ?, ?, 0, ?, ?, datetime('now'), datetime('now'))`,
+      `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_unidades, minimo_unidades, kg_por_unidad, stock_minimo, costo_promedio, activo, created_at, updated_at)
+       VALUES (?, ?, ?, 0, ?, ?, 0, 0, ?, ?, datetime('now'), datetime('now'))`,
       [id, n, umed, su, mu, costo, activo === false || activo === 0 ? 0 : 1]
     );
     logAudit({

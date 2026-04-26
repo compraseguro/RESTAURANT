@@ -629,6 +629,7 @@ async function initDatabase() {
         stock_actual REAL NOT NULL DEFAULT 0,
         stock_unidades REAL NOT NULL DEFAULT 0,
         minimo_unidades REAL NOT NULL DEFAULT 0,
+        kg_por_unidad REAL NOT NULL DEFAULT 0,
         stock_minimo REAL NOT NULL DEFAULT 0,
         costo_promedio REAL NOT NULL DEFAULT 0,
         activo INTEGER NOT NULL DEFAULT 1,
@@ -1006,6 +1007,7 @@ async function initDatabase() {
     };
     addInsumoColIfMissing('stock_unidades', 'ALTER TABLE insumos ADD COLUMN stock_unidades REAL NOT NULL DEFAULT 0');
     addInsumoColIfMissing('minimo_unidades', 'ALTER TABLE insumos ADD COLUMN minimo_unidades REAL NOT NULL DEFAULT 0');
+    addInsumoColIfMissing('kg_por_unidad', 'ALTER TABLE insumos ADD COLUMN kg_por_unidad REAL NOT NULL DEFAULT 0');
     /* Evitar códigos tipo "kg5" en U.M. (solo letras) */
     try {
       const insM = queryAll('SELECT id, unidad_medida FROM insumos');

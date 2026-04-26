@@ -19,9 +19,17 @@ function registrarEntrada(tx, { insumoId, cantidad, costoUnitario, referencia, r
   if (cant <= 0 || Number.isNaN(cant)) throw new Error('La cantidad de entrada debe ser mayor a 0');
   if (costoN < 0 || Number.isNaN(costoN)) throw new Error('Costo unitario inválido');
 
-  const addU = unidadesIngreso;
-  const unidadesSuma =
-    addU != null && addU !== '' && Number.isFinite(Number(addU)) ? Math.max(0, Number(addU)) : null;
+  const uAnt = Number(ins.stock_unidades != null ? ins.stock_unidades : 0) || 0;
+  const hasUnidadesMov = unidadesIngreso != null;
+  const uInMov = hasUnidadesMov ? Math.max(0, Number(unidadesIngreso) || 0) : 0;
+  const uRes = uAnt + (hasUnidadesMov ? uInMov : 0);
+  const kpuAnt = Number(ins.kg_por_unidad != null ? ins.kg_por_unidad : 0) || 0;
+  let kpuN = kpuAnt;
+  if (uRes > 1e-9) {
+    kpuN = (kpuAnt * uAnt + cant) / uRes;
+  } else {
+    kpuN = 0;
+  }
 
   const stockAnt = Number(ins.stock_actual || 0);
   const costoAnt = Number(ins.costo_promedio || 0);
@@ -30,17 +38,15 @@ function registrarEntrada(tx, { insumoId, cantidad, costoUnitario, referencia, r
     stockRes > 0 ? (stockAnt * costoAnt + cant * costoN) / stockRes : costoN;
   const costoTotal = cant * costoN;
 
-  if (unidadesSuma != null) {
-    const uAnt = Number(ins.stock_unidades != null ? ins.stock_unidades : 0) || 0;
-    const uRes = uAnt + unidadesSuma;
+  if (hasUnidadesMov) {
     tx.run(
-      `UPDATE insumos SET stock_actual = ?, stock_unidades = ?, costo_promedio = ?, updated_at = datetime('now') WHERE id = ?`,
-      [stockRes, uRes, nuevoCosto, insumoId]
+      `UPDATE insumos SET stock_actual = ?, stock_unidades = ?, costo_promedio = ?, kg_por_unidad = ?, updated_at = datetime('now') WHERE id = ?`,
+      [stockRes, uRes, nuevoCosto, kpuN, insumoId]
     );
   } else {
     tx.run(
-      `UPDATE insumos SET stock_actual = ?, costo_promedio = ?, updated_at = datetime('now') WHERE id = ?`,
-      [stockRes, nuevoCosto, insumoId]
+      `UPDATE insumos SET stock_actual = ?, costo_promedio = ?, kg_por_unidad = ?, updated_at = datetime('now') WHERE id = ?`,
+      [stockRes, nuevoCosto, kpuN, insumoId]
     );
   }
 
@@ -84,13 +90,28 @@ function registrarSalida(tx, { insumoId, cantidad, referencia, referenciaId, use
     );
   }
 
+  const uAnt = Number(ins.stock_unidades != null ? ins.stock_unidades : 0) || 0;
+  const kpu = Number(ins.kg_por_unidad != null ? ins.kg_por_unidad : 0) || 0;
+  let dU = 0;
+  if (kpu > 1e-12 && uAnt > 1e-12) {
+    dU = need / kpu;
+    if (dU - uAnt > 1e-4) {
+      throw new Error(
+        `Unidades de «${ins.nombre}» insuficientes: para ${need.toFixed(3)} ${
+          ins.unidad_medida
+        } (≈${dU.toFixed(3)} U a ${kpu.toFixed(3)} kg/U) solo hay ${uAnt.toFixed(3)} U en stock. Ajuste compras o recetas.`
+      );
+    }
+  }
+
   const costoU = Number(ins.costo_promedio || 0);
   const stockRes = stockAnt - need;
+  const uRes = Math.max(0, uAnt - dU);
   const costoTotal = need * costoU;
 
   tx.run(
-    `UPDATE insumos SET stock_actual = ?, updated_at = datetime('now') WHERE id = ?`,
-    [stockRes, insumoId]
+    `UPDATE insumos SET stock_actual = ?, stock_unidades = ?, updated_at = datetime('now') WHERE id = ?`,
+    [stockRes, uRes, insumoId]
   );
 
   const kid = uuidv4();
@@ -225,7 +246,7 @@ function aplicarSalidasVentasEnTransaccion(tx, orderIds, userId) {
  * Compra de insumos (una operación, un referencia_id compartido).
  * @param {import('../database').Tx} tx
  * @param {Array<{ insumo_id: string, cantidad: number, costo_unitario: number, unidades?: number }>} items
- *   unidades: opcional, suma a `insumos.stock_unidades` (cajas/bultos) en la misma compra
+ *   unidades: opcional; con kg actualiza el promedio `kg_por_unidad` y el stock en U. Sin unidades, solo afecta al kardex (kg).
  * @param {string} [userId]
  * @returns {string} id de operación
  */

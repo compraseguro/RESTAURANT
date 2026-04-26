@@ -562,9 +562,10 @@ export default function LogisticaKardexModule() {
       {tab === 'insumos' && (
         <div className="space-y-4">
           <p className="text-slate-500 text-xs max-w-3xl">
-            <strong className="text-slate-300">Kardex y recetas usan la cantidad en kg/L (o ml).</strong> La columna
-            <strong> Cant. (U)</strong> y el <strong>mínimo en U</strong> son para bolsas, cajas, etc. El alerta &quot;Bajo mínimo&quot; y el requerimiento
-            se basan en <strong>unidades</strong>, no en kilos.
+            <strong className="text-slate-300">Kardex y recetas usan cantidad en kg/L (o ml).</strong>{' '}
+            <strong>Cant. (U)</strong> y <strong>Prom. kg o L por U</strong> se alimentan con la compra (kg ÷ unidades) y
+            con las ventas receta (p. ej. 1/4 o 1/8 de pollo) se descuentan a la vez <strong>kg</strong> y <strong>U</strong> según
+            ese promedio. El mínimo en <strong>U</strong> (no en kilos) dispara alertas y requisición.
           </p>
           <form onSubmit={addInsumo} className="flex flex-wrap gap-2 items-end bg-[#1F2937]/80 p-3 rounded-lg border border-[#3B82F6]/25">
             <div>
@@ -643,12 +644,18 @@ export default function LogisticaKardexModule() {
             </button>
           </form>
           <div className="overflow-x-auto border border-slate-600/50 rounded-lg">
-            <table className="w-full text-sm min-w-[780px]">
+            <table className="w-full text-sm min-w-[880px]">
               <thead>
                 <tr className="bg-[#1F2937] text-[#E5E7EB] text-left border-b border-[#3B82F6]/25">
                   <th className="p-2.5">Insumo</th>
                   <th className="p-2.5">Cant. (kg / L)</th>
                   <th className="p-2.5">Cant. (U)</th>
+                  <th
+                    className="p-2.5"
+                    title="Peso o volumen medio por 1 U (carnes, aves), actualizado con cada compra que indique kg y unidades"
+                  >
+                    Prom. (kg / L por U)
+                  </th>
                   <th className="p-2.5" title="Unidades mínimas para alerta y requerimiento">Mínimo (U)</th>
                   <th
                     className="p-2.5 text-right"
@@ -665,14 +672,25 @@ export default function LogisticaKardexModule() {
                 {insumos.map((i) => {
                   const uAct = Number(i.stock_unidades != null ? i.stock_unidades : 0);
                   const uMin = Number(i.minimo_unidades != null ? i.minimo_unidades : 0);
+                  const kpu = Number(i.kg_por_unidad != null ? i.kg_por_unidad : 0) || 0;
                   const low = uMin > 0 && uAct < uMin;
+                  const umc = (i.unidad_medida || 'kg').replace(/[0-9]/g, '').trim() || 'kg';
                   return (
                     <tr key={i.id} className={`border-b border-slate-600/40 ${low ? 'bg-red-950/30' : ''}`}>
                       <td className="p-2.5 font-medium">{i.nombre}</td>
                       <td className="p-2.5 text-slate-200 tabular-nums">
-                        {formatInsumoWithUnit(i.stock_actual, (i.unidad_medida || 'kg').replace(/[0-9]/g, '').trim() || 'kg')}
+                        {formatInsumoWithUnit(i.stock_actual, umc)}
                       </td>
                       <td className="p-2.5 text-slate-200 tabular-nums">{formatInsumoQty(uAct)} U</td>
+                      <td className="p-2.5 text-amber-200/90 tabular-nums text-sm">
+                        {kpu > 0 ? (
+                          <span title="Usado al vender: por cada kg que descuenta la receta, también bajan las U (p. ej. cuartos de pollo)">
+                            {formatInsumoQty(kpu)} {umc}/U
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
                       <td className={`p-2.5 tabular-nums ${low ? 'text-rose-300 font-medium' : 'text-slate-300'}`}>
                         {formatInsumoQty(uMin)} U
                       </td>
@@ -692,13 +710,21 @@ export default function LogisticaKardexModule() {
       {tab === 'compras' && (
         <div className="space-y-3">
           <p className="text-slate-400 text-sm">
-            <strong className="text-slate-200">Cant.</strong> y <strong>costo</strong> = entradas en <strong>kg, L, ml, etc.</strong> (S/ por esa U.M. de masa/volumen).
-            <strong> Unid.</strong> = opcional: suma cajas/bolsas a la columna <em>Cant. (U)</em> del insumo. Números con formato{' '}
+            <strong className="text-slate-200">Cant. kg / L</strong> y <strong>costo</strong> = peso/volumen comprado (S/ por kg, L, etc.).
+            <strong> Unid.</strong> = pollos, cajas, bultos, etc. Si pones <strong>kg y unidades</strong>, el sistema
+            promedia <strong>kg / U</strong> (p. ej. 50 kg ÷ 20 piezas = 2,5 kg por unidad) y al <strong>vender por receta</strong> (cuartos, octavos) descuenta
+            a la vez el <strong>kg</strong> y la parte de <strong>U</strong> que corresponda. Solo kg (sin U) sigue yendo al kardex de masa. Formato numérico{' '}
             <span className="whitespace-nowrap">es-PE (coma decimal)</span>.
           </p>
           <form onSubmit={runCompra} className="space-y-2">
-            {compraLines.map((row, idx) => (
-              <div key={idx} className="flex flex-wrap gap-2 items-end">
+            {compraLines.map((row, idx) => {
+              const cq = row.cantidad != null && String(row.cantidad).trim() !== '' ? parseLocaleNumber(row.cantidad) : NaN;
+              const uq = row.unidades != null && String(row.unidades).trim() !== '' ? parseLocaleNumber(row.unidades) : NaN;
+              const razon =
+                Number.isFinite(cq) && cq > 0 && Number.isFinite(uq) && uq > 0 ? (cq / uq) : null;
+              return (
+                <div key={idx} className="space-y-0.5">
+              <div className="flex flex-wrap gap-2 items-end">
                 <select
                   className="input-field text-sm py-1.5 min-w-[180px]"
                   value={row.insumo_id}
@@ -779,7 +805,15 @@ export default function LogisticaKardexModule() {
                   </button>
                 )}
               </div>
-            ))}
+                {razon != null && (
+                  <p className="text-[10px] text-amber-400/85 pl-0.5">
+                    Estos valores implican <strong>≈ {formatInsumoQty(razon)}</strong> (kg o L) por 1 U en esta
+                    línea; al guardar se promedia con el stock en U.
+                  </p>
+                )}
+                </div>
+              );
+            })}
             <div className="flex gap-2">
               <button
                 type="button"
@@ -799,7 +833,9 @@ export default function LogisticaKardexModule() {
       {tab === 'recetas' && (
         <div className="space-y-4">
           <p className="text-slate-400 text-sm">
-            Vincula un plato del menú a insumos. Al cobrar en caja, se descuenta stock según receta × cantidad vendida.
+            Vincula un plato al menú. Cada <strong>cantidad usada</strong> es en la U.M. del insumo (kg, L, ml). Con pollo
+            o carnes, si el insumo tiene promedio kg / U, al vender se descuentan <strong>kg y unidades en proporción</strong> (p. ej. 0,5 kg
+            = 0,2 U si 1 U = 2,5 kg).
           </p>
           <form onSubmit={saveReceta} className="bg-[#1F2937]/70 p-4 rounded-xl border border-[#3B82F6]/25 space-y-3">
             <div className="flex flex-wrap gap-2">
