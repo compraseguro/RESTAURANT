@@ -91,7 +91,7 @@ export default function LogisticaKardexModule() {
   const [loading, setLoading] = useState(true);
 
   const [insumoForm, setInsumoForm] = useState({
-    nombre: '', unidad_medida: 'kg', stock_unidades: '0', minimo_unidades: '0', activo: true,
+    nombre: '', unidad_medida: 'kg', precio_compra: '', stock_unidades: '0', minimo_unidades: '0', activo: true,
   });
   const [compraLines, setCompraLines] = useState([{ insumo_id: '', cantidad: '', costo_unitario: '', unidades: '' }]);
   const [recetaForm, setRecetaForm] = useState({
@@ -212,18 +212,29 @@ export default function LogisticaKardexModule() {
     try {
       const su = parseLocaleNumber(insumoForm.stock_unidades);
       const mu = parseLocaleNumber(insumoForm.minimo_unidades);
+      const rawPrecio = String(insumoForm.precio_compra ?? '').trim();
+      const pCompra = rawPrecio === '' ? 0 : parseLocaleNumber(rawPrecio);
+      if (rawPrecio !== '' && !Number.isFinite(pCompra)) {
+        toast.error('Precio de compra: número no válido (S/ por kg, L, etc.)');
+        return;
+      }
+      if (pCompra < 0) {
+        toast.error('El precio de compra no puede ser negativo');
+        return;
+      }
       await api.post(`${BASE}/insumos`, {
         nombre: insumoForm.nombre.trim(),
         unidad_medida: String(insumoForm.unidad_medida || 'kg')
           .replace(/[0-9]/g, '')
           .trim() || 'kg',
+        costo_promedio: pCompra,
         stock_unidades: Number.isFinite(su) && su >= 0 ? su : 0,
         minimo_unidades: Number.isFinite(mu) && mu >= 0 ? mu : 0,
         activo: insumoForm.activo,
       });
       toast.success('Insumo creado');
       setInsumoForm({
-        nombre: '', unidad_medida: 'kg', stock_unidades: '0', minimo_unidades: '0', activo: true,
+        nombre: '', unidad_medida: 'kg', precio_compra: '', stock_unidades: '0', minimo_unidades: '0', activo: true,
       });
       loadCore();
     } catch (err) {
@@ -584,6 +595,18 @@ export default function LogisticaKardexModule() {
               </datalist>
             </div>
             <div>
+              <label className="block text-xs text-slate-500 mb-0.5">Precio compra (S/ U.M. masa)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                className="input-field text-sm py-1.5 w-28"
+                value={insumoForm.precio_compra}
+                onChange={(e) => setInsumoForm((f) => ({ ...f, precio_compra: e.target.value }))}
+                placeholder="0,00"
+                title="S/ por kg, L o según la U.M. de masa (mismo criterio que kardex y compras)"
+              />
+            </div>
+            <div>
               <label className="block text-xs text-slate-500 mb-0.5">Cant. inicial (U)</label>
               <input
                 type="number"
@@ -629,9 +652,9 @@ export default function LogisticaKardexModule() {
                   <th className="p-2.5" title="Unidades mínimas para alerta y requerimiento">Mínimo (U)</th>
                   <th
                     className="p-2.5 text-right"
-                    title="S/ por kg, litro, etc. (kardex — mismo criterio que en compra)"
+                    title="S/ por kg, L, ml, etc. según la U.M. de masa (costo promedio del kardex; mismo criterio que al comprar)"
                   >
-                    Costo (S/ U.M. masa)
+                    Costo
                   </th>
                   <th className="p-2.5 text-right" title="Cant. kg/L × costo (valorizado)">
                     Valor inv.
