@@ -74,14 +74,33 @@ function registrarEntrada(tx, { insumoId, cantidad, costoUnitario, referencia, r
 
 /**
  * @param {import('../database').Tx} tx
+ * @param {object} p
+ * @param {string} p.insumoId
+ * @param {number} p.cantidad — kg/L (si hay unidadesSalida + kpu, se reemplaza por U×kpu)
+ * @param {number} [p.unidadesSalida] — p. ej. 1/4 = 0,25 U; con kpu>0 el producto vinculado (num/den) descuenta U y kg coherente
  */
-function registrarSalida(tx, { insumoId, cantidad, referencia, referenciaId, userId }) {
+function registrarSalida(tx, { insumoId, cantidad, unidadesSalida, referencia, referenciaId, userId }) {
   const ins = tx.queryOne('SELECT * FROM insumos WHERE id = ?', [insumoId]);
   if (!ins) throw new Error(`Insumo no encontrado: ${insumoId}`);
   if (!Number(ins.activo)) throw new Error(`Insumo inactivo: ${ins.nombre}`);
 
-  const need = Number(cantidad);
-  if (need <= 0 || Number.isNaN(need)) throw new Error('La cantidad de salida debe ser mayor a 0');
+  const uAnt = Number(ins.stock_unidades != null ? ins.stock_unidades : 0) || 0;
+  const kpu = Number(ins.kg_por_unidad != null ? ins.kg_por_unidad : 0) || 0;
+  const useUnidadExacta = unidadesSalida != null && unidadesSalida !== '' && Number.isFinite(Number(unidadesSalida));
+  const dUin = useUnidadExacta ? Math.max(0, Number(unidadesSalida)) : 0;
+
+  let need;
+  if (useUnidadExacta && dUin > 0 && kpu > 1e-12) {
+    if (dUin - uAnt > 1e-4) {
+      throw new Error(
+        `Unidades de «${ins.nombre}» insuficientes: se requieren ${dUin.toFixed(3)} U, hay ${uAnt.toFixed(3)} U.`
+      );
+    }
+    need = dUin * kpu;
+  } else {
+    need = Number(cantidad);
+    if (need <= 0 || Number.isNaN(need)) throw new Error('La cantidad de salida debe ser mayor a 0');
+  }
 
   const stockAnt = Number(ins.stock_actual || 0);
   if (stockAnt + 1e-9 < need) {
@@ -90,10 +109,10 @@ function registrarSalida(tx, { insumoId, cantidad, referencia, referenciaId, use
     );
   }
 
-  const uAnt = Number(ins.stock_unidades != null ? ins.stock_unidades : 0) || 0;
-  const kpu = Number(ins.kg_por_unidad != null ? ins.kg_por_unidad : 0) || 0;
   let dU = 0;
-  if (kpu > 1e-12 && uAnt > 1e-12) {
+  if (useUnidadExacta && dUin > 0 && kpu > 1e-12) {
+    dU = dUin;
+  } else if (kpu > 1e-12 && uAnt > 1e-12) {
     dU = need / kpu;
     if (dU - uAnt > 1e-4) {
       throw new Error(
@@ -194,11 +213,26 @@ function aplicarSalidasVentaPedido(tx, orderId, userId) {
       const den = Number(product.kardex_insumo_den);
       const n = num > 0 && Number.isFinite(num) ? num : 1;
       const d = den > 0 && Number.isFinite(den) ? den : 1;
-      const need = (n / d) * qtyLine;
-      if (need > 0) {
+      const fracU = (n / d) * qtyLine;
+      if (fracU <= 0) {
+        continue;
+      }
+      const insL = tx.queryOne('SELECT kg_por_unidad, stock_unidades, stock_actual FROM insumos WHERE id = ?', [directInsumo]);
+      const kpu0 = insL ? Number(insL.kg_por_unidad) || 0 : 0;
+      if (kpu0 > 1e-12) {
+        const needKg = fracU * kpu0;
         registrarSalida(tx, {
           insumoId: directInsumo,
-          cantidad: need,
+          cantidad: needKg,
+          unidadesSalida: fracU,
+          referencia: 'venta',
+          referenciaId: orderId,
+          userId,
+        });
+      } else {
+        registrarSalida(tx, {
+          insumoId: directInsumo,
+          cantidad: fracU,
           referencia: 'venta',
           referenciaId: orderId,
           userId,

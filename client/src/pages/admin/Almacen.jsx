@@ -101,6 +101,7 @@ export default function Almacen() {
   const [receptionForm, setReceptionForm] = useState({});
   const [receptionNotes, setReceptionNotes] = useState('');
   const [expenseHistory, setExpenseHistory] = useState([]);
+  const [kardexBajoMin, setKardexBajoMin] = useState([]);
   const [warehouseForm, setWarehouseForm] = useState({ name: '', description: '' });
   const [itemForm, setItemForm] = useState({
     name: '',
@@ -136,10 +137,14 @@ export default function Almacen() {
 
   const load = async () => {
     try {
-      const [currentCategories, warehouseData] = await Promise.all([
+      const [currentCategories, warehouseData, dashK] = await Promise.all([
         api.get('/categories'),
         api.get('/inventory/warehouse-stock'),
+        planAllowsAlmacenAvanzado
+          ? api.get('/kardex-inventory/dashboard').catch(() => null)
+          : Promise.resolve(null),
       ]);
+      setKardexBajoMin(dashK?.insumos_bajo_minimo && Array.isArray(dashK.insumos_bajo_minimo) ? dashK.insumos_bajo_minimo : []);
       setCategories(currentCategories);
       setWarehouses(warehouseData.warehouses || []);
       const warehouseProducts = (warehouseData.products || [])
@@ -244,9 +249,17 @@ export default function Almacen() {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     return matchSearch;
   });
-  const lowStockGlobal = products.filter(
+  const lowFromWarehouse = products.filter(
     (p) => p.process === 'non_transformed' && Number(p.stock || 0) <= 10
   );
+  const lowFromKardex = (kardexBajoMin || []).map((i) => ({
+    id: i.id,
+    name: i.nombre,
+    stock: Number(i.stock_unidades) || 0,
+    minimo: Number(i.minimo_unidades) || 0,
+    isKardex: true,
+  }));
+  const lowStockGlobal = [...lowFromWarehouse, ...lowFromKardex];
   const productsForSelectedWarehouse = selectedWarehouseView
     ? scopedProducts.filter(p =>
       (p.warehouse_stocks || []).some(ws => sameWarehouseId(ws.warehouse_id, selectedWarehouseView))
@@ -426,8 +439,17 @@ export default function Almacen() {
       return;
     }
     try {
+      const pIds = selectedRequirementIds.filter((id) => {
+        const row = lowStockGlobal.find((x) => x.id === id);
+        return row && !row.isKardex;
+      });
+      const inIds = selectedRequirementIds.filter((id) => {
+        const row = lowStockGlobal.find((x) => x.id === id);
+        return row && row.isKardex;
+      });
       const requirement = await api.post('/inventory/requirements/low-stock', {
-        product_ids: selectedRequirementIds,
+        product_ids: pIds,
+        insumo_ids: inIds,
       });
       setLatestRequirement(requirement);
       const nextForm = {};
@@ -686,7 +708,7 @@ export default function Almacen() {
         >
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
-              Se han seleccionado automáticamente los productos con stock bajo. Puedes desmarcar los que no quieras incluir.
+              Incluye productos de almacén (stock ≤ 10) e <strong>insumos kardex</strong> con unidades por debajo del mínimo. Puedes desmarcar filas.
             </p>
             <div className="max-h-[340px] overflow-y-auto border border-slate-200 rounded-lg">
               <table className="w-full text-sm">
@@ -708,9 +730,18 @@ export default function Almacen() {
                           onChange={() => toggleRequirementItem(p.id)}
                         />
                       </td>
-                      <td className="p-2.5 font-medium text-slate-700">{p.name}</td>
-                      <td className="p-2.5 text-slate-500">{p.category_name || 'Sin categoría'}</td>
-                      <td className="p-2.5 text-red-600 font-semibold">{p.stock}</td>
+                      <td className="p-2.5 font-medium text-slate-700">
+                        {p.name}
+                        {p.isKardex && <span className="ml-1 text-xs text-amber-700">(Kardex)</span>}
+                      </td>
+                      <td className="p-2.5 text-slate-500">
+                        {p.isKardex ? 'Kardex insumos' : (p.category_name || 'Sin categoría')}
+                      </td>
+                      <td className="p-2.5 text-red-600 font-semibold">
+                        {p.isKardex
+                          ? `${p.stock} U (mín. ${p.minimo} U)`
+                          : p.stock}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -1,6 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql, withTransaction, logAudit } = require('../database');
+const kardexInventory = require('../services/kardexInventoryService');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -56,6 +57,19 @@ function ensureWarehouseTables() {
       total_cost REAL DEFAULT 0
     )
   `);
+  const reqItemCols = queryAll('PRAGMA table_info(inventory_requirement_items)');
+  if (!reqItemCols.some((c) => c.name === 'item_type')) {
+    runSql("ALTER TABLE inventory_requirement_items ADD COLUMN item_type TEXT DEFAULT 'product'");
+  }
+  if (!reqItemCols.some((c) => c.name === 'insumo_id')) {
+    runSql('ALTER TABLE inventory_requirement_items ADD COLUMN insumo_id TEXT');
+  }
+  if (!reqItemCols.some((c) => c.name === 'category_name')) {
+    runSql("ALTER TABLE inventory_requirement_items ADD COLUMN category_name TEXT DEFAULT ''");
+  }
+  if (!reqItemCols.some((c) => c.name === 'price')) {
+    runSql('ALTER TABLE inventory_requirement_items ADD COLUMN price REAL DEFAULT 0');
+  }
   runSql(`
     CREATE TABLE IF NOT EXISTS inventory_expenses (
       id TEXT PRIMARY KEY,
@@ -300,7 +314,8 @@ router.get('/warehouse-stock', authenticateToken, requireRole('admin'), (req, re
 router.post('/requirements/low-stock', authenticateToken, requireRole('admin'), (req, res) => {
   try {
     ensureWarehouseTables();
-    const selectedIds = Array.isArray(req.body?.product_ids) ? req.body.product_ids : null;
+    const selectedProductIds = Array.isArray(req.body?.product_ids) ? req.body.product_ids : null;
+    const selectedInsumoIds = Array.isArray(req.body?.insumo_ids) ? req.body.insumo_ids : null;
     const lowStockProducts = queryAll(
       `SELECT p.id, p.name, p.stock, p.stock_warehouse_id, p.price,
               c.name as category_name
@@ -310,10 +325,21 @@ router.post('/requirements/low-stock', authenticateToken, requireRole('admin'), 
          AND p.process_type = 'non_transformed'
          AND p.stock <= 10
        ORDER BY p.stock ASC, p.name ASC`
-    ).filter(p => !selectedIds || selectedIds.includes(p.id));
+    ).filter(p => !selectedProductIds || selectedProductIds.includes(p.id));
 
-    if (!lowStockProducts.length) {
-      return res.status(400).json({ error: 'No hay productos de stock bajo para requerimiento' });
+    const insumosBajo = queryAll(
+      `SELECT id, nombre, stock_unidades, minimo_unidades, unidad_medida, costo_promedio, kg_por_unidad
+       FROM insumos
+       WHERE activo = 1
+         AND minimo_unidades > 0
+         AND stock_unidades + 0.0001 < minimo_unidades
+       ORDER BY (minimo_unidades - stock_unidades) DESC, nombre`
+    ).filter(
+      (i) => !selectedInsumoIds || selectedInsumoIds.includes(i.id)
+    );
+
+    if (!lowStockProducts.length && !insumosBajo.length) {
+      return res.status(400).json({ error: 'No hay productos de almacén ni insumos kardex bajo mínimo para requerimiento' });
     }
 
     const principal = getWarehouseByName('Almacen Principal')
@@ -324,7 +350,35 @@ router.post('/requirements/low-stock', authenticateToken, requireRole('admin'), 
       [requirementId, req.user.id, 'pending']
     );
 
-    const items = lowStockProducts.map(product => {
+    const insertItem = (it) => {
+      runSql(
+        `INSERT INTO inventory_requirement_items
+        (id, requirement_id, product_id, product_name, warehouse_id, warehouse_name, current_stock, suggested_qty, selected, received_qty, unit_cost, total_cost, item_type, insumo_id, category_name, price)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          it.id,
+          it.requirement_id,
+          it.product_id,
+          it.product_name,
+          it.warehouse_id,
+          it.warehouse_name,
+          it.current_stock,
+          it.suggested_qty,
+          it.selected,
+          it.received_qty,
+          it.unit_cost,
+          it.total_cost,
+          it.item_type || 'product',
+          it.insumo_id != null ? it.insumo_id : null,
+          it.category_name != null ? it.category_name : '',
+          it.price != null ? it.price : 0,
+        ]
+      );
+    };
+
+    const outItems = [];
+
+    lowStockProducts.forEach((product) => {
       const warehouse = (product.stock_warehouse_id
         ? queryOne('SELECT * FROM warehouse_locations WHERE id = ? AND is_active = 1', [product.stock_warehouse_id])
         : null) || principal;
@@ -342,36 +396,56 @@ router.post('/requirements/low-stock', authenticateToken, requireRole('admin'), 
         received_qty: 0,
         unit_cost: 0,
         total_cost: 0,
+        item_type: 'product',
+        insumo_id: null,
         category_name: product.category_name || 'Sin categoría',
         price: Number(product.price || 0),
       };
-      runSql(
-        `INSERT INTO inventory_requirement_items
-        (id, requirement_id, product_id, product_name, warehouse_id, warehouse_name, current_stock, suggested_qty, selected, received_qty, unit_cost, total_cost)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          item.id,
-          item.requirement_id,
-          item.product_id,
-          item.product_name,
-          item.warehouse_id,
-          item.warehouse_name,
-          item.current_stock,
-          item.suggested_qty,
-          item.selected,
-          item.received_qty,
-          item.unit_cost,
-          item.total_cost,
-        ]
-      );
-      return item;
+      insertItem(item);
+      outItems.push(item);
+    });
+
+    insumosBajo.forEach((inm) => {
+      const uAct = Number(inm.stock_unidades) || 0;
+      const uMin = Number(inm.minimo_unidades) || 0;
+      const faltU = Math.max(0, uMin - uAct);
+      const suggestedU = faltU < 0.5 ? 1 : Math.max(0.1, faltU);
+      const kpu = Number(inm.kg_por_unidad) || 0;
+      const suggestedQtyKg = kpu > 0 ? Math.round(suggestedU * kpu * 100) / 100 : 0;
+      const item = {
+        id: uuidv4(),
+        requirement_id: requirementId,
+        product_id: inm.id,
+        product_name: `[Kardex] ${inm.nombre} · faltan ≈${suggestedU.toFixed(2)} U (mín. ${uMin} U)`,
+        warehouse_id: principal?.id || '',
+        warehouse_name: principal?.name || '—',
+        current_stock: uAct,
+        suggested_qty: suggestedQtyKg,
+        selected: 1,
+        received_qty: 0,
+        unit_cost: 0,
+        total_cost: 0,
+        item_type: 'insumo',
+        insumo_id: inm.id,
+        category_name: 'Kardex insumos',
+        price: Number(inm.costo_promedio || 0),
+        uom: inm.unidad_medida || 'kg',
+        faltan_unidades: faltU,
+        sugerir_unidades: suggestedU,
+      };
+      const row = { ...item };
+      delete row.uom;
+      delete row.faltan_unidades;
+      delete row.sugerir_unidades;
+      insertItem(row);
+      outItems.push({ ...row, faltan_unidades: faltU, uom: inm.unidad_medida || 'kg' });
     });
 
     res.status(201).json({
       id: requirementId,
       status: 'pending',
       created_at: new Date().toISOString(),
-      items,
+      items: outItems,
     });
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo crear requerimiento' });
@@ -433,7 +507,32 @@ router.post('/receptions/receive', authenticateToken, requireRole('admin'), (req
         throw new Error('Debes ingresar costo de compra mayor a 0 para todos los items recepcionados');
       }
       const product = queryOne('SELECT * FROM products WHERE id = ?', [item.product_id]);
-      if (!product) return;
+      if (!product) {
+        const ins = queryOne('SELECT * FROM insumos WHERE id = ?', [item.product_id]);
+        if (!ins) return;
+        withTransaction((tx) => {
+          kardexInventory.registrarCompraInsumos(
+            tx,
+            [{ insumo_id: ins.id, cantidad: qty, costo_unitario: unitCost, unidades: 0 }],
+            req.user.id
+          );
+        });
+        const totalCost = qty * unitCost;
+        totalExpense += totalCost;
+        processed += 1;
+        runSql(
+          `UPDATE inventory_requirement_items
+             SET received_qty = COALESCE(received_qty, 0) + ?, unit_cost = ?, total_cost = COALESCE(total_cost, 0) + ?
+             WHERE requirement_id = ? AND (product_id = ? OR insumo_id = ?)`,
+          [qty, unitCost, totalCost, requirement_id, ins.id, ins.id]
+        );
+        runSql(
+          `INSERT INTO inventory_expenses (id, requirement_id, product_id, warehouse_id, quantity, unit_cost, total_cost, notes, created_by)
+             VALUES (?, ?, ?, '', ?, ?, ?, ?, ?)`,
+          [uuidv4(), requirement_id, ins.id, qty, unitCost, totalCost, notes || 'Recepción kardex (insumo)', req.user.id]
+        );
+        return;
+      }
 
       const chosenWarehouseId = item.warehouse_id || product.stock_warehouse_id || principal?.id || '';
       const warehouse = queryOne('SELECT * FROM warehouse_locations WHERE id = ? AND is_active = 1', [chosenWarehouseId]) || principal;
