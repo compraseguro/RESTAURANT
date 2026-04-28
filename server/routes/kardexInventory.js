@@ -456,35 +456,89 @@ router.get('/export/kardex/:insumoId', (req, res) => {
       `SELECT * FROM kardex WHERE id_insumo = ? ORDER BY datetime(created_at) ASC`,
       [req.params.insumoId]
     );
+    const kpu = Number(ins.kg_por_unidad || 0);
+    const um = String(ins.unidad_medida || '').replace(/[0-9]/g, '').trim() || 'kg';
     const header = [
       'fecha',
       'tipo',
-      'cantidad',
+      `cantidad_${um}`,
+      'cantidad_u',
       'costo_unitario',
       'costo_total',
-      'stock_ant',
-      'stock_res',
-      'referencia',
-      'ref_id',
+      `stock_ant_${um}`,
+      'stock_ant_u',
+      `stock_res_${um}`,
+      'stock_res_u',
     ];
     const lines = [header.join(',')];
+    const totals = {
+      entrada: { qtyKg: 0, qtyU: 0, cost: 0 },
+      salida: { qtyKg: 0, qtyU: 0, cost: 0 },
+    };
     movs.forEach((m) => {
+      const qtyKg = Number(m.cantidad || 0);
+      const qtyU = kpu > 1e-12 ? (qtyKg / kpu) : null;
+      const stockAntKg = Number(m.stock_anterior || 0);
+      const stockResKg = Number(m.stock_resultante || 0);
+      const stockAntU = kpu > 1e-12 ? (stockAntKg / kpu) : null;
+      const stockResU = kpu > 1e-12 ? (stockResKg / kpu) : null;
+      const t = String(m.tipo_movimiento || '').toLowerCase();
+      if (t === 'entrada' || t === 'salida') {
+        totals[t].qtyKg += qtyKg;
+        totals[t].qtyU += qtyU != null ? qtyU : 0;
+        totals[t].cost += Number(m.costo_total || 0);
+      }
       lines.push(
         [
           m.fecha,
-          m.tipo_movimiento,
-          m.cantidad,
+          t === 'entrada' ? 'Entrada' : t === 'salida' ? 'Salida' : 'Ajuste',
+          qtyKg,
+          qtyU == null ? '—' : qtyU,
           m.costo_unitario,
           m.costo_total,
-          m.stock_anterior,
-          m.stock_resultante,
-          m.referencia,
-          m.referencia_id,
+          stockAntKg,
+          stockAntU == null ? '—' : stockAntU,
+          stockResKg,
+          stockResU == null ? '—' : stockResU,
         ]
           .map((x) => `"${String(x).replace(/"/g, '""')}"`)
           .join(',')
       );
     });
+    lines.push('');
+    lines.push(`"RESUMEN","","","","","","","","",""`);
+    lines.push(
+      [
+        'Total Entradas',
+        '',
+        totals.entrada.qtyKg,
+        kpu > 1e-12 ? totals.entrada.qtyU : '—',
+        '',
+        totals.entrada.cost,
+        '',
+        '',
+        '',
+        '',
+      ]
+        .map((x) => `"${String(x).replace(/"/g, '""')}"`)
+        .join(',')
+    );
+    lines.push(
+      [
+        'Total Salidas',
+        '',
+        totals.salida.qtyKg,
+        kpu > 1e-12 ? totals.salida.qtyU : '—',
+        '',
+        totals.salida.cost,
+        '',
+        '',
+        '',
+        '',
+      ]
+        .map((x) => `"${String(x).replace(/"/g, '""')}"`)
+        .join(',')
+    );
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="kardex-${ins.nombre.slice(0, 40).replace(/[^\w]/g, '_')}.csv"`);
     res.send('\uFEFF' + lines.join('\n'));
