@@ -410,7 +410,13 @@ export default function POSPanel() {
     if (billingForm.doc_type === 'factura' && billingForm.customer_doc_type !== '6') {
       setBillingForm(prev => ({ ...prev, customer_doc_type: '6' }));
     }
-  }, [billingForm.doc_type, billingForm.customer_doc_type]);
+    if (billingForm.doc_type === 'nota_venta' && billingForm.customer_doc_type !== '0') {
+      setBillingForm(prev => ({ ...prev, customer_doc_type: '0' }));
+    }
+    if (billingForm.doc_type === 'nota_venta' && billingForm.invoice_lines_mode !== 'detallado') {
+      setBillingForm(prev => ({ ...prev, invoice_lines_mode: 'detallado' }));
+    }
+  }, [billingForm.doc_type, billingForm.customer_doc_type, billingForm.invoice_lines_mode]);
 
   useEffect(() => {
     if (!billingForm.enabled) {
@@ -778,6 +784,7 @@ export default function POSPanel() {
 
   const validateBillingData = () => {
     if (!billingForm.enabled) return null;
+    if (billingForm.doc_type === 'nota_venta') return null;
     const docNumber = String(billingForm.customer_doc_number || '').trim();
     const customerName = String(billingForm.customer_name || '').trim();
     if (billingForm.doc_type === 'factura') {
@@ -797,7 +804,7 @@ export default function POSPanel() {
     const doc = await api.post('/billing/issue', {
       order_id: orderId,
       doc_type: billingForm.doc_type,
-      invoice_lines_mode: billingForm.invoice_lines_mode,
+      invoice_lines_mode: billingForm.doc_type === 'nota_venta' ? 'detallado' : billingForm.invoice_lines_mode,
       customer: {
         doc_type: billingForm.customer_doc_type,
         doc_number: billingForm.customer_doc_number,
@@ -925,6 +932,18 @@ export default function POSPanel() {
         toast.success(`${payableOrders.length} pedido(s) cobrados. ${detail}`);
         const pdf = issuedDocs.find((d) => d?.pdf_url)?.pdf_url;
         if (pdf) window.open(pdf, '_blank');
+        if (billingForm.doc_type === 'nota_venta') {
+          printNotaVenta({
+            tableName: selectedTable?.name || '',
+            orders: payableOrders,
+            docs: issuedDocs,
+            customer: {
+              doc_number: billingForm.customer_doc_number,
+              name: billingForm.customer_name,
+              address: billingForm.customer_address,
+            },
+          });
+        }
       } else {
         toast.success(`${payableOrders.length} pedido(s) cobrados en ${selectedTable.name}`);
       }
@@ -1288,6 +1307,56 @@ export default function POSPanel() {
       <p><strong>Subtotal:</strong> ${formatCurrency(selectionBaseTotal)}</p>
       <p><strong>Descuento:</strong> ${formatCurrency(discountPreview)}</p>
       <p style="font-size:16px"><strong>Total a pagar:</strong> ${formatCurrency(payableTotal)}</p>
+      <script>window.print(); window.onafterprint = () => window.close();</script>
+      </body></html>
+    `);
+    w.document.close();
+  };
+
+  const printNotaVenta = ({ tableName, orders, docs, customer }) => {
+    const restaurantName = String(printRestaurantInfo?.name || 'Resto-FADEY').trim() || 'Resto-FADEY';
+    const logoUrl = String(printRestaurantInfo?.logo || '').trim();
+    const logoBlock = logoUrl
+      ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
+      : '';
+    const docText = (docs || []).map((d) => String(d?.full_number || '').trim()).filter(Boolean).join(' · ');
+    const customerName = String(customer?.name || '').trim();
+    const customerDoc = String(customer?.doc_number || '').trim();
+    const customerAddress = String(customer?.address || '').trim();
+    const customerBlock = (customerName || customerDoc || customerAddress)
+      ? `
+      <div class="sep"></div>
+      <table>
+        ${customerName ? `<tr><td style="padding:2px 0"><strong>Cliente:</strong></td><td style="padding:2px 0">${customerName}</td></tr>` : ''}
+        ${customerDoc ? `<tr><td style="padding:2px 0"><strong>Documento:</strong></td><td style="padding:2px 0">${customerDoc}</td></tr>` : ''}
+        ${customerAddress ? `<tr><td style="padding:2px 0"><strong>Dirección:</strong></td><td style="padding:2px 0">${customerAddress}</td></tr>` : ''}
+      </table>
+      `
+      : '';
+    const items = (orders || []).flatMap((o) => o.items || []);
+    const itemLines = items
+      .map((i) => `<tr><td style="padding:4px 0">${i.quantity}x ${i.product_name}</td><td style="text-align:right;padding:4px 0">${formatCurrency(i.subtotal)}</td></tr>`)
+      .join('');
+    const total = (orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
+    const w = window.open('', '_blank', 'width=420,height=720');
+    if (!w) return toast.error('No se pudo abrir la nota de venta');
+    w.document.write(`
+      <html><head><title>Nota de venta ${tableName || ''}</title>
+      <style>
+        body{font-family:Arial,sans-serif;font-size:12px;padding:16px}
+        .muted{color:#64748b}.sep{border-top:1px dashed #cbd5e1;margin:8px 0}
+        table{width:100%;border-collapse:collapse}
+        .center{text-align:center}
+      </style></head><body>
+      <div class="center">${logoBlock}<h3 style="margin:0 0 6px 0">${restaurantName}</h3></div>
+      <h3 style="margin:0 0 4px 0">NOTA DE VENTA</h3>
+      ${docText ? `<p class="center" style="margin:0 0 6px 0;font-weight:600">${docText}</p>` : ''}
+      <p class="muted">${formatPeDateTimeLine(new Date())}</p>
+      ${customerBlock}
+      <div class="sep"></div>
+      <table>${itemLines}</table>
+      <div class="sep"></div>
+      <p style="font-size:16px"><strong>Total:</strong> ${formatCurrency(total)}</p>
       <script>window.print(); window.onafterprint = () => window.close();</script>
       </body></html>
     `);
@@ -1921,12 +1990,13 @@ export default function POSPanel() {
                         >
                           <option value="boleta">Boleta</option>
                           <option value="factura">Factura</option>
+                          <option value="nota_venta">Nota de venta</option>
                         </select>
                         <select
                           className="input-field"
                           value={billingForm.customer_doc_type}
                           onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_type: e.target.value }))}
-                          disabled={billingForm.doc_type === 'factura'}
+                          disabled={billingForm.doc_type === 'factura' || billingForm.doc_type === 'nota_venta'}
                         >
                           <option value="1">DNI</option>
                           <option value="6">RUC</option>
@@ -1943,6 +2013,7 @@ export default function POSPanel() {
                               checked={billingForm.invoice_lines_mode === 'detallado'}
                               onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'detallado' }))}
                               className="border-[#3B82F6]/50"
+                              disabled={billingForm.doc_type === 'nota_venta'}
                             />
                             Detallado (cada producto)
                           </label>
@@ -1953,6 +2024,7 @@ export default function POSPanel() {
                               checked={billingForm.invoice_lines_mode === 'consumo'}
                               onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'consumo' }))}
                               className="border-[#3B82F6]/50"
+                              disabled={billingForm.doc_type === 'nota_venta'}
                             />
                             Por consumo (una línea)
                           </label>
@@ -1967,7 +2039,7 @@ export default function POSPanel() {
                             setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
                           }
                         />
-                        {(billingForm.customer_doc_type === '1' || billingForm.customer_doc_type === '6') && (
+                        {(billingForm.doc_type !== 'nota_venta' && (billingForm.customer_doc_type === '1' || billingForm.customer_doc_type === '6')) && (
                           <button
                             type="button"
                             title="Consultar nombre o razón social en padrón (requiere PERU_CONSULTAS_TOKEN en el servidor)"
@@ -1994,7 +2066,7 @@ export default function POSPanel() {
                       />
                       <input
                         className="input-field"
-                        placeholder="Celular del cliente (para enviar comprobante por WhatsApp)"
+                        placeholder=""
                         value={billingForm.customer_phone}
                         onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_phone: e.target.value }))}
                       />
@@ -2022,7 +2094,7 @@ export default function POSPanel() {
                       onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
                       className="rounded border-[#3B82F6]/50"
                     />
-                    Emitir comprobante (boleta o factura)
+                    Emitir Comprovate
                   </label>
                 )}
                 <button type="button" onClick={submitOrder} className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
@@ -2233,12 +2305,13 @@ export default function POSPanel() {
                             >
                               <option value="boleta">Boleta</option>
                               <option value="factura">Factura</option>
+                              <option value="nota_venta">Nota de venta</option>
                             </select>
                             <select
                               className="input-field text-sm"
                               value={billingForm.customer_doc_type}
                               onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_doc_type: e.target.value }))}
-                              disabled={billingForm.doc_type === 'factura'}
+                              disabled={billingForm.doc_type === 'factura' || billingForm.doc_type === 'nota_venta'}
                             >
                               <option value="1">DNI</option>
                               <option value="6">RUC</option>
@@ -2254,6 +2327,7 @@ export default function POSPanel() {
                                     checked={billingForm.invoice_lines_mode === 'detallado'}
                                     onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'detallado' }))}
                                     className="border-[#3B82F6]/50"
+                                    disabled={billingForm.doc_type === 'nota_venta'}
                                   />
                                   Detallado (cada producto)
                                 </label>
@@ -2264,6 +2338,7 @@ export default function POSPanel() {
                                     checked={billingForm.invoice_lines_mode === 'consumo'}
                                     onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'consumo' }))}
                                     className="border-[#3B82F6]/50"
+                                    disabled={billingForm.doc_type === 'nota_venta'}
                                   />
                                   Por consumo (una línea)
                                 </label>
@@ -2278,7 +2353,7 @@ export default function POSPanel() {
                                   setBillingForm((prev) => ({ ...prev, customer_doc_number: normalizeDocNumber(e.target.value) }))
                                 }
                               />
-                              {(billingForm.customer_doc_type === '1' || billingForm.customer_doc_type === '6') && (
+                              {(billingForm.doc_type !== 'nota_venta' && (billingForm.customer_doc_type === '1' || billingForm.customer_doc_type === '6')) && (
                                 <button
                                   type="button"
                                   title="Consultar nombre o razón social en padrón (requiere PERU_CONSULTAS_TOKEN en el servidor)"
@@ -2307,7 +2382,7 @@ export default function POSPanel() {
                               <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Celular del cliente</label>
                               <input
                                 className="input-field text-sm w-full"
-                                placeholder="Para enviar el PDF del comprobante por WhatsApp"
+                                placeholder=""
                                 value={billingForm.customer_phone}
                                 onChange={(e) => setBillingForm((prev) => ({ ...prev, customer_phone: e.target.value }))}
                               />
@@ -2450,7 +2525,7 @@ export default function POSPanel() {
                         onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
                         className="rounded border-[#3B82F6]/50 mt-0.5"
                       />
-                      <span>Emitir comprobante (boleta o factura) en esta cobranza</span>
+                      <span>Emitir Comprovate</span>
                     </label>
 
                     <button
