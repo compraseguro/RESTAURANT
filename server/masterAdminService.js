@@ -380,7 +380,7 @@ function evaluatePagoUsoComprobanteWindow() {
     ) {
       addNotification({
         title: 'Pago por uso — subir comprobante',
-        message: `La fecha de pago es el ${nextDue}. Puede cargar el comprobante desde ${uploadStart} y hasta ${deadline} (${grace} día(s) de gracia). Si no lo sube, el sistema se bloqueará.`,
+        message: `Próxima facturación: ${nextDue}. Carga permitida hasta: ${deadline}.`,
         created_by: 'Sistema automático',
         level: 'warning',
       });
