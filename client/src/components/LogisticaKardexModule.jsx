@@ -1101,7 +1101,20 @@ export default function LogisticaKardexModule() {
               <MdInventory2 className="inline mr-1" />
               Valor inventario actual: <span className="text-emerald-400 font-medium">{formatCurrency(kardexData.valor_inventario)}</span>
               {' · '}
-              Stock: {formatInsumoWithUnit(kardexData.insumo?.stock_actual, kardexData.insumo?.unidad_medida)}
+              {(() => {
+                const um = String(kardexData.insumo?.unidad_medida || '').replace(/[0-9]/g, '').trim();
+                const sAct = Number(kardexData.insumo?.stock_actual || 0);
+                const uAct = Number(kardexData.insumo?.stock_unidades || 0);
+                const hasKg = sAct > 0;
+                const hasU = uAct > 0;
+                return (
+                  <span>
+                    Stock: {hasKg ? formatInsumoWithUnit(sAct, um) : '—'}
+                    {' · '}
+                    U: {hasU ? `${formatInsumoQty(uAct)} U` : '—'}
+                  </span>
+                );
+              })()}
             </div>
           )}
           <div className="overflow-x-auto border border-slate-600/50 rounded-lg max-h-[480px] overflow-y-auto">
@@ -1111,38 +1124,54 @@ export default function LogisticaKardexModule() {
                   <th className="p-2">Fecha</th>
                   <th className="p-2">Tipo</th>
                   <th className="p-2">Ref.</th>
-                  <th className="p-2 text-right">Cant.</th>
+                  <th className="p-2 text-right">Cant. (kg/L · U)</th>
                   <th className="p-2 text-right">C. unit.</th>
                   <th className="p-2 text-right">C. total</th>
-                  <th className="p-2 text-right">Stock res.</th>
+                  <th className="p-2 text-right">Stock res. (kg/L · U)</th>
                 </tr>
               </thead>
               <tbody>
-                {(kardexData?.movimientos || []).map((m) => (
-                  <tr key={m.id} className="border-b border-slate-600/40">
-                    <td className="p-2 text-slate-300">{formatDateTime(m.fecha || m.created_at)}</td>
-                    <td className="p-2">
-                      <span
-                        className={
-                          m.tipo_movimiento === 'entrada'
-                            ? 'text-emerald-400'
-                            : m.tipo_movimiento === 'salida'
-                              ? 'text-red-400'
-                              : 'text-amber-300'
-                        }
-                      >
-                        {m.tipo_movimiento}
-                      </span>
-                    </td>
-                    <td className="p-2 text-slate-500 text-xs">{m.referencia} {m.referencia_id?.slice(0, 8)}</td>
-                    <td className="p-2 text-right tabular-nums">{formatInsumoQty(m.cantidad)}</td>
-                    <td className="p-2 text-right">{formatCurrency(m.costo_unitario)}</td>
-                    <td className="p-2 text-right">{formatCurrency(m.costo_total)}</td>
-                    <td className="p-2 text-right font-medium text-slate-200 tabular-nums">
-                      {formatInsumoQty(m.stock_resultante)}
-                    </td>
-                  </tr>
-                ))}
+                {(kardexData?.movimientos || []).map((m) => {
+                  const ins = kardexData?.insumo || {};
+                  const um = String(ins.unidad_medida || '').replace(/[0-9]/g, '').trim();
+                  const kpu = Number(ins.kg_por_unidad || 0);
+                  const qtyKg = Number(m.cantidad || 0);
+                  const stockKg = Number(m.stock_resultante || 0);
+                  const canShowU = kpu > 1e-12;
+                  const qtyU = canShowU ? (qtyKg / kpu) : 0;
+                  const stockU = canShowU ? (stockKg / kpu) : 0;
+                  return (
+                    <tr key={m.id} className="border-b border-slate-600/40">
+                      <td className="p-2 text-slate-300">{formatDateTime(m.fecha || m.created_at)}</td>
+                      <td className="p-2">
+                        <span
+                          className={
+                            m.tipo_movimiento === 'entrada'
+                              ? 'text-emerald-400'
+                              : m.tipo_movimiento === 'salida'
+                                ? 'text-red-400'
+                                : 'text-amber-300'
+                          }
+                        >
+                          {m.tipo_movimiento}
+                        </span>
+                      </td>
+                      <td className="p-2 text-slate-500 text-xs">{m.referencia} {m.referencia_id?.slice(0, 8)}</td>
+                      <td className="p-2 text-right tabular-nums">
+                        {formatInsumoQty(qtyKg)} {um || 'kg'}
+                        {' · '}
+                        {canShowU ? `${formatInsumoQty(qtyU)} U` : '—'}
+                      </td>
+                      <td className="p-2 text-right">{formatCurrency(m.costo_unitario)}</td>
+                      <td className="p-2 text-right">{formatCurrency(m.costo_total)}</td>
+                      <td className="p-2 text-right font-medium text-slate-200 tabular-nums">
+                        {formatInsumoQty(stockKg)} {um || 'kg'}
+                        {' · '}
+                        {canShowU ? `${formatInsumoQty(stockU)} U` : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {kardexInsumo && kardexData && !(kardexData.movimientos || []).length && (
