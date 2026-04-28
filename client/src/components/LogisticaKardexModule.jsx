@@ -803,7 +803,7 @@ export default function LogisticaKardexModule() {
 
       {tab === 'compras' && (
         <div className="space-y-3">
-          <p className="text-slate-400 text-sm">
+          <p className="text-[#E5E7EB] text-sm">
             <strong className="text-slate-200">Cant. kg / L</strong> y <strong>costo</strong> = peso/volumen comprado (S/ por kg, L, etc.).
             <strong> Unid.</strong> = pollos, cajas, bultos, etc. Si pones <strong>kg y unidades</strong>, el sistema
             promedia <strong>kg / U</strong> (p. ej. 50 kg ÷ 20 piezas = 2,5 kg por unidad) y al <strong>vender por receta</strong> (cuartos, octavos) descuenta
@@ -926,7 +926,7 @@ export default function LogisticaKardexModule() {
 
       {tab === 'recetas' && (
         <div className="space-y-4">
-          <p className="text-slate-400 text-sm">
+          <p className="text-[#E5E7EB] text-sm">
             Vincula un plato al menú. Cada <strong>cantidad usada</strong> es en la U.M. del insumo (kg, L, ml). Con pollo
             o carnes, si el insumo tiene promedio kg / U, al vender se descuentan <strong>kg y unidades en proporción</strong> (p. ej. 0,5 kg
             = 0,2 U si 1 U = 2,5 kg).
@@ -1097,7 +1097,7 @@ export default function LogisticaKardexModule() {
             )}
           </div>
           {kardexData && (
-            <div className="text-sm text-slate-400 mb-2">
+            <div className="text-sm text-[#E5E7EB] mb-2">
               <MdInventory2 className="inline mr-1" />
               Valor inventario actual: <span className="text-emerald-400 font-medium">{formatCurrency(kardexData.valor_inventario)}</span>
               {' · '}
@@ -1123,11 +1123,12 @@ export default function LogisticaKardexModule() {
                 <tr className="text-left text-[#E5E7EB] border-b border-[#3B82F6]/25">
                   <th className="p-2">Fecha</th>
                   <th className="p-2">Tipo</th>
-                  <th className="p-2">Ref.</th>
-                  <th className="p-2 text-right">Cant. (kg/L · U)</th>
+                  <th className="p-2 text-right">Cant. (kg/L)</th>
+                  <th className="p-2 text-right">Cant. (U)</th>
                   <th className="p-2 text-right">C. unit.</th>
                   <th className="p-2 text-right">C. total</th>
-                  <th className="p-2 text-right">Stock res. (kg/L · U)</th>
+                  <th className="p-2 text-right">Stock res. (kg/L)</th>
+                  <th className="p-2 text-right">Stock res. (U)</th>
                 </tr>
               </thead>
               <tbody>
@@ -1153,20 +1154,25 @@ export default function LogisticaKardexModule() {
                                 : 'text-amber-300'
                           }
                         >
-                          {m.tipo_movimiento}
+                          {m.tipo_movimiento === 'entrada'
+                            ? 'Entrada'
+                            : m.tipo_movimiento === 'salida'
+                              ? 'Salida'
+                              : 'Ajuste'}
                         </span>
                       </td>
-                      <td className="p-2 text-slate-500 text-xs">{m.referencia} {m.referencia_id?.slice(0, 8)}</td>
                       <td className="p-2 text-right tabular-nums">
                         {formatInsumoQty(qtyKg)} {um || 'kg'}
-                        {' · '}
+                      </td>
+                      <td className="p-2 text-right tabular-nums">
                         {canShowU ? `${formatInsumoQty(qtyU)} U` : '—'}
                       </td>
                       <td className="p-2 text-right">{formatCurrency(m.costo_unitario)}</td>
                       <td className="p-2 text-right">{formatCurrency(m.costo_total)}</td>
                       <td className="p-2 text-right font-medium text-slate-200 tabular-nums">
                         {formatInsumoQty(stockKg)} {um || 'kg'}
-                        {' · '}
+                      </td>
+                      <td className="p-2 text-right font-medium text-slate-200 tabular-nums">
                         {canShowU ? `${formatInsumoQty(stockU)} U` : '—'}
                       </td>
                     </tr>
@@ -1371,7 +1377,7 @@ export default function LogisticaKardexModule() {
 
       {tab === 'ajustes' && (
         <form onSubmit={enviarAjuste} className="max-w-md space-y-3">
-          <p className="text-slate-400 text-sm">Entrada manual o salida por merma (al costo promedio al salir).</p>
+          <p className="text-[#E5E7EB] text-sm">Entrada manual o salida por merma (al costo promedio al salir).</p>
           <div>
             <label className="block text-xs text-slate-500">Insumo</label>
             <select
