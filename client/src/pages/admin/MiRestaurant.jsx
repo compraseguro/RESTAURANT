@@ -782,15 +782,15 @@ export default function MiRestaurant() {
               </div>
               {pagoUsoComprobanteUi?.policy_active && pagoUsoComprobanteUi.upload_comprobante_message ? (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                  <p>{pagoUsoComprobanteUi.upload_comprobante_message}</p>
-                  {pagoUsoComprobanteUi.fecha_proxima_facturacion ? (
-                    <p className="text-xs text-slate-500 mt-2">
-                      Próxima facturación: {pagoUsoComprobanteUi.fecha_proxima_facturacion}
-                      {pagoUsoComprobanteUi.comprobante_upload_deadline
-                        ? ` · Carga permitida hasta: ${pagoUsoComprobanteUi.comprobante_upload_deadline}`
-                        : ''}
-                    </p>
-                  ) : null}
+                  <p className="whitespace-nowrap overflow-x-auto text-xs md:text-sm">
+                    {pagoUsoComprobanteUi.upload_comprobante_message}
+                    {pagoUsoComprobanteUi.fecha_proxima_facturacion
+                      ? ` · Próxima facturación: ${pagoUsoComprobanteUi.fecha_proxima_facturacion}`
+                      : ''}
+                    {pagoUsoComprobanteUi.comprobante_upload_deadline
+                      ? ` · Carga permitida hasta: ${pagoUsoComprobanteUi.comprobante_upload_deadline}`
+                      : ''}
+                  </p>
                 </div>
               ) : null}
               {!canEditBillingMaster && !isRestaurantAdmin ? (

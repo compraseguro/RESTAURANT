@@ -333,6 +333,7 @@ function evaluatePagoUsoComprobanteWindow() {
   const control = { ...getControlConfig() };
   const pago = { ...readSetting(PAGO_USO_APP_KEY, {}) };
   const nextDue = String(pago.fecha_proxima_facturacion || '').trim();
+  const uploadDaysBeforeDue = 3;
   const grace = Math.max(1, Math.min(14, Number(pago.comprobante_grace_days_after_due ?? 3)));
   const notifyWin = Math.max(1, Math.min(30, Number(control.notify_days_before ?? 5)));
   const hasUrl = Boolean(String(pago.comprobante_pago_url || '').trim());
@@ -352,6 +353,7 @@ function evaluatePagoUsoComprobanteWindow() {
     return;
   }
 
+  const uploadStart = addDaysToIsoDate(nextDue, -uploadDaysBeforeDue);
   const deadline = addDaysToIsoDate(nextDue, grace);
   if (!hasUrl && /^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
     const daysToDue = diffDays(today, nextDue);
@@ -363,7 +365,7 @@ function evaluatePagoUsoComprobanteWindow() {
     ) {
       addNotification({
         title: 'Pago por uso — subir comprobante',
-        message: `La fecha de pago es el ${nextDue}. Puede cargar el comprobante desde esa fecha y hasta ${deadline} (${grace} día(s) de gracia). Si no lo sube, el sistema se bloqueará.`,
+        message: `La fecha de pago es el ${nextDue}. Puede cargar el comprobante desde ${uploadStart} y hasta ${deadline} (${grace} día(s) de gracia). Si no lo sube, el sistema se bloqueará.`,
         created_by: 'Sistema automático',
         level: 'warning',
       });
@@ -407,6 +409,7 @@ function buildPagoUsoComprobanteUiState() {
   const control = getControlConfig();
   const pago = readSetting(PAGO_USO_APP_KEY, {});
   const nextDue = String(pago.fecha_proxima_facturacion || '').trim();
+  const uploadDaysBeforeDue = 3;
   const grace = Math.max(1, Math.min(14, Number(pago.comprobante_grace_days_after_due ?? 3)));
   const notifyWin = Math.max(1, Math.min(30, Number(control.notify_days_before ?? 5)));
   const hasUrl = Boolean(String(pago.comprobante_pago_url || '').trim());
@@ -424,17 +427,18 @@ function buildPagoUsoComprobanteUiState() {
     };
   }
 
+  const uploadStart = addDaysToIsoDate(nextDue, -uploadDaysBeforeDue);
   const deadline = addDaysToIsoDate(nextDue, grace);
   const daysToDue = diffDays(today, nextDue);
-  const uploadOk = diffDays(nextDue, today) >= 0 && diffDays(today, deadline) >= 0;
+  const uploadOk = diffDays(uploadStart, today) >= 0 && diffDays(today, deadline) >= 0;
 
   let msg = '';
-  if (today < nextDue) {
-    msg = `Podrá subir o actualizar el comprobante a partir del ${nextDue}.`;
+  if (today < uploadStart) {
+    msg = `Podrá subir o actualizar el comprobante a partir del ${uploadStart}.`;
   } else if (diffDays(deadline, today) > 0) {
     msg = `Plazo de carga finalizado (${deadline}).`;
   } else if (!hasUrl) {
-    msg = `Cargue el comprobante antes del ${deadline} (${grace} día(s) después del ${nextDue}).`;
+    msg = `Cargue el comprobante entre ${uploadStart} y ${deadline}.`;
   }
 
   return {
@@ -442,6 +446,7 @@ function buildPagoUsoComprobanteUiState() {
     fecha_proxima_facturacion: nextDue,
     comprobante_grace_days_after_due: grace,
     notify_days_before_comprobante: notifyWin,
+    comprobante_upload_start: uploadStart,
     comprobante_upload_deadline: deadline,
     upload_comprobante_allowed: uploadOk,
     quitar_comprobante_allowed: diffDays(today, nextDue) <= 0,
