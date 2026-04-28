@@ -186,6 +186,7 @@ export default function StaffDineInOrderUI({
   cartLayout = 'lines',
   className = '',
   stackedSelfOrder = false,
+  productActionLabel = '',
 }) {
   const rootClass = embedded
     ? 'h-[min(50vh,460px)] max-h-[min(70vh,560px)] w-full min-h-0'
@@ -245,16 +246,29 @@ export default function StaffDineInOrderUI({
       ) : (
         <div className={`grid gap-2 ${stackedSelfOrder ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
           {filteredProducts.map((p) => (
-            <button
-              type="button"
+            <div
               key={p.id}
-              onClick={() => onProductPick(p)}
               className="rounded-xl border border-[#3B82F6]/20 bg-[#1D4ED8]/25 p-3 text-left transition-shadow hover:border-[#93C5FD]/60 hover:shadow-md"
             >
-              <p className="truncate text-sm font-medium text-white">{p.name}</p>
-              <p className="mt-1 text-sm font-bold text-[#DBEAFE]">{formatCurrency(p.price)}</p>
-              {showStockInOrderingUI(p) ? <p className="mt-0.5 text-xs text-[#BFDBFE]">Stock: {p.stock}</p> : null}
-            </button>
+              <button
+                type="button"
+                onClick={() => onProductPick(p)}
+                className="w-full text-left"
+              >
+                <p className="truncate text-sm font-medium text-white">{p.name}</p>
+                <p className="mt-1 text-sm font-bold text-[#DBEAFE]">{formatCurrency(p.price)}</p>
+                {showStockInOrderingUI(p) ? <p className="mt-0.5 text-xs text-[#BFDBFE]">Stock: {p.stock}</p> : null}
+              </button>
+              {productActionLabel ? (
+                <button
+                  type="button"
+                  onClick={() => onProductPick(p)}
+                  className="mt-2 w-full rounded-lg border border-[#93C5FD]/35 bg-[#1E3A8A]/40 px-2 py-1.5 text-xs font-semibold text-[#E0E7FF] hover:bg-[#1E3A8A]/65"
+                >
+                  {productActionLabel}
+                </button>
+              ) : null}
+            </div>
           ))}
         </div>
       )}

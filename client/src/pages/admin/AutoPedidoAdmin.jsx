@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { api } from '../../utils/api';
+import { api, resolveMediaUrl } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-import { MdAdd, MdDelete, MdSave, MdContentCopy, MdQrCode2, MdUploadFile, MdRestaurantMenu } from 'react-icons/md';
+import { MdAdd, MdDelete, MdSave, MdContentCopy, MdQrCode2, MdUploadFile, MdRestaurantMenu, MdEdit } from 'react-icons/md';
 import CartasHorizontalCarousel from '../../components/CartasHorizontalCarousel';
 import Modal from '../../components/Modal';
 import {
@@ -77,6 +77,11 @@ export default function AutoPedidoAdmin() {
   const { user } = useAuth();
   const canSave = user?.role === 'admin';
   const [cartas, setCartas] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [productForm, setProductForm] = useState({ name: '', price: '', category_id: '' });
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [genOpenIndex, setGenOpenIndex] = useState(null);
@@ -87,10 +92,17 @@ export default function AutoPedidoAdmin() {
 
   const load = () => {
     setLoading(true);
-    Promise.all([api.get('/admin-modules/auto-pedido/cartas'), api.get('/tables')])
-      .then(([cData, tData]) => {
+    Promise.all([
+      api.get('/admin-modules/auto-pedido/cartas'),
+      api.get('/tables'),
+      api.get('/products'),
+      api.get('/categories'),
+    ])
+      .then(([cData, tData, pData, catData]) => {
         setCartas(Array.isArray(cData.cartas) ? cData.cartas : []);
         setTables(Array.isArray(tData) ? tData : []);
+        setProducts(Array.isArray(pData) ? pData : []);
+        setCategories(Array.isArray(catData) ? catData : []);
       })
       .catch((e) => toast.error(e.message))
       .finally(() => setLoading(false));
@@ -209,6 +221,60 @@ export default function AutoPedidoAdmin() {
     navigator.clipboard.writeText(url).then(() => toast.success('Enlace copiado')).catch(() => toast.error('No se pudo copiar'));
   };
 
+  const filteredProducts = products.filter((p) => {
+    if (Number(p.is_active || 0) === 0) return false;
+    if (selectedCategory !== 'all' && p.category_id !== selectedCategory) return false;
+    return true;
+  });
+
+  const openEditProduct = (product) => {
+    setEditingProduct(product);
+    setProductForm({
+      name: String(product?.name || ''),
+      price: String(product?.price ?? ''),
+      category_id: String(product?.category_id || ''),
+    });
+  };
+
+  const saveProduct = async () => {
+    if (!editingProduct) return;
+    const name = String(productForm.name || '').trim();
+    const categoryId = String(productForm.category_id || '').trim();
+    const price = Number(productForm.price);
+    if (!name || !categoryId || !Number.isFinite(price) || price < 0) {
+      toast.error('Completa nombre, categoría y precio');
+      return;
+    }
+    const tid = toast.loading('Guardando producto…');
+    try {
+      await api.put(`/products/${editingProduct.id}`, {
+        name,
+        category_id: categoryId,
+        price,
+      });
+      setEditingProduct(null);
+      toast.success('Producto actualizado', { id: tid });
+      load();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo actualizar', { id: tid });
+    }
+  };
+
+  const uploadProductImage = async (productId, event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !canSave) return;
+    const tid = toast.loading('Subiendo imagen…');
+    try {
+      const { url } = await api.upload(file);
+      await api.put(`/products/${productId}`, { image: url || '' });
+      toast.success('Imagen actualizada', { id: tid });
+      load();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo actualizar imagen', { id: tid });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -224,9 +290,71 @@ export default function AutoPedidoAdmin() {
           <MdQrCode2 className="text-[#2563EB]" />
           Auto pedido (QR)
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Solo administradores ven esta pantalla. Los clientes, al escanear el QR, entran a <span className="font-mono text-slate-600">/auto-pedido?mesa=…</span>: solo ven la carta (deslizable) y el botón «Hacer pedido». Aquí configuras cartas, subes archivos y generas los QR por mesa.
-        </p>
+      </div>
+
+      <div className="card mb-6">
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('all')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+              selectedCategory === 'all' ? 'bg-[#2563EB] text-white' : 'bg-slate-100 text-slate-700'
+            }`}
+          >
+            Todas
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setSelectedCategory(c.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                selectedCategory === c.id ? 'bg-[#2563EB] text-white' : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filteredProducts.map((p) => (
+            <div key={p.id} className="rounded-xl border border-slate-200 bg-[#0f172a] p-3">
+              <div className="aspect-[4/3] rounded-lg bg-[#111827] border border-slate-700/50 overflow-hidden mb-2">
+                {p.image ? (
+                  <img src={resolveMediaUrl(p.image)} alt={p.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Sin imagen</div>
+                )}
+              </div>
+              <p className="text-sm font-semibold text-[#F9FAFB] truncate">{p.name}</p>
+              <p className="text-sm text-[#BFDBFE]">S/ {Number(p.price || 0).toFixed(2)}</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  id={`product-image-${p.id}`}
+                  className="sr-only"
+                  onChange={(e) => uploadProductImage(p.id, e)}
+                  disabled={!canSave}
+                />
+                <label
+                  htmlFor={`product-image-${p.id}`}
+                  className={`text-xs py-1.5 rounded-lg text-center border ${canSave ? 'border-[#3B82F6]/40 text-[#BFDBFE] cursor-pointer hover:bg-[#1E3A8A]/40' : 'border-slate-500/40 text-slate-500'}`}
+                >
+                  Agregar imagen
+                </label>
+                <button
+                  type="button"
+                  onClick={() => openEditProduct(p)}
+                  className="text-xs py-1.5 rounded-lg border border-[#3B82F6]/40 text-[#BFDBFE] hover:bg-[#1E3A8A]/40 inline-flex items-center justify-center gap-1"
+                  disabled={!canSave}
+                >
+                  <MdEdit /> Editar
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="card mb-6">
@@ -351,6 +479,52 @@ export default function AutoPedidoAdmin() {
         </div>
         {tables.length === 0 && <p className="text-slate-500 text-sm">No hay mesas configuradas. Créalas en Configuración → Salones y Mesas.</p>}
       </div>
+
+      <Modal
+        isOpen={Boolean(editingProduct)}
+        onClose={() => setEditingProduct(null)}
+        title="Editar producto"
+        size="md"
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Nombre</label>
+            <input
+              className="input-field"
+              value={productForm.name}
+              onChange={(e) => setProductForm((prev) => ({ ...prev, name: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Precio</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="input-field"
+              value={productForm.price}
+              onChange={(e) => setProductForm((prev) => ({ ...prev, price: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Categoría</label>
+            <select
+              className="input-field"
+              value={productForm.category_id}
+              onChange={(e) => setProductForm((prev) => ({ ...prev, category_id: e.target.value }))}
+            >
+              <option value="">Seleccione</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setEditingProduct(null)} className="btn-secondary text-sm">Cancelar</button>
+            <button type="button" onClick={saveProduct} className="btn-primary text-sm">Guardar</button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={genOpenIndex !== null}
