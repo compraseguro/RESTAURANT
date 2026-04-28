@@ -144,6 +144,39 @@ router.put('/insumos/:id', (req, res) => {
   }
 });
 
+/** DELETE /insumos/:id — elimina insumo y filas relacionadas (kardex, recetas, requerimientos, etc.) */
+router.delete('/insumos/:id', (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!id) return res.status(400).json({ error: 'id requerido' });
+    const cur = queryOne('SELECT * FROM insumos WHERE id = ?', [id]);
+    if (!cur) return res.status(404).json({ error: 'Insumo no encontrado' });
+    withTransaction((tx) => {
+      tx.run('DELETE FROM receta_detalle WHERE insumo_id = ?', [id]);
+      tx.run('DELETE FROM kardex WHERE id_insumo = ?', [id]);
+      tx.run('DELETE FROM inventario_fisico_detalle WHERE insumo_id = ?', [id]);
+      tx.run(
+        `DELETE FROM inventory_requirement_items WHERE insumo_id = ? OR (item_type = 'insumo' AND product_id = ?)`,
+        [id, id]
+      );
+      tx.run('DELETE FROM inventory_expenses WHERE product_id = ?', [id]);
+      tx.run(`UPDATE products SET kardex_insumo_id = '' WHERE kardex_insumo_id = ?`, [id]);
+      tx.run('DELETE FROM insumos WHERE id = ?', [id]);
+    });
+    logAudit({
+      actorUserId: req.user.id,
+      actorName: req.user.full_name || '',
+      action: 'kardex.insumo.delete',
+      resourceType: 'insumo',
+      resourceId: id,
+      details: { nombre: cur.nombre },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'No se pudo eliminar el insumo' });
+  }
+});
+
 /** GET /kardex/:insumoId — kardex valorizado por insumo */
 router.get('/kardex/:insumoId', (req, res) => {
   try {

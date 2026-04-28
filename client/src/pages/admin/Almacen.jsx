@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, formatCurrency, formatInsumoQty, formatInsumoWithUnit } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-import { MdSearch, MdWarning, MdAdd, MdRemove, MdDownload } from 'react-icons/md';
+import { MdSearch, MdWarning, MdAdd, MdRemove, MdDownload, MdDeleteOutline } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import LogisticaKardexModule from '../../components/LogisticaKardexModule';
 
@@ -446,6 +446,18 @@ export default function Almacen() {
       load();
     } catch (err) {
       toast.error(err.message);
+    }
+  };
+
+  const handleDeleteInsumo = async (insumo) => {
+    if (!insumo?.id) return;
+    if (!confirm(`¿Eliminar insumo "${insumo.nombre}"?`)) return;
+    try {
+      await api.delete(`/kardex-inventory/insumos/${insumo.id}`);
+      toast.success('Insumo eliminado');
+      await load();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo eliminar el insumo');
     }
   };
 
@@ -940,6 +952,7 @@ export default function Almacen() {
                 <th className="pb-2 font-medium text-right text-[#F9FAFB]">Stock (U)</th>
                 <th className="pb-2 font-medium text-right text-[#F9FAFB]">Valor</th>
                 <th className="pb-2 font-medium text-[#F9FAFB]">Estado</th>
+                <th className="pb-2 font-medium text-right text-[#F9FAFB] w-28"></th>
               </tr>
             </thead>
             <tbody>
@@ -971,12 +984,23 @@ export default function Almacen() {
                     <td className="py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>{badgeLabel}</span>
                     </td>
+                    <td className="py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteInsumo(i)}
+                        className="text-xs px-2.5 py-1.5 rounded-lg border border-red-500/40 text-red-300 hover:bg-red-500/15 inline-flex items-center gap-1"
+                        title="Eliminar insumo"
+                      >
+                        <MdDeleteOutline className="text-base" />
+                        Eliminar
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
               {insumosTablaFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="py-10 text-center text-[#9CA3AF]">
+                  <td colSpan="8" className="py-10 text-center text-[#9CA3AF]">
                     {insumosActivos.length === 0 ? 'No hay insumos activos' : 'Sin resultados'}
                   </td>
                 </tr>
