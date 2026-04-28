@@ -412,7 +412,7 @@ export default function Productos() {
                         <p className="font-medium text-slate-800 hover:text-gold-600 cursor-pointer" onClick={() => openEditProduct(p)}>{p.name}</p>
                         {p.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{p.description}</p>}
                       </td>
-                      <td className="p-3 text-slate-500">#{400 - idx}</td>
+                      <td className="p-3 text-slate-500">#{String(idx + 1).padStart(2, '0')}</td>
                       <td className="p-3"><span className="text-xs px-2 py-0.5 bg-slate-100 rounded-full text-slate-600">{getCatName(p.category_id)}</span></td>
                       <td className="p-3 text-right font-bold text-slate-800">{formatCurrency(p.price)}</td>
                       <td className="p-3 text-center">
