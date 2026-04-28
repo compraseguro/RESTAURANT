@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api, formatCurrency } from '../../utils/api';
+import { api, formatCurrency, formatInsumoQty, formatInsumoWithUnit } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { MdSearch, MdWarning, MdAdd, MdRemove, MdDownload } from 'react-icons/md';
@@ -62,6 +62,23 @@ function formatDateTime(value) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function insumoUnidadMedidaDisplay(insumo) {
+  return (String(insumo?.unidad_medida || 'kg').replace(/[0-9]/g, '') || 'kg').trim();
+}
+
+/** Estado visual alineado con KPI stock bajo del kardex. */
+function insumoEstadoStock(insumo) {
+  const uMin = Number(insumo.minimo_unidades || 0);
+  const uAct = Number(insumo.stock_unidades ?? 0);
+  const sMin = Number(insumo.stock_minimo || 0);
+  const sAct = Number(insumo.stock_actual ?? 0);
+  const lowU = uMin > 0 && uAct < uMin;
+  const lowM = sMin > 0 && sAct < sMin;
+  if (lowU || lowM) return 'bajo';
+  if (sAct <= 1e-9 && uAct <= 1e-9) return 'agotado';
+  return 'normal';
 }
 
 const ALMACEN_VIEWS = [
@@ -294,6 +311,13 @@ export default function Almacen() {
   const selectedWarehouse = warehouses.find((w) => sameWarehouseId(w.id, selectedWarehouseView));
   const selectedIsInsumosWarehouse = isInsumosWarehouseName(selectedWarehouse?.name);
   const insumosActivos = (kardexInsumos || []).filter((i) => Number(i.activo) !== 0);
+  const insumosTablaFiltrados = selectedIsInsumosWarehouse
+    ? insumosActivos.filter((i) =>
+        String(i.nombre || '')
+          .toLowerCase()
+          .includes(search.toLowerCase())
+      )
+    : [];
   const insumosTotalValue = insumosActivos.reduce(
     (s, i) => s + Number(i.stock_actual || 0) * Number(i.costo_promedio || 0),
     0
@@ -851,9 +875,9 @@ export default function Almacen() {
                   : 'border-slate-200 hover:border-gold-300'
               }`}
             >
-              <p className="font-semibold text-slate-800">{w.name}</p>
-              {w.description && <p className="text-xs text-slate-500 mt-1">{w.description}</p>}
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="font-semibold text-[#F9FAFB]">{w.name}</p>
+              {w.description && <p className="text-xs text-[#E5E7EB] mt-1">{w.description}</p>}
+              <p className="text-xs text-[#E5E7EB] mt-2">
                 {isInsumosWarehouseName(w.name) ? 'Insumos vinculados: ' : 'Productos con stock: '}
                 <strong>{linkedProducts}</strong>
               </p>
@@ -879,18 +903,11 @@ export default function Almacen() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-        <div className="card"><p className="text-xs text-slate-500">Total Ítems</p><p className="text-xl font-bold">{selectedIsInsumosWarehouse ? insumosActivos.length : productsForSelectedWarehouse.length}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Valor del Inventario</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(totalValue)}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Stock Bajo</p><p className="text-xl font-bold text-red-600">{selectedIsInsumosWarehouse ? insumosLowCount : lowStock.length}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Unidades Totales</p><p className="text-xl font-bold">{selectedIsInsumosWarehouse ? insumosTotalUnits : productsForSelectedWarehouse.reduce((s, p) => s + p.stock, 0)}</p></div>
+        <div className="card"><p className="text-xs text-[#F9FAFB]">Total Ítems</p><p className="text-xl font-bold text-[#F9FAFB]">{selectedIsInsumosWarehouse ? insumosActivos.length : productsForSelectedWarehouse.length}</p></div>
+        <div className="card"><p className="text-xs text-[#F9FAFB]">Valor del Inventario</p><p className="text-xl font-bold text-emerald-400">{formatCurrency(totalValue)}</p></div>
+        <div className="card"><p className="text-xs text-[#F9FAFB]">Stock Bajo</p><p className="text-xl font-bold text-red-400">{selectedIsInsumosWarehouse ? insumosLowCount : lowStock.length}</p></div>
+        <div className="card"><p className="text-xs text-[#F9FAFB]">Unidades Totales</p><p className="text-xl font-bold text-[#F9FAFB]">{selectedIsInsumosWarehouse ? insumosTotalUnits : productsForSelectedWarehouse.reduce((s, p) => s + p.stock, 0)}</p></div>
       </div>
-      {selectedIsInsumosWarehouse && (
-        <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
-          Este almacén está vinculado al módulo <strong>Inventario y kardex</strong>. Los indicadores de arriba se
-          calculan con los insumos (kardex), no con productos no transformados.
-        </div>
-      )}
-
       {lowStock.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5">
           <p className="font-bold text-red-700 flex items-center gap-2 mb-2"><MdWarning /> Productos con stock bajo</p>
@@ -905,57 +922,121 @@ export default function Almacen() {
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
         <div className="relative mb-4">
           <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar producto o insumo..." className="input-field pl-9" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={selectedIsInsumosWarehouse ? 'Buscar insumo…' : 'Buscar producto…'}
+            className="input-field pl-9"
+          />
         </div>
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-slate-500 border-b">
-            <th className="pb-2 font-medium">Producto</th>
-            <th className="pb-2 font-medium">Tipo</th>
-            <th className="pb-2 font-medium">Precio Unit.</th>
-            <th className="pb-2 font-medium">Principal</th>
-            <th className="pb-2 font-medium">Cocina</th>
-            <th className="pb-2 font-medium">Stock Total</th>
-            <th className="pb-2 font-medium">Valor</th>
-            <th className="pb-2 font-medium">Estado</th>
-            <th className="pb-2 font-medium"></th>
-          </tr></thead>
-          <tbody>
-            {productsForSelectedWarehouse.map(p => (
-              <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
-                <td className="py-3 font-medium">{p.name}</td>
-                <td className="py-3 text-slate-500">{p.category_name || '-'}</td>
-                <td className="py-3">{formatCurrency(p.price)}</td>
-                <td className="py-3 font-bold">{p.stock_main || 0}</td>
-                <td className="py-3 font-bold">{p.stock_kitchen || 0}</td>
-                <td className="py-3 font-bold">{p.stock}</td>
-                <td className="py-3">{formatCurrency(p.price * p.stock)}</td>
-                <td className="py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.stock > 10 ? 'bg-emerald-100 text-emerald-700' : p.stock > 0 ? 'bg-gold-100 text-gold-700' : 'bg-red-100 text-red-700'}`}>{p.stock > 10 ? 'Normal' : p.stock > 0 ? 'Bajo' : 'Agotado'}</span></td>
-                <td className="py-3">
-                  <button
-                    onClick={() => {
-                      setStockModal(p);
-                      setStockWarehouse(principalWarehouse?.id || '');
-                      setShowDeleteFlow(false);
-                      setDeleteReason('');
-                    }}
-                    className="text-xs px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-100"
-                  >
-                    Ajustar
-                  </button>
-                </td>
+        {selectedIsInsumosWarehouse ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left border-b border-[#3B82F6]/25">
+                <th className="pb-2 font-medium text-[#F9FAFB]">Insumo</th>
+                <th className="pb-2 font-medium text-[#F9FAFB]">U.M.</th>
+                <th className="pb-2 font-medium text-[#F9FAFB]">Costo prom.</th>
+                <th className="pb-2 font-medium text-right text-[#F9FAFB]">Stock (kg/L)</th>
+                <th className="pb-2 font-medium text-right text-[#F9FAFB]">Stock (U)</th>
+                <th className="pb-2 font-medium text-right text-[#F9FAFB]">Valor</th>
+                <th className="pb-2 font-medium text-[#F9FAFB]">Estado</th>
               </tr>
-            ))}
-            {productsForSelectedWarehouse.length === 0 && (
-              <tr>
-                <td colSpan="9" className="py-10 text-center text-slate-400">
-                  {selectedWarehouseView
-                    ? 'No hay productos en este almacén'
-                    : 'Selecciona un almacén para ver sus productos'}
-                </td>
+            </thead>
+            <tbody>
+              {insumosTablaFiltrados.map((i) => {
+                const um = insumoUnidadMedidaDisplay(i);
+                const sAct = Number(i.stock_actual || 0);
+                const uAct = Number(i.stock_unidades ?? 0);
+                const valor = sAct * Number(i.costo_promedio || 0);
+                const est = insumoEstadoStock(i);
+                const badgeClass =
+                  est === 'normal'
+                    ? 'bg-emerald-500/20 text-emerald-300'
+                    : est === 'bajo'
+                      ? 'bg-amber-500/20 text-amber-300'
+                      : 'bg-red-500/20 text-red-300';
+                const badgeLabel = est === 'normal' ? 'Normal' : est === 'bajo' ? 'Bajo' : 'Agotado';
+                return (
+                  <tr key={i.id} className="border-b border-slate-600/30">
+                    <td className="py-3 font-medium text-[#F9FAFB]">{i.nombre}</td>
+                    <td className="py-3 text-[#E5E7EB]">{um}</td>
+                    <td className="py-3 text-[#F9FAFB] tabular-nums">{formatCurrency(Number(i.costo_promedio || 0))}</td>
+                    <td className="py-3 text-right text-[#F9FAFB] tabular-nums">
+                      {formatInsumoWithUnit(sAct, um)}
+                    </td>
+                    <td className="py-3 text-right text-[#F9FAFB] tabular-nums">
+                      {Number(i.kg_por_unidad || 0) > 1e-12 ? `${formatInsumoQty(uAct)} U` : '—'}
+                    </td>
+                    <td className="py-3 text-right text-[#F9FAFB] tabular-nums">{formatCurrency(valor)}</td>
+                    <td className="py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>{badgeLabel}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {insumosTablaFiltrados.length === 0 && (
+                <tr>
+                  <td colSpan="7" className="py-10 text-center text-[#9CA3AF]">
+                    {insumosActivos.length === 0 ? 'No hay insumos activos' : 'Sin resultados'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b">
+                <th className="pb-2 font-medium">Producto</th>
+                <th className="pb-2 font-medium">Tipo</th>
+                <th className="pb-2 font-medium">Precio Unit.</th>
+                <th className="pb-2 font-medium">Principal</th>
+                <th className="pb-2 font-medium">Cocina</th>
+                <th className="pb-2 font-medium">Stock Total</th>
+                <th className="pb-2 font-medium">Valor</th>
+                <th className="pb-2 font-medium">Estado</th>
+                <th className="pb-2 font-medium"></th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {productsForSelectedWarehouse.map(p => (
+                <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
+                  <td className="py-3 font-medium">{p.name}</td>
+                  <td className="py-3 text-slate-500">{p.category_name || '-'}</td>
+                  <td className="py-3">{formatCurrency(p.price)}</td>
+                  <td className="py-3 font-bold">{p.stock_main || 0}</td>
+                  <td className="py-3 font-bold">{p.stock_kitchen || 0}</td>
+                  <td className="py-3 font-bold">{p.stock}</td>
+                  <td className="py-3">{formatCurrency(p.price * p.stock)}</td>
+                  <td className="py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.stock > 10 ? 'bg-emerald-100 text-emerald-700' : p.stock > 0 ? 'bg-gold-100 text-gold-700' : 'bg-red-100 text-red-700'}`}>{p.stock > 10 ? 'Normal' : p.stock > 0 ? 'Bajo' : 'Agotado'}</span></td>
+                  <td className="py-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStockModal(p);
+                        setStockWarehouse(principalWarehouse?.id || '');
+                        setShowDeleteFlow(false);
+                        setDeleteReason('');
+                      }}
+                      className="text-xs px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-100"
+                    >
+                      Ajustar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {productsForSelectedWarehouse.length === 0 && (
+                <tr>
+                  <td colSpan="9" className="py-10 text-center text-slate-400">
+                    {selectedWarehouseView
+                      ? 'No hay productos en este almacén'
+                      : 'Selecciona un almacén para ver sus productos'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <Modal isOpen={!!stockModal} onClose={closeStockModal} title={`Ajustar Stock - ${stockModal?.name}`} size="sm">
