@@ -1,14 +1,6 @@
 import { useRef } from 'react';
 import toast from 'react-hot-toast';
 
-function panelHint(presence, key) {
-  const pr = presence || {};
-  if (key === 'sol_usuario' && pr.sol_usuario) return 'Vacío = conservar el usuario SOL guardado';
-  if (key === 'sol_clave' && pr.sol_clave) return 'Vacío = conservar la clave SOL guardada';
-  if (key === 'cert_pfx_password' && pr.cert_pfx_password) return 'Vacío = conservar la contraseña del .pfx guardada';
-  return '';
-}
-
 /**
  * Solo los campos que el emisor debe completar para enlazar con el bot (SUNAT).
  */
@@ -18,7 +10,6 @@ export default function BillingSunatManualForm({
   onRestaurantField,
   billingPanel,
   onBillingPanelField,
-  billingPanelPresence,
   onUploadBillingCert,
   disabled,
   appConfig,
@@ -70,7 +61,6 @@ export default function BillingSunatManualForm({
               value={restaurant?.billing_emisor_direccion ?? ''}
               disabled={disabled}
               autoComplete="off"
-              placeholder="Si vacío, se puede usar la dirección de «Mi empresa» según configuración del servidor"
               onChange={(e) => onRestaurantField('billing_emisor_direccion', e.target.value)}
             />
           </div>
@@ -90,7 +80,6 @@ export default function BillingSunatManualForm({
               name="sunat-manual-sol-user"
               data-1p-ignore
               data-lpignore="true"
-              placeholder={panelHint(billingPanelPresence, 'sol_usuario')}
               onChange={(e) => onBillingPanelField('sol_usuario', e.target.value)}
             />
           </div>
@@ -103,7 +92,6 @@ export default function BillingSunatManualForm({
               disabled={disabled}
               autoComplete="new-password"
               name="sunat-manual-sol-pass"
-              placeholder={panelHint(billingPanelPresence, 'sol_clave')}
               onChange={(e) => onBillingPanelField('sol_clave', e.target.value)}
             />
           </div>
@@ -115,7 +103,6 @@ export default function BillingSunatManualForm({
               value={billingPanel?.cert_pfx_path ?? ''}
               disabled={disabled}
               autoComplete="off"
-              placeholder="/uploads/billing-certs/… o ruta absoluta en el servidor"
               onChange={(e) => onBillingPanelField('cert_pfx_path', e.target.value)}
             />
             <div className="flex flex-wrap items-center gap-2">
@@ -156,7 +143,6 @@ export default function BillingSunatManualForm({
               disabled={disabled}
               autoComplete="new-password"
               name="sunat-manual-cert-pass"
-              placeholder={panelHint(billingPanelPresence, 'cert_pfx_password')}
               onChange={(e) => onBillingPanelField('cert_pfx_password', e.target.value)}
             />
           </div>
@@ -165,9 +151,6 @@ export default function BillingSunatManualForm({
 
       <div className={sectionCls}>
         <h4 className={hCls}>Series y correlativos</h4>
-        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          El correlativo inicial se usa la primera vez que emite en esa serie (sin comprobantes previos en base de datos); después sigue el máximo + 1.
-        </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Serie de factura</label>
@@ -176,7 +159,6 @@ export default function BillingSunatManualForm({
               value={restaurant?.billing_series_factura ?? ''}
               disabled={disabled}
               onChange={(e) => onRestaurantField('billing_series_factura', (e.target.value || '').toUpperCase())}
-              placeholder="F001"
             />
           </div>
           <div>
@@ -186,7 +168,6 @@ export default function BillingSunatManualForm({
               value={restaurant?.billing_series_boleta ?? ''}
               disabled={disabled}
               onChange={(e) => onRestaurantField('billing_series_boleta', (e.target.value || '').toUpperCase())}
-              placeholder="B001"
             />
           </div>
           <div>
@@ -249,9 +230,6 @@ export default function BillingSunatManualForm({
 
       <div className={sectionCls}>
         <h4 className={hCls}>Series de contingencia</h4>
-        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          Cuando no hay comunicación con SUNAT, según su normativa y resolución.
-        </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Serie factura contingencia</label>
@@ -260,7 +238,6 @@ export default function BillingSunatManualForm({
               value={appConfig?.series_contingencia?.factura || ''}
               disabled={disabled}
               onChange={(e) => onSeriesContingencia('factura', e.target.value.toUpperCase())}
-              placeholder="FC01"
             />
           </div>
           <div>
@@ -270,7 +247,6 @@ export default function BillingSunatManualForm({
               value={appConfig?.series_contingencia?.boleta || ''}
               disabled={disabled}
               onChange={(e) => onSeriesContingencia('boleta', e.target.value.toUpperCase())}
-              placeholder="BC01"
             />
           </div>
           <div className="md:col-span-2">

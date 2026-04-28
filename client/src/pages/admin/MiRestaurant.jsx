@@ -7,14 +7,14 @@ import { proximaFechaFromControlAnchor } from '../../utils/nextBillingFromAnchor
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import BillingSunatManualForm from '../../components/billing/BillingSunatManualForm';
-import { defaultBillingPanel, defaultBillingPanelPresence } from '../../data/sunat47Catalog';
+import { defaultBillingPanel } from '../../data/sunat47Catalog';
 import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt } from 'react-icons/md';
 
 const DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
 const DAY_NAMES = { lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo' };
 const MI_RESTAURANT_VIEWS = [
   { id: 'mi_empresa', label: 'Mi empresa' },
-  { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
+  { id: 'facturacion_electronica', label: 'Facturación electrónica' },
   { id: 'pagos_sistema', label: 'Pagos de créditos' },
   { id: 'contrato', label: 'Contrato del servicio' },
   { id: 'pago_uso_sistema', label: 'Pago por uso del sistema' },
@@ -91,7 +91,6 @@ export default function MiRestaurant() {
   /** Ventana de carga del comprobante (servidor): enlazada a fecha_proxima_facturación y días de gracia. */
   const [pagoUsoComprobanteUi, setPagoUsoComprobanteUi] = useState(null);
   const [billingPanel, setBillingPanel] = useState(() => defaultBillingPanel());
-  const [billingPanelPresence, setBillingPanelPresence] = useState(defaultBillingPanelPresence);
 
   const canReadBillingConfig = user?.role === 'admin' || user?.role === 'master_admin';
 
@@ -130,12 +129,6 @@ export default function MiRestaurant() {
         } else {
           setBillingPanel(defaultBillingPanel());
         }
-        setBillingPanelPresence(
-          data?.billing_panel_presence && typeof data.billing_panel_presence === 'object'
-            ? { ...defaultBillingPanelPresence(), ...data.billing_panel_presence }
-            : defaultBillingPanelPresence()
-        );
-
         if (billingData) {
           setAllowRestaurantAdminBillingBot(Boolean(billingData.allow_restaurant_admin_billing_bot));
           setBillingConfig(prev => ({
@@ -241,9 +234,6 @@ export default function MiRestaurant() {
         setRestaurant(savedRestaurant);
         if (savedRestaurant?.billing_panel && typeof savedRestaurant.billing_panel === 'object') {
           setBillingPanel({ ...defaultBillingPanel(), ...savedRestaurant.billing_panel });
-        }
-        if (savedRestaurant?.billing_panel_presence && typeof savedRestaurant.billing_panel_presence === 'object') {
-          setBillingPanelPresence({ ...defaultBillingPanelPresence(), ...savedRestaurant.billing_panel_presence });
         }
         const saved = await api.put('/billing/config', {
           billing_offline_mode: billingConfig.billing_offline_mode,
@@ -589,34 +579,8 @@ export default function MiRestaurant() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <MdReceipt className="text-red-600 text-2xl" />
-                <div>
-                  <h3 className="font-bold text-slate-800 text-lg">Facturación SUNAT (emisor + bot)</h3>
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    Complete solo los datos del emisor y del bot que aplica SUNAT. Al emitir, el servidor envía SOL,
-                    certificado y series al bot; si deja credenciales vacías, el bot puede usar su{' '}
-                    <code className="text-xs">.env</code>. Pulse <strong>Guardar cambios</strong> una vez.
-                  </p>
-                </div>
+                <h3 className="font-bold text-slate-800 text-lg">Facturación electrónica</h3>
               </div>
-
-              {!canEditBillingBot ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                  {isRestaurantAdmin ? (
-                    <>
-                      El <strong>administrador maestro</strong> aún no ha permitido que el admin del restaurante edite esta sección; los datos se muestran en solo lectura. Puede pedirle que active la opción en{' '}
-                      <strong>Administrador maestro → Bot facturación SUNAT</strong>.
-                    </>
-                  ) : (
-                    <>
-                      Solo el <strong>administrador maestro</strong> o un <strong>admin del restaurante</strong> (si el maestro lo autorizó) pueden modificar esta sección.
-                    </>
-                  )}
-                </div>
-              ) : isRestaurantAdmin && !isMasterAdmin ? (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/90 p-3 text-sm text-emerald-900">
-                  El maestro le ha permitido editar el <strong>bot de facturación</strong>. Los cambios quedan registrados con su usuario.
-                </div>
-              ) : null}
 
               <fieldset disabled={!canEditBillingBot} className="border-0 p-0 m-0 min-w-0 space-y-5">
               <BillingSunatManualForm
@@ -625,32 +589,11 @@ export default function MiRestaurant() {
                 onRestaurantField={update}
                 billingPanel={billingPanel}
                 onBillingPanelField={(k, v) => setBillingPanel((p) => ({ ...p, [k]: v }))}
-                billingPanelPresence={billingPanelPresence}
                 onUploadBillingCert={canEditBillingBot ? handleBillingCertUpload : undefined}
                 disabled={!canEditBillingBot}
                 appConfig={appConfig}
                 onSeriesContingencia={(field, value) => updateAppCfg('series_contingencia', field, value)}
               />
-
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 space-y-2">
-                <p>
-                  <strong>Conexión al bot (Node → Python):</strong> la URL del API y el secreto{' '}
-                  <code className="text-xs bg-white px-1 rounded border">X-EFACT-SECRET</code> no se configuran en este
-                  panel. Defínalos en el entorno del servidor API con{' '}
-                  <code className="text-xs bg-white px-1 rounded border">EFACT_API_URL</code> y{' '}
-                  <code className="text-xs bg-white px-1 rounded border">EFACT_HTTP_SECRET</code> (archivo{' '}
-                  <code className="text-xs bg-white px-1 rounded border">.env</code> o Docker Compose). Deben coincidir
-                  con el <code className="text-xs bg-white px-1 rounded border">.env</code> del bot Python.
-                </p>
-                <p className="text-xs text-slate-600">
-                  Estado (sin mostrar valores):{' '}
-                  {billingConfig.billing_api_url_from_env || billingConfig.billing_api_secret_from_env
-                    ? 'prioridad por variables de entorno en el API Node.'
-                    : billingConfig.has_billing_api_token || (billingConfig.billing_api_url && String(billingConfig.billing_api_url).trim())
-                      ? 'valores ya almacenados en el servidor; al guardar esta pantalla no se modifican.'
-                      : 'defina EFACT_API_URL y EFACT_HTTP_SECRET en el servidor para habilitar el envío al bot.'}
-                </p>
-              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -688,16 +631,6 @@ export default function MiRestaurant() {
                 </div>
               </div>
               </fieldset>
-
-              <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-900">
-                En local, desde la raíz del repo:{' '}
-                <code className="text-xs bg-amber-100 px-1 rounded">python server/efact/api_server.py</code>
-                {' '}(carpeta <code className="text-xs bg-amber-100 px-1 rounded">server/efact</code>).
-                Con <strong>Docker</strong>, el <code className="text-xs bg-amber-100 px-1 rounded">entrypoint</code> ya arranca el bot en el mismo contenedor que Node; certificado .pfx y SOL van en el <code className="text-xs bg-amber-100 px-1 rounded">.env</code> bajo <code className="text-xs bg-amber-100 px-1 rounded">server/efact</code>.
-              </div>
-              <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-sm text-red-800">
-                Al emitir facturas, el cliente debe tener RUC válido (11 dígitos) y razón social.
-              </div>
             </div>
           ) : activeView === 'pagos_sistema' ? (
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
