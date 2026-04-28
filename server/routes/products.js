@@ -29,16 +29,34 @@ function ensureWarehouseInfrastructure() {
 
 function ensureDefaultWarehouses() {
   ensureWarehouseInfrastructure();
-  const total = queryOne('SELECT COUNT(*) as c FROM warehouse_locations WHERE is_active = 1');
-  if (Number(total?.c || 0) > 0) return;
-  runSql(
-    'INSERT INTO warehouse_locations (id, name, description, is_active) VALUES (?, ?, ?, 1)',
-    [uuidv4(), 'Almacen Principal', 'Almacén principal para productos no transformados']
+  const principal = queryOne(
+    "SELECT id FROM warehouse_locations WHERE LOWER(name) = LOWER('Almacen Principal') AND is_active = 1"
   );
-  runSql(
-    'INSERT INTO warehouse_locations (id, name, description, is_active) VALUES (?, ?, ?, 1)',
-    [uuidv4(), 'Almacen Cocina', 'Almacén de cocina para insumos y procesos']
+  const insumos = queryOne(
+    "SELECT id FROM warehouse_locations WHERE LOWER(name) = LOWER('Almacen de insumos') AND is_active = 1"
   );
+  if (!principal) {
+    runSql(
+      'INSERT INTO warehouse_locations (id, name, description, is_active) VALUES (?, ?, ?, 1)',
+      [uuidv4(), 'Almacen Principal', 'Almacén principal para movimiento interno']
+    );
+  }
+  if (!insumos) {
+    const cocinaLegacy = queryOne(
+      "SELECT id FROM warehouse_locations WHERE LOWER(name) = LOWER('Almacen Cocina') AND is_active = 1"
+    );
+    if (cocinaLegacy?.id) {
+      runSql(
+        "UPDATE warehouse_locations SET name = 'Almacen de insumos', description = 'Almacén vinculado a Inventario y Kardex', is_active = 1 WHERE id = ?",
+        [cocinaLegacy.id]
+      );
+    } else {
+      runSql(
+        'INSERT INTO warehouse_locations (id, name, description, is_active) VALUES (?, ?, ?, 1)',
+        [uuidv4(), 'Almacen de insumos', 'Almacén vinculado a Inventario y Kardex']
+      );
+    }
+  }
 }
 
 function resolveWarehouseId(preferredWarehouseId) {

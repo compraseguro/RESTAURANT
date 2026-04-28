@@ -66,10 +66,10 @@ function formatDateTime(value) {
 
 const ALMACEN_VIEWS = [
   { id: 'movimiento_interno', label: 'Movimiento interno' },
+  { id: 'ir_modulo_logistica', label: 'Inventario y kardex' },
   { id: 'requerimiento', label: 'Requerimiento' },
   { id: 'recepcion', label: 'Recepción' },
   { id: 'ir_modulo_gastos', label: 'Ir a módulo de gastos' },
-  { id: 'ir_modulo_logistica', label: 'Inventario y kardex' },
 ];
 
 export default function Almacen() {
@@ -583,7 +583,7 @@ export default function Almacen() {
     return (
       <div>
         <div className="flex items-center justify-between mb-5">
-          <h1 className="text-2xl font-bold text-slate-100">Almacén · {activeViewLabel}</h1>
+          <h1 className="text-2xl font-bold text-slate-100">Almacenes e Inventario · {activeViewLabel}</h1>
         </div>
 
         {activeView === 'requerimiento' && (
@@ -784,7 +784,7 @@ export default function Almacen() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-slate-800">Almacén</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Almacenes e Inventario</h1>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowWarehouseModal(true)} className="btn-secondary flex items-center gap-2 text-sm">
             <MdAdd /> Nuevo almacén

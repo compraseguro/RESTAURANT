@@ -24,7 +24,7 @@ const allLinks = [
   { to: '/admin/creditos', icon: MdCreditCard, label: 'Créditos', roles: ['admin', 'cajero'], moduleId: 'creditos' },
   { to: '/admin/ofertas', icon: MdLocalOffer, label: 'Ofertas', roles: ['admin'], moduleId: 'ofertas' },
   { to: '/admin/descuentos', icon: MdDiscount, label: 'Descuentos', roles: ['admin'], moduleId: 'descuentos' },
-  { to: '/admin/almacen', icon: MdWarehouse, label: 'Almacén', roles: ['admin'], moduleId: 'almacen' },
+  { to: '/admin/almacen', icon: MdWarehouse, label: 'Almacenes e Inventario', roles: ['admin'], moduleId: 'almacen' },
   { to: '/admin/productos', icon: MdRestaurantMenu, label: 'Productos', roles: ['admin'], moduleId: 'productos' },
   { to: '/admin/informes', icon: MdAssessment, label: 'Informes', roles: ['admin', 'cajero'], moduleId: 'informes' },
   { to: '/admin/ventas', icon: MdAttachMoney, label: 'Ventas', roles: ['admin', 'cajero'], moduleId: 'ventas' },
@@ -56,10 +56,10 @@ const miRestaurantSubOptionsAll = [
 
 const almacenSubOptionsAll = [
   { id: 'movimiento_interno', label: 'Movimiento interno' },
+  { id: 'ir_modulo_logistica', label: 'Inventario y kardex' },
   { id: 'requerimiento', label: 'Requerimiento' },
   { id: 'recepcion', label: 'Recepción' },
   { id: 'ir_modulo_gastos', label: 'Ir a módulo de gastos' },
-  { id: 'ir_modulo_logistica', label: 'Inventario y kardex' },
 ];
 function isPermissionEnabled(value) {
   return value === true || value === 1 || value === '1' || value === 'true';
