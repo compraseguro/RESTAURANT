@@ -191,6 +191,23 @@ function addNotification({ title, message, image_url = '', created_by = 'Sistema
   return entry;
 }
 
+function clearNotificationsByTitle(title) {
+  const t = String(title || '').trim();
+  if (!t) return 0;
+  const notifications = getNotifications();
+  const next = notifications.filter((n) => String(n.title || '').trim() !== t);
+  const removed = notifications.length - next.length;
+  if (removed > 0) saveNotifications(next);
+  return removed;
+}
+
+/** Vence a la próxima medianoche local (fin del día actual). */
+function nextLocalMidnightIso() {
+  const d = new Date();
+  d.setHours(24, 0, 0, 0);
+  return d.toISOString();
+}
+
 function updateNotification({ id, title, message, image_url = '', duration_hours = null }) {
   const notifications = getNotifications();
   const idx = notifications.findIndex((n) => n.id === id);
@@ -335,7 +352,6 @@ function evaluatePagoUsoComprobanteWindow() {
   const nextDue = String(pago.fecha_proxima_facturacion || '').trim();
   const uploadDaysBeforeDue = 3;
   const grace = Math.max(1, Math.min(14, Number(pago.comprobante_grace_days_after_due ?? 3)));
-  const notifyWin = Math.max(1, Math.min(30, Number(control.notify_days_before ?? 5)));
   const hasUrl = Boolean(String(pago.comprobante_pago_url || '').trim());
   let controlChanged = false;
   let pagoChanged = false;
@@ -359,8 +375,7 @@ function evaluatePagoUsoComprobanteWindow() {
     const daysToDue = diffDays(today, nextDue);
     if (
       daysToDue !== null
-      && daysToDue >= 0
-      && daysToDue <= notifyWin
+      && daysToDue === uploadDaysBeforeDue
       && String(pago.comprobante_alert_sent_for || '') !== nextDue
     ) {
       addNotification({
@@ -398,6 +413,9 @@ function evaluatePagoUsoComprobanteWindow() {
     control.lock_enabled_at = new Date().toISOString();
     control.lock_enabled_by = 'Sistema automático';
     controlChanged = true;
+  }
+  if (hasUrl) {
+    clearNotificationsByTitle('Pago por uso — subir comprobante');
   }
 
   if (pagoChanged) upsertSetting(PAGO_USO_APP_KEY, pago);
@@ -483,6 +501,20 @@ function todayBeforeDue(st) {
 
 function releaseAutoLockIfComprobantePresent(urlTrimmed) {
   if (!String(urlTrimmed || '').trim()) return;
+  clearNotificationsByTitle('Pago por uso — subir comprobante');
+  clearNotificationsByTitle('Gracias por preferir trabajar con Resto FADET.app');
+  addNotification({
+    title: 'Gracias por preferir trabajar con Resto FADET.app',
+    message: 'Gracias por preferir trabajar con Resto FADET.app',
+    created_by: 'Sistema automático',
+    level: 'success',
+  });
+  const notifications = getNotifications();
+  if (notifications.length > 0 && notifications[0].title === 'Gracias por preferir trabajar con Resto FADET.app') {
+    notifications[0].expires_at = nextLocalMidnightIso();
+    notifications[0].updated_at = new Date().toISOString();
+    saveNotifications(notifications);
+  }
   const control = { ...getControlConfig() };
   if (Number(control.pago_uso_comprobante_lock_auto || 0) !== 1) return;
   control.global_lock_enabled = 0;
