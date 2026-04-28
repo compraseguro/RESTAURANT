@@ -7,9 +7,10 @@
     @apply antialiased bg-[#111827] text-[#F9FAFB];
   }
 
-  /* Keep visibility consistent across all modules */
+  /* Keep visibility consistent across all modules (fondo panel oscuro, no papel blanco) */
   .bg-white {
     background-color: #334155 !important;
+    color: #f9fafb;
   }
 }
 
@@ -37,6 +38,24 @@
   }
   .card {
     @apply bg-[#1F2937] rounded-xl shadow-sm border border-[#3B82F6]/25 p-6;
+    color: #f9fafb;
+  }
+  .card .text-slate-500 {
+    color: #e5e7eb !important;
+  }
+
+  /* Utilidades slate pensadas para fondo claro: sobre .bg-white (#334155) deben leerse en blanco / gris claro */
+  .bg-white .text-slate-900,
+  .bg-white .text-slate-800,
+  .bg-white .text-slate-700 {
+    color: #f9fafb !important;
+  }
+  .bg-white .text-slate-600 {
+    color: #e5e7eb !important;
+  }
+  .bg-white .text-slate-500,
+  .bg-white .text-slate-400 {
+    color: #f9fafb !important;
   }
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;

@@ -604,7 +604,7 @@ export default function Almacen() {
     return (
       <div>
         <div className="flex items-center justify-between mb-5">
-          <h1 className="text-2xl font-bold text-slate-100">Almacenes e Inventario · {activeViewLabel}</h1>
+          <h1 className="text-2xl font-bold text-[#F9FAFB]">Almacenes e Inventario · {activeViewLabel}</h1>
         </div>
 
         {activeView === 'requerimiento' && (
@@ -805,7 +805,7 @@ export default function Almacen() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-slate-800">Almacenes e Inventario</h1>
+        <h1 className="text-2xl font-bold text-[#F9FAFB]">Almacenes e Inventario</h1>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowWarehouseModal(true)} className="btn-secondary flex items-center gap-2 text-sm">
             <MdAdd /> Nuevo almacén
