@@ -52,8 +52,8 @@ const CAJA_OPTIONS = [
 const WAREHOUSE_CATEGORY_NAMES = new Set(['PRODUCTOS ALMACEN', 'INSUMOS']);
 const DEFAULT_BILLING_FORM = {
   enabled: false,
-  doc_type: 'boleta',
-  customer_doc_type: '1',
+  doc_type: 'nota_venta',
+  customer_doc_type: '0',
   customer_doc_number: '',
   customer_name: '',
   customer_address: '',
@@ -2091,7 +2091,15 @@ export default function POSPanel() {
                     <input
                       type="checkbox"
                       checked={billingForm.enabled}
-                      onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+                      onChange={(e) => setBillingForm((prev) => (e.target.checked
+                        ? {
+                          ...prev,
+                          enabled: true,
+                          doc_type: 'nota_venta',
+                          customer_doc_type: '0',
+                          invoice_lines_mode: 'detallado',
+                        }
+                        : { ...prev, enabled: false }))}
                       className="rounded border-[#3B82F6]/50"
                     />
                     Emitir Comprovate
@@ -2522,7 +2530,15 @@ export default function POSPanel() {
                       <input
                         type="checkbox"
                         checked={billingForm.enabled}
-                        onChange={(e) => setBillingForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+                        onChange={(e) => setBillingForm((prev) => (e.target.checked
+                          ? {
+                            ...prev,
+                            enabled: true,
+                            doc_type: 'nota_venta',
+                            customer_doc_type: '0',
+                            invoice_lines_mode: 'detallado',
+                          }
+                          : { ...prev, enabled: false }))}
                         className="rounded border-[#3B82F6]/50 mt-0.5"
                       />
                       <span>Emitir Comprovate</span>
