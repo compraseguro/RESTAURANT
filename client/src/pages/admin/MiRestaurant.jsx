@@ -498,7 +498,7 @@ export default function MiRestaurant() {
               onClick={() => logoInputRef.current?.click()}
             >
               {restaurant.logo ? (
-                <img src={restaurant.logo} alt="Logo del restaurante" className="w-full h-full object-cover" />
+                <img src={resolveMediaUrl(restaurant.logo)} alt="Logo del restaurante" className="w-full h-full object-cover" />
               ) : (
                 <MdImage className="text-3xl text-gold-400" />
               )}

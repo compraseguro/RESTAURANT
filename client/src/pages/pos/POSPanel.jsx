@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
-import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS } from '../../utils/api';
+import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -197,6 +197,7 @@ export default function POSPanel() {
   const [priceResults, setPriceResults] = useState([]);
   const printRef = useRef(null);
   const [cajaPrintCfg, setCajaPrintCfg] = useState(null);
+  const [printRestaurantInfo, setPrintRestaurantInfo] = useState({ name: 'Resto-FADEY', logo: '' });
   const { user } = useAuth();
   const [cajaStations, setCajaStations] = useState([]);
   const [adminRegisterId, setAdminRegisterId] = useState(() => {
@@ -261,6 +262,10 @@ export default function POSPanel() {
         setAdminRegisterId('');
       }
       setCajaPrintCfg(printCfgRes?.printers?.caja || null);
+      setPrintRestaurantInfo({
+        name: String(printCfgRes?.restaurant?.name || 'Resto-FADEY').trim() || 'Resto-FADEY',
+        logo: resolveMediaUrl(printCfgRes?.restaurant?.logo || ''),
+      });
       const visibleCategories = cats.filter(c => !WAREHOUSE_CATEGORY_NAMES.has((c.name || '').toUpperCase()));
       const visibleCategoryIds = new Set(visibleCategories.map(c => c.id));
       const visibleProducts = prods.filter(p => visibleCategoryIds.has(p.category_id));
@@ -1255,6 +1260,11 @@ export default function POSPanel() {
       ? (selectedTable.orders || []).filter(o => selectedOrderIds.includes(o.id))
       : (selectedTable.orders || []);
     if (payableOrders.length === 0) return toast.error('No hay pedidos para precuenta');
+    const restaurantName = String(printRestaurantInfo?.name || 'Resto-FADEY').trim() || 'Resto-FADEY';
+    const logoUrl = String(printRestaurantInfo?.logo || '').trim();
+    const logoBlock = logoUrl
+      ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
+      : '';
     const itemLines = payableOrders
       .flatMap(o => o.items || [])
       .map(i => `<tr><td style="padding:4px 0">${i.quantity}x ${i.product_name}</td><td style="text-align:right;padding:4px 0">${formatCurrency(i.subtotal)}</td></tr>`)
@@ -1267,7 +1277,9 @@ export default function POSPanel() {
         body{font-family:Arial,sans-serif;font-size:12px;padding:16px}
         .muted{color:#64748b}.sep{border-top:1px dashed #cbd5e1;margin:8px 0}
         table{width:100%;border-collapse:collapse}
+        .center{text-align:center}
       </style></head><body>
+      <div class="center">${logoBlock}<h3 style="margin:0 0 6px 0">${restaurantName}</h3></div>
       <h3>PRECUENTA - ${selectedTable.name}</h3>
       <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
       <div class="sep"></div>
@@ -1427,6 +1439,11 @@ export default function POSPanel() {
     if (!table) return;
     const items = (table.orders || []).flatMap(o => o.items || []);
     if (!items.length) return toast.error('La mesa no tiene pedidos para precuenta');
+    const restaurantName = String(printRestaurantInfo?.name || 'Resto-FADEY').trim() || 'Resto-FADEY';
+    const logoUrl = String(printRestaurantInfo?.logo || '').trim();
+    const logoBlock = logoUrl
+      ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
+      : '';
     const itemLines = items
       .map(i => `<tr><td style="padding:4px 0">${i.quantity}x ${i.product_name}</td><td style="text-align:right;padding:4px 0">${formatCurrency(i.subtotal)}</td></tr>`)
       .join('');
@@ -1438,7 +1455,9 @@ export default function POSPanel() {
         body{font-family:Arial,sans-serif;font-size:12px;padding:16px}
         .muted{color:#64748b}.sep{border-top:1px dashed #cbd5e1;margin:8px 0}
         table{width:100%;border-collapse:collapse}
+        .center{text-align:center}
       </style></head><body>
+      <div class="center">${logoBlock}<h3 style="margin:0 0 6px 0">${restaurantName}</h3></div>
       <h3>PRECUENTA - ${table.name}</h3>
       <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
       <div class="sep"></div>
