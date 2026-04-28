@@ -186,6 +186,27 @@ export default function Escritorio() {
     () => new Set(scopedOrdersAll.filter((o) => o.status !== 'cancelled').map(ventaMesaKey)).size,
     [scopedOrdersAll]
   );
+  /** Solo pedidos con mesa: una mesa = una venta en el periodo (sin delivery / mostrador). */
+  const totalVentasPorMesa = useMemo(() => {
+    const keys = new Set();
+    scopedOrdersAll
+      .filter((o) => o.status !== 'cancelled' && String(o.table_number || '').trim())
+      .forEach((o) => {
+        keys.add(ventaMesaKey(o));
+      });
+    return keys.size;
+  }, [scopedOrdersAll]);
+  /** Productos distintos con al menos una línea en pedidos cobrados del periodo. */
+  const totalVentasPorProducto = useMemo(() => {
+    const ids = new Set();
+    paidOrders.forEach((o) => {
+      (o.items || []).forEach((it) => {
+        const key = String(it.product_id || it.product_name || '').trim();
+        if (key) ids.add(key);
+      });
+    });
+    return ids.size;
+  }, [paidOrders]);
   const totalDiscounts = scopedOrders.reduce((sum, o) => sum + Number(o.discount || 0), 0);
   const totalCredit = paidOrders
     .filter(o => o.payment_method === 'online')
@@ -700,14 +721,25 @@ export default function Escritorio() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <div className="card p-4">
-          <p className="text-sm text-slate-500">Total ventas (mesas)</p>
-          <p className="text-2xl font-light text-slate-700">{totalVentasMesas}</p>
-          <p className="text-xs text-slate-500 mt-1">
-            Una mesa con pedidos = 1 venta. Sin mesa (delivery, etc.): 1 venta = 1 pedido.
-          </p>
-          <p className="text-xs text-slate-500 mt-2">
-            Pedidos — Cobradas: <strong>{paidOrdersCount}</strong> · Pendientes: <strong>{pendingPaymentCount}</strong> ·
-            Canceladas: <strong>{cancelledOrdersCount}</strong>
+          <div className="border-b border-[#3B82F6]/25 pb-3 mb-3">
+            <p className="text-sm text-[#9CA3AF]">Total de ventas por mesa</p>
+            <p className="text-2xl font-light text-[#F9FAFB]">{totalVentasPorMesa}</p>
+            <p className="text-xs text-[#9CA3AF] mt-1">
+              Una mesa con pedidos en el periodo = 1 venta (solo cuentan pedidos con mesa asignada).
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-[#9CA3AF]">Total de ventas por producto</p>
+            <p className="text-2xl font-light text-[#F9FAFB]">{totalVentasPorProducto}</p>
+            <p className="text-xs text-[#9CA3AF] mt-1">
+              Productos distintos con al menos una línea en pedidos <strong className="text-[#E5E7EB]">cobrados</strong> en el
+              periodo.
+            </p>
+          </div>
+          <p className="text-xs text-[#9CA3AF] mt-3 pt-3 border-t border-[#3B82F6]/25">
+            Pedidos — Cobradas: <strong className="text-[#F9FAFB]">{paidOrdersCount}</strong> · Pendientes:{' '}
+            <strong className="text-[#F9FAFB]">{pendingPaymentCount}</strong> · Canceladas:{' '}
+            <strong className="text-[#F9FAFB]">{cancelledOrdersCount}</strong>
           </p>
         </div>
         <div className="card p-4">
