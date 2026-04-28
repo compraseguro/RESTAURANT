@@ -528,10 +528,6 @@ export default function MiRestaurant() {
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Email</label><input value={restaurant.email} onChange={e => update('email', e.target.value)} className="input-field" /></div>
             <div><label className="block text-sm font-medium text-slate-700 mb-1">Dirección</label><input value={restaurant.address} onChange={e => update('address', e.target.value)} className="input-field" /></div>
           </div>
-          <p className="text-sm text-slate-500 mt-6 border-t border-slate-100 pt-4">
-            RUC, ubicación fiscal SUNAT, series de boleta/factura y series de contingencia se configuran solo en{' '}
-            <strong>Bot facturación SUNAT</strong> para evitar datos duplicados.
-          </p>
         </div>
           )}
 
