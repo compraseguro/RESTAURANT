@@ -18,9 +18,17 @@ function ensureWarehouseTables() {
       name TEXT NOT NULL UNIQUE,
       description TEXT DEFAULT '',
       is_active INTEGER DEFAULT 1,
+      linked_insumos INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
+  const whCols = queryAll('PRAGMA table_info(warehouse_locations)');
+  if (!whCols.some((c) => c.name === 'linked_insumos')) {
+    runSql('ALTER TABLE warehouse_locations ADD COLUMN linked_insumos INTEGER NOT NULL DEFAULT 0');
+    runSql(
+      `UPDATE warehouse_locations SET linked_insumos = 1 WHERE LOWER(name) LIKE '%insumo%' OR LOWER(description) LIKE '%inventario y kardex%'`
+    );
+  }
   runSql(`
     CREATE TABLE IF NOT EXISTS inventory_warehouse_stocks (
       id TEXT PRIMARY KEY,
@@ -128,7 +136,7 @@ function ensureWarehouseTables() {
     );
     if (legacy?.id) {
       runSql(
-        "UPDATE warehouse_locations SET name = 'Almacen de insumos', description = 'Almacén vinculado a Inventario y Kardex', is_active = 1 WHERE id = ?",
+        "UPDATE warehouse_locations SET name = 'Almacen de insumos', description = 'Almacén vinculado a Inventario y Kardex', is_active = 1, linked_insumos = 1 WHERE id = ?",
         [legacy.id]
       );
     } else {
@@ -239,16 +247,25 @@ router.get('/warehouses', authenticateToken, requireRole('admin'), (req, res) =>
 router.post('/warehouses', authenticateToken, requireRole('admin'), (req, res) => {
   try {
     ensureWarehouseTables();
-    const { name, description } = req.body;
+    const { name, description, linked_insumos: linkedRaw } = req.body || {};
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Nombre de almacén es requerido' });
     }
     const exists = getWarehouseByName(name.trim());
     if (exists) return res.status(400).json({ error: 'Ya existe un almacén con ese nombre' });
+    const linked =
+      linkedRaw === true ||
+      linkedRaw === 1 ||
+      linkedRaw === '1' ||
+      linkedRaw === 'true';
+    const descLinked = 'Almacén vinculado a Inventario y Kardex';
+    const desc = linked
+      ? (String(description || '').trim() || descLinked)
+      : String(description || '').trim();
     const id = uuidv4();
     runSql(
-      'INSERT INTO warehouse_locations (id, name, description, is_active) VALUES (?, ?, ?, 1)',
-      [id, name.trim(), description || '']
+      'INSERT INTO warehouse_locations (id, name, description, is_active, linked_insumos) VALUES (?, ?, ?, 1, ?)',
+      [id, name.trim(), desc, linked ? 1 : 0]
     );
     res.status(201).json(queryOne('SELECT * FROM warehouse_locations WHERE id = ?', [id]));
   } catch (err) {

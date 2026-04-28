@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { MdSearch, MdWarning, MdAdd, MdRemove, MdDownload, MdDeleteOutline } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import LogisticaKardexModule from '../../components/LogisticaKardexModule';
+import InsumoCreateModal from '../../components/InsumoCreateModal';
 
 const WAREHOUSE_CATEGORY_NAMES = {
   products: 'PRODUCTOS ALMACEN',
@@ -81,6 +82,13 @@ function insumoEstadoStock(insumo) {
   return 'normal';
 }
 
+/** Almacén que muestra lista y KPI de insumos kardex (columna linked_insumos o nombre heredado). */
+function isInsumosWarehouse(warehouse) {
+  if (!warehouse) return false;
+  if (Number(warehouse.linked_insumos) === 1) return true;
+  return String(warehouse.name || '').toLowerCase().includes('insumos');
+}
+
 const ALMACEN_VIEWS = [
   { id: 'movimiento_interno', label: 'Movimiento interno' },
   { id: 'ir_modulo_logistica', label: 'Inventario y kardex' },
@@ -111,6 +119,7 @@ export default function Almacen() {
   const [deleteReason, setDeleteReason] = useState('');
   const [stockWarehouse, setStockWarehouse] = useState(DEFAULT_STOCK_WAREHOUSE);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showInsumoModal, setShowInsumoModal] = useState(false);
   const [showWarehouseModal, setShowWarehouseModal] = useState(false);
   const [showRequirementModal, setShowRequirementModal] = useState(false);
   const [selectedRequirementIds, setSelectedRequirementIds] = useState([]);
@@ -120,7 +129,7 @@ export default function Almacen() {
   const [expenseHistory, setExpenseHistory] = useState([]);
   const [kardexBajoMin, setKardexBajoMin] = useState([]);
   const [kardexInsumos, setKardexInsumos] = useState([]);
-  const [warehouseForm, setWarehouseForm] = useState({ name: '', description: '' });
+  const [warehouseForm, setWarehouseForm] = useState({ name: '', description: '', linkedInsumos: false });
   const [itemForm, setItemForm] = useState({
     name: '',
     description: '',
@@ -143,7 +152,6 @@ export default function Almacen() {
   ];
   const principalWarehouse = warehouses.find(w => w.name === 'Almacen Principal') || warehouses[0];
   const sameWarehouseId = (a, b) => String(a || '') === String(b || '');
-  const isInsumosWarehouseName = (name) => String(name || '').toLowerCase().includes('insumos');
   const getDefaultCreateWarehouseId = () => {
     if (selectedWarehouseView && warehouses.some(w => sameWarehouseId(w.id, selectedWarehouseView))) {
       return String(selectedWarehouseView);
@@ -309,7 +317,7 @@ export default function Almacen() {
     (p) => p.process === 'non_transformed' && Number(p.stock || 0) <= 10
   );
   const selectedWarehouse = warehouses.find((w) => sameWarehouseId(w.id, selectedWarehouseView));
-  const selectedIsInsumosWarehouse = isInsumosWarehouseName(selectedWarehouse?.name);
+  const selectedIsInsumosWarehouse = isInsumosWarehouse(selectedWarehouse);
   const insumosActivos = (kardexInsumos || []).filter((i) => Number(i.activo) !== 0);
   const insumosTablaFiltrados = selectedIsInsumosWarehouse
     ? insumosActivos.filter((i) =>
@@ -439,10 +447,11 @@ export default function Almacen() {
       await api.post('/inventory/warehouses', {
         name: warehouseForm.name.trim(),
         description: warehouseForm.description,
+        linked_insumos: !!warehouseForm.linkedInsumos,
       });
       toast.success('Almacén creado');
       setShowWarehouseModal(false);
-      setWarehouseForm({ name: '', description: '' });
+      setWarehouseForm({ name: '', description: '', linkedInsumos: false });
       load();
     } catch (err) {
       toast.error(err.message);
@@ -843,11 +852,21 @@ export default function Almacen() {
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-bold text-[#F9FAFB]">Almacenes e Inventario</h1>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowWarehouseModal(true)} className="btn-secondary flex items-center gap-2 text-sm">
+          <button
+            onClick={() => {
+              setWarehouseForm({ name: '', description: '', linkedInsumos: false });
+              setShowWarehouseModal(true);
+            }}
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
             <MdAdd /> Nuevo almacén
           </button>
           <button
             onClick={() => {
+              if (selectedIsInsumosWarehouse) {
+                setShowInsumoModal(true);
+                return;
+              }
               setItemForm(prev => ({
                 ...prev,
                 category_id: '',
@@ -865,7 +884,7 @@ export default function Almacen() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
         {warehouses.map(w => {
-          const linkedProducts = isInsumosWarehouseName(w.name)
+          const linkedProducts = isInsumosWarehouse(w)
             ? insumosActivos.length
             : (warehouseUsageMap[w.id] || 0);
           const canDelete = linkedProducts === 0;
@@ -890,7 +909,7 @@ export default function Almacen() {
               <p className="font-semibold text-[#F9FAFB]">{w.name}</p>
               {w.description && <p className="text-xs text-[#E5E7EB] mt-1">{w.description}</p>}
               <p className="text-xs text-[#E5E7EB] mt-2">
-                {isInsumosWarehouseName(w.name) ? 'Insumos vinculados: ' : 'Productos con stock: '}
+                {isInsumosWarehouse(w) ? 'Insumos vinculados: ' : 'Productos con stock: '}
                 <strong>{linkedProducts}</strong>
               </p>
               <div className="mt-auto flex justify-end">
@@ -1219,11 +1238,41 @@ export default function Almacen() {
 
       <Modal
         isOpen={showWarehouseModal}
-        onClose={() => setShowWarehouseModal(false)}
+        onClose={() => {
+          setShowWarehouseModal(false);
+          setWarehouseForm({ name: '', description: '', linkedInsumos: false });
+        }}
         title="Nuevo almacén"
         size="sm"
       >
-        <form onSubmit={handleCreateWarehouse} className="space-y-4">
+        <form onSubmit={handleCreateWarehouse} className="space-y-4 modal-sheet-body">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-[#E5E7EB]">Tipo</p>
+            <label className="flex items-center gap-2 text-sm text-[#E5E7EB] cursor-pointer">
+              <input
+                type="radio"
+                name="warehouseTipo"
+                checked={!warehouseForm.linkedInsumos}
+                onChange={() => setWarehouseForm((f) => ({ ...f, linkedInsumos: false }))}
+              />
+              Solo almacén
+            </label>
+            <label className="flex items-center gap-2 text-sm text-[#E5E7EB] cursor-pointer">
+              <input
+                type="radio"
+                name="warehouseTipo"
+                checked={warehouseForm.linkedInsumos}
+                onChange={() =>
+                  setWarehouseForm((f) => ({
+                    ...f,
+                    linkedInsumos: true,
+                    description: f.description.trim() || 'Almacén vinculado a Inventario y Kardex',
+                  }))
+                }
+              />
+              Vinculado a insumos (kardex)
+            </label>
+          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del almacén</label>
             <input
@@ -1241,15 +1290,30 @@ export default function Almacen() {
               onChange={e => setWarehouseForm({ ...warehouseForm, description: e.target.value })}
               className="input-field"
               rows="2"
-              placeholder="Descripción opcional"
+              placeholder={warehouseForm.linkedInsumos ? 'Almacén vinculado a Inventario y Kardex' : 'Descripción opcional'}
             />
           </div>
           <div className="flex gap-3">
-            <button type="button" onClick={() => setShowWarehouseModal(false)} className="btn-secondary flex-1">Cancelar</button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowWarehouseModal(false);
+                setWarehouseForm({ name: '', description: '', linkedInsumos: false });
+              }}
+              className="btn-secondary flex-1"
+            >
+              Cancelar
+            </button>
             <button type="submit" className="btn-primary flex-1">Crear almacén</button>
           </div>
         </form>
       </Modal>
+
+      <InsumoCreateModal
+        isOpen={showInsumoModal}
+        onClose={() => setShowInsumoModal(false)}
+        onSaved={() => load()}
+      />
     </div>
   );
 }

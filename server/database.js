@@ -605,9 +605,19 @@ async function initDatabase() {
         name TEXT NOT NULL UNIQUE,
         description TEXT DEFAULT '',
         is_active INTEGER DEFAULT 1,
+        linked_insumos INTEGER NOT NULL DEFAULT 0,
         created_at TEXT DEFAULT (datetime('now'))
       )
     `);
+    try {
+      const wlCols = queryAll('PRAGMA table_info(warehouse_locations)');
+      if (!wlCols.some((c) => c.name === 'linked_insumos')) {
+        db.run('ALTER TABLE warehouse_locations ADD COLUMN linked_insumos INTEGER NOT NULL DEFAULT 0');
+        db.run(`UPDATE warehouse_locations SET linked_insumos = 1 WHERE LOWER(name) LIKE '%insumo%'`);
+      }
+    } catch (_) {
+      /* noop */
+    }
 
     db.run(`
       CREATE TABLE IF NOT EXISTS inventory_warehouse_stocks (
@@ -1617,7 +1627,7 @@ function seedWarehouses() {
   ];
   defaults.forEach(w => {
     db.run(
-      'INSERT OR IGNORE INTO warehouse_locations (id, name, description, is_active) VALUES (?, ?, ?, 1)',
+      'INSERT OR IGNORE INTO warehouse_locations (id, name, description, is_active, linked_insumos) VALUES (?, ?, ?, 1, 0)',
       [w.id, w.name, w.description]
     );
   });
