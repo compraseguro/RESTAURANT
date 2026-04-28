@@ -70,10 +70,10 @@ function InventarioFisicoResumenLine({ f, b, s }) {
   if (nb > 0) parts.push({ key: 'b', node: <span className="text-emerald-400/90">Bien: {nb}</span> });
   if (ns > 0) parts.push({ key: 's', node: <span className="text-sky-400/95 font-medium">Sobra: {ns}</span> });
   return (
-    <span className="text-slate-300">
+    <span className="text-[#E5E7EB]">
       {parts.map((p, i) => (
         <span key={p.key}>
-          {i > 0 && <span className="text-slate-500"> · </span>}
+          {i > 0 && <span className="text-[#9CA3AF]"> · </span>}
           {p.node}
         </span>
       ))}
@@ -590,7 +590,7 @@ export default function LogisticaKardexModule() {
                   ? `${formatInsumoQty(uAct)} U / mín. ${formatInsumoQty(uMin)} U`
                   : `${formatInsumoWithUnit(sAct, um)} / mín. ${formatInsumoQty(sMin)} ${um}`;
                 return (
-                  <li key={i.id} className="flex justify-between text-slate-300 gap-2">
+                  <li key={i.id} className="flex justify-between text-[#E5E7EB] gap-2">
                     <span>{i.nombre}</span>
                     <span className="text-red-400 text-right">{detail}</span>
                   </li>
@@ -606,8 +606,8 @@ export default function LogisticaKardexModule() {
 
       {tab === 'insumos' && (
         <div className="space-y-4">
-          <p className="text-slate-300 text-xs max-w-3xl">
-            <strong className="text-slate-300">Kardex y recetas usan cantidad en kg/L (o ml).</strong>{' '}
+          <p className="text-[#E5E7EB] text-xs max-w-3xl">
+            <strong className="text-[#F9FAFB]">Kardex y recetas usan cantidad en kg/L (o ml).</strong>{' '}
             <strong>Cant. (U)</strong> y el promedio kg/U se alimentan con la compra; las ventas por receta descontarán
             <strong> kg</strong> y <strong>U</strong> si aplica. Los mínimos (U y kg/L) definen alerta y requisición según
             rellenes cada uno (0 = no aplicar); no se listan en la tabla de abajo.
@@ -704,7 +704,7 @@ export default function LogisticaKardexModule() {
               {editingInsumoId ? (
                 <button
                   type="button"
-                  className="text-sm px-3 py-1.5 rounded-lg border border-slate-500/60 text-slate-200 shrink-0"
+                  className="text-sm px-3 py-1.5 rounded-lg border border-slate-500/60 text-[#E5E7EB] shrink-0"
                   onClick={() => {
                     setEditingInsumoId('');
                     setInsumoForm({
@@ -763,12 +763,12 @@ export default function LogisticaKardexModule() {
                   const showU = uAct > 0;
                   return (
                     <tr key={i.id} className={`border-b border-slate-600/40 ${low ? 'bg-red-950/30' : ''}`}>
-                      <td className="p-2.5 font-medium">{i.nombre}</td>
-                      <td className="p-2.5 text-slate-200 tabular-nums">
-                        {showKg ? formatInsumoWithUnit(i.stock_actual, umc) : <span className="text-slate-500">—</span>}
+                      <td className="p-2.5 font-medium text-[#F9FAFB]">{i.nombre}</td>
+                      <td className="p-2.5 text-[#F9FAFB] tabular-nums">
+                        {showKg ? formatInsumoWithUnit(i.stock_actual, umc) : <span className="text-[#9CA3AF]">—</span>}
                       </td>
-                      <td className="p-2.5 text-slate-200 tabular-nums">
-                        {showU ? `${formatInsumoQty(uAct)} U` : <span className="text-slate-500">—</span>}
+                      <td className="p-2.5 text-[#F9FAFB] tabular-nums">
+                        {showU ? `${formatInsumoQty(uAct)} U` : <span className="text-[#9CA3AF]">—</span>}
                       </td>
                       <td className="p-2.5 text-amber-200/90 tabular-nums text-sm">
                         {kpu > 0 ? (
@@ -776,10 +776,10 @@ export default function LogisticaKardexModule() {
                             {formatInsumoQty(kpu)} {umc}/U
                           </span>
                         ) : (
-                          <span className="text-slate-500">—</span>
+                          <span className="text-[#9CA3AF]">—</span>
                         )}
                       </td>
-                      <td className="p-2.5 text-right tabular-nums">{formatCurrency(i.costo_promedio || 0)}</td>
+                      <td className="p-2.5 text-right tabular-nums text-[#F9FAFB]">{formatCurrency(i.costo_promedio || 0)}</td>
                       <td className="p-2.5 text-right text-emerald-400/90 tabular-nums">
                         {formatCurrency((Number(i.stock_actual) * Number(i.costo_promedio)) || 0)}
                       </td>
@@ -804,7 +804,7 @@ export default function LogisticaKardexModule() {
       {tab === 'compras' && (
         <div className="space-y-3">
           <p className="text-[#E5E7EB] text-sm">
-            <strong className="text-slate-200">Cant. kg / L</strong> y <strong>costo</strong> = peso/volumen comprado (S/ por kg, L, etc.).
+            <strong className="text-[#F9FAFB]">Cant. kg / L</strong> y <strong className="text-[#F9FAFB]">costo</strong> = peso/volumen comprado (S/ por kg, L, etc.).
             <strong> Unid.</strong> = pollos, cajas, bultos, etc. Si pones <strong>kg y unidades</strong>, el sistema
             promedia <strong>kg / U</strong> (p. ej. 50 kg ÷ 20 piezas = 2,5 kg por unidad) y al <strong>vender por receta</strong> (cuartos, octavos) descuenta
             a la vez el <strong>kg</strong> y la parte de <strong>U</strong> que corresponda. Solo kg (sin U) sigue yendo al kardex de masa. Formato numérico{' '}
@@ -1143,7 +1143,7 @@ export default function LogisticaKardexModule() {
                   const stockU = canShowU ? (stockKg / kpu) : 0;
                   return (
                     <tr key={m.id} className="border-b border-slate-600/40">
-                      <td className="p-2 text-slate-300">{formatDateTime(m.fecha || m.created_at)}</td>
+                      <td className="p-2 text-[#E5E7EB]">{formatDateTime(m.fecha || m.created_at)}</td>
                       <td className="p-2">
                         <span
                           className={
@@ -1161,18 +1161,18 @@ export default function LogisticaKardexModule() {
                               : 'Ajuste'}
                         </span>
                       </td>
-                      <td className="p-2 text-right tabular-nums">
+                      <td className="p-2 text-right tabular-nums text-[#F9FAFB]">
                         {formatInsumoQty(qtyKg)} {um || 'kg'}
                       </td>
-                      <td className="p-2 text-right tabular-nums">
+                      <td className="p-2 text-right tabular-nums text-[#F9FAFB]">
                         {canShowU ? `${formatInsumoQty(qtyU)} U` : '—'}
                       </td>
-                      <td className="p-2 text-right">{formatCurrency(m.costo_unitario)}</td>
-                      <td className="p-2 text-right">{formatCurrency(m.costo_total)}</td>
-                      <td className="p-2 text-right font-medium text-slate-200 tabular-nums">
+                      <td className="p-2 text-right text-[#F9FAFB]">{formatCurrency(m.costo_unitario)}</td>
+                      <td className="p-2 text-right text-[#F9FAFB]">{formatCurrency(m.costo_total)}</td>
+                      <td className="p-2 text-right font-medium text-[#F9FAFB] tabular-nums">
                         {formatInsumoQty(stockKg)} {um || 'kg'}
                       </td>
-                      <td className="p-2 text-right font-medium text-slate-200 tabular-nums">
+                      <td className="p-2 text-right font-medium text-[#F9FAFB] tabular-nums">
                         {canShowU ? `${formatInsumoQty(stockU)} U` : '—'}
                       </td>
                     </tr>
@@ -1302,7 +1302,7 @@ export default function LogisticaKardexModule() {
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                      <span className="text-slate-100 font-semibold tracking-tight">{label}</span>
+                      <span className="text-[#F9FAFB] font-semibold tracking-tight">{label}</span>
                       <span className="text-slate-500 text-sm">{formatDateTime(iv.fecha || iv.created_at)}</span>
                       <span
                         className={`text-xs uppercase tracking-wide ${
