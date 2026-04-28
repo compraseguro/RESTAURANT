@@ -1184,6 +1184,66 @@ export default function LogisticaKardexModule() {
               <p className="p-6 text-slate-500 text-center">Sin movimientos en el rango.</p>
             )}
           </div>
+          {kardexData && (kardexData.movimientos || []).length > 0 && (
+            <div className="flex justify-end gap-3 flex-wrap">
+              {(() => {
+                const ins = kardexData.insumo || {};
+                const um = String(ins.unidad_medida || '').replace(/[0-9]/g, '').trim() || 'kg';
+                const kpu = Number(ins.kg_por_unidad || 0);
+                const totals = (kardexData.movimientos || []).reduce(
+                  (acc, m) => {
+                    const qtyKg = Number(m.cantidad || 0);
+                    const qtyU = kpu > 1e-12 ? (qtyKg / kpu) : 0;
+                    const cost = Number(m.costo_total || 0);
+                    if (m.tipo_movimiento === 'entrada') {
+                      acc.entradas.kg += qtyKg;
+                      acc.entradas.u += qtyU;
+                      acc.entradas.cost += cost;
+                    } else if (m.tipo_movimiento === 'salida') {
+                      acc.salidas.kg += qtyKg;
+                      acc.salidas.u += qtyU;
+                      acc.salidas.cost += cost;
+                    }
+                    return acc;
+                  },
+                  {
+                    entradas: { kg: 0, u: 0, cost: 0 },
+                    salidas: { kg: 0, u: 0, cost: 0 },
+                  }
+                );
+                const Card = ({ title, data, accent }) => (
+                  <div className={`min-w-[220px] rounded-lg border p-3 bg-[#1F2937]/85 ${accent}`}>
+                    <p className="text-sm font-semibold mb-2">{title}</p>
+                    <div className="space-y-1 text-sm">
+                      <p className="text-slate-200">
+                        Cantidad: <span className="font-medium">{formatInsumoQty(data.kg)} {um}</span>
+                      </p>
+                      <p className="text-slate-200">
+                        Cantidad U: <span className="font-medium">{kpu > 1e-12 ? `${formatInsumoQty(data.u)} U` : '—'}</span>
+                      </p>
+                      <p className="text-slate-200">
+                        Precio total: <span className="font-medium">{formatCurrency(data.cost)}</span>
+                      </p>
+                    </div>
+                  </div>
+                );
+                return (
+                  <>
+                    <Card
+                      title="Total Entradas"
+                      data={totals.entradas}
+                      accent="border-emerald-500/40 text-emerald-300"
+                    />
+                    <Card
+                      title="Total Salidas"
+                      data={totals.salidas}
+                      accent="border-rose-500/40 text-rose-300"
+                    />
+                  </>
+                );
+              })()}
+            </div>
+          )}
         </div>
       )}
 
