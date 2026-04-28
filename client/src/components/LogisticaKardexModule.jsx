@@ -92,13 +92,14 @@ export default function LogisticaKardexModule() {
 
   const [insumoForm, setInsumoForm] = useState({
     nombre: '',
-    unidad_medida: 'kg',
+    unidad_medida: '',
     precio_compra: '',
     cantidad_inicial: '0',
     minimo_unidades: '0',
     minimo_kg: '0',
     activo: true,
   });
+  const [editingInsumoId, setEditingInsumoId] = useState('');
   const [compraLines, setCompraLines] = useState([{ insumo_id: '', cantidad: '', costo_unitario: '', unidades: '' }]);
   const [recetaForm, setRecetaForm] = useState({
     nombre_plato: '', product_id: '', activo: true, detalles: [{ insumo_id: '', cantidad_usada: '' }],
@@ -229,10 +230,10 @@ export default function LogisticaKardexModule() {
         toast.error('El precio de compra no puede ser negativo');
         return;
       }
-      const umed = String(insumoForm.unidad_medida || 'kg')
+      const umed = String(insumoForm.unidad_medida || '')
         .replace(/[0-9]/g, '')
-        .trim() || 'kg';
-      await api.post(`${BASE}/insumos`, {
+        .trim();
+      const payload = {
         nombre: insumoForm.nombre.trim(),
         unidad_medida: umed,
         costo_promedio: pCompra,
@@ -240,21 +241,41 @@ export default function LogisticaKardexModule() {
         minimo_unidades: Number.isFinite(mu) && mu >= 0 ? mu : 0,
         stock_minimo: Number.isFinite(mk) && mk >= 0 ? mk : 0,
         activo: insumoForm.activo,
-      });
-      toast.success('Insumo creado');
+      };
+      if (editingInsumoId) {
+        await api.put(`${BASE}/insumos/${editingInsumoId}`, payload);
+        toast.success('Insumo actualizado');
+      } else {
+        await api.post(`${BASE}/insumos`, payload);
+        toast.success('Insumo creado');
+      }
       setInsumoForm({
         nombre: '',
-        unidad_medida: 'kg',
+        unidad_medida: '',
         precio_compra: '',
         cantidad_inicial: '0',
         minimo_unidades: '0',
         minimo_kg: '0',
         activo: true,
       });
+      setEditingInsumoId('');
       loadCore();
     } catch (err) {
       toast.error(err.message);
     }
+  };
+
+  const editInsumo = (row) => {
+    setEditingInsumoId(row.id || '');
+    setInsumoForm({
+      nombre: String(row.nombre || ''),
+      unidad_medida: String(row.unidad_medida || '').replace(/[0-9]/g, '').trim(),
+      precio_compra: String(Number(row.costo_promedio || 0)),
+      cantidad_inicial: String(Number(row.stock_actual || 0)),
+      minimo_unidades: String(Number(row.minimo_unidades || 0)),
+      minimo_kg: String(Number(row.stock_minimo || 0)),
+      activo: Number(row.activo) !== 0,
+    });
   };
 
   const runCompra = async (e) => {
@@ -524,7 +545,7 @@ export default function LogisticaKardexModule() {
 
   return (
     <div className="logistica-kardex-module space-y-4 text-[#F9FAFB]">
-      <p className="text-sm text-[#9CA3AF]">
+      <p className="text-sm text-[#E5E7EB]">
         Insumos, compras, recetas, kardex, inventario de transformables (insumos) y no transformables (cuadre en almacén).
         Las ventas en caja descuentan según recetas.
       </p>
@@ -585,7 +606,7 @@ export default function LogisticaKardexModule() {
 
       {tab === 'insumos' && (
         <div className="space-y-4">
-          <p className="text-slate-500 text-xs max-w-3xl">
+          <p className="text-slate-300 text-xs max-w-3xl">
             <strong className="text-slate-300">Kardex y recetas usan cantidad en kg/L (o ml).</strong>{' '}
             <strong>Cant. (U)</strong> y el promedio kg/U se alimentan con la compra; las ventas por receta descontarán
             <strong> kg</strong> y <strong>U</strong> si aplica. Los mínimos (U y kg/L) definen alerta y requisición según
@@ -613,9 +634,10 @@ export default function LogisticaKardexModule() {
                   autoComplete="off"
                   value={insumoForm.unidad_medida}
                   onChange={(e) => setInsumoForm((f) => ({ ...f, unidad_medida: e.target.value.replace(/[0-9]/g, '') }))}
-                  title="Unidad de medida de masa o volumen (kg, L, ml…)"
+                  title="Opcional. Unidad de medida de masa o volumen (kg, L, ml…)"
                 />
                 <datalist id="kardex-um-masa">
+                  <option value="" />
                   <option value="kg" />
                   <option value="g" />
                   <option value="L" />
@@ -677,8 +699,28 @@ export default function LogisticaKardexModule() {
                 Activo
               </label>
               <button type="submit" className="btn-primary flex items-center gap-1 text-sm shrink-0">
-                <MdAdd /> Agregar
+                <MdAdd /> {editingInsumoId ? 'Guardar' : 'Agregar'}
               </button>
+              {editingInsumoId ? (
+                <button
+                  type="button"
+                  className="text-sm px-3 py-1.5 rounded-lg border border-slate-500/60 text-slate-200 shrink-0"
+                  onClick={() => {
+                    setEditingInsumoId('');
+                    setInsumoForm({
+                      nombre: '',
+                      unidad_medida: '',
+                      precio_compra: '',
+                      cantidad_inicial: '0',
+                      minimo_unidades: '0',
+                      minimo_kg: '0',
+                      activo: true,
+                    });
+                  }}
+                >
+                  Cancelar
+                </button>
+              ) : null}
             </div>
           </form>
           <div className="overflow-x-auto border border-slate-600/50 rounded-lg">
@@ -703,6 +745,7 @@ export default function LogisticaKardexModule() {
                   <th className="p-2.5 text-right" title="Cant. kg/L × costo (valorizado)">
                     Valor inv.
                   </th>
+                  <th className="p-2.5 text-right">Acción</th>
                 </tr>
               </thead>
               <tbody>
@@ -715,14 +758,18 @@ export default function LogisticaKardexModule() {
                   const lowU = uMin > 0 && uAct < uMin;
                   const lowM = sMin > 0 && sAct < sMin;
                   const low = lowU || lowM;
-                  const umc = (i.unidad_medida || 'kg').replace(/[0-9]/g, '').trim() || 'kg';
+                  const umc = String(i.unidad_medida || '').replace(/[0-9]/g, '').trim();
+                  const showKg = sAct > 0;
+                  const showU = uAct > 0;
                   return (
                     <tr key={i.id} className={`border-b border-slate-600/40 ${low ? 'bg-red-950/30' : ''}`}>
                       <td className="p-2.5 font-medium">{i.nombre}</td>
                       <td className="p-2.5 text-slate-200 tabular-nums">
-                        {formatInsumoWithUnit(i.stock_actual, umc)}
+                        {showKg ? formatInsumoWithUnit(i.stock_actual, umc) : <span className="text-slate-500">—</span>}
                       </td>
-                      <td className="p-2.5 text-slate-200 tabular-nums">{formatInsumoQty(uAct)} U</td>
+                      <td className="p-2.5 text-slate-200 tabular-nums">
+                        {showU ? `${formatInsumoQty(uAct)} U` : <span className="text-slate-500">—</span>}
+                      </td>
                       <td className="p-2.5 text-amber-200/90 tabular-nums text-sm">
                         {kpu > 0 ? (
                           <span title="Usado al vender: por cada kg que descuenta la receta, también bajan las U (p. ej. cuartos de pollo)">
@@ -735,6 +782,15 @@ export default function LogisticaKardexModule() {
                       <td className="p-2.5 text-right tabular-nums">{formatCurrency(i.costo_promedio || 0)}</td>
                       <td className="p-2.5 text-right text-emerald-400/90 tabular-nums">
                         {formatCurrency((Number(i.stock_actual) * Number(i.costo_promedio)) || 0)}
+                      </td>
+                      <td className="p-2.5 text-right">
+                        <button
+                          type="button"
+                          className="text-xs px-2 py-1 rounded border border-amber-400/40 text-amber-300 hover:bg-amber-400/10"
+                          onClick={() => editInsumo(i)}
+                        >
+                          Editar
+                        </button>
                       </td>
                     </tr>
                   );

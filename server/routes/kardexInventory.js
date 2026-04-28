@@ -18,7 +18,7 @@ function sanitizeUnidadMasa(raw) {
     .replace(/\s+/g, '')
     .trim()
     .toLowerCase();
-  if (!s) return 'kg';
+  if (!s) return '';
   const allow = new Set(['kg', 'g', 'mg', 't', 'l', 'ml', 'lt']);
   if (allow.has(s)) return s;
   if (s === 'litro' || s === 'lt') return 'L';
@@ -107,16 +107,33 @@ router.put('/insumos/:id', (req, res) => {
   try {
     const cur = queryOne('SELECT * FROM insumos WHERE id = ?', [req.params.id]);
     if (!cur) return res.status(404).json({ error: 'Insumo no encontrado' });
-    const { nombre, unidad_medida, stock_unidades, minimo_unidades, activo } = req.body || {};
+    const {
+      nombre,
+      unidad_medida,
+      stock_unidades,
+      minimo_unidades,
+      stock_minimo,
+      costo_promedio,
+      cantidad_inicial,
+      stock_actual,
+      activo,
+    } = req.body || {};
     runSql(
       `UPDATE insumos SET nombre = COALESCE(?, nombre), unidad_medida = COALESCE(?, unidad_medida),
        stock_unidades = COALESCE(?, stock_unidades), minimo_unidades = COALESCE(?, minimo_unidades),
+       stock_minimo = COALESCE(?, stock_minimo), costo_promedio = COALESCE(?, costo_promedio),
+       stock_actual = COALESCE(?, stock_actual),
        activo = COALESCE(?, activo), updated_at = datetime('now') WHERE id = ?`,
       [
         nombre != null ? String(nombre).trim() : null,
         unidad_medida != null ? sanitizeUnidadMasa(unidad_medida) : null,
         stock_unidades != null ? Math.max(0, Number(stock_unidades)) : null,
         minimo_unidades != null ? Math.max(0, Number(minimo_unidades)) : null,
+        stock_minimo != null ? Math.max(0, Number(stock_minimo)) : null,
+        costo_promedio != null ? Math.max(0, Number(costo_promedio)) : null,
+        cantidad_inicial != null
+          ? Math.max(0, Number(cantidad_inicial))
+          : (stock_actual != null ? Math.max(0, Number(stock_actual)) : null),
         activo != null ? (activo ? 1 : 0) : null,
         req.params.id,
       ]
