@@ -1215,14 +1215,14 @@ export default function LogisticaKardexModule() {
                   <div className={`min-w-[220px] rounded-lg border p-3 bg-[#1F2937]/85 ${accent}`}>
                     <p className="text-sm font-semibold mb-2">{title}</p>
                     <div className="space-y-1 text-sm">
-                      <p className="text-slate-200">
-                        Cantidad: <span className="font-medium">{formatInsumoQty(data.kg)} {um}</span>
+                      <p className="text-[#F9FAFB]">
+                        Cantidad: <span className="font-semibold text-[#F9FAFB]">{formatInsumoQty(data.kg)} {um}</span>
                       </p>
-                      <p className="text-slate-200">
-                        Cantidad U: <span className="font-medium">{kpu > 1e-12 ? `${formatInsumoQty(data.u)} U` : '—'}</span>
+                      <p className="text-[#F9FAFB]">
+                        Cantidad U: <span className="font-semibold text-[#F9FAFB]">{kpu > 1e-12 ? `${formatInsumoQty(data.u)} U` : '—'}</span>
                       </p>
-                      <p className="text-slate-200">
-                        Precio total: <span className="font-medium">{formatCurrency(data.cost)}</span>
+                      <p className="text-[#F9FAFB]">
+                        Precio total: <span className="font-semibold text-[#F9FAFB]">{formatCurrency(data.cost)}</span>
                       </p>
                     </div>
                   </div>
