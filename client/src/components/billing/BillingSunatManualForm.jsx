@@ -32,7 +32,7 @@ export default function BillingSunatManualForm({
   return (
     <form autoComplete="off" className="space-y-5" onSubmit={(e) => e.preventDefault()}>
       <div className={sectionCls}>
-        <h4 className={hCls}>Emisor (comprobante)</h4>
+        <h4 className={hCls}>Emisor</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className={`block text-xs font-medium mb-1 ${labelCls}`}>RUC (11 dígitos)</label>
@@ -68,7 +68,7 @@ export default function BillingSunatManualForm({
       </div>
 
       <div className={sectionCls}>
-        <h4 className={hCls}>SOL y certificado (firma en el bot)</h4>
+        <h4 className={hCls}>SOL y certificado</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className={`block text-xs font-medium mb-1 ${labelCls}`}>Usuario SOL</label>

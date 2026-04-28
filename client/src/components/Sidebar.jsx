@@ -47,7 +47,7 @@ const cajaSubOptions = [
 
 const miRestaurantSubOptionsAll = [
   { id: 'mi_empresa', label: 'Mi empresa' },
-  { id: 'facturacion_electronica', label: 'Bot facturación SUNAT' },
+  { id: 'facturacion_electronica', label: 'Facturación electrónica' },
   { id: 'pagos_sistema', label: 'Pagos de créditos' },
   { id: 'contrato', label: 'Contrato' },
   { id: 'pago_uso_sistema', label: 'Pago por uso del sistema' },
