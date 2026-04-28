@@ -780,23 +780,6 @@ export default function MiRestaurant() {
                 <MdReceipt className="text-blue-600 text-2xl" />
                 <h3 className="font-bold text-slate-800 text-lg">Pago por uso del sistema</h3>
               </div>
-              <p className="text-sm text-slate-500">
-                Registra los datos que te indique el proveedor del software para abonar la licencia o suscripción: periodicidad, cuenta de destino y, si ya pagaste, adjunta el comprobante.
-                {canEditBillingMaster ? (
-                  <>
-                    {' '}
-                    La <strong>próxima fecha de facturación</strong> se calcula sola a partir de la fecha de facturación del{' '}
-                    <strong>Administrador maestro</strong> (mismo día, al mes o semestre siguiente según frecuencia).
-                  </>
-                ) : null}
-              </p>
-
-              {isRestaurantAdmin && !isMasterAdmin ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                  Como <strong>administrador del restaurante</strong> puedes <strong>cargar o quitar el comprobante</strong> de pago.
-                  La periodicidad, cuenta y datos del beneficiario solo los edita el administrador maestro.
-                </div>
-              ) : null}
               {pagoUsoComprobanteUi?.policy_active && pagoUsoComprobanteUi.upload_comprobante_message ? (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
                   <p>{pagoUsoComprobanteUi.upload_comprobante_message}</p>
