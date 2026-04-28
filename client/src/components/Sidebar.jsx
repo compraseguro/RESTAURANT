@@ -19,7 +19,7 @@ const allLinks = [
   { to: '/admin/bar', icon: MdLocalBar, label: 'Bar', roles: ['admin'], moduleId: 'bar' },
   { to: '/admin/delivery', icon: MdDeliveryDining, label: 'Delivery', roles: ['admin', 'cajero', 'mozo'], moduleId: 'delivery' },
   { to: '/admin/reservas', icon: MdEventSeat, label: 'Reservas', roles: ['admin', 'cajero', 'mozo'], moduleId: 'reservas' },
-  { to: '/admin/auto-pedido', icon: MdQrCode2, label: 'Cartas y QR (config.)', roles: ['admin'], moduleId: 'auto_pedido' },
+  { to: '/admin/auto-pedido', icon: MdQrCode2, label: 'Cartas y QR', roles: ['admin'], moduleId: 'auto_pedido' },
   { to: '/admin/clientes', icon: MdPeopleAlt, label: 'Clientes', roles: ['admin', 'cajero'], moduleId: 'clientes' },
   { to: '/admin/creditos', icon: MdCreditCard, label: 'Créditos', roles: ['admin', 'cajero'], moduleId: 'creditos' },
   { to: '/admin/ofertas', icon: MdLocalOffer, label: 'Ofertas', roles: ['admin'], moduleId: 'ofertas' },
