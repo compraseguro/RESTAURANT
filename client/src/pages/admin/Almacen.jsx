@@ -102,6 +102,7 @@ export default function Almacen() {
   const [receptionNotes, setReceptionNotes] = useState('');
   const [expenseHistory, setExpenseHistory] = useState([]);
   const [kardexBajoMin, setKardexBajoMin] = useState([]);
+  const [kardexInsumos, setKardexInsumos] = useState([]);
   const [warehouseForm, setWarehouseForm] = useState({ name: '', description: '' });
   const [itemForm, setItemForm] = useState({
     name: '',
@@ -125,6 +126,7 @@ export default function Almacen() {
   ];
   const principalWarehouse = warehouses.find(w => w.name === 'Almacen Principal') || warehouses[0];
   const sameWarehouseId = (a, b) => String(a || '') === String(b || '');
+  const isInsumosWarehouseName = (name) => String(name || '').toLowerCase().includes('insumos');
   const getDefaultCreateWarehouseId = () => {
     if (selectedWarehouseView && warehouses.some(w => sameWarehouseId(w.id, selectedWarehouseView))) {
       return String(selectedWarehouseView);
@@ -137,14 +139,16 @@ export default function Almacen() {
 
   const load = async () => {
     try {
-      const [currentCategories, warehouseData, dashK] = await Promise.all([
+      const [currentCategories, warehouseData, dashK, insK] = await Promise.all([
         api.get('/categories'),
         api.get('/inventory/warehouse-stock'),
         planAllowsAlmacenAvanzado
           ? api.get('/kardex-inventory/dashboard').catch(() => null)
           : Promise.resolve(null),
+        api.get('/kardex-inventory/insumos').catch(() => []),
       ]);
       setKardexBajoMin(dashK?.insumos_bajo_minimo && Array.isArray(dashK.insumos_bajo_minimo) ? dashK.insumos_bajo_minimo : []);
+      setKardexInsumos(Array.isArray(insK) ? insK : []);
       setCategories(currentCategories);
       setWarehouses(warehouseData.warehouses || []);
       const warehouseProducts = (warehouseData.products || [])
@@ -287,7 +291,24 @@ export default function Almacen() {
   const lowStock = productsForSelectedWarehouse.filter(
     (p) => p.process === 'non_transformed' && Number(p.stock || 0) <= 10
   );
-  const totalValue = productsForSelectedWarehouse.reduce((s, p) => s + (p.price * p.stock), 0);
+  const selectedWarehouse = warehouses.find((w) => sameWarehouseId(w.id, selectedWarehouseView));
+  const selectedIsInsumosWarehouse = isInsumosWarehouseName(selectedWarehouse?.name);
+  const insumosActivos = (kardexInsumos || []).filter((i) => Number(i.activo) !== 0);
+  const insumosTotalValue = insumosActivos.reduce(
+    (s, i) => s + Number(i.stock_actual || 0) * Number(i.costo_promedio || 0),
+    0
+  );
+  const insumosLowCount = insumosActivos.filter((i) => {
+    const uMin = Number(i.minimo_unidades || 0);
+    const uAct = Number(i.stock_unidades || 0);
+    const sMin = Number(i.stock_minimo || 0);
+    const sAct = Number(i.stock_actual || 0);
+    return (uMin > 0 && uAct < uMin) || (sMin > 0 && sAct < sMin);
+  }).length;
+  const insumosTotalUnits = insumosActivos.reduce((s, i) => s + Number(i.stock_unidades || 0), 0);
+  const totalValue = selectedIsInsumosWarehouse
+    ? insumosTotalValue
+    : productsForSelectedWarehouse.reduce((s, p) => s + (p.price * p.stock), 0);
   const expenseGroups = Object.values(
     (expenseHistory || []).reduce((acc, expense) => {
       const key = expense.requirement_id || expense.id;
@@ -808,7 +829,9 @@ export default function Almacen() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
         {warehouses.map(w => {
-          const linkedProducts = warehouseUsageMap[w.id] || 0;
+          const linkedProducts = isInsumosWarehouseName(w.name)
+            ? insumosActivos.length
+            : (warehouseUsageMap[w.id] || 0);
           const canDelete = linkedProducts === 0;
           return (
             <div
@@ -830,7 +853,10 @@ export default function Almacen() {
             >
               <p className="font-semibold text-slate-800">{w.name}</p>
               {w.description && <p className="text-xs text-slate-500 mt-1">{w.description}</p>}
-              <p className="text-xs text-slate-500 mt-2">Productos con stock: <strong>{linkedProducts}</strong></p>
+              <p className="text-xs text-slate-500 mt-2">
+                {isInsumosWarehouseName(w.name) ? 'Insumos vinculados: ' : 'Productos con stock: '}
+                <strong>{linkedProducts}</strong>
+              </p>
               <div className="mt-auto flex justify-end">
                 <button
                   onClick={(e) => {
@@ -853,11 +879,17 @@ export default function Almacen() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-        <div className="card"><p className="text-xs text-slate-500">Total Ítems</p><p className="text-xl font-bold">{productsForSelectedWarehouse.length}</p></div>
+        <div className="card"><p className="text-xs text-slate-500">Total Ítems</p><p className="text-xl font-bold">{selectedIsInsumosWarehouse ? insumosActivos.length : productsForSelectedWarehouse.length}</p></div>
         <div className="card"><p className="text-xs text-slate-500">Valor del Inventario</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(totalValue)}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Stock Bajo</p><p className="text-xl font-bold text-red-600">{lowStock.length}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Unidades Totales</p><p className="text-xl font-bold">{productsForSelectedWarehouse.reduce((s, p) => s + p.stock, 0)}</p></div>
+        <div className="card"><p className="text-xs text-slate-500">Stock Bajo</p><p className="text-xl font-bold text-red-600">{selectedIsInsumosWarehouse ? insumosLowCount : lowStock.length}</p></div>
+        <div className="card"><p className="text-xs text-slate-500">Unidades Totales</p><p className="text-xl font-bold">{selectedIsInsumosWarehouse ? insumosTotalUnits : productsForSelectedWarehouse.reduce((s, p) => s + p.stock, 0)}</p></div>
       </div>
+      {selectedIsInsumosWarehouse && (
+        <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+          Este almacén está vinculado al módulo <strong>Inventario y kardex</strong>. Los indicadores de arriba se
+          calculan con los insumos (kardex), no con productos no transformados.
+        </div>
+      )}
 
       {lowStock.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5">
