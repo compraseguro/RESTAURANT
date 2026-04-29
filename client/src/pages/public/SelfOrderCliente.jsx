@@ -8,7 +8,7 @@ import StaffModifierPromptModal from '../../components/StaffModifierPromptModal'
 import CartasHorizontalCarousel from '../../components/CartasHorizontalCarousel';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
-import { MdClose, MdLock, MdReceipt, MdRestaurantMenu } from 'react-icons/md';
+import { MdAdd, MdClose, MdDelete, MdLock, MdReceipt, MdRemove, MdRestaurantMenu } from 'react-icons/md';
 
 function storageKeyForCliente(id) {
   return `selfOrderCliente:${id}`;
@@ -363,12 +363,50 @@ export default function SelfOrderCliente() {
                   <p className="text-sm text-[#BFDBFE]">No hay productos en tu lista.</p>
                 ) : (
                   cart.map((item) => (
-                    <div key={item.line_key} className="rounded-lg border border-[#3B82F6]/20 bg-[#1D4ED8]/20 p-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-white">{item.name}</p>
-                        <p className="text-sm font-semibold text-[#DBEAFE]">{formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}</p>
+                    <div key={item.line_key} className="rounded-lg border border-[#3B82F6]/20 bg-[#1D4ED8]/20 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-white">{item.name}</p>
+                          {item.modifier_name && item.modifier_option ? (
+                            <p className="mt-0.5 truncate text-[11px] text-[#BFDBFE]">
+                              {item.modifier_name}: {item.modifier_option}
+                            </p>
+                          ) : null}
+                          <p className="mt-0.5 text-xs text-[#93C5FD]">{formatCurrency(item.price)} c/u</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.line_key)}
+                          className="shrink-0 rounded-lg p-1.5 text-[#93C5FD] hover:bg-[#1E3A8A]/60 hover:text-white"
+                          aria-label="Quitar del pedido"
+                        >
+                          <MdDelete className="text-xl" />
+                        </button>
                       </div>
-                      <p className="text-xs text-[#BFDBFE]">Cant: {item.quantity}</p>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => updateQty(item.line_key, -1)}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#93C5FD]/30 bg-[#1E3A8A]/50 text-[#DBEAFE] hover:bg-[#1E3A8A]/80"
+                            aria-label="Menos"
+                          >
+                            <MdRemove className="text-lg" />
+                          </button>
+                          <span className="min-w-[2rem] text-center text-sm font-bold tabular-nums text-white">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateQty(item.line_key, 1)}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#93C5FD]/30 bg-[#1E3A8A]/50 text-[#DBEAFE] hover:bg-[#1E3A8A]/80"
+                            aria-label="Más"
+                          >
+                            <MdAdd className="text-lg" />
+                          </button>
+                        </div>
+                        <p className="text-sm font-semibold tabular-nums text-[#DBEAFE]">
+                          {formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}
+                        </p>
+                      </div>
                     </div>
                   ))
                 )}
