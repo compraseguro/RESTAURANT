@@ -155,8 +155,8 @@ export default function SelfOrder() {
     <div className="min-h-screen bg-[#0f172a] text-white flex flex-col min-h-[100dvh]">
       <header className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-[#3B82F6]/25 bg-[#1e293b]/95 z-20">
         <div className="min-w-0">
-          <h1 className="text-lg font-bold text-white truncate">{table?.name || `Mesa ${table?.number}`}</h1>
-          <p className="text-xs text-[#93C5FD]">Carta digital · Mesa {table?.number}</p>
+          <h1 className="text-lg font-bold text-white truncate">Auto pedido (QR)</h1>
+          <p className="text-xs text-[#93C5FD] truncate">{table?.name || `Mesa ${table?.number}`}</p>
         </div>
         <button
           type="button"
@@ -189,6 +189,9 @@ export default function SelfOrder() {
             minHeightClass="min-h-0 flex-1"
             className="min-h-0 min-w-0 flex-1"
             productActionLabel="Agregar pedido"
+            singleColumnProductList
+            showProductThumbnail
+            hideProductStock
           />
         </div>
       </main>

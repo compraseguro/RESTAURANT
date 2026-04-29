@@ -8,6 +8,7 @@ import {
   MdEditNote,
 } from 'react-icons/md';
 import { showStockInOrderingUI } from '../utils/productStockDisplay';
+import { resolveMediaUrl } from '../utils/api';
 
 function CartLineItems({
   cart,
@@ -187,6 +188,10 @@ export default function StaffDineInOrderUI({
   className = '',
   stackedSelfOrder = false,
   productActionLabel = '',
+  /** Vista pública QR: una columna, miniatura y sin stock */
+  singleColumnProductList = false,
+  showProductThumbnail = false,
+  hideProductStock = false,
 }) {
   const rootClass = embedded
     ? 'h-[min(50vh,460px)] max-h-[min(70vh,560px)] w-full min-h-0'
@@ -236,6 +241,11 @@ export default function StaffDineInOrderUI({
     </div>
   );
 
+  const gridGapClass = singleColumnProductList ? 'gap-3' : 'gap-2';
+  const gridColsClass = stackedSelfOrder
+    ? (singleColumnProductList ? 'grid-cols-1' : 'grid-cols-2')
+    : 'grid-cols-2 md:grid-cols-3';
+
   const productGrid = (
     <>
       {filteredProducts.length === 0 ? (
@@ -244,32 +254,74 @@ export default function StaffDineInOrderUI({
           <p>No hay productos para este filtro</p>
         </div>
       ) : (
-        <div className={`grid gap-2 ${stackedSelfOrder ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
-          {filteredProducts.map((p) => (
-            <div
-              key={p.id}
-              className="rounded-xl border border-[#3B82F6]/20 bg-[#1D4ED8]/25 p-3 text-left transition-shadow hover:border-[#93C5FD]/60 hover:shadow-md"
-            >
-              <button
-                type="button"
-                onClick={() => onProductPick(p)}
-                className="w-full text-left"
+        <div className={`grid ${gridGapClass} ${gridColsClass}`}>
+          {filteredProducts.map((p) => {
+            const imgUrl = String(resolveMediaUrl(p.image || '') || '').trim();
+            const showStock = !hideProductStock && showStockInOrderingUI(p);
+            if (showProductThumbnail) {
+              return (
+                <div
+                  key={p.id}
+                  className="flex gap-3 rounded-xl border border-[#3B82F6]/20 bg-[#1D4ED8]/25 p-3 text-left transition-shadow hover:border-[#93C5FD]/60 hover:shadow-md"
+                >
+                  <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-[#3B82F6]/25 bg-[#111827] sm:h-28 sm:w-28">
+                    {imgUrl ? (
+                      <img src={imgUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[#64748B]">
+                        <MdRestaurantMenu className="text-4xl opacity-50" aria-hidden />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col justify-between">
+                    <button
+                      type="button"
+                      onClick={() => onProductPick(p)}
+                      className="w-full text-left"
+                    >
+                      <p className="text-sm font-medium leading-snug text-white">{p.name}</p>
+                      <p className="mt-1 text-sm font-bold text-[#DBEAFE]">{formatCurrency(p.price)}</p>
+                      {showStock ? <p className="mt-0.5 text-xs text-[#BFDBFE]">Stock: {p.stock}</p> : null}
+                    </button>
+                    {productActionLabel ? (
+                      <button
+                        type="button"
+                        onClick={() => onProductPick(p)}
+                        className="mt-2 w-full rounded-lg border border-[#93C5FD]/35 bg-[#1E3A8A]/40 px-2 py-2 text-xs font-semibold text-[#E0E7FF] hover:bg-[#1E3A8A]/65"
+                      >
+                        {productActionLabel}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div
+                key={p.id}
+                className="rounded-xl border border-[#3B82F6]/20 bg-[#1D4ED8]/25 p-3 text-left transition-shadow hover:border-[#93C5FD]/60 hover:shadow-md"
               >
-                <p className="truncate text-sm font-medium text-white">{p.name}</p>
-                <p className="mt-1 text-sm font-bold text-[#DBEAFE]">{formatCurrency(p.price)}</p>
-                {showStockInOrderingUI(p) ? <p className="mt-0.5 text-xs text-[#BFDBFE]">Stock: {p.stock}</p> : null}
-              </button>
-              {productActionLabel ? (
                 <button
                   type="button"
                   onClick={() => onProductPick(p)}
-                  className="mt-2 w-full rounded-lg border border-[#93C5FD]/35 bg-[#1E3A8A]/40 px-2 py-1.5 text-xs font-semibold text-[#E0E7FF] hover:bg-[#1E3A8A]/65"
+                  className="w-full text-left"
                 >
-                  {productActionLabel}
+                  <p className="truncate text-sm font-medium text-white">{p.name}</p>
+                  <p className="mt-1 text-sm font-bold text-[#DBEAFE]">{formatCurrency(p.price)}</p>
+                  {showStock ? <p className="mt-0.5 text-xs text-[#BFDBFE]">Stock: {p.stock}</p> : null}
                 </button>
-              ) : null}
-            </div>
-          ))}
+                {productActionLabel ? (
+                  <button
+                    type="button"
+                    onClick={() => onProductPick(p)}
+                    className="mt-2 w-full rounded-lg border border-[#93C5FD]/35 bg-[#1E3A8A]/40 px-2 py-1.5 text-xs font-semibold text-[#E0E7FF] hover:bg-[#1E3A8A]/65"
+                  >
+                    {productActionLabel}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       )}
     </>

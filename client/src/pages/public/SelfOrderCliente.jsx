@@ -265,8 +265,8 @@ export default function SelfOrderCliente() {
     <div className="flex min-h-screen min-h-[100dvh] flex-col bg-[#0f172a] text-white">
       <header className="z-20 flex shrink-0 items-center justify-between gap-3 border-b border-[#3B82F6]/25 bg-[#1e293b]/95 px-4 py-3">
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold text-white">{table?.name || 'Cliente'}</h1>
-          <p className="text-xs text-[#93C5FD]">Carta digital · Cuenta cliente</p>
+          <h1 className="truncate text-lg font-bold text-white">Auto pedido (QR)</h1>
+          <p className="text-xs text-[#93C5FD] truncate">{table?.name || 'Cliente'}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
@@ -308,6 +308,9 @@ export default function SelfOrderCliente() {
             minHeightClass="min-h-0 flex-1"
             className="min-h-0 min-w-0 flex-1"
             productActionLabel="Agregar pedido"
+            singleColumnProductList
+            showProductThumbnail
+            hideProductStock
           />
         </div>
       </main>
