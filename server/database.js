@@ -1062,6 +1062,10 @@ async function initDatabase() {
       'delivery_payment_modality',
       "ALTER TABLE orders ADD COLUMN delivery_payment_modality TEXT DEFAULT ''"
     );
+    addOrderColIfMissing(
+      'cancellation_reason',
+      "ALTER TABLE orders ADD COLUMN cancellation_reason TEXT DEFAULT ''"
+    );
     try {
       db.run(
         "UPDATE orders SET delivery_payment_modality = 'contra_entrega' WHERE type = 'delivery' AND (delivery_payment_modality IS NULL OR TRIM(delivery_payment_modality) = '')"

@@ -139,7 +139,7 @@ function toTemplateRow(order, localName = '-') {
     isCancelled ? 'Anulada' : 'Activa',
     '-',
     '-',
-    isCancelled ? (order.notes || '-') : '-',
+    isCancelled ? (order.cancellation_reason || order.notes || '-') : '-',
     getSalesChannel(order),
     order.type === 'delivery' ? 'Delivery' : '-',
     requester,
@@ -220,6 +220,11 @@ export default function Ventas() {
   const [waiterFilter, setWaiterFilter] = useState('all');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  /** activas | anuladas | todas */
+  const [saleTab, setSaleTab] = useState('activas');
+  const [voidModalOrder, setVoidModalOrder] = useState(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [voidSubmitting, setVoidSubmitting] = useState(false);
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [editPaymentMethod, setEditPaymentMethod] = useState('efectivo');
@@ -266,8 +271,10 @@ export default function Ventas() {
       const to = new Date(`${toDate}T23:59:59`);
       f = f.filter(o => new Date(`${o.created_at}Z`) <= to);
     }
+    if (saleTab === 'activas') f = f.filter((o) => o.status !== 'cancelled');
+    else if (saleTab === 'anuladas') f = f.filter((o) => o.status === 'cancelled');
     setFiltered(f);
-  }, [search, statusFilter, typeFilter, waiterFilter, fromDate, toDate, orders]);
+  }, [search, statusFilter, typeFilter, waiterFilter, fromDate, toDate, saleTab, orders]);
 
   const waiterOptions = Array.from(
     new Set(orders.map(o => (o.created_by_user_name || o.customer_name || '-')).filter(Boolean))
@@ -336,18 +343,34 @@ export default function Ventas() {
     }, 200);
   };
 
-  const anularVenta = async (order) => {
+  const openVoidModal = (order) => {
     if (order.status === 'cancelled') return;
-    const ok = window.confirm(`¿Seguro que deseas anular la venta #${order.order_number}?`);
-    if (!ok) return;
+    setVoidModalOrder(order);
+    setVoidReason('');
+  };
+
+  const confirmAnularVenta = async () => {
+    const order = voidModalOrder;
+    if (!order || order.status === 'cancelled') return;
+    const reason = voidReason.trim();
+    if (reason.length < 3) {
+      toast.error('Escriba el motivo de anulación (mínimo 3 caracteres).');
+      return;
+    }
+    setVoidSubmitting(true);
     try {
-      await api.put(`/orders/${order.id}/status`, { status: 'cancelled' });
+      await api.put(`/orders/${order.id}/status`, { status: 'cancelled', cancellation_reason: reason });
       await api.put(`/orders/${order.id}/payment`, { payment_status: 'refunded' });
       toast.success('Venta anulada');
+      setVoidModalOrder(null);
+      setVoidReason('');
       if (selected?.id === order.id) setSelected(null);
+      setSaleTab('anuladas');
       await load();
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setVoidSubmitting(false);
     }
   };
 
@@ -355,7 +378,28 @@ export default function Ventas() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-5">Ventas</h1>
+      <h1 className="text-2xl font-bold text-slate-800 mb-3">Ventas</h1>
+
+      <div className="flex flex-wrap gap-2 mb-5">
+        {[
+          { id: 'activas', label: 'Ventas activas' },
+          { id: 'anuladas', label: 'Ventas anuladas' },
+          { id: 'todas', label: 'Todas' },
+        ].map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setSaleTab(t.id)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              saleTab === t.id
+                ? 'bg-slate-800 text-white'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
         <div className="card"><p className="text-xs text-slate-500">Total Ventas</p><p className="text-xl font-bold text-slate-800">{formatCurrency(totals.total)}</p></div>
@@ -450,10 +494,10 @@ export default function Ventas() {
                         <button onClick={() => downloadExcel({ ...o, local_name: restaurantName })} className="px-2 py-1 rounded bg-emerald-600 text-white text-xs hover:bg-emerald-700" title="Excel"><MdTableChart /></button>
                         <button onClick={() => startEdit(o)} className="px-2 py-1 rounded bg-amber-500 text-white text-xs hover:bg-amber-600" title="Editar"><MdEdit /></button>
                         <button
-                          onClick={() => anularVenta(o)}
+                          onClick={() => openVoidModal(o)}
                           disabled={o.status === 'cancelled'}
                           className="px-2 py-1 rounded bg-red-600 text-white text-xs hover:bg-red-700 disabled:opacity-50"
-                          title="Anular"
+                          title="Anular venta"
                         >
                           <MdCancel />
                         </button>
@@ -498,6 +542,12 @@ export default function Ventas() {
               </div>
             )}
 
+            {selected.status === 'cancelled' && (selected.cancellation_reason || selected.notes) ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+                <span className="font-semibold">Motivo de anulación: </span>
+                {selected.cancellation_reason || selected.notes}
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><p className="text-slate-500">Fecha</p><p className="font-medium">{formatDateTime(selected.created_at)}</p></div>
               <div><p className="text-slate-500">Tipo</p><p className="font-medium">{selected.type === 'dine_in' ? `Mesa ${selected.table_number}` : selected.type}</p></div>
@@ -519,6 +569,51 @@ export default function Ventas() {
             </div>
             <div className="border-t pt-3 flex justify-between font-bold text-lg">
               <span>Total</span><span>{formatCurrency(selected.total)}</span>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!voidModalOrder}
+        onClose={() => { if (!voidSubmitting) { setVoidModalOrder(null); setVoidReason(''); } }}
+        title={voidModalOrder ? `Anular venta #${voidModalOrder.order_number}` : 'Anular venta'}
+        variant="light"
+      >
+        {voidModalOrder && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Esta acción marcará la venta como anulada y el pago como reembolsado. Indique el motivo (obligatorio).
+            </p>
+            <div>
+              <label htmlFor="void-reason" className="block text-xs font-medium text-slate-600 mb-1">Motivo de anulación</label>
+              <textarea
+                id="void-reason"
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                rows={4}
+                className="input-field w-full text-sm resize-y min-h-[100px]"
+                placeholder="Ej.: Error en cobro, devolución del cliente, duplicado…"
+                disabled={voidSubmitting}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 text-sm hover:bg-slate-50"
+                disabled={voidSubmitting}
+                onClick={() => { setVoidModalOrder(null); setVoidReason(''); }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                disabled={voidSubmitting}
+                onClick={() => { confirmAnularVenta(); }}
+              >
+                {voidSubmitting ? 'Anulando…' : 'Confirmar anulación'}
+              </button>
             </div>
           </div>
         )}

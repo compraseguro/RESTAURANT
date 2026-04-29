@@ -12,7 +12,8 @@ const ORDER_TRANSITIONS = {
   pending: ['preparing', 'cancelled'],
   preparing: ['ready', 'cancelled'],
   ready: ['delivered', 'cancelled'],
-  delivered: [],
+  /** Anulación administrativa desde Ventas (venta cerrada / entregada); solo admin/cajero (validación abajo). */
+  delivered: ['cancelled'],
   cancelled: [],
 };
 
@@ -398,7 +399,7 @@ router.post('/', authenticateToken, (req, res) => {
 });
 
 router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'mozo', 'cocina', 'bar', 'delivery'), (req, res) => {
-  const { status } = req.body;
+  const { status, cancellation_reason: cancellationReasonRaw } = req.body;
   const valid = ['pending', 'preparing', 'ready', 'delivered', 'cancelled'];
   if (!valid.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
 
@@ -444,6 +445,12 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'moz
       return res.status(403).json({ error: 'Este pedido está asignado a otro repartidor' });
     }
   }
+  if (status === 'cancelled' && order.status === 'delivered') {
+    if (!['admin', 'cajero'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Solo administración o caja pueden anular una venta ya entregada.' });
+    }
+  }
+
   if (req.user.role === 'bar' || req.user.role === 'cocina') {
     if (!['preparing', 'ready'].includes(status)) {
       return res.status(403).json({ error: 'Cocina/Bar solo pueden mover pedidos a preparación o listo' });
@@ -463,10 +470,20 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'moz
   }
 
   if (status === 'cancelled' && order.status !== 'cancelled') {
+    const reason = String(cancellationReasonRaw || '').trim();
+    const mustReason =
+      order.status === 'delivered' || String(order.payment_status || '') === 'paid';
+    if (mustReason && reason.length < 3) {
+      return res.status(400).json({ error: 'Indique el motivo de anulación (mínimo 3 caracteres).' });
+    }
     restoreNonTransformedStockForOrder(order.id);
+    runSql(
+      "UPDATE orders SET status = 'cancelled', cancellation_reason = ?, updated_at = datetime('now') WHERE id = ?",
+      [reason, req.params.id]
+    );
+  } else {
+    runSql("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, req.params.id]);
   }
-
-  runSql("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, req.params.id]);
   if (order.type === 'delivery' && status === 'delivered') {
     runSql(
       "UPDATE delivery_assignments SET status = 'delivered', delivered_at = datetime('now') WHERE order_id = ? AND status != 'delivered'",
@@ -479,7 +496,13 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'moz
     action: 'order.status.update',
     resourceType: 'order',
     resourceId: req.params.id,
-    details: { from: order.status, to: status },
+    details: {
+      from: order.status,
+      to: status,
+      ...(status === 'cancelled'
+        ? { cancellation_reason: String(cancellationReasonRaw || '').trim() || undefined }
+        : {}),
+    },
   });
 
   const updated = getOrderWithItems(req.params.id);
