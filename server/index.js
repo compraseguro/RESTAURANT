@@ -14,6 +14,7 @@ const multer = require('multer');
 const fs = require('fs');
 const crypto = require('crypto');
 const { initDatabase, getDbPath, getDatabasePersistenceInfo } = require('./database');
+const { getUploadsRoot } = require('./uploadsPath');
 const jwt = require('jsonwebtoken');
 const { authenticateToken, requireRole, JWT_SECRET } = require('./middleware/auth');
 const { createRateLimiter } = require('./middleware/rateLimit');
@@ -81,7 +82,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const uploadsDir = path.join(__dirname, '..', 'uploads');
+const uploadsDir = getUploadsRoot();
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 const billingCertsDir = path.join(uploadsDir, 'billing-certs');
 if (!fs.existsSync(billingCertsDir)) fs.mkdirSync(billingCertsDir, { recursive: true });
@@ -276,6 +277,7 @@ async function start() {
   await initDatabase();
   logSqlitePersistenceWarnings();
   console.log(`[DB] SQLite path: ${getDbPath()}`);
+  console.log(`[uploads] Archivos estáticos en: ${uploadsDir}`);
   if (typeof billingRoutes.startBillingAutoRetryJob === 'function') {
     billingRoutes.startBillingAutoRetryJob();
   }

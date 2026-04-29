@@ -52,6 +52,8 @@ Flujo: tu código vive en **GitHub**; cada `git push` a la rama conectada vuelve
 3. **Environment** → variable **`DB_PATH`** = **`/data/restaurant.db`** (ruta absoluta, coincidente con el mount).
 4. **Save** y luego **Manual Deploy** (o un push) para que arranque ya con el disco montado.
 
+**Logos e imágenes (`/uploads`):** con `DB_PATH=/data/restaurant.db`, el servidor guarda subidas en **`/data/uploads`** automáticamente (mismo volumen que la base). Así no se pierden al redeploy. En los logs verás `[uploads] Archivos estáticos en: /data/uploads`. Opcional: fija `UPLOADS_DIR` si quieres otra ruta.
+
 **Comprobar que quedó bien:** abre **Logs** del servicio al iniciar. Si falta el Disk o `DB_PATH`, verás un bloque **`[CRÍTICO] Riesgo de PERDER DATOS`**. Si está bien, verás **`DB_PATH parece volumen persistente`**.
 
 El **reinicio completo** de datos del programa sigue siendo solo el que configures en **Configuración** del panel (no el deploy normal).

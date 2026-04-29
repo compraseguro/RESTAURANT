@@ -4,6 +4,7 @@
 
 const path = require('path');
 const { effectiveEfactApiUrl, effectiveEfactHttpSecret } = require('./efactConnection');
+const { getUploadsRoot } = require('./uploadsPath');
 
 /** Rutas subidas por el panel (/uploads/...) → ruta absoluta en el mismo host que Node. */
 function resolveCertPathForBot(certPath) {
@@ -12,7 +13,7 @@ function resolveCertPathForBot(certPath) {
   const norm = s.replace(/\\/g, '/');
   if (/^\/?uploads\//i.test(norm)) {
     const rel = norm.replace(/^\/?uploads\/?/i, '');
-    return path.join(__dirname, '..', 'uploads', rel);
+    return path.join(getUploadsRoot(), rel);
   }
   if (path.isAbsolute(s)) return s;
   return path.resolve(process.cwd(), s);

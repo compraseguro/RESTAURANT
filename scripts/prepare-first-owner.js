@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const { initDatabase, runSql, queryOne } = require('../server/database');
+const { getUploadsRoot } = require('../server/uploadsPath');
 
 function parseArgs(argv) {
   const out = {};
@@ -14,7 +15,7 @@ function parseArgs(argv) {
 }
 
 function clearUploads() {
-  const uploadsDir = path.join(__dirname, '..', 'uploads');
+  const uploadsDir = getUploadsRoot();
   if (!fs.existsSync(uploadsDir)) return;
   const entries = fs.readdirSync(uploadsDir);
   entries.forEach((file) => {

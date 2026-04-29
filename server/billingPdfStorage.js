@@ -6,7 +6,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
+const { getUploadsRoot } = require('./uploadsPath');
+const UPLOADS_ROOT = getUploadsRoot();
 const BILLING_PDF_DIR = path.join(UPLOADS_ROOT, 'billing-documents');
 
 function isHttpUrl(s) {

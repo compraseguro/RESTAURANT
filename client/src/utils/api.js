@@ -9,6 +9,10 @@ const hasExplicitApi = rawApi !== undefined && rawApi !== null && String(rawApi)
 let API_ORIGIN = '';
 if (hasExplicitApi) {
   API_ORIGIN = String(rawApi).trim().replace(/\/$/, '');
+  /** Si en Vercel pusieron la URL ya con `/api`, no duplicar en API_BASE. */
+  if (/\/api\/?$/i.test(API_ORIGIN)) {
+    API_ORIGIN = API_ORIGIN.replace(/\/api\/?$/i, '');
+  }
 } else if (import.meta.env.PROD) {
   API_ORIGIN = 'https://resto-fadey-api.onrender.com';
 }
@@ -27,8 +31,11 @@ export function getStaticFilesOrigin() {
 /** URL absoluta para `/uploads/...` cuando el front y la API están en hosts distintos. */
 export function resolveMediaUrl(url) {
   if (!url) return '';
-  const s = String(url).trim();
+  let s = String(url).trim();
   if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith('/api/uploads/')) {
+    s = `/uploads/${s.slice('/api/uploads/'.length)}`;
+  }
   if (s.startsWith('/uploads/')) {
     const origin = getStaticFilesOrigin();
     if (origin) return `${origin}${s}`;

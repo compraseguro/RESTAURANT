@@ -8,7 +8,8 @@ const path = require('path');
 const PDFDocument = require('pdfkit');
 const { queryOne, queryAll } = require('./database');
 
-const BILLING_DIR = path.join(__dirname, '..', 'uploads', 'billing-documents');
+const { getUploadsRoot } = require('./uploadsPath');
+const BILLING_DIR = path.join(getUploadsRoot(), 'billing-documents');
 
 function money(n) {
   const x = Number(n);
