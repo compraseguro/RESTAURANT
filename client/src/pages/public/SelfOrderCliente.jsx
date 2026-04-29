@@ -267,7 +267,7 @@ export default function SelfOrderCliente() {
   }
 
   return (
-    <div className="flex min-h-screen min-h-[100dvh] flex-col bg-[#0f172a] text-white">
+    <div className="fixed inset-0 z-0 flex flex-col overflow-hidden bg-[#0f172a] text-white">
       <header className="z-20 flex shrink-0 items-center justify-between gap-3 border-b border-[#3B82F6]/25 bg-[#1e293b]/95 px-4 py-3">
         <div className="min-w-0">
           <h1 className="truncate text-lg font-bold text-white">Auto pedido (QR)</h1>
@@ -298,8 +298,8 @@ export default function SelfOrderCliente() {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 flex-col bg-[#111827]/50">
-        <div className="flex-1 min-h-0 p-3">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#111827]/50">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-3">
           <StaffDineInOrderUI
             stackedSelfOrder
             search={search}

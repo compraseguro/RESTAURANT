@@ -360,10 +360,13 @@ export default function StaffDineInOrderUI({
 
   if (stackedSelfOrder) {
     return (
-      <div className={`flex min-h-0 flex-1 flex-col gap-2 ${rootClass} ${className}`}>
+      <div className={`flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden ${rootClass} ${className}`}>
         <div className="shrink-0">{searchBlock}</div>
         <div className="shrink-0">{categoriesBlock}</div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] touch-pan-y pr-0.5">
+        <div
+          className="min-h-0 flex-1 overflow-y-scroll overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]"
+          style={{ touchAction: 'pan-y' }}
+        >
           {productGrid}
         </div>
         <div className="shrink-0 rounded-xl border border-[#3B82F6]/30 bg-[#172554]/50 p-3">

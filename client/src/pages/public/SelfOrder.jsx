@@ -157,8 +157,8 @@ export default function SelfOrder() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white flex flex-col min-h-[100dvh]">
-      <header className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-[#3B82F6]/25 bg-[#1e293b]/95 z-20">
+    <div className="fixed inset-0 z-0 flex flex-col overflow-hidden bg-[#0f172a] text-white">
+      <header className="z-20 flex shrink-0 items-center justify-between gap-3 border-b border-[#3B82F6]/25 bg-[#1e293b]/95 px-4 py-3">
         <div className="min-w-0">
           <h1 className="text-lg font-bold text-white truncate">Auto pedido (QR)</h1>
           <p className="text-xs text-[#93C5FD] truncate">{table?.name || `Mesa ${table?.number}`}</p>
@@ -181,8 +181,8 @@ export default function SelfOrder() {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 flex flex-col bg-[#111827]/50">
-        <div className="flex-1 min-h-0 p-3">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#111827]/50">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-3">
           <StaffDineInOrderUI
             stackedSelfOrder
             search={search}
