@@ -270,7 +270,8 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
   const safeProcessType = process_type === 'non_transformed' ? 'non_transformed' : (process_type === 'transformed' ? 'transformed' : null);
   const finalProcessType = safeProcessType || current.process_type || 'transformed';
   const forceZeroStock = finalProcessType === 'transformed';
-  const nextStock = forceZeroStock ? 0 : stock;
+  /** Parches solo de imagen (p. ej. Auto pedido): no envían `stock`; null → COALESCE deja el valor en BD (sql.js rechaza `undefined`). */
+  const nextStock = forceZeroStock ? 0 : (stock === undefined ? null : stock);
   const nextWarehouseId = forceZeroStock ? '' : resolveWarehouseId(stock_warehouse_id || current.stock_warehouse_id || '');
   const safeProductionArea = production_area === undefined
     ? null
@@ -388,8 +389,8 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
 
   if (forceZeroStock) {
     runSql('DELETE FROM inventory_warehouse_stocks WHERE product_id = ?', [req.params.id]);
-  } else if (finalProcessType === 'non_transformed') {
-    upsertWarehouseStock(req.params.id, nextWarehouseId || '', Math.max(0, Number(nextStock || 0)));
+  } else if (finalProcessType === 'non_transformed' && stock !== undefined) {
+    upsertWarehouseStock(req.params.id, nextWarehouseId || '', Math.max(0, Number(nextStock ?? 0)));
   }
 
   if (variants !== undefined) {

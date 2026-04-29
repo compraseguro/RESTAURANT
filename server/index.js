@@ -94,21 +94,35 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${Math.random().toString(36).substr(2, 9)}${ext}`);
   }
 });
+const uploadImageExtOk = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.heic', '.heif', '.avif', '.bmp']);
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'application/pdf'];
-    if (!allowed.includes(file.mimetype)) {
-      return cb(new Error('Tipo de archivo no permitido'));
-    }
-    return cb(null, true);
+    const mime = String(file.mimetype || '').toLowerCase();
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const allowedMime = new Set([
+      'image/jpeg', 'image/jpg', 'image/pjpeg', 'image/png', 'image/webp', 'image/gif',
+      'image/svg+xml', 'image/heic', 'image/heif', 'image/avif', 'image/bmp', 'image/x-ms-bmp',
+      'application/pdf',
+    ]);
+    if (allowedMime.has(mime)) return cb(null, true);
+    if ((mime === 'application/octet-stream' || !mime) && uploadImageExtOk.has(ext)) return cb(null, true);
+    return cb(new Error('Tipo de archivo no permitido (use JPG, PNG, WEBP, GIF, HEIC o PDF)'));
   },
 });
 
-app.post('/api/upload', authenticateToken, requireRole('admin', 'cajero', 'mozo', 'master_admin'), upload.single('image'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
-  res.json({ url: `/uploads/${req.file.filename}` });
+app.post('/api/upload', authenticateToken, requireRole('admin', 'cajero', 'mozo', 'master_admin'), (req, res) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'El archivo supera el límite de 5 MB' });
+      }
+      return res.status(400).json({ error: err.message || 'No se pudo subir el archivo' });
+    }
+    if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
+    res.json({ url: `/uploads/${req.file.filename}` });
+  });
 });
 
 const certStorage = multer.diskStorage({
