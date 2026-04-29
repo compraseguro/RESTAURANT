@@ -5,6 +5,8 @@ import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useStaffOrderCart } from '../../hooks/useStaffOrderCart';
 import StaffDineInOrderUI from '../../components/StaffDineInOrderUI';
 import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
+import CartasHorizontalCarousel from '../../components/CartasHorizontalCarousel';
+import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 import { MdClose, MdLock, MdReceipt, MdRestaurantMenu } from 'react-icons/md';
 
@@ -26,6 +28,8 @@ export default function SelfOrderCliente() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [modifiers, setModifiers] = useState([]);
+  const [cartas, setCartas] = useState([]);
+  const [showCartaModal, setShowCartaModal] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedCat, setSelectedCat] = useState('all');
 
@@ -66,6 +70,7 @@ export default function SelfOrderCliente() {
         setProducts(data.products || []);
         setCategories(data.categories || []);
         setModifiers(Array.isArray(data.modifiers) ? data.modifiers : []);
+        setCartas(Array.isArray(data.cartas) ? data.cartas : []);
         setBootError('');
       })
       .catch((err) => {
@@ -268,13 +273,20 @@ export default function SelfOrderCliente() {
           <h1 className="truncate text-lg font-bold text-white">Auto pedido (QR)</h1>
           <p className="text-xs text-[#93C5FD] truncate">{table?.name || 'Cliente'}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           <button
             type="button"
             onClick={handleLogoutCliente}
             className="rounded-lg px-2 py-1.5 text-xs font-medium text-[#BFDBFE] hover:bg-[#1E3A8A]/50"
           >
             Salir
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCartaModal(true)}
+            className="rounded-xl border border-[#93C5FD]/40 bg-[#1E3A8A]/35 px-3 py-2.5 text-sm font-semibold text-[#E0E7FF] hover:bg-[#1E3A8A]/55"
+          >
+            Ver carta
           </button>
           <button
             type="button"
@@ -314,6 +326,19 @@ export default function SelfOrderCliente() {
           />
         </div>
       </main>
+
+      <Modal
+        isOpen={showCartaModal}
+        onClose={() => setShowCartaModal(false)}
+        title="Carta"
+        size="full"
+        maxHeightClass="max-h-[min(92dvh,calc(100dvh-1rem))]"
+        bodyClassName="flex flex-col min-h-0 overflow-hidden !p-3 sm:!p-4"
+      >
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ minHeight: 'min(70dvh, 520px)' }}>
+          <CartasHorizontalCarousel cartas={cartas} showSwipeHint={false} className="min-h-0 flex-1" />
+        </div>
+      </Modal>
 
       {showOrderPanel && table && (
         <>

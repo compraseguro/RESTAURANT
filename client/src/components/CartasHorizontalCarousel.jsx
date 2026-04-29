@@ -9,7 +9,7 @@ function isPdfUrl(url) {
 /**
  * Carrusel horizontal con scroll-snap (deslizar en móvil / trackpad).
  */
-export default function CartasHorizontalCarousel({ cartas = [], className = '' }) {
+export default function CartasHorizontalCarousel({ cartas = [], className = '', showSwipeHint = true }) {
   const scrollerRef = useRef(null);
   const [index, setIndex] = useState(0);
   const scrollTimeoutRef = useRef(null);
@@ -65,9 +65,11 @@ export default function CartasHorizontalCarousel({ cartas = [], className = '' }
 
   return (
     <div className={`flex flex-col min-h-0 min-w-0 ${className}`}>
-      <p className="text-center text-[10px] uppercase tracking-wider text-[#93C5FD] font-semibold px-2 py-2 shrink-0">
-        Desliza a los lados para cambiar de carta
-      </p>
+      {showSwipeHint ? (
+        <p className="text-center text-[10px] uppercase tracking-wider text-[#93C5FD] font-semibold px-2 py-2 shrink-0">
+          Desliza a los lados para cambiar de carta
+        </p>
+      ) : null}
 
       <div className="relative flex-1 min-h-[200px] min-w-0 group">
         <button

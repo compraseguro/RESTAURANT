@@ -262,32 +262,33 @@ export default function StaffDineInOrderUI({
               return (
                 <div
                   key={p.id}
-                  className="flex gap-3 rounded-xl border border-[#3B82F6]/20 bg-[#1D4ED8]/25 p-3 text-left transition-shadow hover:border-[#93C5FD]/60 hover:shadow-md"
+                  className="flex flex-col overflow-hidden rounded-xl border border-[#3B82F6]/20 bg-[#1D4ED8]/25 text-left transition-shadow hover:border-[#93C5FD]/60 hover:shadow-md"
                 >
-                  <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-[#3B82F6]/25 bg-[#111827] sm:h-28 sm:w-28">
+                  <div className="aspect-[4/3] w-full shrink-0 overflow-hidden border-b border-[#3B82F6]/20 bg-[#111827]">
                     {imgUrl ? (
                       <img src={imgUrl} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[#64748B]">
-                        <MdRestaurantMenu className="text-4xl opacity-50" aria-hidden />
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center text-[#64748B]">
+                        <MdRestaurantMenu className="text-4xl opacity-40" aria-hidden />
+                        <span className="text-xs">Sin imagen</span>
                       </div>
                     )}
                   </div>
-                  <div className="flex min-w-0 flex-1 flex-col justify-between">
+                  <div className="flex flex-col gap-2 p-3">
                     <button
                       type="button"
                       onClick={() => onProductPick(p)}
                       className="w-full text-left"
                     >
-                      <p className="text-sm font-medium leading-snug text-white">{p.name}</p>
-                      <p className="mt-1 text-sm font-bold text-[#DBEAFE]">{formatCurrency(p.price)}</p>
+                      <p className="text-sm font-semibold leading-snug text-white">{p.name}</p>
+                      <p className="mt-1 text-base font-bold text-[#DBEAFE]">{formatCurrency(p.price)}</p>
                       {showStock ? <p className="mt-0.5 text-xs text-[#BFDBFE]">Stock: {p.stock}</p> : null}
                     </button>
                     {productActionLabel ? (
                       <button
                         type="button"
                         onClick={() => onProductPick(p)}
-                        className="mt-2 w-full rounded-lg border border-[#93C5FD]/35 bg-[#1E3A8A]/40 px-2 py-2 text-xs font-semibold text-[#E0E7FF] hover:bg-[#1E3A8A]/65"
+                        className="w-full rounded-lg border border-[#93C5FD]/35 bg-[#1E3A8A]/40 px-3 py-2.5 text-sm font-semibold text-[#E0E7FF] hover:bg-[#1E3A8A]/65"
                       >
                         {productActionLabel}
                       </button>

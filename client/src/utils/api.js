@@ -14,18 +14,33 @@ if (hasExplicitApi) {
 }
 export const API_BASE = API_ORIGIN ? `${API_ORIGIN}/api` : '/api';
 
+/**
+ * Origen del servidor para archivos estáticos (`/uploads/...`), sin el sufijo `/api`.
+ * Si VITE_API_URL es `https://host/api`, las imágenes deben ir a `https://host/uploads/...`
+ * (no a `https://host/api/uploads/...`).
+ */
+export function getStaticFilesOrigin() {
+  if (!API_ORIGIN) return '';
+  return String(API_ORIGIN).replace(/\/api\/?$/i, '');
+}
+
 /** URL absoluta para `/uploads/...` cuando el front y la API están en hosts distintos. */
 export function resolveMediaUrl(url) {
   if (!url) return '';
   const s = String(url).trim();
   if (/^https?:\/\//i.test(s)) return s;
-  if (s.startsWith('/uploads/') && API_ORIGIN) return `${API_ORIGIN}${s}`;
+  if (s.startsWith('/uploads/')) {
+    const origin = getStaticFilesOrigin();
+    if (origin) return `${origin}${s}`;
+    return s;
+  }
   return s;
 }
 
-/** Mismo host que la API REST, para Socket.IO (sin `/api`). Si la página y la API están en hosts distintos, debe coincidir con `VITE_API_URL`. */
+/** Mismo host que el backend (sin ruta `/api`), para Socket.IO y estáticos. */
 export function getSocketOrigin() {
-  if (API_ORIGIN) return API_ORIGIN;
+  const o = getStaticFilesOrigin();
+  if (o) return o;
   if (typeof window !== 'undefined') return window.location.origin;
   return '';
 }
