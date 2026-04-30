@@ -36,6 +36,13 @@
   .input-field {
     @apply w-full px-3 py-2 border border-[#3B82F6]/35 rounded-lg focus:ring-2 focus:ring-[#3B82F6] focus:border-[#3B82F6] outline-none transition-shadow bg-[#1F2937] text-[#F9FAFB] placeholder:text-[#9CA3AF];
   }
+
+  /** Opciones de selects nativos (evita fondo blanco ilegible en algunos navegadores) */
+  select option,
+  select optgroup {
+    background-color: #1f2937;
+    color: #f9fafb;
+  }
   .card {
     @apply bg-[#1F2937] rounded-xl shadow-sm border border-[#3B82F6]/25 p-6;
     color: #f9fafb;

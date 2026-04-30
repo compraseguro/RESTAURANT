@@ -162,14 +162,14 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
   res.json(updated);
 });
 
-router.get('/backup', authenticateToken, requireRole('admin', 'master_admin'), (req, res) => {
+router.get('/backup', authenticateToken, requireRole('master_admin'), (req, res) => {
   const backupPath = createBackupFile();
   const fileName = path.basename(backupPath);
   if (!fs.existsSync(backupPath)) return res.status(500).json({ error: 'No se pudo generar el backup' });
   return res.download(backupPath, fileName);
 });
 
-router.post('/restore', authenticateToken, requireRole('admin', 'master_admin'), restoreUpload.single('backup'), async (req, res) => {
+router.post('/restore', authenticateToken, requireRole('master_admin'), restoreUpload.single('backup'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Debes subir un archivo de backup' });
   try {
     await restoreDbFromBuffer(req.file.buffer);
@@ -179,7 +179,7 @@ router.post('/restore', authenticateToken, requireRole('admin', 'master_admin'),
   }
 });
 
-router.post('/reset-operational', authenticateToken, requireRole('admin', 'master_admin'), (req, res) => {
+router.post('/reset-operational', authenticateToken, requireRole('master_admin'), (req, res) => {
   const pwd = String(req.body?.password ?? '').trim();
   if (pwd !== RESET_OPERATIONAL_PASSWORD) {
     return res.status(403).json({ error: 'Contraseña incorrecta' });

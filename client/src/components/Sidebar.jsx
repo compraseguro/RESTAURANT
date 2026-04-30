@@ -96,6 +96,10 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
   const [isMiRestaurantExpanded, setIsMiRestaurantExpanded] = useState(location.pathname.startsWith('/admin/mi-restaurant'));
   const [isAlmacenExpanded, setIsAlmacenExpanded] = useState(location.pathname.startsWith('/admin/almacen'));
   const hasLinkPermission = (link) => {
+    /** Maestro: solo entra a Mi restaurante desde /admin (resto del panel sigue en /master). */
+    if (user?.role === 'master_admin') {
+      return link.to === '/admin/mi-restaurant';
+    }
     if (Array.isArray(link.roles) && link.roles.length > 0 && !link.roles.includes(user?.role)) return false;
     if (!link.moduleId) return link.roles.includes(user?.role);
     if (!user || typeof user.permissions !== 'object' || user.permissions === null) return false;
@@ -107,9 +111,14 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
     ? almacenSubOptionsAll
     : almacenSubOptionsAll.filter((o) => !['requerimiento', 'recepcion'].includes(o.id));
   const planProfesional = user?.service_plan === 'profesional';
-  const miRestaurantSubOptions = planProfesional
+  const miRestaurantSubOptionsByPlan = planProfesional
     ? miRestaurantSubOptionsAll
     : miRestaurantSubOptionsAll.filter((o) => o.id !== 'facturacion_electronica');
+  /** Respaldo/restauración: solo administrador maestro (API también exige rol). */
+  const miRestaurantSubOptions =
+    user?.role === 'master_admin'
+      ? miRestaurantSubOptionsByPlan
+      : miRestaurantSubOptionsByPlan.filter((o) => o.id !== 'informacion');
   const visibleLinks = user?.role === 'cajero'
     ? [
         filtered.find(l => l.to === '/admin/caja'),

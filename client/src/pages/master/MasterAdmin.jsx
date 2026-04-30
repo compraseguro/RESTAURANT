@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { api } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -23,6 +24,7 @@ import {
   MdReceipt,
   MdPayment,
   MdLayers,
+  MdStorefront,
 } from 'react-icons/md';
 import MasterRestaurantBillingWorkspace from '../../components/master/MasterRestaurantBillingWorkspace';
 
@@ -38,6 +40,7 @@ const TABS = [
 ];
 
 export default function MasterAdmin() {
+  const navigate = useNavigate();
   const { logout } = useAuth();
   const [tab, setTab] = useState('usuarios');
   const [loading, setLoading] = useState(true);
@@ -337,7 +340,16 @@ export default function MasterAdmin() {
               <h1 className="text-2xl font-bold text-slate-800">Administrador Maestro</h1>
               <p className="text-sm text-slate-500">Control de dueños, contratos, SUNAT y pago por uso del restaurante, fecha de facturación, bloqueo global y notificaciones.</p>
             </div>
-            <button onClick={logout} className="btn-secondary flex items-center gap-2"><MdLogout /> Salir</button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => navigate('/admin/mi-restaurant?view=informacion')}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <MdStorefront /> Respaldo (Mi restaurante)
+              </button>
+              <button onClick={logout} className="btn-secondary flex items-center gap-2"><MdLogout /> Salir</button>
+            </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             {TABS.map((item) => (

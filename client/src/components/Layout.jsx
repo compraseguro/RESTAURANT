@@ -4,7 +4,8 @@ import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
-import { MdMenu, MdPointOfSale, MdLock } from 'react-icons/md';
+import { MdMenu, MdPointOfSale, MdLock, MdAdminPanelSettings } from 'react-icons/md';
+import { Link } from 'react-router-dom';
 
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -67,6 +68,14 @@ export default function Layout() {
             </button>
           </div>
           <div className="flex items-center gap-3">
+            {user?.role === 'master_admin' && (
+              <Link
+                to="/master"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#3B82F6]/40 bg-[#1F2937] text-[#BFDBFE] hover:bg-[#3B82F6]/15"
+              >
+                <MdAdminPanelSettings className="text-base" /> Panel maestro
+              </Link>
+            )}
             {isMozoBlocked && (
               <span className="flex items-center gap-1.5 px-3 py-1 bg-[#3B82F6]/20 text-[#F9FAFB] text-xs rounded-full font-medium border border-[#3B82F6]/35">
                 <MdLock className="text-sm" /> Caja cerrada

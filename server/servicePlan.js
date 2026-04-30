@@ -3,9 +3,9 @@
  * Valores en master_admin_control.service_plan: basico | intermedio | profesional
  *
  * Alineación con comercial:
- * - Básico: lo anterior + Mi Restaurante (sin pestaña SUNAT), ofertas y descuentos.
+ * - Básico: lo anterior + Mi Restaurante (sin pestaña SUNAT), ofertas y descuentos. La pestaña «Información» (backup) solo la ve el administrador maestro en la UI.
  * - Intermedio: + QR auto-pedido, clientes/créditos, cocina/bar, indicadores, tiempo trabajado.
- * - Profesional: + pestaña Bot facturación SUNAT en Mi Restaurante (mismo módulo).
+ * - Profesional: todas las claves en MODULE_IDS.
  */
 
 const MODULE_IDS = [

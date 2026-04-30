@@ -25,9 +25,15 @@ export default function MiRestaurant() {
   const { user } = useAuth();
   const isMasterAdmin = user?.role === 'master_admin';
   const planAllowsSunatView = isMasterAdmin || user?.service_plan === 'profesional';
-  const miRestaurantViewsForPlan = planAllowsSunatView
-    ? MI_RESTAURANT_VIEWS
-    : MI_RESTAURANT_VIEWS.filter((v) => v.id !== 'facturacion_electronica');
+  const miRestaurantViewsForPlan = (() => {
+    let v = planAllowsSunatView
+      ? MI_RESTAURANT_VIEWS
+      : MI_RESTAURANT_VIEWS.filter((x) => x.id !== 'facturacion_electronica');
+    if (!isMasterAdmin) {
+      v = v.filter((x) => x.id !== 'informacion');
+    }
+    return v;
+  })();
   const isRestaurantAdmin = user?.role === 'admin';
   const canEditContrato = isMasterAdmin;
   /** Bot SUNAT + series contingencia + URL bot: maestro, o admin si el maestro lo habilitó en el control. */
@@ -208,12 +214,13 @@ export default function MiRestaurant() {
       setActiveView(requestedView);
       return;
     }
-    if (!isValidView && activeView !== 'mi_empresa') {
-      setSearchParams({ view: activeView }, { replace: true });
-      return;
-    }
-    if (!isValidView && !requestedView) {
-      setSearchParams({ view: 'mi_empresa' }, { replace: true });
+    if (!isValidView) {
+      if (activeView !== 'mi_empresa') setActiveView('mi_empresa');
+      if (requestedView && requestedView !== 'mi_empresa') {
+        setSearchParams({ view: 'mi_empresa' }, { replace: true });
+      } else if (!requestedView) {
+        setSearchParams({ view: 'mi_empresa' }, { replace: true });
+      }
     }
   }, [activeView, searchParams, setSearchParams, miRestaurantViewsForPlan, planAllowsSunatView]);
 

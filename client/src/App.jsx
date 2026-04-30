@@ -157,7 +157,7 @@ export default function App() {
         getDefaultStaffPath(user)
       } /> : <Login />} />
 
-      <Route path="/admin" element={<ProtectedRoute roles={['admin', 'cajero', 'mozo']}><Layout /></ProtectedRoute>}>
+      <Route path="/admin" element={<ProtectedRoute roles={['admin', 'cajero', 'mozo', 'master_admin']}><Layout /></ProtectedRoute>}>
         <Route index element={<DefaultPage />} />
         <Route path="ventas" element={<ProtectedRoute roles={['admin', 'cajero']} moduleId="ventas"><Ventas /></ProtectedRoute>} />
         <Route path="caja" element={<ProtectedRoute roles={['admin', 'cajero']} moduleId="caja"><POSPanel /></ProtectedRoute>} />

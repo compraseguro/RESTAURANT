@@ -272,7 +272,7 @@ export default function Ventas() {
       f = f.filter(o => new Date(`${o.created_at}Z`) <= to);
     }
     if (saleTab === 'activas') f = f.filter((o) => o.status !== 'cancelled');
-    else if (saleTab === 'anuladas') f = f.filter((o) => o.status === 'cancelled');
+    else f = f.filter((o) => o.status === 'cancelled');
     setFiltered(f);
   }, [search, statusFilter, typeFilter, waiterFilter, fromDate, toDate, saleTab, orders]);
 
@@ -378,22 +378,21 @@ export default function Ventas() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-3">Ventas</h1>
+      <h1 className="text-2xl font-bold text-[#F9FAFB] mb-3">Ventas</h1>
 
       <div className="flex flex-wrap gap-2 mb-5">
         {[
           { id: 'activas', label: 'Ventas activas' },
           { id: 'anuladas', label: 'Ventas anuladas' },
-          { id: 'todas', label: 'Todas' },
         ].map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setSaleTab(t.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border ${
               saleTab === t.id
-                ? 'bg-slate-800 text-white'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-[#2563EB] text-white border-[#3B82F6] shadow-md shadow-[#2563EB]/25'
+                : 'bg-[#0f172a] text-[#E5E7EB] border-[#3B82F6]/40 hover:bg-[#1e293b] hover:text-[#F9FAFB]'
             }`}
           >
             {t.label}
@@ -402,17 +401,17 @@ export default function Ventas() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-        <div className="card"><p className="text-xs text-slate-500">Total Ventas</p><p className="text-xl font-bold text-slate-800">{formatCurrency(totals.total)}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Cobrado</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(totals.paid)}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Pendiente</p><p className="text-xl font-bold text-gold-600">{formatCurrency(totals.pending)}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Transacciones</p><p className="text-xl font-bold text-slate-800">{totals.count}</p></div>
+        <div className="card"><p className="text-xs text-slate-500">Total Ventas</p><p className="text-xl font-bold text-[#F9FAFB]">{formatCurrency(totals.total)}</p></div>
+        <div className="card"><p className="text-xs text-slate-500">Cobrado</p><p className="text-xl font-bold text-emerald-400">{formatCurrency(totals.paid)}</p></div>
+        <div className="card"><p className="text-xs text-slate-500">Pendiente</p><p className="text-xl font-bold text-amber-300">{formatCurrency(totals.pending)}</p></div>
+        <div className="card"><p className="text-xs text-slate-500">Transacciones</p><p className="text-xl font-bold text-[#F9FAFB]">{totals.count}</p></div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+      <div className="bg-white rounded-xl shadow-sm border border-[#3B82F6]/25 p-5">
         <div className="flex flex-wrap gap-3 mb-4">
           <div className="relative flex-1 min-w-[220px]">
-            <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por # o cliente..." className="input-field pl-9" />
+            <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por # o cliente..." className="input-field pl-9 scheme-dark" />
           </div>
           <button
             onClick={() => downloadAllSalesExcel(filtered.map(o => ({ ...o, local_name: restaurantName })))}
@@ -421,13 +420,13 @@ export default function Ventas() {
           >
             <MdDownload /> Descargar todas
           </button>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-field w-auto">
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-field w-auto min-w-[160px] scheme-dark cursor-pointer">
             <option value="all">Todos los pagos</option><option value="paid">Pagado</option><option value="pending">Pendiente</option><option value="refunded">Reembolsado</option>
           </select>
-          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="input-field w-auto">
+          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="input-field w-auto min-w-[140px] scheme-dark cursor-pointer">
             <option value="all">Todos los tipos</option><option value="dine_in">Mesa</option><option value="delivery">Delivery</option><option value="pickup">Para llevar</option>
           </select>
-          <select value={waiterFilter} onChange={e => setWaiterFilter(e.target.value)} className="input-field w-auto">
+          <select value={waiterFilter} onChange={e => setWaiterFilter(e.target.value)} className="input-field w-auto min-w-[160px] scheme-dark cursor-pointer">
             <option value="all">Todos los meseros</option>
             {waiterOptions.map(name => (
               <option key={name} value={name}>{name}</option>
@@ -437,19 +436,20 @@ export default function Ventas() {
             type="date"
             value={fromDate}
             onChange={e => setFromDate(e.target.value)}
-            className="input-field w-auto"
+            className="input-field w-auto scheme-dark"
             title="Desde"
           />
           <input
             type="date"
             value={toDate}
             onChange={e => setToDate(e.target.value)}
-            className="input-field w-auto"
+            className="input-field w-auto scheme-dark"
             title="Hasta"
           />
           <button
+            type="button"
             onClick={() => { setFromDate(''); setToDate(''); }}
-            className="px-3 py-2 rounded-lg border text-sm hover:bg-slate-50"
+            className="px-3 py-2 rounded-lg text-sm border border-[#3B82F6]/40 bg-[#1F2937] text-[#F9FAFB] hover:bg-[#374151]"
           >
             Limpiar fechas
           </button>
@@ -457,7 +457,7 @@ export default function Ventas() {
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-slate-500 border-b">
+            <thead><tr className="text-left text-[#CBD5E1] border-b border-[#3B82F6]/25">
               <th className="pb-2 font-medium">Fecha</th><th className="pb-2 font-medium">Mesa</th><th className="pb-2 font-medium">Caja</th><th className="pb-2 font-medium">Mesero</th><th className="pb-2 font-medium">Cliente</th><th className="pb-2 font-medium">Documento</th><th className="pb-2 font-medium">Pagos</th><th className="pb-2 font-medium">Venta</th><th className="pb-2 font-medium">Estado</th><th className="pb-2 font-medium">Opciones</th>
             </tr></thead>
             <tbody>
@@ -467,23 +467,23 @@ export default function Ventas() {
                 const activeSale = o.status !== 'cancelled';
                 const mesero = o.created_by_user_name || o.customer_name || '-';
                 return (
-                  <tr key={o.id} className="border-b border-slate-50 hover:bg-slate-50">
+                  <tr key={o.id} className="border-b border-[#3B82F6]/15 hover:bg-[#1e293b]/80">
                     <td className="py-2.5">
-                      <p className="font-medium">{new Date(`${o.created_at}Z`).toLocaleDateString('es-PE')}</p>
-                      <p className="text-xs text-slate-500">{new Date(`${o.created_at}Z`).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</p>
+                      <p className="font-medium text-[#F9FAFB]">{new Date(`${o.created_at}Z`).toLocaleDateString('es-PE')}</p>
+                      <p className="text-xs text-[#9CA3AF]">{new Date(`${o.created_at}Z`).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</p>
                     </td>
-                    <td className="py-2.5">{mesa}</td>
-                    <td className="py-2.5 text-slate-600">Caja 01</td>
-                    <td className="py-2.5">{mesero}</td>
-                    <td className="py-2.5">{o.customer_name || 'PUBLICO GENERAL'}</td>
+                    <td className="py-2.5 text-[#E5E7EB]">{mesa}</td>
+                    <td className="py-2.5 text-[#CBD5E1]">Caja 01</td>
+                    <td className="py-2.5 text-[#E5E7EB]">{mesero}</td>
+                    <td className="py-2.5 text-[#E5E7EB]">{o.customer_name || 'PUBLICO GENERAL'}</td>
                     <td className="py-2.5">
-                      <p className="font-medium">{docNames[doc.doc_type] || doc.doc_type}</p>
-                      <p className="text-xs text-slate-500">{doc.full_number}</p>
+                      <p className="font-medium text-[#F9FAFB]">{docNames[doc.doc_type] || doc.doc_type}</p>
+                      <p className="text-xs text-[#9CA3AF]">{doc.full_number}</p>
                     </td>
-                    <td className="py-2.5 font-medium">{payNames[o.payment_method] || o.payment_method} (S/): {Number(o.total || 0).toFixed(2)}</td>
-                    <td className="py-2.5 font-bold">{formatCurrency(o.total)}</td>
+                    <td className="py-2.5 font-medium text-[#E5E7EB]">{payNames[o.payment_method] || o.payment_method} (S/): {Number(o.total || 0).toFixed(2)}</td>
+                    <td className="py-2.5 font-bold text-[#F9FAFB]">{formatCurrency(o.total)}</td>
                     <td className="py-2.5">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${activeSale ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${activeSale ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
                         {activeSale ? 'ACTIVA' : 'ANULADA'}
                       </span>
                     </td>
@@ -506,7 +506,7 @@ export default function Ventas() {
                   </tr>
                 );
               })}
-              {filtered.length === 0 && <tr><td colSpan="10" className="py-8 text-center text-slate-400">Sin ventas encontradas</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan="10" className="py-8 text-center text-[#9CA3AF]">Sin ventas encontradas</td></tr>}
             </tbody>
           </table>
         </div>
@@ -516,20 +516,20 @@ export default function Ventas() {
         {selected && (
           <div className="space-y-4">
             {editing?.id === selected.id && (
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-3">
-                <p className="text-sm font-semibold text-slate-700">Editar registro</p>
+              <div className="bg-[#111827] border border-[#3B82F6]/35 rounded-lg p-3 space-y-3">
+                <p className="text-sm font-semibold text-[#F9FAFB]">Editar registro</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Metodo de pago</label>
-                    <select className="input-field text-sm" value={editPaymentMethod} onChange={e => setEditPaymentMethod(e.target.value)}>
+                    <label className="block text-xs text-[#9CA3AF] mb-1">Metodo de pago</label>
+                    <select className="input-field text-sm scheme-dark" value={editPaymentMethod} onChange={e => setEditPaymentMethod(e.target.value)}>
                       {Object.entries(payNames).map(([value, label]) => (
                         <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Comprobante</label>
-                    <select className="input-field text-sm" value={editDocType} onChange={e => setEditDocType(e.target.value)}>
+                    <label className="block text-xs text-[#9CA3AF] mb-1">Comprobante</label>
+                    <select className="input-field text-sm scheme-dark" value={editDocType} onChange={e => setEditDocType(e.target.value)}>
                       <option value="nota_venta">Nota de Venta</option>
                       <option value="boleta">Boleta</option>
                       <option value="factura">Factura</option>
@@ -543,9 +543,9 @@ export default function Ventas() {
             )}
 
             {selected.status === 'cancelled' && (selected.cancellation_reason || selected.notes) ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
-                <span className="font-semibold">Motivo de anulación: </span>
-                {selected.cancellation_reason || selected.notes}
+              <div className="rounded-lg border border-red-500/50 bg-[#0f172a] px-3 py-2.5 text-sm text-white shadow-inner shadow-black/20">
+                <span className="font-semibold text-white">Motivo de anulación: </span>
+                <span className="text-white">{selected.cancellation_reason || selected.notes}</span>
               </div>
             ) : null}
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -558,16 +558,16 @@ export default function Ventas() {
                 <p className="font-medium">{(() => { const doc = getOrderDocument(selected); return `${docNames[doc.doc_type] || doc.doc_type} - ${doc.full_number}`; })()}</p>
               </div>
             </div>
-            <div className="border-t pt-3">
-              <p className="font-medium mb-2">Detalle:</p>
+            <div className="border-t border-[#3B82F6]/20 pt-3">
+              <p className="font-medium mb-2 text-[#F9FAFB]">Detalle:</p>
               {(selected.items || []).map((it, i) => (
-                <div key={i} className="flex justify-between text-sm py-1 border-b border-slate-50">
+                <div key={i} className="flex justify-between text-sm py-1 border-b border-[#3B82F6]/15 text-[#E5E7EB]">
                   <span>{it.quantity}x {it.product_name}</span>
                   <span className="font-medium">{formatCurrency(it.subtotal)}</span>
                 </div>
               ))}
             </div>
-            <div className="border-t pt-3 flex justify-between font-bold text-lg">
+            <div className="border-t border-[#3B82F6]/20 pt-3 flex justify-between font-bold text-lg text-[#F9FAFB]">
               <span>Total</span><span>{formatCurrency(selected.total)}</span>
             </div>
           </div>
@@ -578,21 +578,20 @@ export default function Ventas() {
         isOpen={!!voidModalOrder}
         onClose={() => { if (!voidSubmitting) { setVoidModalOrder(null); setVoidReason(''); } }}
         title={voidModalOrder ? `Anular venta #${voidModalOrder.order_number}` : 'Anular venta'}
-        variant="light"
       >
         {voidModalOrder && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-[#D1D5DB]">
               Esta acción marcará la venta como anulada y el pago como reembolsado. Indique el motivo (obligatorio).
             </p>
             <div>
-              <label htmlFor="void-reason" className="block text-xs font-medium text-slate-600 mb-1">Motivo de anulación</label>
+              <label htmlFor="void-reason" className="block text-xs font-medium text-[#E5E7EB] mb-1">Motivo de anulación</label>
               <textarea
                 id="void-reason"
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}
                 rows={4}
-                className="input-field w-full text-sm resize-y min-h-[100px]"
+                className="input-field w-full text-sm resize-y min-h-[100px] scheme-dark"
                 placeholder="Ej.: Error en cobro, devolución del cliente, duplicado…"
                 disabled={voidSubmitting}
               />
@@ -600,7 +599,7 @@ export default function Ventas() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 text-sm hover:bg-slate-50"
+                className="btn-secondary text-sm"
                 disabled={voidSubmitting}
                 onClick={() => { setVoidModalOrder(null); setVoidReason(''); }}
               >
@@ -608,7 +607,7 @@ export default function Ventas() {
               </button>
               <button
                 type="button"
-                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 border border-red-500/50"
                 disabled={voidSubmitting}
                 onClick={() => { confirmAnularVenta(); }}
               >
