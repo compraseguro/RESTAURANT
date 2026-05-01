@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import { applyUiTheme } from '../theme/uiTheme';
 
 const AuthContext = createContext(null);
 
@@ -11,7 +12,10 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem('token');
     if (token) {
       api.get('/auth/me')
-        .then(data => setUser(data))
+        .then((data) => {
+          if (data?.ui_theme) applyUiTheme(data.ui_theme);
+          setUser(data);
+        })
         .catch(() => { localStorage.removeItem('token'); })
         .finally(() => setLoading(false));
     } else {
@@ -24,6 +28,7 @@ export function AuthProvider({ children }) {
     if (opts.photo_login) body.photo_login = opts.photo_login;
     const data = await api.post('/auth/login', body);
     localStorage.setItem('token', data.token);
+    if (data.user?.ui_theme) applyUiTheme(data.user.ui_theme);
     setUser({ ...data.user, type: 'staff' });
     return data.user;
   };
@@ -31,6 +36,7 @@ export function AuthProvider({ children }) {
   const customerLogin = async (email, password) => {
     const data = await api.post('/auth/customer/login', { email, password });
     localStorage.setItem('token', data.token);
+    if (data.customer?.ui_theme) applyUiTheme(data.customer.ui_theme);
     setUser({ ...data.customer, type: 'customer' });
     return data.customer;
   };
@@ -38,6 +44,7 @@ export function AuthProvider({ children }) {
   const customerRegister = async (formData) => {
     const data = await api.post('/auth/customer/register', formData);
     localStorage.setItem('token', data.token);
+    if (data.customer?.ui_theme) applyUiTheme(data.customer.ui_theme);
     setUser({ ...data.customer, type: 'customer' });
     return data.customer;
   };

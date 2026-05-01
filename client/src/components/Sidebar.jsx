@@ -129,23 +129,23 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
   const linkClass = ({ isActive }) =>
     `flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm ${
       isActive
-        ? 'bg-[#3B82F6]/25 text-[#F9FAFB] font-semibold border-l-2 border-[#3B82F6]'
-        : 'text-[#F9FAFB] hover:bg-[#3B82F6]/15 hover:text-white'
+        ? 'bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)] font-semibold border-l-2 border-[var(--ui-accent-muted)]'
+        : 'text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] hover:opacity-95'
     }`;
 
   const isCollapsed = isMobile ? false : collapsed;
 
   return (
-    <aside className={`fixed left-0 top-0 h-full bg-[#1F2937] z-40 transition-all duration-300 flex flex-col border-r border-[#3B82F6]/30 ${
+    <aside className={`fixed left-0 top-0 h-full bg-[var(--ui-surface)] z-40 transition-all duration-300 flex flex-col border-r border-[color:var(--ui-sidebar-border)] ${
       isMobile
         ? `w-72 max-w-[85vw] transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
         : (isCollapsed ? 'w-16' : 'w-60')
     }`}>
-      <div className="flex items-center gap-3 px-4 h-16 border-b border-[#3B82F6]/30">
-        <div className="w-9 h-9 bg-gradient-to-br from-[#3B82F6] to-[#2563EB] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+      <div className="flex items-center gap-3 px-4 h-16 border-b border-[color:var(--ui-sidebar-border)]">
+        <div className="w-9 h-9 bg-gradient-to-br from-[var(--ui-logo-from)] to-[var(--ui-logo-to)] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
           <MdStorefront className="text-white text-lg" />
         </div>
-        {!isCollapsed && <span className="font-bold text-base text-[#F9FAFB] tracking-tight truncate">Resto-FADEY</span>}
+        {!isCollapsed && <span className="font-bold text-base text-[var(--ui-body-text)] tracking-tight truncate">Resto-FADEY</span>}
       </div>
 
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin">
@@ -204,8 +204,8 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
                       const selected = isActive && new URLSearchParams(location.search).get('view') === option.id;
                       return `block px-2 py-1.5 rounded text-sm transition-colors ${
                         selected
-                          ? 'bg-[#3B82F6]/25 text-[#F9FAFB] font-medium'
-                          : 'text-[#9CA3AF] hover:bg-[#3B82F6]/15 hover:text-[#F9FAFB]'
+                          ? 'bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)] font-medium'
+                          : 'text-[var(--ui-muted)] hover:bg-[var(--ui-sidebar-hover)] hover:text-[var(--ui-body-text)]'
                       }`;
                     }}
                   >
@@ -225,8 +225,8 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
                       const selected = isActive && new URLSearchParams(location.search).get('view') === option.id;
                       return `block px-2 py-1.5 rounded text-sm transition-colors ${
                         selected
-                          ? 'bg-[#3B82F6]/25 text-[#F9FAFB] font-medium'
-                          : 'text-[#9CA3AF] hover:bg-[#3B82F6]/15 hover:text-[#F9FAFB]'
+                          ? 'bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)] font-medium'
+                          : 'text-[var(--ui-muted)] hover:bg-[var(--ui-sidebar-hover)] hover:text-[var(--ui-body-text)]'
                       }`;
                     }}
                   >
@@ -246,8 +246,8 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
                       const selected = isActive && new URLSearchParams(location.search).get('view') === option.id;
                       return `block px-2 py-1.5 rounded text-sm transition-colors ${
                         selected
-                          ? 'bg-[#3B82F6]/25 text-[#F9FAFB] font-medium'
-                          : 'text-[#9CA3AF] hover:bg-[#3B82F6]/15 hover:text-[#F9FAFB]'
+                          ? 'bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)] font-medium'
+                          : 'text-[var(--ui-muted)] hover:bg-[var(--ui-sidebar-hover)] hover:text-[var(--ui-body-text)]'
                       }`;
                     }}
                   >
@@ -261,8 +261,8 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
         ))}
       </nav>
 
-      <div className="p-2 border-t border-[#3B82F6]/30">
-        <button type="button" onClick={() => void handleFinalizarJornadaClick()} className="flex items-center gap-3 px-3 py-2 rounded-lg text-[#F9FAFB] hover:bg-[#3B82F6]/15 hover:text-white w-full transition-colors text-sm" title="Finalizar jornada">
+      <div className="p-2 border-t border-[color:var(--ui-sidebar-border)]">
+        <button type="button" onClick={() => void handleFinalizarJornadaClick()} className="flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] w-full transition-colors text-sm" title="Finalizar jornada">
           <MdLogout className="text-lg flex-shrink-0" />
           {!isCollapsed && <span>Finalizar jornada</span>}
         </button>

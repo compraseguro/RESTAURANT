@@ -47,7 +47,7 @@ export default function Layout() {
   const isMozoBlocked = user?.role === 'mozo' && cajaOpen === false && !checkingCaja;
 
   return (
-    <div className="min-h-screen bg-[#111827]">
+    <div className="min-h-screen bg-[var(--ui-body-bg)]">
       {isMobile && mobileMenuOpen && (
         <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setMobileMenuOpen(false)} />
       )}
@@ -58,59 +58,59 @@ export default function Layout() {
         onClose={() => setMobileMenuOpen(false)}
       />
       <div className={`transition-all duration-300 ${isMobile ? 'ml-0' : (collapsed ? 'ml-16' : 'ml-60')}`}>
-        <header className="h-14 bg-[#1F2937] flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shadow-sm border-b border-[#3B82F6]/30">
+        <header className="h-14 bg-[var(--ui-surface)] flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shadow-sm border-b border-[color:var(--ui-sidebar-border)]">
           <div className="flex items-center gap-4">
             <button
               onClick={() => (isMobile ? setMobileMenuOpen(prev => !prev) : setCollapsed(!collapsed))}
-              className="p-2 hover:bg-[#3B82F6]/20 rounded-lg transition-colors"
+              className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg transition-colors"
             >
-              <MdMenu className="text-xl text-[#F9FAFB]" />
+              <MdMenu className="text-xl text-[var(--ui-body-text)]" />
             </button>
           </div>
           <div className="flex items-center gap-3">
             {user?.role === 'master_admin' && (
               <Link
                 to="/master"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#3B82F6]/40 bg-[#1F2937] text-[#BFDBFE] hover:bg-[#3B82F6]/15"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-accent-muted)] hover:bg-[var(--ui-sidebar-hover)]"
               >
                 <MdAdminPanelSettings className="text-base" /> Panel maestro
               </Link>
             )}
             {isMozoBlocked && (
-              <span className="flex items-center gap-1.5 px-3 py-1 bg-[#3B82F6]/20 text-[#F9FAFB] text-xs rounded-full font-medium border border-[#3B82F6]/35">
+              <span className="flex items-center gap-1.5 px-3 py-1 bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)] text-xs rounded-full font-medium border border-[color:var(--ui-border)]">
                 <MdLock className="text-sm" /> Caja cerrada
               </span>
             )}
             <NotificationCenter />
-            {!isMobile && <div className="h-8 w-px bg-[#3B82F6]/25" />}
+            {!isMobile && <div className="h-8 w-px bg-[color:var(--ui-border)]" />}
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#3B82F6]/20 rounded-full flex items-center justify-center border border-[#3B82F6]/35">
-                <span className="text-[#F9FAFB] text-xs font-bold">{user?.full_name?.[0] || 'U'}</span>
+              <div className="w-8 h-8 bg-[var(--ui-sidebar-active-bg)] rounded-full flex items-center justify-center border border-[color:var(--ui-border)]">
+                <span className="text-[var(--ui-body-text)] text-xs font-bold">{user?.full_name?.[0] || 'U'}</span>
               </div>
               <div className="hidden sm:block">
-                <p className="text-sm font-medium text-[#F9FAFB] leading-tight">{user?.full_name || user?.username}</p>
-                <p className="text-xs text-[#9CA3AF] capitalize">{user?.role}</p>
+                <p className="text-sm font-medium text-[var(--ui-body-text)] leading-tight">{user?.full_name || user?.username}</p>
+                <p className="text-xs text-[var(--ui-muted)] capitalize">{user?.role}</p>
               </div>
             </div>
           </div>
         </header>
-        <main className="p-3 sm:p-6 bg-[#111827] min-h-[calc(100vh-3.5rem)]">
+        <main className="p-3 sm:p-6 bg-[var(--ui-body-bg)] min-h-[calc(100vh-3.5rem)]">
           {isMozoBlocked ? (
             <div className="flex flex-col items-center justify-center py-32 text-center">
-              <div className="w-24 h-24 bg-[#1F2937] rounded-3xl flex items-center justify-center mb-6 border border-[#3B82F6]/30">
-                <MdPointOfSale className="text-5xl text-[#3B82F6]" />
+              <div className="w-24 h-24 bg-[var(--ui-surface)] rounded-3xl flex items-center justify-center mb-6 border border-[color:var(--ui-border)]">
+                <MdPointOfSale className="text-5xl text-[var(--ui-accent-muted)]" />
               </div>
-              <div className="w-16 h-16 bg-[#111827] rounded-full flex items-center justify-center mb-4 -mt-10 ml-14 border-4 border-[#1F2937]">
-                <MdLock className="text-2xl text-[#2563EB]" />
+              <div className="w-16 h-16 bg-[var(--ui-body-bg)] rounded-full flex items-center justify-center mb-4 -mt-10 ml-14 border-4 border-[var(--ui-surface)]">
+                <MdLock className="text-2xl text-[var(--ui-accent)]" />
               </div>
-              <h2 className="text-2xl font-bold text-[#F9FAFB] mb-2">Caja no abierta</h2>
-              <p className="text-[#9CA3AF] max-w-md mb-4">
+              <h2 className="text-2xl font-bold text-[var(--ui-body-text)] mb-2">Caja no abierta</h2>
+              <p className="text-[var(--ui-muted)] max-w-md mb-4">
                 No se puede operar sin una caja abierta. El cajero o administrador debe abrir la caja para que puedas acceder al sistema.
               </p>
-              <div className="flex items-center gap-2 px-4 py-2 bg-[#1F2937] border border-[#3B82F6]/30 rounded-xl text-sm text-[#BFDBFE]">
+              <div className="flex items-center gap-2 px-4 py-2 bg-[var(--ui-surface)] border border-[color:var(--ui-border)] rounded-xl text-sm text-[var(--ui-accent-muted)]">
                 <MdPointOfSale />
                 <span>Esperando apertura de caja...</span>
-                <div className="animate-spin w-4 h-4 border-2 border-[#3B82F6] border-t-transparent rounded-full ml-1" />
+                <div className="animate-spin w-4 h-4 border-2 border-[var(--ui-accent-muted)] border-t-transparent rounded-full ml-1" />
               </div>
             </div>
           ) : checkingCaja ? (

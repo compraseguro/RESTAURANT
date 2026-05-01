@@ -11,6 +11,20 @@ const { getActiveCajaById } = require('../cajaSettings');
 
 const router = express.Router();
 
+const UI_THEME_IDS = new Set(['light', 'dark', 'blue', 'gray', 'purple']);
+
+function readUiThemeFromStoredSettings() {
+  const row = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
+  if (!row?.value) return 'blue';
+  try {
+    const s = JSON.parse(row.value);
+    const t = String(s?.ui_theme || '').trim();
+    return UI_THEME_IDS.has(t) ? t : 'blue';
+  } catch (_) {
+    return 'blue';
+  }
+}
+
 const MAX_PHOTO_CHARS = 450000;
 /** JPEG en base64 (data URL); por debajo suele ser captura truncada o inválida */
 const MIN_PHOTO_CHARS = 120;
@@ -179,6 +193,7 @@ router.post('/login', (req, res) => {
         full_name: 'Administrador Maestro',
         role: 'master_admin',
         avatar: '',
+        ui_theme: readUiThemeFromStoredSettings(),
       },
     });
   }
@@ -251,6 +266,7 @@ router.post('/login', (req, res) => {
       avatar: user.avatar,
       permissions,
       service_plan: plan,
+      ui_theme: readUiThemeFromStoredSettings(),
       ...cajaMeta,
     },
   });
@@ -288,7 +304,10 @@ router.post('/customer/register', (req, res) => {
   runSql('INSERT INTO customers (id, name, email, password_hash, phone, address) VALUES (?, ?, ?, ?, ?, ?)', [id, name, email, hash, phone || '', address || '']);
 
   const token = jwt.sign({ id, email, name, type: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, customer: { id, name, email, phone, address } });
+  res.json({
+    token,
+    customer: { id, name, email, phone, address, ui_theme: readUiThemeFromStoredSettings() },
+  });
 });
 
 router.post('/customer/login', (req, res) => {
@@ -305,7 +324,17 @@ router.post('/customer/login', (req, res) => {
   }
 
   const token = jwt.sign({ id: customer.id, email: customer.email, name: customer.name, type: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, customer: { id: customer.id, name: customer.name, email: customer.email, phone: customer.phone, address: customer.address } });
+  res.json({
+    token,
+    customer: {
+      id: customer.id,
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      address: customer.address,
+      ui_theme: readUiThemeFromStoredSettings(),
+    },
+  });
 });
 
 router.get('/me', authenticateToken, (req, res) => {
@@ -317,11 +346,12 @@ router.get('/me', authenticateToken, (req, res) => {
       full_name: 'Administrador Maestro',
       role: 'master_admin',
       type: 'staff',
+      ui_theme: readUiThemeFromStoredSettings(),
     });
   }
   if (req.user.type === 'customer') {
     const customer = queryOne('SELECT id, name, email, phone, address FROM customers WHERE id = ?', [req.user.id]);
-    return res.json({ ...customer, type: 'customer' });
+    return res.json({ ...customer, type: 'customer', ui_theme: readUiThemeFromStoredSettings() });
   }
   ensureOpenWorkSession(req.user);
   const user = queryOne(
@@ -341,6 +371,7 @@ router.get('/me', authenticateToken, (req, res) => {
     service_plan: plan,
     type: 'staff',
     caja_name: caja?.name || '',
+    ui_theme: readUiThemeFromStoredSettings(),
   });
 });
 

@@ -7,7 +7,9 @@ import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import './index.css';
 import { initOrientationRespect } from './orientationRespect';
+import { applyUiTheme, readStoredUiTheme } from './theme/uiTheme';
 
+applyUiTheme(readStoredUiTheme());
 initOrientationRespect();
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
