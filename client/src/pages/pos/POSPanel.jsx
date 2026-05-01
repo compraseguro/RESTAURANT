@@ -1103,7 +1103,22 @@ export default function POSPanel() {
       return;
     }
     if (list.length > 1) {
-      setViewOrdersModal({ table: tableDetail, orderId: null });
+      const sorted = [...list].sort((a, b) => {
+        const na = Number(a.order_number);
+        const nb = Number(b.order_number);
+        if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return nb - na;
+        return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+      });
+      const target = sorted.find((o) => canEditOrderLines(o));
+      if (!target) {
+        toast.error('Ninguna comanda se puede modificar desde aquí (estado o cobro).');
+        return;
+      }
+      const editableCount = list.filter((o) => canEditOrderLines(o)).length;
+      if (editableCount > 1) {
+        toast(`Varias comandas editables: se abre la más reciente (#${target.order_number}).`, { duration: 4500 });
+      }
+      startEditOrder(target);
       return;
     }
     toast.error('No hay pedidos para modificar.');
@@ -2349,6 +2364,7 @@ export default function POSPanel() {
             updateItemNote={updateItemNote}
             cartTotal={cartTotal}
             formatCurrency={formatCurrency}
+            showLineDeleteLabel
             minHeightClass="min-h-0 flex-1"
             footer={
               cart.length > 0 ? (
@@ -2463,7 +2479,6 @@ export default function POSPanel() {
           const tbl = viewOrdersModal.table;
           const lines = mergedProductsOnTable(tbl);
           const totalMesa = (tbl.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0);
-          const comandas = (tbl.orders || []).filter((o) => String(o.status || '').toLowerCase() !== 'cancelled');
           return (
             <div className="max-h-[min(70vh,480px)] overflow-y-auto space-y-3 pr-1 text-[#E5E7EB]">
               <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">Productos en la mesa</p>
@@ -2489,50 +2504,6 @@ export default function POSPanel() {
                 <div className="flex justify-between border-t border-[#3B82F6]/25 pt-3 text-base font-bold text-white">
                   <span>Total</span>
                   <span className="text-[#BFDBFE]">{formatCurrency(totalMesa)}</span>
-                </div>
-              )}
-              {!isClientCheckoutTable(tbl) && comandas.length > 0 && (
-                <div className="border-t border-[#3B82F6]/20 pt-3 space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">Por comanda</p>
-                  <p className="text-[11px] text-[#9CA3AF]">Modificar o anular afecta solo a esa comanda en el sistema.</p>
-                  <div className="space-y-2">
-                    {comandas.map((o) => (
-                      <div
-                        key={o.id}
-                        className="flex flex-wrap items-center gap-2 rounded-lg border border-[#3B82F6]/20 bg-[#111827]/60 px-2 py-2"
-                      >
-                        <div className="min-w-0 flex-1 text-sm text-[#D1D5DB]">
-                          <span className="font-medium text-white">#{o.order_number}</span>
-                          <span className="text-[#9CA3AF]"> · {formatCurrency(getOrderChargeTotal(o))}</span>
-                          <span className="text-xs capitalize text-[#9CA3AF]"> · {o.status}</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5 shrink-0">
-                          {canEditOrderLines(o) ? (
-                            <button
-                              type="button"
-                              className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
-                              onClick={() => {
-                                setViewOrdersModal(null);
-                                startEditOrder(o, tbl);
-                              }}
-                            >
-                              Modificar
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            className="rounded-lg border border-red-500/50 bg-red-950/40 px-2.5 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-900/50"
-                            onClick={async () => {
-                              const done = await confirmCancelOrder(o);
-                              if (done) setViewOrdersModal(null);
-                            }}
-                          >
-                            Anular
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>

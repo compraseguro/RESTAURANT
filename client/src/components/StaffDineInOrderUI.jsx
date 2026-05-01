@@ -19,6 +19,8 @@ function CartLineItems({
   updateQty,
   removeFromCart,
   updateItemNote,
+  /** Texto «Eliminar» junto al icono (p. ej. al modificar pedido en caja). */
+  showLineDeleteLabel = false,
 }) {
   if (cart.length === 0) {
     return <p className="py-4 text-center text-sm text-[#BFDBFE]">Selecciona productos arriba</p>;
@@ -67,10 +69,15 @@ function CartLineItems({
             <button
               type="button"
               onClick={() => removeFromCart(item.line_key)}
-              className="shrink-0 p-0.5 text-[#93C5FD] hover:text-white"
-              aria-label="Quitar"
+              className={
+                showLineDeleteLabel
+                  ? 'shrink-0 inline-flex items-center gap-1 rounded-md border border-red-500/45 bg-red-950/40 px-2 py-1 text-xs font-semibold text-red-200 hover:bg-red-900/55'
+                  : 'shrink-0 p-0.5 text-[#93C5FD] hover:text-white'
+              }
+              aria-label={showLineDeleteLabel ? 'Eliminar producto' : 'Quitar'}
             >
               <MdDelete className="text-sm" />
+              {showLineDeleteLabel ? <span>Eliminar</span> : null}
             </button>
           </div>
           {Number(item.note_required || 0) === 1 && (
@@ -140,8 +147,18 @@ function CartLineItems({
             <MdAdd className="text-xs" />
           </button>
         </div>
-        <button type="button" onClick={() => removeFromCart(item.line_key)} className="text-[#93C5FD] hover:text-white">
+        <button
+          type="button"
+          onClick={() => removeFromCart(item.line_key)}
+          className={
+            showLineDeleteLabel
+              ? 'inline-flex shrink-0 items-center gap-1 rounded-md border border-red-500/45 bg-red-950/40 px-2 py-1 text-xs font-semibold text-red-200 hover:bg-red-900/55'
+              : 'shrink-0 text-[#93C5FD] hover:text-white'
+          }
+          aria-label={showLineDeleteLabel ? 'Eliminar producto' : 'Quitar'}
+        >
           <MdDelete className="text-sm" />
+          {showLineDeleteLabel ? <span>Eliminar</span> : null}
         </button>
       </div>
       {(noteEditorLineKey === item.line_key || item.notes?.trim()) && (
@@ -192,6 +209,7 @@ export default function StaffDineInOrderUI({
   singleColumnProductList = false,
   showProductThumbnail = false,
   hideProductStock = false,
+  showLineDeleteLabel = false,
 }) {
   const rootClass = embedded
     ? 'h-[min(50vh,460px)] max-h-[min(70vh,560px)] w-full min-h-0'
@@ -352,6 +370,7 @@ export default function StaffDineInOrderUI({
           updateQty={updateQty}
           removeFromCart={removeFromCart}
           updateItemNote={updateItemNote}
+          showLineDeleteLabel={showLineDeleteLabel}
         />
       </div>
       {footer ? (
@@ -390,6 +409,7 @@ export default function StaffDineInOrderUI({
               updateQty={updateQty}
               removeFromCart={removeFromCart}
               updateItemNote={updateItemNote}
+              showLineDeleteLabel={showLineDeleteLabel}
             />
           </div>
           {footer ? <div className="mt-3 space-y-2 border-t border-[#3B82F6]/35 pt-3">{footer}</div> : null}
