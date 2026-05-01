@@ -326,6 +326,63 @@ html[data-ui-theme='purple'] {
   background: var(--ui-accent);
 }
 
+/*
+ * Modo claro: vistas con text-[#F9FAFB] / text-white sobre fondos claros.
+ * Substring [class*="…"] evita problemas del minificador con # en selectores.
+ */
+html[data-ui-theme='light'] main
+  :is(
+    .text-white,
+    [class*='text-[#F9FAFB]'],
+    [class*='text-[#E5E7EB]'],
+    [class*='text-[#E2E8F0]']
+  ) {
+  color: var(--ui-body-text) !important;
+}
+
+html[data-ui-theme='light'] main :is(.text-slate-300, .text-slate-400) {
+  color: #64748b !important;
+}
+
+/* Paneles oscuros: texto claro */
+html[data-ui-theme='light'] main [class*='bg-[#0f172a]'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], [class*='text-[#E2E8F0]'], .text-slate-300, .text-slate-400),
+html[data-ui-theme='light'] main [class*='bg-[#111827]'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], [class*='text-[#E2E8F0]'], .text-slate-300, .text-slate-400),
+html[data-ui-theme='light'] main [class*='bg-[#1F2937]'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], [class*='text-[#E2E8F0]'], .text-slate-300, .text-slate-400),
+html[data-ui-theme='light'] main [class*='bg-[#172554]'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], [class*='text-[#E2E8F0]'], .text-slate-300, .text-slate-400),
+html[data-ui-theme='light'] main [class*='bg-[#1E3A8A]'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], [class*='text-[#E2E8F0]'], .text-slate-300, .text-slate-400),
+html[data-ui-theme='light'] main .bg-slate-800 :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], .text-slate-300, .text-slate-400),
+html[data-ui-theme='light'] main .bg-slate-900 :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], .text-slate-300, .text-slate-400) {
+  color: #f9fafb !important;
+}
+
+html[data-ui-theme='light'] main aside[class*='fixed'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']) {
+  color: #f9fafb !important;
+}
+
+html[data-ui-theme='light'] main aside[class*='fixed'] :is(.text-slate-300, .text-slate-400) {
+  color: #cbd5e1 !important;
+}
+
+html[data-ui-theme='light'] main :is(.btn-primary, .btn-success, .btn-danger, .btn-warning, .btn-info),
+html[data-ui-theme='light'] main :is(.btn-primary, .btn-success, .btn-danger, .btn-warning, .btn-info) * {
+  color: #ffffff !important;
+}
+
+html[data-ui-theme='light'] main [class*='bg-[#2563EB]']:is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']),
+html[data-ui-theme='light'] main [class*='bg-[#1D4ED8]']:is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']),
+html[data-ui-theme='light'] main [class*='bg-[#1E40AF]']:is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']),
+html[data-ui-theme='light'] main [class*='bg-[#1E3A8A]']:is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']),
+html[data-ui-theme='light'] main :is(.bg-emerald-500, .bg-emerald-600, .bg-red-500, .bg-red-600, .bg-red-700, .bg-sky-600, .bg-indigo-600, .bg-gold-500, .bg-gold-600):is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']),
+html[data-ui-theme='light'] main :is(.bg-primary-600, .bg-gold-600).text-white {
+  color: #ffffff !important;
+}
+
+html[data-ui-theme='light'] main [class*='bg-[#2563EB]'] :is(.text-white, [class*='text-[#F9FAFB]']),
+html[data-ui-theme='light'] main [class*='bg-[#1D4ED8]'] :is(.text-white, [class*='text-[#F9FAFB]']),
+html[data-ui-theme='light'] main :is(.bg-emerald-600, .bg-red-600, .bg-sky-600) :is(.text-white, [class*='text-[#F9FAFB]']) {
+  color: #ffffff !important;
+}
+
 /* Inventario y kardex: evitar inputs/selects y cabeceras con aspecto claro (UA / WebKit) */
 @layer components {
   .logistica-kardex-module {
