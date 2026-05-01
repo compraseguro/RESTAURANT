@@ -493,12 +493,12 @@ export default function MiRestaurant() {
         <>
           <div className="flex gap-2 mb-5">
             {[{ id: 'info', label: 'Información', icon: MdStore }, { id: 'schedule', label: 'Horarios', icon: MdSchedule }, { id: 'delivery', label: 'Delivery', icon: MdLocationOn }].map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${tab === t.id ? 'bg-gold-600 text-white' : 'bg-[var(--ui-surface)] border border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'}`}><t.icon /> {t.label}</button>
+              <button key={t.id} type="button" onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${tab === t.id ? 'bg-gold-600 text-white border-gold-600' : 'bg-[var(--ui-surface)] border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'}`}><t.icon /> {t.label}</button>
             ))}
           </div>
 
           {tab === 'info' && (
-        <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6">
+        <div className="card">
           <div className="flex items-center gap-6 mb-6">
             <div
               className="w-24 h-24 bg-gold-100 rounded-2xl flex items-center justify-center border-2 border-dashed border-gold-300 cursor-pointer hover:bg-gold-50 overflow-hidden"
@@ -539,7 +539,7 @@ export default function MiRestaurant() {
           )}
 
           {tab === 'schedule' && (
-        <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6">
+        <div className="card">
           <h3 className="font-bold text-[var(--ui-body-text)] mb-4">Horario de Atención</h3>
           <div className="space-y-3">
             {DAYS.map(day => (
@@ -558,7 +558,7 @@ export default function MiRestaurant() {
           )}
 
           {tab === 'delivery' && (
-        <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6">
+        <div className="card">
           <h3 className="font-bold text-[var(--ui-body-text)] mb-4">Configuración de Delivery</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -579,7 +579,7 @@ export default function MiRestaurant() {
       {activeView !== 'mi_empresa' && (
         <>
           {activeView === 'facturacion_electronica' ? (
-            <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6 space-y-5">
+            <div className="card space-y-5">
               <div className="flex items-center gap-2">
                 <MdReceipt className="text-red-600 text-2xl" />
                 <h3 className="font-bold text-[var(--ui-body-text)] text-lg">Facturación electrónica</h3>
@@ -636,7 +636,7 @@ export default function MiRestaurant() {
               </fieldset>
             </div>
           ) : activeView === 'pagos_sistema' ? (
-            <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6 space-y-5">
+            <div className="card space-y-5">
               <div className="flex items-center gap-2">
                 <MdPayment className="text-red-600 text-2xl" />
                 <h3 className="font-bold text-[var(--ui-body-text)] text-lg">Parámetros de cobro y crédito</h3>
@@ -778,7 +778,7 @@ export default function MiRestaurant() {
               onChange={(next) => setAppConfig((prev) => ({ ...prev, contrato: next }))}
             />
           ) : activeView === 'pago_uso_sistema' ? (
-            <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6 space-y-5">
+            <div className="card space-y-5">
               <div className="flex items-center gap-2">
                 <MdReceipt className="text-blue-600 text-2xl" />
                 <h3 className="font-bold text-[var(--ui-body-text)] text-lg">Pago por uso del sistema</h3>
@@ -944,7 +944,7 @@ export default function MiRestaurant() {
               </div>
             </div>
           ) : activeView === 'informacion' ? (
-            <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6 space-y-4">
+            <div className="card space-y-4">
               <h3 className="font-bold text-[var(--ui-body-text)]">Respaldo y restauración de información</h3>
               <p className="text-sm text-[var(--ui-muted)]">
                 Descarga una copia completa de datos antes de actualizar la app y luego restaura desde ese archivo para recuperar toda la información.
@@ -979,7 +979,7 @@ export default function MiRestaurant() {
               </div>
             </div>
           ) : (
-            <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6">
+            <div className="card">
               <h3 className="font-bold text-[var(--ui-body-text)] mb-2">{activeViewLabel}</h3>
               <p className="text-[var(--ui-muted)]">No se encontró la vista solicitada. Selecciona una opción válida del menú.</p>
             </div>
@@ -1009,7 +1009,7 @@ export default function MiRestaurant() {
               autoComplete="off"
               value={resetPassword}
               onChange={(e) => setResetPassword(e.target.value)}
-              className="w-full rounded-lg border border-[color:var(--ui-border)] px-3 py-2 text-[var(--ui-body-text)] focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+              className="input-field w-full"
               placeholder="Contraseña"
             />
           </div>

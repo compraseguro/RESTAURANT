@@ -649,7 +649,7 @@ export default function Almacen() {
     return (
       <div>
         <div className="flex items-center justify-between mb-5">
-          <h1 className="text-2xl font-bold text-[#F9FAFB]">Almacenes e Inventario · {activeViewLabel}</h1>
+          <h1 className="text-2xl font-bold text-[var(--ui-body-text)]">Almacenes e Inventario · {activeViewLabel}</h1>
         </div>
 
         {activeView === 'requerimiento' && (
@@ -850,7 +850,7 @@ export default function Almacen() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-[#F9FAFB]">Almacenes e Inventario</h1>
+        <h1 className="text-2xl font-bold text-[var(--ui-body-text)]">Almacenes e Inventario</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
@@ -906,9 +906,9 @@ export default function Almacen() {
                   : 'border-slate-200 hover:border-gold-300'
               }`}
             >
-              <p className="font-semibold text-[#F9FAFB]">{w.name}</p>
-              {w.description && <p className="text-xs text-[#E5E7EB] mt-1">{w.description}</p>}
-              <p className="text-xs text-[#E5E7EB] mt-2">
+              <p className="font-semibold text-[var(--ui-body-text)]">{w.name}</p>
+              {w.description && <p className="text-xs text-[var(--ui-body-text)] mt-1">{w.description}</p>}
+              <p className="text-xs text-[var(--ui-body-text)] mt-2">
                 {isInsumosWarehouse(w) ? 'Insumos vinculados: ' : 'Productos con stock: '}
                 <strong>{linkedProducts}</strong>
               </p>
@@ -934,10 +934,10 @@ export default function Almacen() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-        <div className="card"><p className="text-xs text-[#F9FAFB]">Total Ítems</p><p className="text-xl font-bold text-[#F9FAFB]">{selectedIsInsumosWarehouse ? insumosActivos.length : productsForSelectedWarehouse.length}</p></div>
-        <div className="card"><p className="text-xs text-[#F9FAFB]">Valor del Inventario</p><p className="text-xl font-bold text-emerald-400">{formatCurrency(totalValue)}</p></div>
-        <div className="card"><p className="text-xs text-[#F9FAFB]">Stock Bajo</p><p className="text-xl font-bold text-red-400">{selectedIsInsumosWarehouse ? insumosLowCount : lowStock.length}</p></div>
-        <div className="card"><p className="text-xs text-[#F9FAFB]">Unidades Totales</p><p className="text-xl font-bold text-[#F9FAFB]">{selectedIsInsumosWarehouse ? insumosTotalUnits : productsForSelectedWarehouse.reduce((s, p) => s + p.stock, 0)}</p></div>
+        <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Total Ítems</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{selectedIsInsumosWarehouse ? insumosActivos.length : productsForSelectedWarehouse.length}</p></div>
+        <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Valor del Inventario</p><p className="text-xl font-bold text-emerald-400">{formatCurrency(totalValue)}</p></div>
+        <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Stock Bajo</p><p className="text-xl font-bold text-red-400">{selectedIsInsumosWarehouse ? insumosLowCount : lowStock.length}</p></div>
+        <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Unidades Totales</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{selectedIsInsumosWarehouse ? insumosTotalUnits : productsForSelectedWarehouse.reduce((s, p) => s + p.stock, 0)}</p></div>
       </div>
       {lowStock.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5">
@@ -963,15 +963,15 @@ export default function Almacen() {
         {selectedIsInsumosWarehouse ? (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left border-b border-[#3B82F6]/25">
-                <th className="pb-2 font-medium text-[#F9FAFB]">Insumo</th>
-                <th className="pb-2 font-medium text-[#F9FAFB]">U.M.</th>
-                <th className="pb-2 font-medium text-[#F9FAFB]">Costo prom.</th>
-                <th className="pb-2 font-medium text-right text-[#F9FAFB]">Stock (kg/L)</th>
-                <th className="pb-2 font-medium text-right text-[#F9FAFB]">Stock (U)</th>
-                <th className="pb-2 font-medium text-right text-[#F9FAFB]">Valor</th>
-                <th className="pb-2 font-medium text-[#F9FAFB]">Estado</th>
-                <th className="pb-2 font-medium text-right text-[#F9FAFB] w-28"></th>
+              <tr className="text-left border-b border-[color:var(--ui-border)]">
+                <th className="pb-2 font-medium text-[var(--ui-body-text)]">Insumo</th>
+                <th className="pb-2 font-medium text-[var(--ui-body-text)]">U.M.</th>
+                <th className="pb-2 font-medium text-[var(--ui-body-text)]">Costo prom.</th>
+                <th className="pb-2 font-medium text-right text-[var(--ui-body-text)]">Stock (kg/L)</th>
+                <th className="pb-2 font-medium text-right text-[var(--ui-body-text)]">Stock (U)</th>
+                <th className="pb-2 font-medium text-right text-[var(--ui-body-text)]">Valor</th>
+                <th className="pb-2 font-medium text-[var(--ui-body-text)]">Estado</th>
+                <th className="pb-2 font-medium text-right text-[var(--ui-body-text)] w-28"></th>
               </tr>
             </thead>
             <tbody>
@@ -990,16 +990,16 @@ export default function Almacen() {
                 const badgeLabel = est === 'normal' ? 'Normal' : est === 'bajo' ? 'Bajo' : 'Agotado';
                 return (
                   <tr key={i.id} className="border-b border-slate-600/30">
-                    <td className="py-3 font-medium text-[#F9FAFB]">{i.nombre}</td>
-                    <td className="py-3 text-[#E5E7EB]">{um}</td>
-                    <td className="py-3 text-[#F9FAFB] tabular-nums">{formatCurrency(Number(i.costo_promedio || 0))}</td>
-                    <td className="py-3 text-right text-[#F9FAFB] tabular-nums">
+                    <td className="py-3 font-medium text-[var(--ui-body-text)]">{i.nombre}</td>
+                    <td className="py-3 text-[var(--ui-body-text)]">{um}</td>
+                    <td className="py-3 text-[var(--ui-body-text)] tabular-nums">{formatCurrency(Number(i.costo_promedio || 0))}</td>
+                    <td className="py-3 text-right text-[var(--ui-body-text)] tabular-nums">
                       {formatInsumoWithUnit(sAct, um)}
                     </td>
-                    <td className="py-3 text-right text-[#F9FAFB] tabular-nums">
+                    <td className="py-3 text-right text-[var(--ui-body-text)] tabular-nums">
                       {Number(i.kg_por_unidad || 0) > 1e-12 ? `${formatInsumoQty(uAct)} U` : '—'}
                     </td>
-                    <td className="py-3 text-right text-[#F9FAFB] tabular-nums">{formatCurrency(valor)}</td>
+                    <td className="py-3 text-right text-[var(--ui-body-text)] tabular-nums">{formatCurrency(valor)}</td>
                     <td className="py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>{badgeLabel}</span>
                     </td>
@@ -1247,8 +1247,8 @@ export default function Almacen() {
       >
         <form onSubmit={handleCreateWarehouse} className="space-y-4 modal-sheet-body">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-[#E5E7EB]">Tipo</p>
-            <label className="flex items-center gap-2 text-sm text-[#E5E7EB] cursor-pointer">
+            <p className="text-sm font-medium text-[var(--ui-body-text)]">Tipo</p>
+            <label className="flex items-center gap-2 text-sm text-[var(--ui-body-text)] cursor-pointer">
               <input
                 type="radio"
                 name="warehouseTipo"
@@ -1257,7 +1257,7 @@ export default function Almacen() {
               />
               Solo almacén
             </label>
-            <label className="flex items-center gap-2 text-sm text-[#E5E7EB] cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-[var(--ui-body-text)] cursor-pointer">
               <input
                 type="radio"
                 name="warehouseTipo"

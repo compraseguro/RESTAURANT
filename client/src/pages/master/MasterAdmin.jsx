@@ -332,13 +332,13 @@ export default function MasterAdmin() {
   const lockEnabled = Number(control.global_lock_enabled || 0) === 1;
 
   return (
-    <div className="min-h-screen bg-[var(--ui-body-bg)] text-[var(--ui-body-text)] p-6">
+    <div className="min-h-screen bg-[var(--ui-body-bg)] p-6 text-[var(--ui-body-text)]">
       <div className="max-w-7xl mx-auto">
         <div className="card mb-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Administrador Maestro</h1>
-              <p className="text-sm text-slate-500">Control de dueños, contratos, SUNAT y pago por uso del restaurante, fecha de facturación, bloqueo global y notificaciones.</p>
+              <h1 className="text-2xl font-bold text-[var(--ui-body-text)]">Administrador Maestro</h1>
+              <p className="text-sm text-[var(--ui-muted)]">Control de dueños, contratos, SUNAT y pago por uso del restaurante, fecha de facturación, bloqueo global y notificaciones.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -356,7 +356,7 @@ export default function MasterAdmin() {
               <button
                 key={item.id}
                 onClick={() => setTab(item.id)}
-                className={`px-3 py-2 rounded-lg border text-sm font-medium flex items-center gap-2 border-[color:var(--ui-border)] ${tab === item.id ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'}`}
+                className={`px-3 py-2 rounded-lg border text-sm font-medium flex items-center gap-2 ${tab === item.id ? 'bg-[var(--ui-accent)] text-white border-[color:var(--ui-accent)]' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)]'}`}
               >
                 <item.icon />
                 {item.label}
@@ -787,7 +787,7 @@ export default function MasterAdmin() {
           </div>
           {notificationToDelete ? (
             <p className="text-sm text-[#D1D5DB]">
-              Se eliminará de forma permanente la notificación «<span className="font-semibold text-[#F9FAFB]">{notificationToDelete.title}</span>».
+              Se eliminará de forma permanente la notificación «<span className="font-semibold text-[var(--ui-body-text)]">{notificationToDelete.title}</span>».
             </p>
           ) : null}
           <div className="flex flex-wrap justify-end gap-2 pt-1">

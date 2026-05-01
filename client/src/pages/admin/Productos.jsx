@@ -307,7 +307,7 @@ export default function Productos() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-slate-800">Categorías</h1>
+        <h1 className="text-2xl font-bold text-[var(--ui-body-text)]">Categorías</h1>
         <div />
       </div>
 
@@ -321,7 +321,7 @@ export default function Productos() {
               className={`flex flex-col items-center gap-1 px-6 py-3 rounded-xl border-2 transition-all ${
                 activeTab === tab.id
                   ? 'bg-gold-500 border-gold-500 text-white shadow-md shadow-gold-500/20'
-                  : 'bg-white border-slate-200 text-slate-500 hover:border-gold-300 hover:text-gold-600'
+                  : 'bg-[var(--ui-surface)] border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:border-gold-300 hover:text-gold-600'
               }`}
             >
               <Icon className="text-2xl" />
@@ -335,12 +335,21 @@ export default function Productos() {
       {activeTab === 'platos' && (
         <div className="flex gap-5">
           <div className="w-56 flex-shrink-0">
-            <div className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] overflow-hidden shadow-sm">
+            <div className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] overflow-hidden">
               <div className="p-2.5 border-b border-[color:var(--ui-border)]">
-                <input value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} placeholder="Filtrar categorías" className="w-full text-sm py-1.5 px-3 rounded-lg input-field" />
+                <input
+                  value={categoryFilter}
+                  onChange={e => setCategoryFilter(e.target.value)}
+                  placeholder="Filtrar categorías"
+                  className="input-field w-full text-sm py-1.5 px-3"
+                />
               </div>
               <div className="p-2">
-                <button type="button" onClick={openNewCat} className="w-full flex items-center gap-2 px-2.5 py-1.5 text-sm btn-primary mb-1">
+                <button
+                  type="button"
+                  onClick={openNewCat}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 text-sm btn-primary mb-1 justify-center"
+                >
                   <MdAdd className="text-base" /> Añadir nueva categoría
                 </button>
               </div>
@@ -358,11 +367,17 @@ export default function Productos() {
                         }`}
                       >
                         {cat.name}
-                        <span className={`text-xs ml-1 ${selectedCat === cat.id ? 'text-blue-100' : 'text-[var(--ui-muted)]'}`}>({getCatProductCount(cat.id)})</span>
+                        <span className={`text-xs ml-1 ${selectedCat === cat.id ? 'text-white/90' : 'text-[var(--ui-muted)]'}`}>
+                          ({getCatProductCount(cat.id)})
+                        </span>
                       </button>
                       <div className="hidden group-hover:flex items-center pr-2 gap-0.5">
-                        <button type="button" onClick={() => openEditCat(cat)} className="p-1 hover:bg-[var(--ui-sidebar-hover)] rounded text-[var(--ui-accent)] text-xs"><MdEdit /></button>
-                        <button type="button" onClick={() => deleteCat(cat)} className="p-1 hover:bg-[var(--ui-sidebar-hover)] rounded text-[var(--ui-accent)] hover:text-red-600 text-xs"><MdDelete /></button>
+                        <button type="button" onClick={() => openEditCat(cat)} className="p-1 hover:bg-[var(--ui-sidebar-hover)] rounded text-[var(--ui-accent)] text-xs" title="Editar">
+                          <MdEdit />
+                        </button>
+                        <button type="button" onClick={() => deleteCat(cat)} className="p-1 hover:bg-[var(--ui-sidebar-hover)] rounded text-[var(--ui-accent)] hover:text-red-500 text-xs" title="Eliminar">
+                          <MdDelete />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -378,18 +393,18 @@ export default function Productos() {
 
             <div className="flex items-center gap-3 mb-3">
               <div className="relative flex-1">
-                <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)]" />
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filtrar producto" className="input-field pl-9 py-2" />
               </div>
-              <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer whitespace-nowrap">
+              <label className="flex items-center gap-2 text-sm text-[var(--ui-body-text)] cursor-pointer whitespace-nowrap">
                 Ver Anulados
-                <button onClick={() => setShowInactive(!showInactive)} className="text-2xl">
-                  {showInactive ? <MdToggleOn className="text-gold-500" /> : <MdToggleOff className="text-slate-400" />}
+                <button type="button" onClick={() => setShowInactive(!showInactive)} className="text-2xl">
+                  {showInactive ? <MdToggleOn className="text-gold-500" /> : <MdToggleOff className="text-[var(--ui-muted)]" />}
                 </button>
               </label>
             </div>
 
-            <p className="text-sm text-slate-500 mb-3 font-medium">
+            <p className="text-sm text-[var(--ui-muted)] mb-3 font-medium">
               Mostrando {selectedCat ? getCatName(selectedCat) : 'sin categoría seleccionada'} · {filtered.length} productos
             </p>
 

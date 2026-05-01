@@ -56,7 +56,7 @@ function InventarioFisicoResumenLine({ f, b, s }) {
   const ns = Number(s) || 0;
   const total = nf + nb + ns;
   if (total === 0) {
-    return <span className="text-[var(--ui-muted)]">Sin líneas</span>;
+    return <span className="text-slate-500">Sin líneas</span>;
   }
   if (nf === 0 && ns === 0) {
     return (
@@ -545,7 +545,7 @@ export default function LogisticaKardexModule() {
 
   return (
     <div className="logistica-kardex-module space-y-4 text-[var(--ui-body-text)]">
-      <p className="text-sm text-[var(--ui-muted)]">
+      <p className="text-sm text-[var(--ui-body-text)]">
         Insumos, compras, recetas, kardex, inventario de transformables (insumos) y no transformables (cuadre en almacén).
         Las ventas en caja descuentan según recetas.
       </p>
@@ -555,10 +555,10 @@ export default function LogisticaKardexModule() {
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition border border-[color:var(--ui-border)] ${
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
               tab === t.id
-                ? 'bg-[var(--ui-accent)] text-white shadow-sm'
-                : 'bg-[var(--ui-surface)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
+                ? 'bg-[var(--ui-accent)] text-white shadow-sm border border-[color:var(--ui-accent)]'
+                : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'
             }`}
           >
             {t.label}
@@ -598,7 +598,7 @@ export default function LogisticaKardexModule() {
               })}
             </ul>
             {(!dashboard.insumos_bajo_minimo || !dashboard.insumos_bajo_minimo.length) && (
-              <p className="text-[var(--ui-muted)] text-sm mt-1">Ninguno por debajo del mínimo configurado.</p>
+              <p className="text-slate-500 text-sm mt-1">Ninguno por debajo del mínimo configurado.</p>
             )}
           </div>
         </div>
@@ -606,7 +606,7 @@ export default function LogisticaKardexModule() {
 
       {tab === 'insumos' && (
         <div className="space-y-4">
-          <p className="text-[var(--ui-muted)] text-xs max-w-3xl">
+          <p className="text-[var(--ui-body-text)] text-xs max-w-3xl">
             <strong className="text-[var(--ui-body-text)]">Kardex y recetas usan cantidad en kg/L (o ml).</strong>{' '}
             <strong>Cant. (U)</strong> y el promedio kg/U se alimentan con la compra; las ventas por receta descontarán
             <strong> kg</strong> y <strong>U</strong> si aplica. Los mínimos (U y kg/L) definen alerta y requisición según
@@ -618,7 +618,7 @@ export default function LogisticaKardexModule() {
           >
             <div className="flex flex-nowrap gap-2 items-end overflow-x-auto pb-0.5 min-h-[3rem]">
               <div className="shrink-0">
-                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Insumo</label>
+                <label className="block text-xs text-slate-500 mb-0.5">Insumo</label>
                 <input
                   className="input-field text-sm py-1.5 w-40"
                   value={insumoForm.nombre}
@@ -627,7 +627,7 @@ export default function LogisticaKardexModule() {
                 />
               </div>
               <div className="shrink-0">
-                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">U.M. kg / L</label>
+                <label className="block text-xs text-slate-500 mb-0.5">U.M. kg / L</label>
                 <input
                   className="input-field text-sm py-1.5 w-[4.5rem]"
                   list="kardex-um-masa"
@@ -646,7 +646,7 @@ export default function LogisticaKardexModule() {
                 </datalist>
               </div>
               <div className="shrink-0">
-                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Precio compra</label>
+                <label className="block text-xs text-slate-500 mb-0.5">Precio compra</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -658,7 +658,7 @@ export default function LogisticaKardexModule() {
                 />
               </div>
               <div className="shrink-0">
-                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Cant. inicial</label>
+                <label className="block text-xs text-slate-500 mb-0.5">Cant. inicial</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -669,7 +669,7 @@ export default function LogisticaKardexModule() {
                 />
               </div>
               <div className="shrink-0">
-                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Mín. (U)</label>
+                <label className="block text-xs text-slate-500 mb-0.5">Mín. (U)</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -680,7 +680,7 @@ export default function LogisticaKardexModule() {
                 />
               </div>
               <div className="shrink-0">
-                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Mín. kg / L</label>
+                <label className="block text-xs text-slate-500 mb-0.5">Mín. kg / L</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -723,10 +723,10 @@ export default function LogisticaKardexModule() {
               ) : null}
             </div>
           </form>
-          <div className="overflow-x-auto border border-[color:var(--ui-border)] rounded-lg">
+          <div className="overflow-x-auto border border-slate-600/50 rounded-lg">
             <table className="w-full text-sm min-w-[720px]">
               <thead>
-                <tr className="bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] text-left border-b border-[color:var(--ui-border)]">
+                <tr className="bg-[var(--ui-surface)] text-[var(--ui-body-text)] text-left border-b border-[color:var(--ui-border)]">
                   <th className="p-2.5">Insumo</th>
                   <th className="p-2.5">Cant. (kg / L)</th>
                   <th className="p-2.5">Cant. (U)</th>
@@ -762,7 +762,7 @@ export default function LogisticaKardexModule() {
                   const showKg = sAct > 0;
                   const showU = uAct > 0;
                   return (
-                    <tr key={i.id} className={`border-b border-[color:var(--ui-border)] ${low ? 'bg-red-950/30' : ''}`}>
+                    <tr key={i.id} className={`border-b border-slate-600/40 ${low ? 'bg-red-950/30' : ''}`}>
                       <td className="p-2.5 font-medium text-[var(--ui-body-text)]">{i.nombre}</td>
                       <td className="p-2.5 text-[var(--ui-body-text)] tabular-nums">
                         {showKg ? formatInsumoWithUnit(i.stock_actual, umc) : <span className="text-[var(--ui-muted)]">—</span>}
@@ -841,7 +841,7 @@ export default function LogisticaKardexModule() {
                   })}
                 </select>
                 <div>
-                  <label className="block text-[10px] text-[var(--ui-muted)]">Cant. kg / L</label>
+                  <label className="block text-[10px] text-slate-500">Cant. kg / L</label>
                   <input
                     type="number"
                     min="0.0001"
@@ -857,7 +857,7 @@ export default function LogisticaKardexModule() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-[var(--ui-muted)]">Costo S/ U.M.</label>
+                  <label className="block text-[10px] text-slate-500">Costo S/ U.M.</label>
                   <input
                     type="number"
                     min="0"
@@ -873,7 +873,7 @@ export default function LogisticaKardexModule() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-[var(--ui-muted)]">Unid. (opcional)</label>
+                  <label className="block text-[10px] text-slate-500">Unid. (opcional)</label>
                   <input
                     type="number"
                     min="0"
@@ -934,7 +934,7 @@ export default function LogisticaKardexModule() {
           <form onSubmit={saveReceta} className="bg-[var(--ui-surface-2)] p-4 rounded-xl border border-[color:var(--ui-border)] space-y-3">
             <div className="flex flex-wrap gap-2">
               <div>
-                <label className="block text-xs text-[var(--ui-muted)]">Nombre receta / plato</label>
+                <label className="block text-xs text-slate-500">Nombre receta / plato</label>
                 <input
                   className="input-field text-sm py-1.5 w-48"
                   value={recetaForm.nombre_plato}
@@ -942,7 +942,7 @@ export default function LogisticaKardexModule() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-[var(--ui-muted)]">Producto menú</label>
+                <label className="block text-xs text-slate-500">Producto menú</label>
                 <select
                   className="input-field text-sm py-1.5 min-w-[200px]"
                   value={recetaForm.product_id}
@@ -964,7 +964,7 @@ export default function LogisticaKardexModule() {
               </label>
             </div>
             <div className="space-y-2">
-              <p className="text-[var(--ui-muted)] text-xs">Insumos por unidad de plato (1 servicio)</p>
+              <p className="text-slate-500 text-xs">Insumos por unidad de plato (1 servicio)</p>
               {recetaForm.detalles.map((d, di) => (
                 <div key={di} className="flex flex-wrap gap-2 items-center">
                   <select
@@ -1011,7 +1011,7 @@ export default function LogisticaKardexModule() {
               {editingRecetaId && (
                 <button
                   type="button"
-                  className="px-3 py-1.5 border border-[color:var(--ui-border)] rounded-lg text-[var(--ui-body-text)]"
+                  className="px-3 py-1.5 border border-slate-500 rounded-lg text-slate-300"
                   onClick={() => {
                     setEditingRecetaId('');
                     setRecetaForm({
@@ -1027,22 +1027,22 @@ export default function LogisticaKardexModule() {
               </button>
             </div>
           </form>
-          <div className="border border-[color:var(--ui-border)] rounded-lg overflow-hidden">
+          <div className="border border-slate-600/50 rounded-lg overflow-hidden">
             {recetas.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center justify-between p-2 border-b border-[color:var(--ui-border)] last:border-0"
+                className="flex items-center justify-between p-2 border-b border-slate-600/40 last:border-0"
               >
                 <div>
                   <span className="font-medium">{r.nombre_plato}</span>
-                  <span className="text-[var(--ui-muted)] text-sm ml-2">· {r.product_name || r.product_id}</span>
+                  <span className="text-slate-500 text-sm ml-2">· {r.product_name || r.product_id}</span>
                 </div>
                 <button type="button" className="text-amber-400/90 text-sm" onClick={() => loadRecetaEdit(r.id)}>
                   Editar
                 </button>
               </div>
             ))}
-            {!recetas.length && <p className="p-4 text-[var(--ui-muted)] text-sm">No hay recetas. Crea una y vincúlala a un plato.</p>}
+            {!recetas.length && <p className="p-4 text-slate-500 text-sm">No hay recetas. Crea una y vincúlala a un plato.</p>}
           </div>
         </div>
       )}
@@ -1051,7 +1051,7 @@ export default function LogisticaKardexModule() {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2 items-end">
             <div>
-              <label className="block text-xs text-[var(--ui-muted)]">Insumo</label>
+              <label className="block text-xs text-slate-500">Insumo</label>
               <select
                 className="input-field text-sm py-1.5"
                 value={kardexInsumo}
@@ -1069,7 +1069,7 @@ export default function LogisticaKardexModule() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-[var(--ui-muted)]">Desde</label>
+              <label className="block text-xs text-slate-500">Desde</label>
               <input
                 type="date"
                 className="input-field text-sm py-1.5"
@@ -1078,7 +1078,7 @@ export default function LogisticaKardexModule() {
               />
             </div>
             <div>
-              <label className="block text-xs text-[var(--ui-muted)]">Hasta</label>
+              <label className="block text-xs text-slate-500">Hasta</label>
               <input
                 type="date"
                 className="input-field text-sm py-1.5"
@@ -1117,9 +1117,9 @@ export default function LogisticaKardexModule() {
               })()}
             </div>
           )}
-          <div className="overflow-x-auto border border-[color:var(--ui-border)] rounded-lg max-h-[480px] overflow-y-auto">
+          <div className="overflow-x-auto border border-slate-600/50 rounded-lg max-h-[480px] overflow-y-auto">
             <table className="w-full text-sm min-w-[900px]">
-              <thead className="sticky top-0 z-10 bg-[var(--ui-surface-2)] border-b border-[color:var(--ui-border)]">
+              <thead className="sticky top-0 z-10 bg-[var(--ui-surface)] border-b border-[color:var(--ui-border)] shadow-sm">
                 <tr className="text-left text-[var(--ui-body-text)] border-b border-[color:var(--ui-border)]">
                   <th className="p-2">Fecha</th>
                   <th className="p-2">Tipo</th>
@@ -1142,7 +1142,7 @@ export default function LogisticaKardexModule() {
                   const qtyU = canShowU ? (qtyKg / kpu) : 0;
                   const stockU = canShowU ? (stockKg / kpu) : 0;
                   return (
-                    <tr key={m.id} className="border-b border-[color:var(--ui-border)]">
+                    <tr key={m.id} className="border-b border-slate-600/40">
                       <td className="p-2 text-[var(--ui-body-text)]">{formatDateTime(m.fecha || m.created_at)}</td>
                       <td className="p-2">
                         <span
@@ -1181,7 +1181,7 @@ export default function LogisticaKardexModule() {
               </tbody>
             </table>
             {kardexInsumo && kardexData && !(kardexData.movimientos || []).length && (
-              <p className="p-6 text-[var(--ui-muted)] text-center">Sin movimientos en el rango.</p>
+              <p className="p-6 text-slate-500 text-center">Sin movimientos en el rango.</p>
             )}
           </div>
           {kardexData && (kardexData.movimientos || []).length > 0 && (
@@ -1212,7 +1212,7 @@ export default function LogisticaKardexModule() {
                   }
                 );
                 const Card = ({ title, data, accent }) => (
-                  <div className={`min-w-[220px] rounded-lg border border-[color:var(--ui-border)] p-3 bg-[var(--ui-surface-2)] ${accent}`}>
+                  <div className={`min-w-[220px] rounded-lg border p-3 bg-[var(--ui-surface-2)] ${accent}`}>
                     <p className="text-sm font-semibold mb-2">{title}</p>
                     <div className="space-y-1 text-sm">
                       <p className="text-[var(--ui-body-text)]">
@@ -1291,7 +1291,7 @@ export default function LogisticaKardexModule() {
             <button type="submit" className="btn-primary block">Crear toma (pendiente)</button>
           </form>
           <div className="mt-4 space-y-2">
-            <p className="text-[var(--ui-muted)] text-xs flex items-center gap-1"><MdList /> Últimos inventarios</p>
+            <p className="text-slate-500 text-xs flex items-center gap-1"><MdList /> Últimos inventarios</p>
             {invList.map((iv) => {
               const n = Number(iv.cuadre_num);
               const label = Number.isFinite(n) && n > 0 ? `CUADRE ${n}` : `Inventario ${(iv.id || '').slice(0, 8)}`;
@@ -1303,10 +1303,10 @@ export default function LogisticaKardexModule() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                       <span className="text-[var(--ui-body-text)] font-semibold tracking-tight">{label}</span>
-                      <span className="text-[var(--ui-muted)] text-sm">{formatDateTime(iv.fecha || iv.created_at)}</span>
+                      <span className="text-slate-500 text-sm">{formatDateTime(iv.fecha || iv.created_at)}</span>
                       <span
                         className={`text-xs uppercase tracking-wide ${
-                          iv.estado === 'cerrado' ? 'text-[var(--ui-muted)]' : 'text-amber-400'
+                          iv.estado === 'cerrado' ? 'text-slate-500' : 'text-amber-400'
                         }`}
                       >
                         {iv.estado}
@@ -1346,7 +1346,7 @@ export default function LogisticaKardexModule() {
             productos de almacén (sin transformar) para cuadre físico por ubicación. Alinea el stock del almacén con el conteo real.
           </p>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm text-[var(--ui-body-text)]">
+            <label className="flex items-center gap-2 text-sm text-[var(--ui-muted)]">
               Almacén:
               <select
                 value={cuadreWarehouseId}
@@ -1354,7 +1354,7 @@ export default function LogisticaKardexModule() {
                   setCuadreWarehouseId(e.target.value);
                   setLogisticsCounted({});
                 }}
-                className="input-field text-sm py-1.5 min-w-[10rem]"
+                className="bg-[var(--ui-surface)] border border-[color:var(--ui-border)] rounded-lg px-2 py-1.5 text-[var(--ui-body-text)] text-sm"
               >
                 {whWarehouses.map((w) => (
                   <option key={w.id} value={w.id}>{w.name}</option>
@@ -1372,7 +1372,7 @@ export default function LogisticaKardexModule() {
           <div className="overflow-x-auto rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
             <table className="w-full text-sm min-w-[900px]">
               <thead>
-                <tr className="bg-[var(--ui-surface-2)] border-b border-[color:var(--ui-border)] text-left text-[var(--ui-body-text)]">
+                <tr className="bg-[var(--ui-surface)] border-b border-[color:var(--ui-border)] text-left text-[var(--ui-body-text)]">
                   <th className="p-2.5 font-medium w-20">#</th>
                   <th className="p-2.5 font-medium">Producto</th>
                   <th className="p-2.5 font-medium">Categoría</th>
@@ -1394,14 +1394,14 @@ export default function LogisticaKardexModule() {
                       <td className="p-2.5 text-[var(--ui-muted)]">#{String(idx + 1).padStart(3, '0')}</td>
                       <td className="p-2.5 font-medium text-[var(--ui-body-text)]">{product.name}</td>
                       <td className="p-2.5 text-[var(--ui-muted)]">{product.category_name || '—'}</td>
-                      <td className="p-2.5 text-right text-[var(--ui-body-text)] tabular-nums">{stock}</td>
+                      <td className="p-2.5 text-right">{stock}</td>
                       <td className="p-2.5 text-right">
                         <input
                           type="number"
                           min="0"
                           value={logisticsCounted[product.id] ?? ''}
                           onChange={(e) => setLogisticsCounted((prev) => ({ ...prev, [product.id]: e.target.value }))}
-                          className="input-field w-24 ml-auto py-1.5 px-2 text-right text-sm"
+                          className="w-24 ml-auto rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] py-1.5 px-2 text-right text-sm text-[var(--ui-body-text)]"
                           placeholder="0"
                         />
                       </td>
@@ -1412,8 +1412,8 @@ export default function LogisticaKardexModule() {
                       >
                         {diff === null ? '—' : diff}
                       </td>
-                      <td className="p-2.5 text-right text-[var(--ui-body-text)] tabular-nums">{formatCurrency(unitCost)}</td>
-                      <td className="p-2.5 text-right text-[var(--ui-body-text)] tabular-nums">{formatCurrency(valuation)}</td>
+                      <td className="p-2.5 text-right">{formatCurrency(unitCost)}</td>
+                      <td className="p-2.5 text-right">{formatCurrency(valuation)}</td>
                     </tr>
                   );
                 })}
@@ -1439,7 +1439,7 @@ export default function LogisticaKardexModule() {
         <form onSubmit={enviarAjuste} className="max-w-md space-y-3">
           <p className="text-[var(--ui-body-text)] text-sm">Entrada manual o salida por merma (al costo promedio al salir).</p>
           <div>
-            <label className="block text-xs text-[var(--ui-muted)]">Insumo</label>
+            <label className="block text-xs text-slate-500">Insumo</label>
             <select
               className="input-field text-sm py-1.5 w-full"
               value={ajusteForm.insumo_id}
@@ -1457,7 +1457,7 @@ export default function LogisticaKardexModule() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-[var(--ui-muted)]">Cantidad (kg / L) &gt; 0</label>
+            <label className="block text-xs text-slate-500">Cantidad (kg / L) &gt; 0</label>
             <input
               type="number"
               min="0.0001"
@@ -1468,7 +1468,7 @@ export default function LogisticaKardexModule() {
             />
           </div>
           <div>
-            <label className="block text-xs text-[var(--ui-muted)]">Tipo</label>
+            <label className="block text-xs text-slate-500">Tipo</label>
             <select
               className="input-field text-sm py-1.5 w-full"
               value={ajusteForm.tipo}
@@ -1479,7 +1479,7 @@ export default function LogisticaKardexModule() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-[var(--ui-muted)]">Referencia (merma, ajuste, etc.)</label>
+            <label className="block text-xs text-slate-500">Referencia (merma, ajuste, etc.)</label>
             <input
               className="input-field text-sm py-1.5 w-full"
               value={ajusteForm.referencia}

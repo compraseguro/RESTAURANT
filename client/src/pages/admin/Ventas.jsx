@@ -389,10 +389,10 @@ export default function Ventas() {
             key={t.id}
             type="button"
             onClick={() => setSaleTab(t.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border border-[color:var(--ui-border)] ${
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border ${
               saleTab === t.id
-                ? 'bg-[var(--ui-accent)] text-white shadow-md'
-                : 'bg-[var(--ui-surface)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
+                ? 'bg-[var(--ui-accent)] text-white border-[color:var(--ui-accent)] shadow-md'
+                : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)]'
             }`}
           >
             {t.label}
@@ -401,13 +401,13 @@ export default function Ventas() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-        <div className="card"><p className="text-xs text-[var(--ui-muted)]">Total Ventas</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{formatCurrency(totals.total)}</p></div>
-        <div className="card"><p className="text-xs text-[var(--ui-muted)]">Cobrado</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(totals.paid)}</p></div>
-        <div className="card"><p className="text-xs text-[var(--ui-muted)]">Pendiente</p><p className="text-xl font-bold text-amber-600">{formatCurrency(totals.pending)}</p></div>
-        <div className="card"><p className="text-xs text-[var(--ui-muted)]">Transacciones</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{totals.count}</p></div>
+        <div className="card"><p className="text-xs text-slate-500">Total Ventas</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{formatCurrency(totals.total)}</p></div>
+        <div className="card"><p className="text-xs text-slate-500">Cobrado</p><p className="text-xl font-bold text-emerald-400">{formatCurrency(totals.paid)}</p></div>
+        <div className="card"><p className="text-xs text-slate-500">Pendiente</p><p className="text-xl font-bold text-amber-300">{formatCurrency(totals.pending)}</p></div>
+        <div className="card"><p className="text-xs text-slate-500">Transacciones</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{totals.count}</p></div>
       </div>
 
-      <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-5">
+      <div className="rounded-xl shadow-sm border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-5">
         <div className="flex flex-wrap gap-3 mb-4">
           <div className="relative flex-1 min-w-[220px]">
             <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)]" />
@@ -457,8 +457,8 @@ export default function Ventas() {
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-[var(--ui-body-text)] border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
-              <th className="pb-2 pt-2 px-1 font-medium">Fecha</th><th className="pb-2 pt-2 px-1 font-medium">Mesa</th><th className="pb-2 pt-2 px-1 font-medium">Caja</th><th className="pb-2 pt-2 px-1 font-medium">Mesero</th><th className="pb-2 pt-2 px-1 font-medium">Cliente</th><th className="pb-2 pt-2 px-1 font-medium">Documento</th><th className="pb-2 pt-2 px-1 font-medium">Pagos</th><th className="pb-2 pt-2 px-1 font-medium">Venta</th><th className="pb-2 pt-2 px-1 font-medium">Estado</th><th className="pb-2 pt-2 px-1 font-medium">Opciones</th>
+            <thead><tr className="text-left text-[var(--ui-muted)] border-b border-[color:var(--ui-border)]">
+              <th className="pb-2 font-medium">Fecha</th><th className="pb-2 font-medium">Mesa</th><th className="pb-2 font-medium">Caja</th><th className="pb-2 font-medium">Mesero</th><th className="pb-2 font-medium">Cliente</th><th className="pb-2 font-medium">Documento</th><th className="pb-2 font-medium">Pagos</th><th className="pb-2 font-medium">Venta</th><th className="pb-2 font-medium">Estado</th><th className="pb-2 font-medium">Opciones</th>
             </tr></thead>
             <tbody>
               {filtered.map(o => {
@@ -483,7 +483,7 @@ export default function Ventas() {
                     <td className="py-2.5 font-medium text-[var(--ui-body-text)]">{payNames[o.payment_method] || o.payment_method} (S/): {Number(o.total || 0).toFixed(2)}</td>
                     <td className="py-2.5 font-bold text-[var(--ui-body-text)]">{formatCurrency(o.total)}</td>
                     <td className="py-2.5">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${activeSale ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${activeSale ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
                         {activeSale ? 'ACTIVA' : 'ANULADA'}
                       </span>
                     </td>
@@ -516,20 +516,20 @@ export default function Ventas() {
         {selected && (
           <div className="space-y-4">
             {editing?.id === selected.id && (
-              <div className="bg-[#111827] border border-[#3B82F6]/35 rounded-lg p-3 space-y-3">
-                <p className="text-sm font-semibold text-[#F9FAFB]">Editar registro</p>
+              <div className="bg-[var(--ui-surface-2)] border border-[color:var(--ui-border)] rounded-lg p-3 space-y-3">
+                <p className="text-sm font-semibold text-[var(--ui-body-text)]">Editar registro</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs text-[#9CA3AF] mb-1">Metodo de pago</label>
-                    <select className="input-field text-sm scheme-dark" value={editPaymentMethod} onChange={e => setEditPaymentMethod(e.target.value)}>
+                    <label className="block text-xs text-[var(--ui-muted)] mb-1">Metodo de pago</label>
+                    <select className="input-field text-sm" value={editPaymentMethod} onChange={e => setEditPaymentMethod(e.target.value)}>
                       {Object.entries(payNames).map(([value, label]) => (
                         <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-[#9CA3AF] mb-1">Comprobante</label>
-                    <select className="input-field text-sm scheme-dark" value={editDocType} onChange={e => setEditDocType(e.target.value)}>
+                    <label className="block text-xs text-[var(--ui-muted)] mb-1">Comprobante</label>
+                    <select className="input-field text-sm" value={editDocType} onChange={e => setEditDocType(e.target.value)}>
                       <option value="nota_venta">Nota de Venta</option>
                       <option value="boleta">Boleta</option>
                       <option value="factura">Factura</option>
@@ -543,9 +543,9 @@ export default function Ventas() {
             )}
 
             {selected.status === 'cancelled' && (selected.cancellation_reason || selected.notes) ? (
-              <div className="rounded-lg border border-red-500/50 bg-[#0f172a] px-3 py-2.5 text-sm text-white shadow-inner shadow-black/20">
-                <span className="font-semibold text-white">Motivo de anulación: </span>
-                <span className="text-white">{selected.cancellation_reason || selected.notes}</span>
+              <div className="rounded-lg border border-red-500/50 bg-[var(--ui-surface-2)] px-3 py-2.5 text-sm text-[var(--ui-body-text)] shadow-inner">
+                <span className="font-semibold text-[var(--ui-body-text)]">Motivo de anulación: </span>
+                <span>{selected.cancellation_reason || selected.notes}</span>
               </div>
             ) : null}
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -558,16 +558,16 @@ export default function Ventas() {
                 <p className="font-medium">{(() => { const doc = getOrderDocument(selected); return `${docNames[doc.doc_type] || doc.doc_type} - ${doc.full_number}`; })()}</p>
               </div>
             </div>
-            <div className="border-t border-[#3B82F6]/20 pt-3">
-              <p className="font-medium mb-2 text-[#F9FAFB]">Detalle:</p>
+            <div className="border-t border-[color:var(--ui-border)] pt-3">
+              <p className="font-medium mb-2 text-[var(--ui-body-text)]">Detalle:</p>
               {(selected.items || []).map((it, i) => (
-                <div key={i} className="flex justify-between text-sm py-1 border-b border-[#3B82F6]/15 text-[#E5E7EB]">
+                <div key={i} className="flex justify-between text-sm py-1 border-b border-[color:var(--ui-border)] text-[var(--ui-body-text)]">
                   <span>{it.quantity}x {it.product_name}</span>
                   <span className="font-medium">{formatCurrency(it.subtotal)}</span>
                 </div>
               ))}
             </div>
-            <div className="border-t border-[#3B82F6]/20 pt-3 flex justify-between font-bold text-lg text-[#F9FAFB]">
+            <div className="border-t border-[color:var(--ui-border)] pt-3 flex justify-between font-bold text-lg text-[var(--ui-body-text)]">
               <span>Total</span><span>{formatCurrency(selected.total)}</span>
             </div>
           </div>
@@ -581,17 +581,17 @@ export default function Ventas() {
       >
         {voidModalOrder && (
           <div className="space-y-4">
-            <p className="text-sm text-[#D1D5DB]">
+            <p className="text-sm text-[var(--ui-muted)]">
               Esta acción marcará la venta como anulada y el pago como reembolsado. Indique el motivo (obligatorio).
             </p>
             <div>
-              <label htmlFor="void-reason" className="block text-xs font-medium text-[#E5E7EB] mb-1">Motivo de anulación</label>
+              <label htmlFor="void-reason" className="block text-xs font-medium text-[var(--ui-body-text)] mb-1">Motivo de anulación</label>
               <textarea
                 id="void-reason"
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}
                 rows={4}
-                className="input-field w-full text-sm resize-y min-h-[100px] scheme-dark"
+                className="input-field w-full text-sm resize-y min-h-[100px]"
                 placeholder="Ej.: Error en cobro, devolución del cliente, duplicado…"
                 disabled={voidSubmitting}
               />

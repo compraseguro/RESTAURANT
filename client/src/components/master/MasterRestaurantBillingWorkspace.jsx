@@ -267,8 +267,8 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500 px-1">
-        Misma configuración que en <strong className="text-slate-700">Mi Restaurante → Bot facturación SUNAT</strong>. Los
+      <p className="text-sm text-[var(--ui-muted)] px-1">
+        Misma configuración que en <strong className="text-[var(--ui-body-text)]">Mi Restaurante → Bot facturación SUNAT</strong>. Los
         administradores del restaurante pueden verla; si activa la casilla de abajo, también podrán editarla desde su panel.
       </p>
 
@@ -277,8 +277,8 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
           <div className="flex items-center gap-2">
             <MdReceipt className="text-red-600 text-2xl" />
             <div>
-              <h2 className="font-bold text-slate-800 text-lg">Facturación SUNAT (emisor + bot)</h2>
-              <p className="text-sm text-slate-500 mt-0.5">
+              <h2 className="font-bold text-[var(--ui-body-text)] text-lg">Facturación SUNAT (emisor + bot)</h2>
+              <p className="text-sm text-[var(--ui-muted)] mt-0.5">
                 Formulario reducido con los datos que debe completar el emisor. SOL y certificado también pueden ir en el{' '}
                 <code className="text-xs">.env</code> del bot. Pulse <strong>Guardar</strong> una vez.
               </p>
@@ -295,8 +295,8 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
                 onChange={(e) => void saveAllowRestaurantAdminBilling(e.target.checked)}
               />
               <span>
-                <span className="font-semibold text-slate-800">Permitir que el administrador del restaurante edite el bot SUNAT</span>
-                <span className="block text-xs text-slate-600 mt-1">
+                <span className="font-semibold text-[var(--ui-body-text)]">Permitir que el administrador del restaurante edite el bot SUNAT</span>
+                <span className="block text-xs text-[var(--ui-muted)] mt-1">
                   Si está activo, el usuario admin puede cambiar en Mi Restaurante la misma sección (emisor, series, contingencia,
                   URL del bot, reintentos). Si está desactivado, solo usted (maestro) puede guardar esos datos.
                 </span>
@@ -317,7 +317,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
             onSeriesContingencia={(field, value) => updateAppCfg('series_contingencia', field, value)}
           />
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 space-y-2">
+          <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 text-sm text-[var(--ui-body-text)] space-y-2">
             <p>
               <strong>Conexión al bot (Node → Python):</strong> la URL del API y el secreto{' '}
               <code className="text-xs bg-white px-1 rounded border">X-EFACT-SECRET</code> no se editan aquí. Configúrelos
@@ -325,7 +325,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
               <code className="text-xs bg-white px-1 rounded border">EFACT_HTTP_SECRET</code> (p. ej. Docker Compose o{' '}
               <code className="text-xs bg-white px-1 rounded border">.env</code> del servidor).
             </p>
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-[var(--ui-muted)]">
               Estado (sin mostrar valores):{' '}
               {billingConfig.billing_api_url_from_env || billingConfig.billing_api_secret_from_env
                 ? 'prioridad por variables de entorno en el API Node.'
@@ -337,7 +337,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Modo offline</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Modo offline</label>
               <select
                 className="input-field"
                 value={billingConfig.billing_offline_mode ? '1' : '0'}
@@ -348,7 +348,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Reintentos automáticos</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Reintentos automáticos</label>
               <select
                 className="input-field"
                 value={billingConfig.billing_auto_retry_enabled ? '1' : '0'}
@@ -359,7 +359,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
               </select>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Intervalo entre reintentos (segundos)</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Intervalo entre reintentos (segundos)</label>
               <input
                 type="number"
                 min="30"
@@ -382,18 +382,18 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
           <div className="flex items-center gap-2">
             <MdPayment className="text-blue-600 text-2xl" />
             <div>
-              <h2 className="font-bold text-slate-800 text-lg">Pago por uso del sistema</h2>
-              <p className="text-sm text-slate-500">
+              <h2 className="font-bold text-[var(--ui-body-text)] text-lg">Pago por uso del sistema</h2>
+              <p className="text-sm text-[var(--ui-muted)]">
                 Periodicidad, cuenta de destino y comprobante de pago al proveedor del software.
               </p>
             </div>
           </div>
 
           {pagoUsoComprobanteUi?.policy_active && pagoUsoComprobanteUi.upload_comprobante_message ? (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+            <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 text-sm text-[var(--ui-body-text)]">
               <p>{pagoUsoComprobanteUi.upload_comprobante_message}</p>
               {pagoUsoComprobanteUi.fecha_proxima_facturacion ? (
-                <p className="text-xs text-slate-500 mt-2">
+                <p className="text-xs text-[var(--ui-muted)] mt-2">
                   Próxima facturación: {pagoUsoComprobanteUi.fecha_proxima_facturacion}
                   {pagoUsoComprobanteUi.comprobante_upload_deadline
                     ? ` · Ventana de carga hasta: ${pagoUsoComprobanteUi.comprobante_upload_deadline}`
@@ -405,7 +405,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Frecuencia de facturación</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Frecuencia de facturación</label>
               <select
                 className="input-field"
                 value={appConfig.pago_uso_sistema?.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual'}
@@ -429,7 +429,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Próxima fecha de facturación (opcional)</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Próxima fecha de facturación (opcional)</label>
               <input
                 type="date"
                 className="input-field"
@@ -438,7 +438,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Días de gracia para subir comprobante</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Días de gracia para subir comprobante</label>
               <input
                 type="number"
                 min={1}
@@ -451,10 +451,10 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
                   Math.max(1, Math.min(14, Number(e.target.value) || 3)),
                 )}
               />
-              <p className="text-xs text-slate-500 mt-1">Después de la fecha de facturación, días hábiles de ventana antes del bloqueo automático.</p>
+              <p className="text-xs text-[var(--ui-muted)] mt-1">Después de la fecha de facturación, días hábiles de ventana antes del bloqueo automático.</p>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Número de cuenta</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Número de cuenta</label>
               <input
                 className="input-field"
                 placeholder="CCI, número de cuenta o datos de transferencia"
@@ -463,7 +463,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de la empresa a la que debes pagar</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre de la empresa a la que debes pagar</label>
               <input
                 className="input-field"
                 placeholder="Razón social o nombre del beneficiario"
@@ -472,8 +472,8 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Comprobante de pago</label>
-              <p className="text-xs text-slate-500 mb-2">Sube una imagen (o PDF) del voucher o transferencia.</p>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Comprobante de pago</label>
+              <p className="text-xs text-[var(--ui-muted)] mb-2">Sube una imagen (o PDF) del voucher o transferencia.</p>
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -511,7 +511,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
               </div>
               {appConfig.pago_uso_sistema?.comprobante_pago_url &&
               !String(appConfig.pago_uso_sistema.comprobante_pago_url).toLowerCase().endsWith('.pdf') ? (
-                <div className="mt-3 rounded-lg border border-slate-200 overflow-hidden max-w-xs bg-slate-50">
+                <div className="mt-3 rounded-lg border border-[color:var(--ui-border)] overflow-hidden max-w-xs bg-[var(--ui-surface-2)]">
                   <img
                     src={resolveMediaUrl(appConfig.pago_uso_sistema.comprobante_pago_url)}
                     alt="Vista previa del comprobante"
@@ -522,7 +522,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
             </div>
           </div>
 
-          <p className="text-xs text-slate-500">Tras cargar un archivo, pulse <strong>Guardar</strong> para persistir la URL del comprobante.</p>
+          <p className="text-xs text-[var(--ui-muted)]">Tras cargar un archivo, pulse <strong>Guardar</strong> para persistir la URL del comprobante.</p>
 
           <div className="flex justify-end pt-2">
             <button type="button" className="btn-primary flex items-center gap-2" disabled={saving} onClick={savePagoUso}>

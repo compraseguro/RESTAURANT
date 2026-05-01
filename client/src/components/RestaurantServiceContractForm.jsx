@@ -20,7 +20,7 @@ export default function RestaurantServiceContractForm({
   contrato,
   canEdit,
   onChange,
-  cardClassName = 'bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6 space-y-5 text-[var(--ui-body-text)]',
+  cardClassName = 'rounded-xl shadow-sm border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-6 space-y-5',
 }) {
   const merged = { ...EMPTY_CONTRATO, ...contrato };
   const firmaCompradorInputRef = useRef(null);
@@ -51,7 +51,7 @@ export default function RestaurantServiceContractForm({
     <div className={cardClassName}>
       <h3 className="font-bold text-[var(--ui-body-text)] text-lg">Contrato del servicio</h3>
       <textarea
-        className={`input-field min-h-[280px] font-sans text-sm leading-relaxed ${!canEdit ? 'bg-[var(--ui-surface-2)] cursor-default opacity-90' : ''}`}
+        className={`input-field min-h-[280px] font-sans text-sm leading-relaxed ${!canEdit ? 'bg-slate-100 cursor-default' : ''}`}
         rows={12}
         readOnly={!canEdit}
         placeholder={canEdit ? 'Escribe aquí el contrato completo…' : ''}
