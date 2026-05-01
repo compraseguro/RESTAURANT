@@ -115,21 +115,10 @@ function canEditOrderLines(order) {
   );
 }
 
-/** Todas las líneas de producto de la mesa (una fila por ítem, sin agrupar por comanda). */
-function tableProductLinesForView(table) {
-  const rows = [];
-  for (const o of table?.orders || []) {
-    const items = o.items || [];
-    items.forEach((it, idx) => {
-      rows.push({
-        key: `${o.id}-${it.id ?? idx}`,
-        product_name: it.product_name,
-        quantity: Number(it.quantity || 0),
-        lineTotal: Number(it.unit_price || 0) * Number(it.quantity || 0),
-      });
-    });
-  }
-  return rows;
+/** Todos los productos de la mesa agrupados por nombre (misma lógica que precuenta). */
+function mergedProductsOnTable(table) {
+  const allItems = (table?.orders || []).flatMap((o) => o.items || []);
+  return groupItemsByProductNameForBill(allItems);
 }
 
 function orderItemsToCart(order, productsById) {
@@ -1083,6 +1072,7 @@ export default function POSPanel() {
     resetBillingForm();
   };
 
+  /** @returns {boolean} si se abrió el editor */
   const startEditOrder = (order, tableForContext = tableDetail) => {
     if (!tableForContext || isClientCheckoutTable(tableForContext)) return false;
     if (!order?.id) return false;
@@ -1113,7 +1103,7 @@ export default function POSPanel() {
       return;
     }
     if (list.length > 1) {
-      setViewOrdersModal({ table: tableDetail });
+      setViewOrdersModal({ table: tableDetail, orderId: null });
       return;
     }
     toast.error('No hay pedidos para modificar.');
@@ -2463,102 +2453,89 @@ export default function POSPanel() {
         onClose={() => setViewOrdersModal(null)}
         title={(() => {
           const t = viewOrdersModal?.table;
-          if (!t) return 'Pedido';
+          if (!t) return 'Pedidos';
           const name = String(t.name || '').trim();
-          return name ? `Pedido — ${name}` : 'Pedido';
+          return name || 'Pedidos';
         })()}
         size="md"
       >
         {viewOrdersModal?.table ? (() => {
           const tbl = viewOrdersModal.table;
-          const productLines = tableProductLinesForView(tbl);
+          const lines = mergedProductsOnTable(tbl);
+          const totalMesa = (tbl.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0);
+          const comandas = (tbl.orders || []).filter((o) => String(o.status || '').toLowerCase() !== 'cancelled');
           return (
-          <div className="max-h-[min(70vh,480px)] overflow-y-auto space-y-4 pr-1 text-[#E5E7EB]">
-            <p className="text-xs text-[#9CA3AF]">Productos en esta mesa (lista única).</p>
-            <ul className="space-y-1.5 text-sm text-[#D1D5DB]">
-              {productLines.length === 0 ? (
-                <li className="text-[#9CA3AF] py-4 text-center">No hay productos cargados.</li>
+            <div className="max-h-[min(70vh,480px)] overflow-y-auto space-y-3 pr-1 text-[#E5E7EB]">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">Productos en la mesa</p>
+              {lines.length === 0 ? (
+                <p className="text-center text-[#9CA3AF] py-6">No hay productos para mostrar.</p>
               ) : (
-                productLines.map((row) => (
-                  <li
-                    key={row.key}
-                    className="flex justify-between gap-2 border-b border-[#374151]/80 pb-1.5 last:border-0 last:pb-0"
-                  >
-                    <span className="min-w-0">
-                      <span className="font-medium text-white">{row.product_name || 'Producto'}</span>
-                      <span className="text-[#9CA3AF]"> × {row.quantity}</span>
-                    </span>
-                    <span className="shrink-0 tabular-nums font-medium text-[#BFDBFE]">
-                      {formatCurrency(row.lineTotal)}
-                    </span>
-                  </li>
-                ))
+                <ul className="space-y-1.5 text-sm text-[#D1D5DB]">
+                  {lines.map((row) => (
+                    <li
+                      key={row.key}
+                      className="flex justify-between gap-2 border-b border-[#374151]/80 pb-1.5 last:border-0 last:pb-0"
+                    >
+                      <span className="min-w-0">
+                        <span className="font-medium text-white">{row.name}</span>
+                        <span className="text-[#9CA3AF]"> × {row.qty}</span>
+                      </span>
+                      <span className="shrink-0 tabular-nums font-medium text-[#BFDBFE]">{formatCurrency(row.subtotal)}</span>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </ul>
-            <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-[#3B82F6]/25 pt-3">
-              <span className="text-sm font-semibold text-white">Total</span>
-              <span className="text-lg font-bold text-[#BFDBFE]">
-                {formatCurrency(
-                  (tbl.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0)
-                )}
-              </span>
-            </div>
-
-            {!isClientCheckoutTable(tbl) && (tbl.orders || []).length > 0 && (
-              <div className="space-y-2 border-t border-[#3B82F6]/20 pt-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-[#9CA3AF]">
-                  Comandas en sistema (modificar / anular)
-                </p>
-                <p className="text-[11px] text-[#6B7280]">
-                  El cobro sigue siendo por comanda; aquí solo agrupamos los productos de la mesa.
-                </p>
-                <ul className="space-y-2">
-                  {(tbl.orders || []).map((o) => {
-                    const cancelled = String(o.status || '').toLowerCase() === 'cancelled';
-                    return (
-                      <li
+              {lines.length > 0 && (
+                <div className="flex justify-between border-t border-[#3B82F6]/25 pt-3 text-base font-bold text-white">
+                  <span>Total</span>
+                  <span className="text-[#BFDBFE]">{formatCurrency(totalMesa)}</span>
+                </div>
+              )}
+              {!isClientCheckoutTable(tbl) && comandas.length > 0 && (
+                <div className="border-t border-[#3B82F6]/20 pt-3 space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">Por comanda</p>
+                  <p className="text-[11px] text-[#9CA3AF]">Modificar o anular afecta solo a esa comanda en el sistema.</p>
+                  <div className="space-y-2">
+                    {comandas.map((o) => (
+                      <div
                         key={o.id}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#3B82F6]/20 bg-[#111827]/60 px-2.5 py-2"
+                        className="flex flex-wrap items-center gap-2 rounded-lg border border-[#3B82F6]/20 bg-[#111827]/60 px-2 py-2"
                       >
-                        <div className="min-w-0 text-xs text-[#D1D5DB]">
-                          <span className="font-semibold text-[#BFDBFE]">#{o.order_number}</span>
-                          <span className="mx-1.5 text-[#6B7280]">·</span>
-                          <span>{formatCurrency(getOrderChargeTotal(o))}</span>
-                          <span className="ml-1.5 capitalize text-[#9CA3AF]">{String(o.status || '')}</span>
+                        <div className="min-w-0 flex-1 text-sm text-[#D1D5DB]">
+                          <span className="font-medium text-white">#{o.order_number}</span>
+                          <span className="text-[#9CA3AF]"> · {formatCurrency(getOrderChargeTotal(o))}</span>
+                          <span className="text-xs capitalize text-[#9CA3AF]"> · {o.status}</span>
                         </div>
-                        {!cancelled && (
-                          <div className="flex shrink-0 flex-wrap gap-1.5">
-                            {canEditOrderLines(o) ? (
-                              <button
-                                type="button"
-                                className="rounded-md bg-indigo-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700"
-                                onClick={() => {
-                                  setViewOrdersModal(null);
-                                  startEditOrder(o, tbl);
-                                }}
-                              >
-                                Modificar
-                              </button>
-                            ) : null}
+                        <div className="flex flex-wrap gap-1.5 shrink-0">
+                          {canEditOrderLines(o) ? (
                             <button
                               type="button"
-                              className="rounded-md border border-red-500/50 bg-red-950/40 px-2 py-1 text-[11px] font-semibold text-red-200 hover:bg-red-900/50"
-                              onClick={async () => {
-                                const done = await confirmCancelOrder(o);
-                                if (done) setViewOrdersModal(null);
+                              className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                              onClick={() => {
+                                setViewOrdersModal(null);
+                                startEditOrder(o, tbl);
                               }}
                             >
-                              Anular
+                              Modificar
                             </button>
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-          </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="rounded-lg border border-red-500/50 bg-red-950/40 px-2.5 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-900/50"
+                            onClick={async () => {
+                              const done = await confirmCancelOrder(o);
+                              if (done) setViewOrdersModal(null);
+                            }}
+                          >
+                            Anular
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           );
         })() : null}
       </Modal>
