@@ -1782,38 +1782,36 @@ export default function POSPanel() {
         })}
       </div>
 
-      <h2 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><MdDeliveryDining /> Delivery en caja</h2>
-      <p className="text-sm text-slate-500 mb-3">Un recuadro por pedido delivery pendiente de cobro. Al cobrar, desaparece de esta lista.</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        {deliveryCajaSlots.length === 0 ? (
-          <div className="col-span-full card text-slate-500 text-sm py-6 text-center border-dashed border-2 border-slate-200">
-            No hay delivery pendiente de cobro en caja
+      {deliveryCajaSlots.length > 0 && (
+        <>
+          <h2 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><MdDeliveryDining /> Delivery en caja</h2>
+          <p className="text-sm text-slate-500 mb-3">Un recuadro por pedido delivery pendiente de cobro. Al cobrar, desaparece de esta lista.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            {deliveryCajaSlots.map((slot) => {
+              const isSelected = tableDetail?.id === slot.id;
+              return (
+                <button
+                  key={slot.id}
+                  type="button"
+                  onClick={() => setTableDetail(slot)}
+                  className={`card text-left transition-all border-l-4 border-l-sky-500 hover:shadow-lg bg-slate-50/80 ${isSelected ? 'ring-2 ring-gold-400' : ''}`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-sky-100">
+                      <MdDeliveryDining className="text-sky-700 text-xl" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800">{slot.name}</p>
+                      <p className="text-xs text-slate-500">Pedido #{slot.orders?.[0]?.order_number ?? '—'}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs font-semibold text-sky-800">Por cobrar · {formatCurrency((slot.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0))}</p>
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          deliveryCajaSlots.map((slot) => {
-            const isSelected = tableDetail?.id === slot.id;
-            return (
-              <button
-                key={slot.id}
-                type="button"
-                onClick={() => setTableDetail(slot)}
-                className={`card text-left transition-all border-l-4 border-l-sky-500 hover:shadow-lg bg-slate-50/80 ${isSelected ? 'ring-2 ring-gold-400' : ''}`}
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-sky-100">
-                    <MdDeliveryDining className="text-sky-700 text-xl" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-800">{slot.name}</p>
-                    <p className="text-xs text-slate-500">Pedido #{slot.orders?.[0]?.order_number ?? '—'}</p>
-                  </div>
-                </div>
-                <p className="text-xs font-semibold text-sky-800">Por cobrar · {formatCurrency((slot.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0))}</p>
-              </button>
-            );
-          })
-        )}
-      </div>
+        </>
+      )}
 
       {tableDetail && (
         <div className="card mb-6">
