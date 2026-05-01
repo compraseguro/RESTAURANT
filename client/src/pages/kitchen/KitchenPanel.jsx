@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
 import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
+import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -107,7 +108,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
     const ticketWidth = width === 58 ? '50mm' : '72mm';
     const stationKey = isBar ? 'bar' : 'cocina';
-    if (String(stationConfig?.connection || '').toLowerCase() === 'wifi' && String(stationConfig?.ip_address || '').trim()) {
+    if (shouldSendToNetworkPrinter(stationConfig)) {
       const plain = buildKitchenTicketPlainText({
         restaurant: restaurantInfo,
         title,

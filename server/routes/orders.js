@@ -84,6 +84,10 @@ function readSettingsPrinters() {
 }
 
 function buildPrinterOut(selected, kind, defaults) {
+  const ip = String(selected?.ip_address || '').trim();
+  const explicitWifi = String(selected?.connection || 'browser').toLowerCase() === 'wifi';
+  /** Si hay IP, se usa red (muchas instalaciones guardan IP pero dejan "Navegador"). */
+  const connection = ip ? 'wifi' : explicitWifi ? 'wifi' : 'browser';
   return {
     name: selected?.name || defaults.name,
     area: selected?.area || defaults.area,
@@ -91,8 +95,8 @@ function buildPrinterOut(selected, kind, defaults) {
     width_mm: Number(selected?.width_mm || 80),
     copies: Math.min(5, Math.max(1, Number(selected?.copies || 1))),
     active: Number(selected?.active ?? 1),
-    connection: String(selected?.connection || 'browser').toLowerCase() === 'wifi' ? 'wifi' : 'browser',
-    ip_address: String(selected?.ip_address || '').trim(),
+    connection,
+    ip_address: ip,
     port: Math.min(65535, Math.max(1, Number(selected?.port || 9100) || 9100)),
   };
 }
@@ -124,6 +128,21 @@ function isAllowedPrinterHost(ip) {
   if (a === 192 && b === 168) return true;
   if (a === 172 && b >= 16 && b <= 31) return true;
   return false;
+}
+
+function formatPrinterNetworkError(err) {
+  const code = err?.code;
+  const msg = String(err?.message || '');
+  if (code === 'ETIMEDOUT' || msg.includes('Tiempo de espera al contactar')) {
+    return 'Tiempo de espera: el servidor no pudo conectar a la impresora. Si la API está en internet, no verá su red 192.168.x; ejecute el backend en el mismo local que la impresora o use impresión por navegador.';
+  }
+  if (code === 'EHOSTUNREACH' || code === 'ENETUNREACH') {
+    return 'Red inalcanzable: el servidor no tiene ruta a esa IP. Misma red que el PC del servidor, o use API en local.';
+  }
+  if (code === 'ECONNREFUSED') {
+    return 'Conexión rechazada: revise el puerto (típico 9100) y que la impresora tenga impresión RAW/TCP activa.';
+  }
+  return err?.message || 'No se pudo imprimir en red';
 }
 
 function sendEscPosToHost(host, port, text, copies) {
@@ -281,7 +300,7 @@ router.post('/print-network', authenticateToken, requireRole('admin', 'cajero', 
     }
     const cfg = pickPrinterConfig(station);
     if (cfg.connection !== 'wifi' || !cfg.ip_address) {
-      return res.status(400).json({ error: 'La impresora de esta estación no está configurada en modo WiFi con IP' });
+      return res.status(400).json({ error: 'La impresora de esta estación no tiene IP configurada (o está inactiva / otra estación)' });
     }
     if (!isAllowedPrinterHost(cfg.ip_address)) {
       return res.status(400).json({ error: 'Solo se permiten IPs de red local (10.x, 192.168.x, 172.16-31.x o 127.0.0.1)' });
@@ -294,7 +313,7 @@ router.post('/print-network', authenticateToken, requireRole('admin', 'cajero', 
     await sendEscPosToHost(cfg.ip_address, cfg.port, text, copies);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'No se pudo imprimir en red' });
+    res.status(500).json({ error: formatPrinterNetworkError(err) });
   }
 });
 

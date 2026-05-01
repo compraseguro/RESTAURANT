@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
+import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -680,7 +681,7 @@ export default function POSPanel() {
     const content = printRef.current;
     if (!content) return;
     const caja = cajaPrintCfg;
-    if (String(caja?.connection || '').toLowerCase() === 'wifi' && String(caja?.ip_address || '').trim()) {
+    if (shouldSendToNetworkPrinter(caja)) {
       const text = String(content.innerText || content.textContent || '')
         .replace(/\r\n/g, '\n')
         .trim()

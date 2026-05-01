@@ -1240,7 +1240,7 @@ export default function Settings() {
             <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-4 py-3 text-sm text-[var(--ui-body-text)] shadow-inner">
               <p className="font-semibold text-[var(--ui-body-text)] mb-2">Control central de impresoras</p>
               <p className="text-[#D1D5DB] leading-relaxed">
-                Defina aquí cocina, bar y caja. Modo <strong className="text-[var(--ui-accent-muted)]">Red local</strong>: IP y puerto (típico <strong className="text-[var(--ui-accent-muted)]">9100</strong>) de la impresora térmica en la misma red que el <strong className="text-[var(--ui-accent-muted)]">servidor</strong> de la aplicación.
+                Defina aquí cocina, bar y caja. Con una <strong className="text-[var(--ui-accent-muted)]">IP válida</strong> se usa impresión por red (ESC/POS en puerto TCP, habitualmente <strong className="text-[var(--ui-accent-muted)]">9100</strong>). El envío lo hace el <strong className="text-[var(--ui-accent-muted)]">servidor Node</strong>: debe estar en la misma LAN que la impresora (si la API está solo en internet, no podrá abrir <code className="text-xs bg-slate-100 px-1 rounded">192.168.x.x</code>; en ese caso ejecute el backend en local o use modo navegador).
                 Si el backend está en la nube (Render, etc.), no podrá abrir la IP de su WiFi: use <strong className="text-[var(--ui-accent-muted)]">Navegador</strong> o un servidor en el local.
                 Cocina y bar envían comandas desde su panel; la caja usa la impresora marcada como estación <strong className="text-[var(--ui-accent-muted)]">caja</strong> cuando imprima desde POS.
               </p>

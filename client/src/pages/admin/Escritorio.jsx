@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { api, formatCurrency, parseApiDate, toLocalDateKey, PAYMENT_METHODS } from '../../utils/api';
 import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
+import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useNavigate } from 'react-router-dom';
@@ -326,7 +327,7 @@ export default function Escritorio() {
     const ticketWidth = width === 58 ? '50mm' : '72mm';
     const title = `${station === 'bar' ? 'Comandas pendientes - Bar' : 'Comandas pendientes - Cocina'} · ${scope === 'delivery' ? 'Delivery' : scope === 'salon' ? 'Mesas/Salón' : 'Todas'}`;
     const stationKey = station === 'bar' ? 'bar' : 'cocina';
-    if (String(stationCfg?.connection || '').toLowerCase() === 'wifi' && String(stationCfg?.ip_address || '').trim()) {
+    if (shouldSendToNetworkPrinter(stationCfg)) {
       const plain = buildKitchenTicketPlainText({
         restaurant: restaurantInfo,
         title,
