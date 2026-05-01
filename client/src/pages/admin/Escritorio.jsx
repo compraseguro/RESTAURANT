@@ -431,8 +431,8 @@ export default function Escritorio() {
     <div className="space-y-4">
       <div className="card p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-slate-100">Centro Operativo</h3>
-          <p className="text-xs text-slate-400">Acceso rápido a módulos críticos</p>
+          <h3 className="text-lg font-semibold text-[var(--ui-body-text)]">Centro Operativo</h3>
+          <p className="text-xs text-[var(--ui-muted)]">Acceso rápido a módulos críticos</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
           <div
@@ -485,32 +485,32 @@ export default function Escritorio() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2" data-ui-isolate="dark-surface">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
         <button
           type="button"
-          className="w-full rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] px-3 py-2 text-left flex items-center justify-between text-sm text-[#F9FAFB] hover:border-[#3B82F6]/60"
+          className="w-full rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 text-left flex items-center justify-between text-sm text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
         >
-          Cantidad de ventas <MdKeyboardArrowDown className="text-[#93C5FD]" />
+          Cantidad de ventas <MdKeyboardArrowDown className="text-[var(--ui-accent-muted)] shrink-0" />
         </button>
         <button
           type="button"
-          className="w-full rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] px-3 py-2 text-left flex items-center justify-between text-sm text-[#F9FAFB] hover:border-[#3B82F6]/60"
+          className="w-full rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 text-left flex items-center justify-between text-sm text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
         >
-          Caja: Caja 01 <MdKeyboardArrowDown className="text-[#93C5FD]" />
+          Caja: Caja 01 <MdKeyboardArrowDown className="text-[var(--ui-accent-muted)] shrink-0" />
         </button>
-        <div className="rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] px-3 py-2 text-left text-sm flex flex-col gap-2">
+        <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 text-left text-sm flex flex-col gap-2">
           <div className="grid grid-cols-12 gap-2">
             <button
               type="button"
               onClick={startRangeSelection}
-              className="col-span-7 rounded-md border border-[#3B82F6]/40 bg-[#111827] px-2 py-1.5 text-left hover:border-[#60A5FA] transition-colors"
+              className="col-span-7 rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-2 py-1.5 text-left hover:border-[var(--ui-accent-muted)] transition-colors"
             >
-              <div className="flex items-center gap-2 text-[#94A3B8] text-xs">
-                <MdDateRange className="shrink-0 text-[#93C5FD]" />
+              <div className="flex items-center gap-2 text-[var(--ui-muted)] text-xs">
+                <MdDateRange className="shrink-0 text-[var(--ui-accent-muted)]" />
                 <span>{datePickStep === 'end' ? 'Selecciona FIN' : 'Selecciona INICIO'}</span>
-                <MdKeyboardArrowDown className="ml-auto shrink-0 text-[#93C5FD]" />
+                <MdKeyboardArrowDown className="ml-auto shrink-0 text-[var(--ui-accent-muted)]" />
               </div>
-              <div className="mt-0.5 leading-snug text-[13px] font-medium text-[#F9FAFB]">
+              <div className="mt-0.5 leading-snug text-[13px] font-medium text-[var(--ui-body-text)]">
                 <div>{formatDateForLabel(startDate)}</div>
                 <div>{datePreset === 'total' ? 'Hoy' : formatDateForLabel(endDate)}</div>
               </div>
@@ -523,8 +523,8 @@ export default function Escritorio() {
               }}
               className={`col-span-2 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
                 datePreset === 'month'
-                  ? 'bg-[#2563EB] border-[#3B82F6] text-white'
-                  : 'bg-[#111827] border-[#3B82F6]/35 text-[#E2E8F0] hover:border-[#60A5FA] hover:text-white'
+                  ? 'bg-[var(--ui-accent)] border-[var(--ui-accent)] text-white'
+                  : 'bg-[var(--ui-surface-2)] border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:border-[var(--ui-accent-muted)]'
               }`}
             >
               Mes
@@ -537,8 +537,8 @@ export default function Escritorio() {
               }}
               className={`col-span-3 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
                 datePreset === 'total'
-                  ? 'bg-[#2563EB] border-[#2563EB] text-white'
-                  : 'bg-[#111827] border-[#3B82F6]/35 text-[#E2E8F0] hover:border-[#60A5FA] hover:text-white'
+                  ? 'bg-[var(--ui-accent)] border-[var(--ui-accent)] text-white'
+                  : 'bg-[var(--ui-surface-2)] border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:border-[var(--ui-accent-muted)]'
               }`}
             >
               Todo
@@ -573,35 +573,43 @@ export default function Escritorio() {
         </div>
         <button
           type="button"
-          className="w-full rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] px-3 py-2 text-left flex items-center justify-between text-sm text-[#F9FAFB] hover:border-[#3B82F6]/60"
+          className="w-full rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 text-left flex items-center justify-between text-sm text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
         >
-          Local: Principal <MdKeyboardArrowDown className="text-[#93C5FD]" />
+          Local: Principal <MdKeyboardArrowDown className="text-[var(--ui-accent-muted)] shrink-0" />
         </button>
       </div>
 
       <div className="card p-4">
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
           <div className="xl:col-span-2 min-w-0 self-start overflow-visible">
-            <p className="text-xs text-slate-400">Hora punta</p>
-            <p className="text-3xl font-light text-slate-100 leading-normal tabular-nums py-1 min-h-[2.5rem] flex items-center">
+            <p className="text-xs text-[var(--ui-muted)]">Hora punta</p>
+            <p className="text-3xl font-light text-[var(--ui-body-text)] leading-normal tabular-nums py-1 min-h-[2.5rem] flex items-center">
               {peakHour.hour}
             </p>
-            <p className="text-xs text-slate-400 mt-3">Hora más libre</p>
-            <p className="text-3xl font-light text-slate-100 leading-normal tabular-nums py-1 min-h-[2.5rem] flex items-center">
+            <p className="text-xs text-[var(--ui-muted)] mt-3">Hora más libre</p>
+            <p className="text-3xl font-light text-[var(--ui-body-text)] leading-normal tabular-nums py-1 min-h-[2.5rem] flex items-center">
               {lowHour.hour}
             </p>
           </div>
 
           <div className="xl:col-span-10">
-            <h3 className="text-center text-slate-300 mb-2">
+            <h3 className="text-center text-[var(--ui-body-text)] mb-2 font-medium">
               Gráfico por cantidad de ventas / Dinero por ventas
             </h3>
             <ResponsiveContainer width="100%" height={170}>
               <LineChart data={hourlySales}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
-                <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => formatCurrency(v)} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--ui-border)" strokeOpacity={0.55} />
+                <XAxis dataKey="hour" tick={{ fontSize: 11, fill: 'var(--ui-muted)' }} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--ui-muted)' }} />
+                <Tooltip
+                  formatter={(v) => formatCurrency(v)}
+                  contentStyle={{
+                    background: 'var(--ui-surface-2)',
+                    border: '1px solid var(--ui-border)',
+                    borderRadius: '8px',
+                    color: 'var(--ui-body-text)',
+                  }}
+                />
                 <Line
                   type="monotone"
                   dataKey="sales"
@@ -621,51 +629,51 @@ export default function Escritorio() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         <div className="xl:col-span-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <div>
-            <p className="text-sm text-slate-500">Ventas en efectivo (periodo)</p>
-            <p className="text-4xl font-light text-slate-700">{formatCurrency(salesByPayment.efectivo)}</p>
+            <p className="text-sm text-[var(--ui-muted)]">Ventas en efectivo (periodo)</p>
+            <p className="text-4xl font-light text-[var(--ui-body-text)]">{formatCurrency(salesByPayment.efectivo)}</p>
           </div>
           <div>
-            <p className="text-sm text-slate-500">Ventas con tarjeta (periodo)</p>
-            <p className="text-4xl font-light text-slate-700">{formatCurrency(salesByPayment.tarjeta)}</p>
+            <p className="text-sm text-[var(--ui-muted)]">Ventas con tarjeta (periodo)</p>
+            <p className="text-4xl font-light text-[var(--ui-body-text)]">{formatCurrency(salesByPayment.tarjeta)}</p>
           </div>
           <div>
-            <p className="text-sm text-slate-500">Ventas por Yape/Plin (periodo)</p>
-            <p className="text-4xl font-light text-slate-700">{formatCurrency((salesByPayment.yape || 0) + (salesByPayment.plin || 0))}</p>
+            <p className="text-sm text-[var(--ui-muted)]">Ventas por Yape/Plin (periodo)</p>
+            <p className="text-4xl font-light text-[var(--ui-body-text)]">{formatCurrency((salesByPayment.yape || 0) + (salesByPayment.plin || 0))}</p>
           </div>
           <div>
-            <p className="text-sm text-slate-500">Total de Ventas (periodo)</p>
-            <p className="text-4xl font-light text-slate-700">{formatCurrency(totalSales)}</p>
+            <p className="text-sm text-[var(--ui-muted)]">Total de Ventas (periodo)</p>
+            <p className="text-4xl font-light text-[var(--ui-body-text)]">{formatCurrency(totalSales)}</p>
           </div>
 
           <div>
-            <p className="text-sm text-slate-500">Ventas al crédito</p>
-            <p className="text-4xl font-light text-slate-700">{formatCurrency(totalCredit)}</p>
+            <p className="text-sm text-[var(--ui-muted)]">Ventas al crédito</p>
+            <p className="text-4xl font-light text-[var(--ui-body-text)]">{formatCurrency(totalCredit)}</p>
           </div>
           <div>
-            <p className="text-sm text-slate-500">Total de egresos de caja</p>
-            <p className="text-4xl font-light text-slate-700">S/ 0.00</p>
+            <p className="text-sm text-[var(--ui-muted)]">Total de egresos de caja</p>
+            <p className="text-4xl font-light text-[var(--ui-body-text)]">S/ 0.00</p>
           </div>
           <div>
-            <p className="text-sm text-slate-500">Total de descuentos</p>
-            <p className="text-4xl font-light text-slate-700">{formatCurrency(totalDiscounts)}</p>
+            <p className="text-sm text-[var(--ui-muted)]">Total de descuentos</p>
+            <p className="text-4xl font-light text-[var(--ui-body-text)]">{formatCurrency(totalDiscounts)}</p>
           </div>
           <div>
-            <p className="text-sm text-slate-500">Total de Ingreso Débito</p>
-            <p className="text-4xl font-light text-slate-700">S/ 0.00</p>
+            <p className="text-sm text-[var(--ui-muted)]">Total de Ingreso Débito</p>
+            <p className="text-4xl font-light text-[var(--ui-body-text)]">S/ 0.00</p>
           </div>
         </div>
 
         <div className="xl:col-span-4 card p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xl font-light text-slate-700">
+            <h3 className="text-xl font-light text-[var(--ui-body-text)]">
               {rankingMode === 'dias' ? 'Top días con más ventas' : 'Top mesas que más venden'}
             </h3>
-            <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden">
+            <div className="inline-flex rounded-lg border border-[color:var(--ui-border)] overflow-hidden">
               <button
                 type="button"
                 onClick={() => setRankingMode('dias')}
                 className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  rankingMode === 'dias' ? 'bg-[#2563EB] text-white' : 'bg-white text-slate-600 hover:bg-slate-100'
+                  rankingMode === 'dias' ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
                 }`}
               >
                 Días
@@ -674,7 +682,7 @@ export default function Escritorio() {
                 type="button"
                 onClick={() => setRankingMode('mesas')}
                 className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  rankingMode === 'mesas' ? 'bg-[#2563EB] text-white' : 'bg-white text-slate-600 hover:bg-slate-100'
+                  rankingMode === 'mesas' ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
                 }`}
               >
                 Mesas
@@ -696,23 +704,31 @@ export default function Escritorio() {
                   >
                     {topSalesData.map((_, idx) => <Cell key={`rank-${idx}`} fill={CHART_COLORS[idx % CHART_COLORS.length]} />)}
                   </Pie>
-                  <Tooltip formatter={(v) => formatCurrency(v)} />
+                  <Tooltip
+                    formatter={(v) => formatCurrency(v)}
+                    contentStyle={{
+                      background: 'var(--ui-surface-2)',
+                      border: '1px solid var(--ui-border)',
+                      borderRadius: '8px',
+                      color: 'var(--ui-body-text)',
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-1 gap-1 mt-2">
                 {topSalesData.map((item, idx) => (
-                  <div key={`${item.name}-${idx}`} className="flex items-center justify-between text-xs border-b border-slate-100 py-1">
+                  <div key={`${item.name}-${idx}`} className="flex items-center justify-between text-xs border-b border-[color:var(--ui-border)] py-1">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }} />
-                      <span className="text-slate-700 truncate">{item.name}</span>
+                      <span className="text-[var(--ui-body-text)] truncate">{item.name}</span>
                     </div>
-                    <span className="font-semibold text-slate-800">{formatCurrency(item.value)}</span>
+                    <span className="font-semibold text-[var(--ui-body-text)]">{formatCurrency(item.value)}</span>
                   </div>
                 ))}
               </div>
             </>
           ) : (
-            <div className="h-[220px] flex items-center justify-center text-sm text-slate-500">
+            <div className="h-[220px] flex items-center justify-center text-sm text-[var(--ui-muted)]">
               Sin ventas en el rango y horario seleccionado.
             </div>
           )}
@@ -721,41 +737,41 @@ export default function Escritorio() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <div className="card p-4">
-          <div className="border-b border-[#3B82F6]/25 pb-3 mb-3">
-            <p className="text-sm text-[#9CA3AF]">Total de ventas por mesa</p>
-            <p className="text-2xl font-light text-[#F9FAFB]">{totalVentasPorMesa}</p>
-            <p className="text-xs text-[#9CA3AF] mt-1">
+          <div className="border-b border-[color:var(--ui-border)] pb-3 mb-3">
+            <p className="text-sm text-[var(--ui-muted)]">Total de ventas por mesa</p>
+            <p className="text-2xl font-light text-[var(--ui-body-text)]">{totalVentasPorMesa}</p>
+            <p className="text-xs text-[var(--ui-muted)] mt-1">
               Una mesa con pedidos en el periodo = 1 venta (solo cuentan pedidos con mesa asignada).
             </p>
           </div>
           <div>
-            <p className="text-sm text-[#9CA3AF]">Total de ventas por producto</p>
-            <p className="text-2xl font-light text-[#F9FAFB]">{totalVentasPorProducto}</p>
-            <p className="text-xs text-[#9CA3AF] mt-1">
-              Productos distintos con al menos una línea en pedidos <strong className="text-[#E5E7EB]">cobrados</strong> en el
+            <p className="text-sm text-[var(--ui-muted)]">Total de ventas por producto</p>
+            <p className="text-2xl font-light text-[var(--ui-body-text)]">{totalVentasPorProducto}</p>
+            <p className="text-xs text-[var(--ui-muted)] mt-1">
+              Productos distintos con al menos una línea en pedidos <strong className="text-[var(--ui-body-text)]">cobrados</strong> en el
               periodo.
             </p>
           </div>
-          <p className="text-xs text-[#9CA3AF] mt-3 pt-3 border-t border-[#3B82F6]/25">
-            Pedidos — Cobradas: <strong className="text-[#F9FAFB]">{paidOrdersCount}</strong> · Pendientes:{' '}
-            <strong className="text-[#F9FAFB]">{pendingPaymentCount}</strong> · Canceladas:{' '}
-            <strong className="text-[#F9FAFB]">{cancelledOrdersCount}</strong>
+          <p className="text-xs text-[var(--ui-muted)] mt-3 pt-3 border-t border-[color:var(--ui-border)]">
+            Pedidos — Cobradas: <strong className="text-[var(--ui-body-text)]">{paidOrdersCount}</strong> · Pendientes:{' '}
+            <strong className="text-[var(--ui-body-text)]">{pendingPaymentCount}</strong> · Canceladas:{' '}
+            <strong className="text-[var(--ui-body-text)]">{cancelledOrdersCount}</strong>
           </p>
         </div>
         <div className="card p-4">
-          <p className="text-sm text-slate-500">Promedio de consumo por venta (mesa)</p>
-          <p className="text-2xl font-light text-slate-700">
+          <p className="text-sm text-[var(--ui-muted)]">Promedio de consumo por venta (mesa)</p>
+          <p className="text-2xl font-light text-[var(--ui-body-text)]">
             {formatCurrency(totalVentasMesas ? totalSales / totalVentasMesas : 0)}
           </p>
         </div>
         <div className="card p-4">
-          <p className="text-sm text-slate-500">Clientes</p>
-          <p className="text-2xl font-light text-slate-700">{scopedOrders.length}</p>
+          <p className="text-sm text-[var(--ui-muted)]">Clientes</p>
+          <p className="text-2xl font-light text-[var(--ui-body-text)]">{scopedOrders.length}</p>
         </div>
         <div className="card p-4">
-          <p className="text-sm text-slate-500">Por tipo de pago (monto)</p>
+          <p className="text-sm text-[var(--ui-muted)]">Por tipo de pago (monto)</p>
           {pagoMasUsado && (
-            <p className="text-xs text-amber-100/90 mb-2 text-center">
+            <p className="text-xs text-amber-700 mb-2 text-center">
               Más usado: <span className="font-semibold">{pagoMasUsado.label}</span> ({pagoMasUsado.operaciones}{' '}
               {pagoMasUsado.operaciones === 1 ? 'cobro' : 'cobros'} · {pagoMasUsado.porcentajeMonto.toFixed(0)}% del
               monto)
@@ -776,17 +792,23 @@ export default function Escritorio() {
                   label={({ name, percent }) => (percent > 0.06 ? `${name} ${(percent * 100).toFixed(0)}%` : '')}
                 >
                   {paymentPieData.map((row, i) => (
-                    <Cell key={row.key} fill={PAYMENT_COLORS[i % PAYMENT_COLORS.length]} stroke="rgba(15,23,42,0.4)" />
+                    <Cell key={row.key} fill={PAYMENT_COLORS[i % PAYMENT_COLORS.length]} stroke="var(--ui-border)" />
                   ))}
                 </Pie>
                 <Tooltip
                   formatter={(v) => formatCurrency(v)}
-                  contentStyle={{ background: '#1e293b', border: '1px solid #475569', borderRadius: '8px' }}
+                  contentStyle={{
+                    background: 'var(--ui-surface-2)',
+                    border: '1px solid var(--ui-border)',
+                    borderRadius: '8px',
+                    color: 'var(--ui-body-text)',
+                  }}
                 />
                 <Legend
                   layout="vertical"
                   align="right"
                   verticalAlign="middle"
+                  wrapperStyle={{ color: 'var(--ui-body-text)' }}
                   formatter={(value, entry) => {
                     const v = entry?.payload?.value;
                     return `${value}: ${formatCurrency(v)}`;
@@ -795,7 +817,7 @@ export default function Escritorio() {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-xs text-slate-500 text-center py-6">Sin cobros en el periodo</p>
+            <p className="text-xs text-[var(--ui-muted)] text-center py-6">Sin cobros en el periodo</p>
           )}
         </div>
       </div>
