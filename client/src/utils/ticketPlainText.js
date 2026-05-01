@@ -1,5 +1,12 @@
 /** Texto plano para impresoras térmicas por red (ESC/POS vía TCP). */
 
+/** Nota de pedido mesa/salón «para llevar» (POS). Debe coincidir con lo guardado en `orders.notes`. */
+export const KITCHEN_TAKEOUT_NOTE = 'PARA LLEVAR';
+
+export function orderHasTakeoutNote(order) {
+  return String(order?.notes || '').toUpperCase().includes(KITCHEN_TAKEOUT_NOTE);
+}
+
 function isCuentaClienteSelfOrder(order) {
   return String(order?.table_number || '') === 'Cliente' && String(order?.customer_id || '').trim() !== '';
 }
@@ -22,6 +29,10 @@ export function buildKitchenTicketPlainText({
   lines.push('================================');
   lines.push('');
   (orders || []).forEach((order) => {
+    if (orderHasTakeoutNote(order)) {
+      lines.push(KITCHEN_TAKEOUT_NOTE);
+      lines.push('--------------------------------');
+    }
     const orderTypeLabel =
       order.type === 'delivery' ? 'Delivery' : order.type === 'pickup' ? 'Recojo' : 'Mesa/Salon';
     if (isCuentaClienteSelfOrder(order)) {

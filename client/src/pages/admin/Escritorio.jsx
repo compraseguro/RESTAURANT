@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { api, formatCurrency, parseApiDate, toLocalDateKey, PAYMENT_METHODS } from '../../utils/api';
-import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
+import { buildKitchenTicketPlainText, orderHasTakeoutNote } from '../../utils/ticketPlainText';
 import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -346,6 +346,7 @@ export default function Escritorio() {
       const items = (order.items || []).map(item => `<li>${item.quantity}x ${item.product_name}${item.notes ? ` - ${item.notes}` : ''}</li>`).join('');
       return `
         <div style="border:1px solid #d9d9d9;border-radius:8px;padding:10px;margin-bottom:8px;">
+          ${orderHasTakeoutNote(order) ? `<div style="text-align:center;font-weight:bold;font-size:15px;letter-spacing:0.06em;margin-bottom:8px;">PARA LLEVAR</div>` : ''}
           <strong>#${order.order_number}</strong> - ${order.type}${order.table_number ? ` - Mesa ${order.table_number}` : ''}
           <ul style="margin:8px 0 0 16px;padding:0;">${items}</ul>
         </div>

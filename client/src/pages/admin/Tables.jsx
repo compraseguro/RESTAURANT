@@ -9,7 +9,8 @@ import StaffDineInOrderUI from '../../components/StaffDineInOrderUI';
 import StaffMesaPedidoTabs from '../../components/StaffMesaPedidoTabs';
 import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
 import toast from 'react-hot-toast';
-import { MdTableRestaurant, MdReceipt, MdClose } from 'react-icons/md';
+import { MdTableRestaurant, MdReceipt, MdClose, MdPrint } from 'react-icons/md';
+import { KITCHEN_TAKEOUT_NOTE } from '../../utils/ticketPlainText';
 
 export default function Tables() {
   const { user } = useAuth();
@@ -27,6 +28,7 @@ export default function Tables() {
   const [actionType, setActionType] = useState('');
   const [sourceTableId, setSourceTableId] = useState('');
   const [targetTableId, setTargetTableId] = useState('');
+  const [paraLlevarMesa, setParaLlevarMesa] = useState(false);
 
   const {
     cart,
@@ -74,6 +76,7 @@ export default function Tables() {
   const openMenuForTable = (table) => {
     setSelectedTable(table);
     setShowMenu(true);
+    setParaLlevarMesa(false);
     resetCart();
     setSearch('');
     setSelectedCat('all');
@@ -81,6 +84,7 @@ export default function Tables() {
 
   const closeMenuPanel = () => {
     setShowMenu(false);
+    setParaLlevarMesa(false);
     resetCart();
     setSearch('');
     setSelectedCat('all');
@@ -149,6 +153,7 @@ export default function Tables() {
         table_number: String(selectedTable.number),
         customer_name: `Mesa ${selectedTable.number}`,
         payment_method: 'efectivo',
+        notes: paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
       });
       toast.success(`Pedido enviado a Mesa ${selectedTable.number}`, { id: tid });
       closeMenuPanel();
@@ -315,11 +320,23 @@ export default function Tables() {
                   cartLayout="lines"
                   footer={
                     cart.length > 0 ? (
-                      <>
+                      <div className="space-y-2">
                         <div className="flex justify-between font-bold text-lg text-[var(--ui-body-text)]">
                           <span>Total</span>
                           <span className="text-[var(--ui-accent)]">{formatCurrency(cartTotal)}</span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => setParaLlevarMesa((v) => !v)}
+                          className={`w-full rounded-lg border py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                            paraLlevarMesa
+                              ? 'bg-[var(--ui-accent)] text-white border-transparent shadow-sm'
+                              : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
+                          }`}
+                        >
+                          <MdPrint className={`shrink-0 text-base ${paraLlevarMesa ? 'text-white' : 'text-[var(--ui-accent-muted)]'}`} />
+                          PARA LLEVAR
+                        </button>
                         <button
                           type="button"
                           onClick={submitOrder}
@@ -327,7 +344,7 @@ export default function Tables() {
                         >
                           <MdReceipt /> Enviar Pedido
                         </button>
-                      </>
+                      </div>
                     ) : null
                   }
                 />

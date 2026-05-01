@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
-import { buildKitchenTicketPlainText } from '../../utils/ticketPlainText';
+import { buildKitchenTicketPlainText, orderHasTakeoutNote } from '../../utils/ticketPlainText';
 import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
@@ -180,6 +180,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
       }
       return `
         <div class="ticket">
+          ${orderHasTakeoutNote(order) ? `<div style="text-align:center;font-weight:800;font-size:17px;letter-spacing:0.08em;margin-bottom:8px;color:inherit;">PARA LLEVAR</div>` : ''}
           ${header}
           <ul style="margin:8px 0 0 16px;padding:0;">${items}</ul>
         </div>

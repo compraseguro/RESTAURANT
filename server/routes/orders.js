@@ -372,6 +372,12 @@ router.put('/:id/lines', authenticateToken, requireRole('admin', 'cajero', 'mozo
   try {
     const actor = actorFromRequest(req);
     withTransaction((tx) => replaceOrderLinesInTransaction(tx, req.params.id, items, actor));
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'notes')) {
+      runSql('UPDATE orders SET notes = ?, updated_at = datetime(\'now\') WHERE id = ?', [
+        String(req.body.notes ?? '').trim(),
+        req.params.id,
+      ]);
+    }
     const order = getOrderWithItems(req.params.id);
     const io = req.app.get('io');
     if (io) {

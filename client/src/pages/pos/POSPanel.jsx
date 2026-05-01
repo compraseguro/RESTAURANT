@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
 import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
+import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -215,6 +216,8 @@ export default function POSPanel() {
     setCart,
   } = useStaffOrderCart(modifiers);
   const [editingOrderId, setEditingOrderId] = useState('');
+  /** Comanda cocina/bar: «PARA LLEVAR» en mayúsculas (orders.notes). Solo mesa/salón, no venta rápida. */
+  const [paraLlevarMesa, setParaLlevarMesa] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [customerForm, setCustomerForm] = useState(EMPTY_CUSTOMER_FORM);
   const [savingCustomer, setSavingCustomer] = useState(false);
@@ -1064,6 +1067,7 @@ export default function POSPanel() {
     if (isDeliveryCheckoutTable(table)) return;
     setQuickSaleMode(false);
     setEditingOrderId('');
+    setParaLlevarMesa(false);
     setSelectedTable(table);
     setShowMenu(true);
     resetCart();
@@ -1083,6 +1087,7 @@ export default function POSPanel() {
     }
     setQuickSaleMode(false);
     setEditingOrderId(order.id);
+    setParaLlevarMesa(orderHasTakeoutNote(order));
     setSelectedTable(tableForContext);
     setSearch('');
     setSelectedCat('all');
@@ -1179,6 +1184,7 @@ export default function POSPanel() {
   const openQuickSaleMenu = () => {
     setQuickSaleMode(true);
     setEditingOrderId('');
+    setParaLlevarMesa(false);
     setSelectedTable(null);
     setPaymentMethod('efectivo');
     setShowMenu(true);
@@ -1192,6 +1198,27 @@ export default function POSPanel() {
   const receivedAmount = Math.max(0, parseFloat(amountReceived) || 0);
   const quickSaleChange = Math.max(0, receivedAmount - cartTotal);
   const quickSaleMissing = Math.max(0, cartTotal - receivedAmount);
+
+  const showParaLlevarToggle =
+    !quickSaleMode &&
+    selectedTable &&
+    !isClientCheckoutTable(selectedTable) &&
+    !isDeliveryCheckoutTable(selectedTable);
+
+  const paraLlevarToggleButton = showParaLlevarToggle ? (
+    <button
+      type="button"
+      onClick={() => setParaLlevarMesa((v) => !v)}
+      className={`w-full rounded-lg border py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+        paraLlevarMesa
+          ? 'bg-[var(--ui-accent)] text-white border-transparent shadow-sm'
+          : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[#E5E7EB] hover:bg-[var(--ui-sidebar-hover)]'
+      }`}
+    >
+      <MdPrint className={`shrink-0 text-base ${paraLlevarMesa ? 'text-white' : 'text-[#93C5FD]'}`} />
+      PARA LLEVAR
+    </button>
+  ) : null;
 
   const submitOrder = async () => {
     if (cart.length === 0) {
@@ -1225,6 +1252,7 @@ export default function POSPanel() {
             modifier_option: i.modifier_option || '',
             notes: String(i.notes || '').trim(),
           })),
+          notes: paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
         });
         toast.success('Pedido actualizado', { id: tid });
         setShowMenu(false);
@@ -1245,6 +1273,7 @@ export default function POSPanel() {
         table_number: quickSaleMode ? '' : String(selectedTable.number),
         customer_name: quickSaleMode ? 'VENTA RAPIDA' : `Mesa ${selectedTable.number}`,
         payment_method: paymentMethod,
+        notes: !quickSaleMode && paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
       });
       if (quickSaleMode) {
         let doc = null;
@@ -2130,6 +2159,7 @@ export default function POSPanel() {
           setShowMenu(false);
           setQuickSaleMode(false);
           setEditingOrderId('');
+          setParaLlevarMesa(false);
           setAmountReceived('');
           resetBillingForm();
           resetCart();
@@ -2389,11 +2419,12 @@ export default function POSPanel() {
             </div>
             <div className="mt-4 shrink-0 space-y-3 border-t border-[color:var(--ui-border)] pt-4">
               {cart.length > 0 ? (
-                <>
+                <div className="space-y-2">
                   <div className="flex justify-between text-base font-bold text-white">
                     <span>Total</span>
                     <span className="text-[#BFDBFE]">{formatCurrency(cartTotal)}</span>
                   </div>
+                  {paraLlevarToggleButton}
                   <button
                     type="button"
                     onClick={submitOrder}
@@ -2401,7 +2432,7 @@ export default function POSPanel() {
                   >
                     <MdReceipt /> Guardar cambios
                   </button>
-                </>
+                </div>
               ) : (
                 <button
                   type="button"
@@ -2440,15 +2471,16 @@ export default function POSPanel() {
               className="flex-1 min-h-0"
               footer={
                 cart.length > 0 ? (
-                  <>
+                  <div className="space-y-2">
                     <div className="flex justify-between font-bold text-lg text-white">
                       <span>Total</span>
                       <span className="text-[#BFDBFE]">{formatCurrency(cartTotal)}</span>
                     </div>
+                    {paraLlevarToggleButton}
                     <button type="button" onClick={submitOrder} className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
                       <MdReceipt /> Enviar Pedido
                     </button>
-                  </>
+                  </div>
                 ) : null
               }
             />
@@ -2473,15 +2505,16 @@ export default function POSPanel() {
             minHeightClass="min-h-0 flex-1"
             footer={
               cart.length > 0 ? (
-                <>
+                <div className="space-y-2">
                   <div className="flex justify-between font-bold text-lg text-white">
                     <span>Total</span>
                     <span className="text-[#BFDBFE]">{formatCurrency(cartTotal)}</span>
                   </div>
+                  {paraLlevarToggleButton}
                   <button type="button" onClick={submitOrder} className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
                     <MdReceipt /> Enviar Pedido
                   </button>
-                </>
+                </div>
               ) : null
             }
           />
