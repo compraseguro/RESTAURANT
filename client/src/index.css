@@ -131,6 +131,64 @@ html[data-ui-theme='purple'] {
   }
 }
 
+/*
+ * Modo claro: muchas pantallas usan utilidades pensadas para fondo oscuro (text-[#F9FAFB], etc.).
+ * Solo aplicamos dentro de <main> del Layout staff para no afectar:
+ * - Login (sin main), modales en portal (fuera de main), Self-order (sus propios estilos).
+ */
+[data-ui-theme='light'] main .text-\[\#F9FAFB\] {
+  color: #0f172a !important;
+}
+[data-ui-theme='light'] main .text-\[\#E5E7EB\] {
+  color: #334155 !important;
+}
+[data-ui-theme='light'] main .text-\[\#D1D5DB\] {
+  color: #475569 !important;
+}
+[data-ui-theme='light'] main .text-\[\#9CA3AF\] {
+  color: #64748b !important;
+}
+[data-ui-theme='light'] main .text-\[\#BFDBFE\] {
+  color: #1d4ed8 !important;
+}
+[data-ui-theme='light'] main .text-\[\#93C5FD\] {
+  color: #2563eb !important;
+}
+[data-ui-theme='light'] main .text-\[\#DBEAFE\] {
+  color: #1e40af !important;
+}
+
+[data-ui-theme='light'] main .text-white {
+  color: #0f172a !important;
+}
+[data-ui-theme='light'] main .btn-primary,
+[data-ui-theme='light'] main .btn-success,
+[data-ui-theme='light'] main .btn-danger,
+[data-ui-theme='light'] main .btn-warning,
+[data-ui-theme='light'] main .btn-info {
+  color: #ffffff !important;
+}
+[data-ui-theme='light'] main button.text-white[class*='bg-red-'],
+[data-ui-theme='light'] main button.text-white[class*='bg-blue-'],
+[data-ui-theme='light'] main button.text-white[class*='bg-emerald-'],
+[data-ui-theme='light'] main button.text-white[class*='bg-green-'],
+[data-ui-theme='light'] main button.text-white[class*='bg-indigo-'],
+[data-ui-theme='light'] main button.text-white[class*='bg-sky-'],
+[data-ui-theme='light'] main button.text-white[class*='bg-amber-'],
+[data-ui-theme='light'] main button.text-white[class*='bg-orange-'],
+[data-ui-theme='light'] main button.text-white[class*='bg-purple-'],
+[data-ui-theme='light'] main button.text-white[class*='bg-violet-'],
+[data-ui-theme='light'] main button.text-white[class*='bg-gradient-'],
+[data-ui-theme='light'] main a.text-white[class*='bg-'] {
+  color: #ffffff !important;
+}
+
+/* slate muy pálido sobre tarjetas blancas */
+[data-ui-theme='light'] main .text-slate-300,
+[data-ui-theme='light'] main .text-slate-400 {
+  color: #64748b !important;
+}
+
 @layer components {
   .btn-primary {
     @apply text-white px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
@@ -324,63 +382,6 @@ html[data-ui-theme='purple'] {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--ui-accent);
-}
-
-/*
- * Modo claro: vistas con text-[#F9FAFB] / text-white sobre fondos claros.
- * Substring [class*="…"] evita problemas del minificador con # en selectores.
- */
-html[data-ui-theme='light'] main
-  :is(
-    .text-white,
-    [class*='text-[#F9FAFB]'],
-    [class*='text-[#E5E7EB]'],
-    [class*='text-[#E2E8F0]']
-  ) {
-  color: var(--ui-body-text) !important;
-}
-
-html[data-ui-theme='light'] main :is(.text-slate-300, .text-slate-400) {
-  color: #64748b !important;
-}
-
-/* Paneles oscuros: texto claro */
-html[data-ui-theme='light'] main [class*='bg-[#0f172a]'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], [class*='text-[#E2E8F0]'], .text-slate-300, .text-slate-400),
-html[data-ui-theme='light'] main [class*='bg-[#111827]'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], [class*='text-[#E2E8F0]'], .text-slate-300, .text-slate-400),
-html[data-ui-theme='light'] main [class*='bg-[#1F2937]'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], [class*='text-[#E2E8F0]'], .text-slate-300, .text-slate-400),
-html[data-ui-theme='light'] main [class*='bg-[#172554]'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], [class*='text-[#E2E8F0]'], .text-slate-300, .text-slate-400),
-html[data-ui-theme='light'] main [class*='bg-[#1E3A8A]'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], [class*='text-[#E2E8F0]'], .text-slate-300, .text-slate-400),
-html[data-ui-theme='light'] main .bg-slate-800 :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], .text-slate-300, .text-slate-400),
-html[data-ui-theme='light'] main .bg-slate-900 :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]'], .text-slate-300, .text-slate-400) {
-  color: #f9fafb !important;
-}
-
-html[data-ui-theme='light'] main aside[class*='fixed'] :is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']) {
-  color: #f9fafb !important;
-}
-
-html[data-ui-theme='light'] main aside[class*='fixed'] :is(.text-slate-300, .text-slate-400) {
-  color: #cbd5e1 !important;
-}
-
-html[data-ui-theme='light'] main :is(.btn-primary, .btn-success, .btn-danger, .btn-warning, .btn-info),
-html[data-ui-theme='light'] main :is(.btn-primary, .btn-success, .btn-danger, .btn-warning, .btn-info) * {
-  color: #ffffff !important;
-}
-
-html[data-ui-theme='light'] main [class*='bg-[#2563EB]']:is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']),
-html[data-ui-theme='light'] main [class*='bg-[#1D4ED8]']:is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']),
-html[data-ui-theme='light'] main [class*='bg-[#1E40AF]']:is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']),
-html[data-ui-theme='light'] main [class*='bg-[#1E3A8A]']:is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']),
-html[data-ui-theme='light'] main :is(.bg-emerald-500, .bg-emerald-600, .bg-red-500, .bg-red-600, .bg-red-700, .bg-sky-600, .bg-indigo-600, .bg-gold-500, .bg-gold-600):is(.text-white, [class*='text-[#F9FAFB]'], [class*='text-[#E5E7EB]']),
-html[data-ui-theme='light'] main :is(.bg-primary-600, .bg-gold-600).text-white {
-  color: #ffffff !important;
-}
-
-html[data-ui-theme='light'] main [class*='bg-[#2563EB]'] :is(.text-white, [class*='text-[#F9FAFB]']),
-html[data-ui-theme='light'] main [class*='bg-[#1D4ED8]'] :is(.text-white, [class*='text-[#F9FAFB]']),
-html[data-ui-theme='light'] main :is(.bg-emerald-600, .bg-red-600, .bg-sky-600) :is(.text-white, [class*='text-[#F9FAFB]']) {
-  color: #ffffff !important;
 }
 
 /* Inventario y kardex: evitar inputs/selects y cabeceras con aspecto claro (UA / WebKit) */
