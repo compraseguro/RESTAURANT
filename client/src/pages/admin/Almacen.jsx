@@ -1131,9 +1131,6 @@ export default function Almacen() {
           size="md"
         >
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
-              Elija el <strong>almacén de ingreso</strong>: en almacenes normales verá solo <strong>productos vinculados a ese almacén</strong> (stock o almacén por defecto). En un <strong>almacén de insumos</strong> verá <strong>insumos kardex</strong> y artículos con categoría INSUMOS, no bebidas u otros productos de otro almacén.
-            </p>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Almacén de ingreso</label>
               <select
