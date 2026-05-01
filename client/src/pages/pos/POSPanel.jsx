@@ -2453,19 +2453,17 @@ export default function POSPanel() {
         title={(() => {
           const t = viewOrdersModal?.table;
           if (!t) return 'Pedidos';
-          const rows = ordersForViewModal(t, viewOrdersModal.orderId);
-          const one = rows.length === 1 ? rows[0] : null;
-          if (one) return `Pedido #${one.order_number} — ${t.name || ''}`;
-          return `Pedidos — ${t.name || ''}`;
+          const name = String(t.name || '').trim();
+          return name || 'Pedidos';
         })()}
         size="md"
       >
         {viewOrdersModal?.table ? (
           <div className="max-h-[min(70vh,480px)] overflow-y-auto space-y-3 pr-1 text-[#E5E7EB]">
-            {ordersForViewModal(viewOrdersModal.table, viewOrdersModal.orderId).map((o) => (
+            {ordersForViewModal(viewOrdersModal.table, viewOrdersModal.orderId).map((o, listIdx) => (
               <div key={o.id} className="rounded-lg border border-[#3B82F6]/25 bg-[#111827]/80 p-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#3B82F6]/20 pb-2">
-                  <span className="font-semibold text-white">Pedido #{o.order_number}</span>
+                  <span className="font-semibold text-white">Pedido {listIdx + 1}</span>
                   <span className="text-sm font-bold text-[#BFDBFE]">{formatCurrency(getOrderChargeTotal(o))}</span>
                 </div>
                 <p className="mt-1 text-xs capitalize text-[#9CA3AF]">{String(o.status || '')}</p>
