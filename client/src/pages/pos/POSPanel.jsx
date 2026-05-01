@@ -1102,16 +1102,16 @@ export default function POSPanel() {
       return;
     }
     if (list.length > 1) {
-      toast.error('Hay varios pedidos: usa el lápiz en la fila del pedido que quieres modificar.');
+      toast.error('Hay varios pedidos: abre Ver pedido y pulsa Modificar en el pedido que quieras editar.');
       return;
     }
     toast.error('No hay pedidos para modificar.');
   };
 
   const confirmCancelOrder = async (order) => {
-    if (!order?.id) return;
+    if (!order?.id) return false;
     const ok = window.confirm(`¿Anular el pedido #${order.order_number}? Se devolverá stock si aplica.`);
-    if (!ok) return;
+    if (!ok) return false;
     const tid = toast.loading('Anulando pedido…');
     try {
       await api.put(`/orders/${order.id}/status`, {
@@ -1120,8 +1120,10 @@ export default function POSPanel() {
       });
       toast.success('Pedido anulado', { id: tid });
       await loadData();
+      return true;
     } catch (err) {
       toast.error(err.message || 'No se pudo anular', { id: tid });
+      return false;
     }
   };
 
@@ -1878,7 +1880,7 @@ export default function POSPanel() {
                   title="Ver pedido"
                   onClick={() => setViewOrdersModal({ table: tableDetail, orderId: null })}
                   disabled={!tableDetail.orders?.length}
-                  className="shrink-0 w-11 h-11 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200/80"
+                  className="shrink-0 w-11 h-11 rounded-lg bg-slate-800 text-white hover:bg-slate-700 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed border border-slate-600"
                 >
                   <MdVisibility className="text-xl" />
                 </button>
@@ -1891,56 +1893,12 @@ export default function POSPanel() {
                     isClientCheckoutTable(tableDetail) ||
                     !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
                   }
-                  className="shrink-0 w-11 h-11 rounded-lg bg-indigo-100 text-indigo-700 hover:bg-indigo-200 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed border border-indigo-200/60"
+                  className="shrink-0 w-11 h-11 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed border border-indigo-500"
                 >
                   <MdEdit className="text-xl" />
                 </button>
               </div>
             </div>
-            {!isClientCheckoutTable(tableDetail) && (tableDetail.orders || []).length > 0 && (
-              <div className="border-t border-slate-200 pt-3 space-y-2">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Pedidos</p>
-                {(tableDetail.orders || []).map((o) => (
-                  <div
-                    key={o.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/90 px-3 py-2"
-                  >
-                    <div className="min-w-0">
-                      <span className="font-semibold text-slate-800">#{o.order_number}</span>
-                      <span className="text-slate-700 ml-2">{formatCurrency(getOrderChargeTotal(o))}</span>
-                      <span className="text-xs text-slate-500 ml-2 capitalize">{o.status}</span>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        title="Ver pedido"
-                        onClick={() => setViewOrdersModal({ table: tableDetail, orderId: o.id })}
-                        className="p-2 rounded-lg text-slate-600 hover:bg-slate-100"
-                      >
-                        <MdVisibility className="text-lg" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Modificar pedido"
-                        onClick={() => startEditOrder(o)}
-                        disabled={!canEditOrderLines(o)}
-                        className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-100 disabled:opacity-35 disabled:cursor-not-allowed"
-                      >
-                        <MdEdit className="text-lg" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Anular pedido"
-                        onClick={() => void confirmCancelOrder(o)}
-                        className="p-2 rounded-lg text-red-600 hover:bg-red-50"
-                      >
-                        <MdDelete className="text-lg" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -2528,6 +2486,33 @@ export default function POSPanel() {
                     ))
                   )}
                 </ul>
+                {!isClientCheckoutTable(viewOrdersModal.table) &&
+                  String(o.status || '').toLowerCase() !== 'cancelled' && (
+                    <div className="mt-3 flex flex-wrap gap-2 border-t border-[#3B82F6]/20 pt-3">
+                      {canEditOrderLines(o) ? (
+                        <button
+                          type="button"
+                          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                          onClick={() => {
+                            setViewOrdersModal(null);
+                            startEditOrder(o);
+                          }}
+                        >
+                          Modificar
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="rounded-lg border border-red-500/50 bg-red-950/40 px-3 py-1.5 text-xs font-semibold text-red-200 hover:bg-red-900/50"
+                        onClick={async () => {
+                          const done = await confirmCancelOrder(o);
+                          if (done) setViewOrdersModal(null);
+                        }}
+                      >
+                        Anular
+                      </button>
+                    </div>
+                  )}
               </div>
             ))}
             {ordersForViewModal(viewOrdersModal.table, viewOrdersModal.orderId).length === 0 && (
