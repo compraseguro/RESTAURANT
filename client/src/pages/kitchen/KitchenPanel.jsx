@@ -44,19 +44,24 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const [printConfig, setPrintConfig] = useState({ cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
   const storageKeyAutoPrint = `resto_kitchen_auto_print_${station}`;
-  const [autoPrint, setAutoPrint] = useState(() =>
-    typeof localStorage !== 'undefined' && localStorage.getItem(`resto_kitchen_auto_print_${station}`) === '1'
-  );
+  const readAutoPrintPreference = () => {
+    try {
+      const raw = localStorage.getItem(storageKeyAutoPrint);
+      if (raw === '0') return false;
+      if (raw === '1') return true;
+      return true; /* primera visita: impresión automática activa por defecto */
+    } catch (_) {
+      return true;
+    }
+  };
+  const [autoPrint, setAutoPrint] = useState(() => readAutoPrintPreference());
   const autoPrintRef = useRef(false);
+  const warnedSilentNoNetworkRef = useRef(false);
   useEffect(() => {
     autoPrintRef.current = autoPrint;
   }, [autoPrint]);
   useEffect(() => {
-    try {
-      setAutoPrint(localStorage.getItem(storageKeyAutoPrint) === '1');
-    } catch (_) {
-      setAutoPrint(false);
-    }
+    setAutoPrint(readAutoPrintPreference());
   }, [storageKeyAutoPrint]);
   const { user } = useAuth();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
@@ -95,7 +100,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
   /**
    * @param {object[]} list
    * @param {string} title
-   * @param {{ silent?: boolean }} opts silent: no toasts de error/vacío (impresión automática)
+   * @param {{ silent?: boolean }} opts silent: impresión automática (sin diálogo del navegador salvo fallback manual)
    */
   const printOrdersList = async (list, title, opts = {}) => {
     const { silent = false } = opts;
@@ -103,14 +108,30 @@ export default function KitchenPanel({ station = 'cocina' }) {
       if (!silent) toast.error('No hay pedidos para imprimir');
       return;
     }
-    const stationConfig = station === 'bar' ? printConfig?.bar : printConfig?.cocina;
+    /** Siempre refrescar: al llegar un pedido por socket a veces aún no cargó print-config y se caía al navegador. */
+    let cfgPrinters = printConfig;
+    let cfgRestaurant = restaurantInfo;
+    try {
+      const cfg = await api.get('/orders/print-config');
+      if (cfg?.printers) {
+        cfgPrinters = cfg.printers;
+        setPrintConfig(cfg.printers);
+      }
+      if (cfg?.restaurant) {
+        cfgRestaurant = cfg.restaurant;
+        setRestaurantInfo(cfg.restaurant);
+      }
+    } catch (_) {
+      /* usar estado previo */
+    }
+    const stationConfig = station === 'bar' ? cfgPrinters?.bar : cfgPrinters?.cocina;
     const width = [58, 80].includes(Number(stationConfig?.width_mm)) ? Number(stationConfig.width_mm) : 80;
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
     const ticketWidth = width === 58 ? '50mm' : '72mm';
     const stationKey = isBar ? 'bar' : 'cocina';
     if (shouldSendToNetworkPrinter(stationConfig)) {
       const plain = buildKitchenTicketPlainText({
-        restaurant: restaurantInfo,
+        restaurant: cfgRestaurant,
         title,
         orders: list,
         copies: 1,
@@ -120,8 +141,22 @@ export default function KitchenPanel({ station = 'cocina' }) {
         if (!silent) toast.success('Enviado a impresora de red');
         return;
       } catch (err) {
-        if (!silent) toast.error(err.message || 'No se pudo imprimir por red; se abrirá el navegador');
+        const msg = err.message || 'No se pudo imprimir por red';
+        if (silent) {
+          toast.error(`Impresión automática: ${msg}`, { duration: 7000 });
+          return;
+        }
+        toast.error(`${msg}; se abrirá el navegador`);
       }
+    } else if (silent) {
+      if (!warnedSilentNoNetworkRef.current) {
+        warnedSilentNoNetworkRef.current = true;
+        toast.error(
+          'Impresión automática: no hay IP de impresora para esta estación. Configuración → Impresoras (activa, estación cocina o bar). El servidor Node debe estar en la misma red que la impresora.',
+          { duration: 10000 }
+        );
+      }
+      return;
     }
     const htmlRows = list.map((order) => {
       const orderTypeLabel = order.type === 'delivery' ? 'Delivery' : order.type === 'pickup' ? 'Recojo' : 'Mesa/Salón';
@@ -188,9 +223,9 @@ export default function KitchenPanel({ station = 'cocina' }) {
         </style>
       </head>
       <body>
-        <h2>${restaurantInfo?.name || 'Resto-FADEY'}</h2>
-        <p style="margin:0;font-size:10px;">${restaurantInfo?.address || ''}</p>
-        <p style="margin:0 0 6px 0;font-size:10px;">${restaurantInfo?.phone || ''}</p>
+        <h2>${cfgRestaurant?.name || 'Resto-FADEY'}</h2>
+        <p style="margin:0;font-size:10px;">${cfgRestaurant?.address || ''}</p>
+        <p style="margin:0 0 6px 0;font-size:10px;">${cfgRestaurant?.phone || ''}</p>
         <h2>${title}</h2>
         <p style="margin:0 0 8px 0;">${new Date().toLocaleString()}</p>
         ${repeatedRows}
@@ -305,23 +340,31 @@ export default function KitchenPanel({ station = 'cocina' }) {
             {[{ v: 'all', l: 'Todos' }, { v: 'dine_in', l: 'Mesas' }, { v: 'delivery', l: 'Delivery' }].map(f => (
               <button key={f.v} onClick={() => setFilter(f.v)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f.v ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'}`}>{f.l}</button>
             ))}
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-[var(--ui-body-text)] border border-[color:var(--ui-border)] rounded-lg px-3 py-2 bg-[var(--ui-surface)] hover:bg-[var(--ui-sidebar-hover)]">
-              <input
-                type="checkbox"
-                className="rounded border-[color:var(--ui-border)]"
-                checked={autoPrint}
-                onChange={(e) => {
-                  const v = e.target.checked;
-                  setAutoPrint(v);
-                  try {
-                    localStorage.setItem(storageKeyAutoPrint, v ? '1' : '0');
-                  } catch (_) {
-                    /* noop */
-                  }
-                }}
-              />
-              <MdPrint className="text-[var(--ui-accent-muted)] shrink-0" />
-              <span>Impresión automática al nuevo pedido</span>
+            <label
+              title="El ticket sale por TCP (IP:9100) desde el servidor. Si la impresora es solo USB en la laptop, el programa necesita la IP que Windows comparte como impresora en red o un puerto RAW; si no, use imprimir manual y elija la impresora en el diálogo."
+              className="flex flex-col gap-0.5 cursor-pointer text-sm text-[var(--ui-body-text)] border border-[color:var(--ui-border)] rounded-lg px-3 py-2 bg-[var(--ui-surface)] hover:bg-[var(--ui-sidebar-hover)] max-w-md"
+            >
+              <span className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="rounded border-[color:var(--ui-border)]"
+                  checked={autoPrint}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setAutoPrint(v);
+                    try {
+                      localStorage.setItem(storageKeyAutoPrint, v ? '1' : '0');
+                    } catch (_) {
+                      /* noop */
+                    }
+                  }}
+                />
+                <MdPrint className="text-[var(--ui-accent-muted)] shrink-0" />
+                <span className="font-medium">Impresión automática al nuevo pedido</span>
+              </span>
+              <span className="text-xs text-[var(--ui-muted)] pl-7 leading-snug">
+                Requiere IP en Configuración → Impresoras (estación correcta). El envío lo hace el servidor en esa red, no el navegador.
+              </span>
             </label>
           </div>
           <button onClick={() => printQueue('salon')} className="px-3 py-2 bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)] rounded-lg text-sm font-medium flex items-center gap-2">
