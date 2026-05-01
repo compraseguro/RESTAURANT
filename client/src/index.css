@@ -192,6 +192,7 @@ html[data-ui-theme='light'] #root button.text-white[class*='bg-orange-'],
 html[data-ui-theme='light'] #root button.text-white[class*='bg-purple-'],
 html[data-ui-theme='light'] #root button.text-white[class*='bg-violet-'],
 html[data-ui-theme='light'] #root button.text-white[class*='bg-gradient-'],
+html[data-ui-theme='light'] #root button.text-white[class*='bg-['],
 html[data-ui-theme='light'] #root a.text-white[class*='bg-'] {
   color: #ffffff !important;
 }
@@ -250,6 +251,41 @@ html[data-ui-theme='light'] #root .text-neutral-200 {
 html[data-ui-theme='light'] #root .text-neutral-300,
 html[data-ui-theme='light'] #root .text-neutral-400 {
   color: #262626 !important;
+}
+
+/*
+ * Paleta `slate` extendida invierte índices (p. ej. slate-50 ≈ #111827) para el tema oscuro por defecto.
+ * En tema claro, restaurar fondos claros habituales para utilidades bg-slate-50…200 y hovers usadas como grises suaves.
+ * No remapear bg-slate-600+: p. ej. Clientes usa slate-700/800 esperando el gris claro de esa paleta invertida.
+ */
+html[data-ui-theme='light'] #root .bg-slate-50 {
+  background-color: #f8fafc !important;
+}
+html[data-ui-theme='light'] #root .bg-slate-50\/60 {
+  background-color: rgb(248 250 252 / 0.6) !important;
+}
+html[data-ui-theme='light'] #root .bg-slate-50\/80 {
+  background-color: rgb(248 250 252 / 0.8) !important;
+}
+html[data-ui-theme='light'] #root .bg-slate-100 {
+  background-color: #f1f5f9 !important;
+}
+html[data-ui-theme='light'] #root .bg-slate-200 {
+  background-color: #e2e8f0 !important;
+}
+html[data-ui-theme='light'] #root .hover\:bg-slate-50:hover {
+  background-color: #f8fafc !important;
+}
+html[data-ui-theme='light'] #root .hover\:bg-slate-100:hover {
+  background-color: #f1f5f9 !important;
+}
+html[data-ui-theme='light'] #root .hover\:bg-slate-200:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* Divisores: slate-100 en paleta invertida es oscuro; en claro usar línea gris estándar */
+html[data-ui-theme='light'] #root .border-slate-100 {
+  border-color: #e5e7eb !important;
 }
 
 /*
@@ -503,44 +539,79 @@ html[data-ui-theme='light'] #root .badge-cancelled {
   background: var(--ui-accent);
 }
 
-/* Inventario y kardex: evitar inputs/selects y cabeceras con aspecto claro (UA / WebKit) */
+/* Inventario y kardex: en temas oscuros forzar controles oscuros (UA); en claro usar tokens --ui-* */
 @layer components {
-  .logistica-kardex-module {
+  html:not([data-ui-theme='light']) .logistica-kardex-module {
     color-scheme: dark;
   }
-  .logistica-kardex-module input:not([type="checkbox"]):not([type="radio"]),
-  .logistica-kardex-module select,
-  .logistica-kardex-module textarea {
+  html:not([data-ui-theme='light']) .logistica-kardex-module input:not([type="checkbox"]):not([type="radio"]),
+  html:not([data-ui-theme='light']) .logistica-kardex-module select,
+  html:not([data-ui-theme='light']) .logistica-kardex-module textarea {
     background-color: #1f2937 !important;
     color: #f9fafb !important;
     -webkit-text-fill-color: #f9fafb;
     border: 1px solid rgba(59, 130, 246, 0.35) !important;
   }
-  .logistica-kardex-module input::placeholder,
-  .logistica-kardex-module textarea::placeholder {
+  html:not([data-ui-theme='light']) .logistica-kardex-module input::placeholder,
+  html:not([data-ui-theme='light']) .logistica-kardex-module textarea::placeholder {
     color: #9ca3af !important;
     opacity: 1;
   }
-  .logistica-kardex-module select option {
+  html:not([data-ui-theme='light']) .logistica-kardex-module select option {
     background-color: #1f2937;
     color: #f9fafb;
   }
-  .logistica-kardex-module input[type="date"]::-webkit-calendar-picker-indicator {
+  html:not([data-ui-theme='light']) .logistica-kardex-module input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(0.9);
     opacity: 0.75;
   }
-  .logistica-kardex-module input:-webkit-autofill,
-  .logistica-kardex-module input:-webkit-autofill:hover,
-  .logistica-kardex-module input:-webkit-autofill:focus {
+  html:not([data-ui-theme='light']) .logistica-kardex-module input:-webkit-autofill,
+  html:not([data-ui-theme='light']) .logistica-kardex-module input:-webkit-autofill:hover,
+  html:not([data-ui-theme='light']) .logistica-kardex-module input:-webkit-autofill:focus {
     -webkit-box-shadow: 0 0 0 1000px #1f2937 inset !important;
     -webkit-text-fill-color: #f9fafb !important;
   }
-  .logistica-kardex-module thead th {
+  html:not([data-ui-theme='light']) .logistica-kardex-module thead th {
     background-color: #1f2937 !important;
     color: #e5e7eb !important;
   }
-  .logistica-kardex-module thead {
+  html:not([data-ui-theme='light']) .logistica-kardex-module thead {
     --tw-bg-opacity: 1;
+  }
+
+  html[data-ui-theme='light'] .logistica-kardex-module {
+    color-scheme: light;
+  }
+  html[data-ui-theme='light'] .logistica-kardex-module input:not([type="checkbox"]):not([type="radio"]),
+  html[data-ui-theme='light'] .logistica-kardex-module select,
+  html[data-ui-theme='light'] .logistica-kardex-module textarea {
+    background-color: var(--ui-input-bg) !important;
+    color: var(--ui-body-text) !important;
+    -webkit-text-fill-color: var(--ui-body-text);
+    border: 1px solid var(--ui-input-border) !important;
+  }
+  html[data-ui-theme='light'] .logistica-kardex-module input::placeholder,
+  html[data-ui-theme='light'] .logistica-kardex-module textarea::placeholder {
+    color: var(--ui-muted) !important;
+    opacity: 0.85;
+  }
+  html[data-ui-theme='light'] .logistica-kardex-module select option {
+    background-color: var(--ui-input-bg);
+    color: var(--ui-body-text);
+  }
+  html[data-ui-theme='light'] .logistica-kardex-module input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: none;
+    opacity: 0.75;
+  }
+  html[data-ui-theme='light'] .logistica-kardex-module input:-webkit-autofill,
+  html[data-ui-theme='light'] .logistica-kardex-module input:-webkit-autofill:hover,
+  html[data-ui-theme='light'] .logistica-kardex-module input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px var(--ui-input-bg) inset !important;
+    -webkit-text-fill-color: var(--ui-body-text) !important;
+  }
+  html[data-ui-theme='light'] .logistica-kardex-module thead th {
+    background-color: var(--ui-surface-2) !important;
+    color: var(--ui-body-text) !important;
   }
 }
 @media print {
