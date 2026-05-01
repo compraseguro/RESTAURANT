@@ -376,6 +376,8 @@ router.put('/:id/lines', authenticateToken, requireRole('admin', 'cajero', 'mozo
     const io = req.app.get('io');
     if (io) {
       io.emit('order-update', order);
+      /** Cocina/bar: mismo efecto que pedido nuevo para impresión automática (ítems añadidos a mesa existente). */
+      io.emit('order-lines-updated', order);
     }
     res.json(order);
   } catch (err) {

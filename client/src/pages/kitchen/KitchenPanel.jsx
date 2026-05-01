@@ -283,10 +283,10 @@ export default function KitchenPanel({ station = 'cocina' }) {
       .catch(() => {});
   }, [station]);
 
-  useSocket('new-order', (order) => {
+  const handleKitchenIncomingOrder = (order, toastLabel) => {
     loadOrders();
     playStationAlert();
-    toast.success(`Nuevo pedido #${order.order_number} (${isBar ? 'bar' : 'cocina'})`, { icon: '🔔', duration: 5000 });
+    toast.success(`${toastLabel} #${order.order_number} (${isBar ? 'bar' : 'cocina'})`, { icon: '🔔', duration: 5000 });
     if (!order || !autoPrintRef.current) return;
     if (!orderAppliesToStation(order, station)) return;
     const items = order.items || [];
@@ -294,7 +294,11 @@ export default function KitchenPanel({ station = 'cocina' }) {
     const titleBase = isBar ? 'Comandas de Bar' : 'Comandas de Cocina';
     const title = `${titleBase} · Automático · #${order.order_number}`;
     void printOrdersList([order], title, { silent: true });
-  });
+  };
+
+  useSocket('new-order', (order) => handleKitchenIncomingOrder(order, 'Nuevo pedido'));
+  /** Mesa/salón: ítems nuevos van por PUT /orders/:id/lines — antes no había evento para imprimir en cocina. */
+  useSocket('order-lines-updated', (order) => handleKitchenIncomingOrder(order, 'Comanda actualizada'));
 
   useSocket('order-update', () => loadOrders());
 
