@@ -11,6 +11,33 @@ function isCuentaClienteSelfOrder(order) {
   return String(order?.table_number || '') === 'Cliente' && String(order?.customer_id || '').trim() !== '';
 }
 
+/**
+ * Comanda mínima (reimpresión desde cocina/bar): solo ubicación, fecha/hora de impresión e ítems.
+ * Sin nombre del restaurante, totales ni notas extendidas.
+ */
+export function buildSimpleComandaPlainText(order, printedAt = new Date()) {
+  const lines = [];
+  const when = printedAt.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
+  if (isCuentaClienteSelfOrder(order)) {
+    lines.push(`Cliente: ${String(order.customer_name || 'Cliente').trim()}`);
+  } else if (order.type === 'delivery') {
+    lines.push('Delivery');
+  } else if (order.type === 'pickup') {
+    lines.push('Recojo');
+  } else {
+    lines.push(order.table_number ? `Mesa ${order.table_number}` : 'Mesa —');
+  }
+  lines.push(when);
+  lines.push('--------------------------------');
+  for (const it of order.items || []) {
+    const q = Number(it.quantity || 0);
+    const nm = String(it.product_name || '').trim() || '—';
+    const v = String(it.variant_name || '').trim();
+    lines.push(`${q}x ${nm}${v ? ` (${v})` : ''}`);
+  }
+  return lines.join('\n');
+}
+
 export function buildKitchenTicketPlainText({
   restaurant = {},
   title = '',

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
-import { buildKitchenTicketPlainText, orderHasTakeoutNote } from '../../utils/ticketPlainText';
+import { buildKitchenTicketPlainText, buildSimpleComandaPlainText, orderHasTakeoutNote } from '../../utils/ticketPlainText';
 import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
@@ -243,6 +243,46 @@ export default function KitchenPanel({ station = 'cocina' }) {
     }, 120);
   };
 
+  /** Solo mesa (o delivery/cliente), ítems y fecha/hora — misma impresora de estación que la comanda completa. */
+  const printSimpleComanda = async (order) => {
+    if (!order?.id) return;
+    let cfgPrinters = printConfig;
+    try {
+      const cfg = await api.get('/orders/print-config');
+      if (cfg?.printers) {
+        cfgPrinters = cfg.printers;
+        setPrintConfig(cfg.printers);
+      }
+    } catch (_) {
+      /* estado previo */
+    }
+    const stationConfig = station === 'bar' ? cfgPrinters?.bar : cfgPrinters?.cocina;
+    const stationKey = isBar ? 'bar' : 'cocina';
+    const plain = buildSimpleComandaPlainText(order);
+    const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
+    if (shouldSendToNetworkPrinter(stationConfig)) {
+      try {
+        await api.post('/orders/print-network', { station: stationKey, text: plain, copies });
+        toast.success('Enviado a impresora');
+        return;
+      } catch (err) {
+        toast.error(err.message || 'No se pudo imprimir por red');
+      }
+    }
+    const safe = plain.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const printWin = window.open('', '_blank', 'width=380,height=560');
+    if (!printWin) {
+      toast.error('Permita ventanas emergentes para imprimir');
+      return;
+    }
+    printWin.document.write(`<!DOCTYPE html><html><head><title>Comanda #${order.order_number}</title>
+      <style>body{font-family:'Courier New',Courier,monospace;padding:16px;font-size:14px;line-height:1.35;margin:0;color:#111}</style></head><body>
+      <pre style="white-space:pre-wrap;margin:0">${safe}</pre>
+      <script>window.print();window.onafterprint=function(){window.close()};</script>
+      </body></html>`);
+    printWin.document.close();
+  };
+
   const printQueue = async (scope = 'all') => {
     const qs = new URLSearchParams();
     qs.set('station', station);
@@ -471,15 +511,32 @@ export default function KitchenPanel({ station = 'cocina' }) {
               </div>
 
               <div className="px-4 py-3 border-t border-[color:var(--ui-border)]">
-                {order.status === 'pending' ? (
-                  <button onClick={() => updateStatus(order.id, 'preparing')} className="w-full py-2.5 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2">
-                    <StationIcon /> PREPARAR
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void printSimpleComanda(order)}
+                    className="flex-1 min-w-0 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
+                  >
+                    <MdPrint className="text-[var(--ui-accent-muted)] shrink-0" /> Imprimir
                   </button>
-                ) : (
-                  <button onClick={() => updateStatus(order.id, 'ready')} className="w-full py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
-                    <MdCheckCircle /> LISTO
-                  </button>
-                )}
+                  {order.status === 'pending' ? (
+                    <button
+                      type="button"
+                      onClick={() => updateStatus(order.id, 'preparing')}
+                      className="flex-1 min-w-0 py-2.5 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
+                    >
+                      <StationIcon /> PREPARAR
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => updateStatus(order.id, 'ready')}
+                      className="flex-1 min-w-0 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                    >
+                      <MdCheckCircle /> LISTO
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
