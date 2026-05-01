@@ -1845,7 +1845,7 @@ export default function POSPanel() {
                 <button
                   type="button"
                   onClick={() => openMenuForTable(tableDetail)}
-                  className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-medium bg-sky-100 text-sky-700 hover:bg-sky-200 flex items-center justify-center gap-2"
+                  className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F2937]"
                 >
                   <MdRestaurantMenu /> Tomar Pedido
                 </button>
@@ -1862,7 +1862,7 @@ export default function POSPanel() {
                   setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
                 }}
                 disabled={!tableDetail.orders?.length}
-                className="btn-primary flex-1 min-w-[140px] py-2 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F2937]"
               >
                 <MdAttachMoney /> {isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar Mesa'}
               </button>
@@ -1871,7 +1871,7 @@ export default function POSPanel() {
                   type="button"
                   onClick={() => printTableOrder(tableDetail)}
                   disabled={!tableDetail.orders?.length}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F2937]"
                 >
                   <MdPrint /> Imprimir Precuenta
                 </button>
@@ -1880,7 +1880,7 @@ export default function POSPanel() {
                   title="Ver pedido"
                   onClick={() => setViewOrdersModal({ table: tableDetail, orderId: null })}
                   disabled={!tableDetail.orders?.length}
-                  className="shrink-0 w-11 h-11 rounded-lg bg-slate-800 text-white hover:bg-slate-700 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed border border-slate-600"
+                  className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F2937]"
                 >
                   <MdVisibility className="text-xl" />
                 </button>
@@ -1893,7 +1893,7 @@ export default function POSPanel() {
                     isClientCheckoutTable(tableDetail) ||
                     !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
                   }
-                  className="shrink-0 w-11 h-11 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed border border-indigo-500"
+                  className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F2937]"
                 >
                   <MdEdit className="text-xl" />
                 </button>
