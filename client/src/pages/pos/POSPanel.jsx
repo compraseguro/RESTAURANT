@@ -19,7 +19,7 @@ import {
   MdRestaurantMenu,
   MdAccessTime, MdPersonAdd, MdEmail, MdSearch,
   MdDeliveryDining,
-  MdEdit, MdDelete,
+  MdEdit, MdDelete, MdVisibility,
 } from 'react-icons/md';
 
 /** Mesa sintética al cobrar cuenta desde Clientes (no existe fila en `tables`). */
@@ -115,6 +115,13 @@ function canEditOrderLines(order) {
   );
 }
 
+/** Lista de pedidos para modal «Ver pedido» (solo lectura). */
+function ordersForViewModal(table, singleOrderId) {
+  const list = table?.orders || [];
+  if (!singleOrderId) return list;
+  return list.filter((o) => o.id === singleOrderId);
+}
+
 function orderItemsToCart(order, productsById) {
   return (order.items || []).map((it) => {
     const product = productsById.get(it.product_id);
@@ -179,6 +186,7 @@ export default function POSPanel() {
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [discountConfig, setDiscountConfig] = useState({ active: false, applied: false, type: 'amount', value: '', reason: '' });
   const [showMenu, setShowMenu] = useState(false);
+  const [viewOrdersModal, setViewOrdersModal] = useState(null);
   const [quickSaleMode, setQuickSaleMode] = useState(false);
   const [products, setProducts] = useState([]);
   const [modifiers, setModifiers] = useState([]);
@@ -1117,6 +1125,38 @@ export default function POSPanel() {
     }
   };
 
+  /** Modificar pedido: carrito vacío → anular pedido y liberar mesa si no quedan pedidos activos. */
+  const liberarMesaDesdeEdicionPedidoVacio = async () => {
+    if (!editingOrderId || !selectedTable) return;
+    const ok = window.confirm(
+      '¿Anular este pedido sin productos y marcar la mesa como libre si no quedan otros pedidos activos?'
+    );
+    if (!ok) return;
+    const tid = toast.loading('Liberando mesa…');
+    try {
+      await api.put(`/orders/${editingOrderId}/status`, {
+        status: 'cancelled',
+        cancellation_reason: 'Pedido vaciado desde caja — liberar mesa',
+      });
+      if (!isClientCheckoutTable(selectedTable) && !isDeliveryCheckoutTable(selectedTable) && selectedTable.id) {
+        const updatedTable = await api.get(`/tables/${selectedTable.id}`);
+        const remaining = (updatedTable.orders || []).filter((o) =>
+          ['pending', 'preparing', 'ready'].includes(String(o.status || ''))
+        );
+        if (remaining.length === 0) {
+          await api.patch(`/tables/${selectedTable.id}/status`, { status: 'available' });
+        }
+      }
+      toast.success('Pedido anulado. Mesa liberada si no había otros pedidos activos.', { id: tid });
+      setShowMenu(false);
+      setEditingOrderId('');
+      resetCart();
+      loadData();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo completar', { id: tid });
+    }
+  };
+
   const openQuickSaleMenu = () => {
     setQuickSaleMode(true);
     setEditingOrderId('');
@@ -1135,7 +1175,12 @@ export default function POSPanel() {
   const quickSaleMissing = Math.max(0, cartTotal - receivedAmount);
 
   const submitOrder = async () => {
-    if (cart.length === 0) return toast.error('Agrega productos al pedido');
+    if (cart.length === 0) {
+      if (editingOrderId) {
+        return toast.error('Quitaste todos los productos. Pulsa «Liberar mesa» para anular el pedido.');
+      }
+      return toast.error('Agrega productos al pedido');
+    }
     const missingRequiredNote = cart.find(i => Number(i.note_required || 0) === 1 && !String(i.notes || '').trim());
     if (missingRequiredNote) {
       setNoteEditorLineKey(missingRequiredNote.line_key);
@@ -1832,6 +1877,15 @@ export default function POSPanel() {
                 </button>
                 <button
                   type="button"
+                  title="Ver pedido"
+                  onClick={() => setViewOrdersModal({ table: tableDetail, orderId: null })}
+                  disabled={!tableDetail.orders?.length}
+                  className="shrink-0 w-11 h-11 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200/80"
+                >
+                  <MdVisibility className="text-xl" />
+                </button>
+                <button
+                  type="button"
                   title="Modificar pedido"
                   onClick={openEditOrderFromToolbar}
                   disabled={
@@ -1859,6 +1913,14 @@ export default function POSPanel() {
                       <span className="text-xs text-slate-500 ml-2 capitalize">{o.status}</span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        title="Ver pedido"
+                        onClick={() => setViewOrdersModal({ table: tableDetail, orderId: o.id })}
+                        className="p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+                      >
+                        <MdVisibility className="text-lg" />
+                      </button>
                       <button
                         type="button"
                         title="Modificar pedido"
@@ -2342,7 +2404,15 @@ export default function POSPanel() {
                     <MdReceipt /> Guardar cambios
                   </button>
                 </>
-              ) : null
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void liberarMesaDesdeEdicionPedidoVacio()}
+                  className="w-full py-3 rounded-lg text-base font-semibold border border-amber-400/60 bg-amber-950/50 text-amber-100 hover:bg-amber-900/60 flex items-center justify-center gap-2"
+                >
+                  <MdTableRestaurant /> Liberar mesa
+                </button>
+              )
             }
           />
         ) : selectedTable ? (
@@ -2419,6 +2489,55 @@ export default function POSPanel() {
           />
         )}
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(viewOrdersModal?.table)}
+        onClose={() => setViewOrdersModal(null)}
+        title={(() => {
+          const t = viewOrdersModal?.table;
+          if (!t) return 'Pedidos';
+          const rows = ordersForViewModal(t, viewOrdersModal.orderId);
+          const one = rows.length === 1 ? rows[0] : null;
+          if (one) return `Pedido #${one.order_number} — ${t.name || ''}`;
+          return `Pedidos — ${t.name || ''}`;
+        })()}
+        size="md"
+        variant="light"
+      >
+        {viewOrdersModal?.table ? (
+          <div className="max-h-[min(70vh,480px)] overflow-y-auto space-y-3 pr-1">
+            {ordersForViewModal(viewOrdersModal.table, viewOrdersModal.orderId).map((o) => (
+              <div key={o.id} className="rounded-lg border border-slate-200 bg-slate-50/90 p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200/80 pb-2">
+                  <span className="font-semibold text-slate-800">Pedido #{o.order_number}</span>
+                  <span className="text-sm font-bold text-slate-800">{formatCurrency(getOrderChargeTotal(o))}</span>
+                </div>
+                <p className="mt-1 text-xs capitalize text-slate-500">{String(o.status || '')}</p>
+                <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
+                  {(o.items || []).length === 0 ? (
+                    <li className="text-slate-500">Sin productos en este pedido.</li>
+                  ) : (
+                    (o.items || []).map((it, idx) => (
+                      <li key={it.id || `${o.id}-${idx}`} className="flex justify-between gap-2 border-b border-slate-100/80 pb-1 last:border-0 last:pb-0">
+                        <span className="min-w-0">
+                          <span className="font-medium text-slate-800">{it.product_name || 'Producto'}</span>
+                          <span className="text-slate-500"> × {Number(it.quantity || 0)}</span>
+                        </span>
+                        <span className="shrink-0 tabular-nums font-medium">
+                          {formatCurrency(Number(it.unit_price || 0) * Number(it.quantity || 0))}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            ))}
+            {ordersForViewModal(viewOrdersModal.table, viewOrdersModal.orderId).length === 0 && (
+              <p className="text-center text-slate-500 py-6">No hay pedidos para mostrar.</p>
+            )}
+          </div>
+        ) : null}
       </Modal>
 
       <StaffModifierPromptModal
