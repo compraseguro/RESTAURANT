@@ -2501,28 +2501,27 @@ export default function POSPanel() {
           return `Pedidos — ${t.name || ''}`;
         })()}
         size="md"
-        variant="light"
       >
         {viewOrdersModal?.table ? (
-          <div className="max-h-[min(70vh,480px)] overflow-y-auto space-y-3 pr-1">
+          <div className="max-h-[min(70vh,480px)] overflow-y-auto space-y-3 pr-1 text-[#E5E7EB]">
             {ordersForViewModal(viewOrdersModal.table, viewOrdersModal.orderId).map((o) => (
-              <div key={o.id} className="rounded-lg border border-slate-200 bg-slate-50/90 p-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200/80 pb-2">
-                  <span className="font-semibold text-slate-800">Pedido #{o.order_number}</span>
-                  <span className="text-sm font-bold text-slate-800">{formatCurrency(getOrderChargeTotal(o))}</span>
+              <div key={o.id} className="rounded-lg border border-[#3B82F6]/25 bg-[#111827]/80 p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#3B82F6]/20 pb-2">
+                  <span className="font-semibold text-white">Pedido #{o.order_number}</span>
+                  <span className="text-sm font-bold text-[#BFDBFE]">{formatCurrency(getOrderChargeTotal(o))}</span>
                 </div>
-                <p className="mt-1 text-xs capitalize text-slate-500">{String(o.status || '')}</p>
-                <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
+                <p className="mt-1 text-xs capitalize text-[#9CA3AF]">{String(o.status || '')}</p>
+                <ul className="mt-2 space-y-1.5 text-sm text-[#D1D5DB]">
                   {(o.items || []).length === 0 ? (
-                    <li className="text-slate-500">Sin productos en este pedido.</li>
+                    <li className="text-[#9CA3AF]">Sin productos en este pedido.</li>
                   ) : (
                     (o.items || []).map((it, idx) => (
-                      <li key={it.id || `${o.id}-${idx}`} className="flex justify-between gap-2 border-b border-slate-100/80 pb-1 last:border-0 last:pb-0">
+                      <li key={it.id || `${o.id}-${idx}`} className="flex justify-between gap-2 border-b border-[#374151]/80 pb-1 last:border-0 last:pb-0">
                         <span className="min-w-0">
-                          <span className="font-medium text-slate-800">{it.product_name || 'Producto'}</span>
-                          <span className="text-slate-500"> × {Number(it.quantity || 0)}</span>
+                          <span className="font-medium text-white">{it.product_name || 'Producto'}</span>
+                          <span className="text-[#9CA3AF]"> × {Number(it.quantity || 0)}</span>
                         </span>
-                        <span className="shrink-0 tabular-nums font-medium">
+                        <span className="shrink-0 tabular-nums font-medium text-[#BFDBFE]">
                           {formatCurrency(Number(it.unit_price || 0) * Number(it.quantity || 0))}
                         </span>
                       </li>
@@ -2532,7 +2531,7 @@ export default function POSPanel() {
               </div>
             ))}
             {ordersForViewModal(viewOrdersModal.table, viewOrdersModal.orderId).length === 0 && (
-              <p className="text-center text-slate-500 py-6">No hay pedidos para mostrar.</p>
+              <p className="text-center text-[#9CA3AF] py-6">No hay pedidos para mostrar.</p>
             )}
           </div>
         ) : null}
