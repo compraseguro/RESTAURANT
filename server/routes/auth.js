@@ -11,7 +11,7 @@ const { getActiveCajaById } = require('../cajaSettings');
 
 const router = express.Router();
 
-const UI_THEME_IDS = new Set(['light', 'dark', 'blue', 'gray', 'purple']);
+const UI_THEME_IDS = new Set(['light', 'dark', 'blue', 'gray', 'purple', 'green']);
 
 function readUiThemeFromStoredSettings() {
   const row = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);

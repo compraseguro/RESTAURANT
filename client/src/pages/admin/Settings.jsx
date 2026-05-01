@@ -135,7 +135,7 @@ const DEFAULT_APP_SETTINGS = {
     requiere_foto_fin_jornada: 0,
     requiere_foto_asistencia: 0,
   },
-  /** Tema visual del panel: light | dark | blue | gray | purple */
+  /** Tema visual del panel: light | dark | blue | gray | purple | green */
   ui_theme: 'blue',
 };
 

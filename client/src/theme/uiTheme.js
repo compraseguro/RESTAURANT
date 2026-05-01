@@ -6,6 +6,7 @@ export const UI_THEME_OPTIONS = [
   { id: 'blue', label: 'Azul', description: 'Tema por defecto del sistema' },
   { id: 'gray', label: 'Gris', description: 'Intermedio neutro' },
   { id: 'purple', label: 'Morado oscuro', description: 'Acentos violeta' },
+  { id: 'green', label: 'Verde esmeralda', description: 'Fondos oscuros y acentos verde' },
 ];
 
 export const UI_THEME_IDS = UI_THEME_OPTIONS.map((t) => t.id);

@@ -114,6 +114,28 @@ html[data-ui-theme='purple'] {
   color-scheme: dark;
 }
 
+html[data-ui-theme='green'] {
+  --ui-body-bg: #022c22;
+  --ui-body-text: #ecfdf5;
+  --ui-muted: #6ee7b7;
+  --ui-surface: #065f46;
+  --ui-surface-2: #047857;
+  --ui-border: rgba(52, 211, 153, 0.35);
+  --ui-accent: #10b981;
+  --ui-accent-hover: #059669;
+  --ui-accent-muted: #34d399;
+  --ui-input-bg: #065f46;
+  --ui-input-border: rgba(52, 211, 153, 0.4);
+  --ui-focus-ring: #34d399;
+  --ui-sidebar-active-bg: rgba(16, 185, 129, 0.28);
+  --ui-sidebar-hover: rgba(16, 185, 129, 0.16);
+  --ui-sidebar-border: rgba(52, 211, 153, 0.28);
+  --ui-logo-from: #34d399;
+  --ui-logo-to: #047857;
+  --ui-btn-secondary-hover: rgba(255, 255, 255, 0.08);
+  color-scheme: dark;
+}
+
 @layer base {
   body {
     @apply antialiased;

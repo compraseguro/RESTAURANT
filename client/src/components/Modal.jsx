@@ -3,7 +3,7 @@ import { useIsUiThemeLight } from '../theme/useUiTheme';
 
 /**
  * Modales centrados por defecto. Con tema global «claro», el panel usa superficie clara aunque variant sea oscuro.
- * Usa variant="light" en rutas de cliente; variant por defecto sigue siendo oscuro en temas blue/dark/gray/purple.
+ * Usa variant="light" en rutas de cliente; variant por defecto sigue siendo oscuro en temas blue/dark/gray/purple/green.
  */
 export default function Modal({
   isOpen,
