@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, formatCurrency, formatInsumoQty, formatInsumoWithUnit } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -89,6 +89,115 @@ function isInsumosWarehouse(warehouse) {
   return String(warehouse.name || '').toLowerCase().includes('insumos');
 }
 
+function isRequirementInsumoRow(item) {
+  return String(item?.item_type || 'product') === 'insumo';
+}
+
+function CreateProductModal({
+  isOpen,
+  onClose,
+  itemForm,
+  setItemForm,
+  categoryOptionsForCreate,
+  getCategoryIdByType,
+  warehouses,
+  handleCreateItem,
+}) {
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Nuevo producto" size="sm" placement="right">
+      <form onSubmit={handleCreateItem} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+          <input
+            value={itemForm.name}
+            onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
+            className="input-field"
+            required
+            placeholder="Ej: Gaseosa 500ml o Harina x Kg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+          <input
+            value={itemForm.description}
+            onChange={e => setItemForm({ ...itemForm, description: e.target.value })}
+            className="input-field"
+            placeholder="Descripción breve"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Precio</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={itemForm.price}
+              onChange={e => setItemForm({ ...itemForm, price: e.target.value })}
+              className="input-field"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Stock</label>
+            <input
+              type="number"
+              min="0"
+              value={itemForm.stock}
+              onChange={e => setItemForm({ ...itemForm, stock: e.target.value })}
+              className="input-field"
+              required
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Categoría de producto</label>
+          <select
+            value={itemForm.category_id}
+            onChange={e => setItemForm({ ...itemForm, category_id: e.target.value })}
+            className="input-field"
+          >
+            <option value="">Sin categoría (solo almacén)</option>
+            {categoryOptionsForCreate.length === 0 && (
+              <option value="">No hay categorías disponibles</option>
+            )}
+            {categoryOptionsForCreate.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.id === getCategoryIdByType('products') ? 'PRODUCTOS ALMACEN (solo almacén)' : c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Almacén destino</label>
+          <select
+            value={itemForm.stock_warehouse}
+            onChange={e => setItemForm({ ...itemForm, stock_warehouse: e.target.value })}
+            className="input-field"
+          >
+            {warehouses.map(w => (
+              <option key={w.id} value={w.id}>{w.name}</option>
+            ))}
+          </select>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={Number(itemForm.note_required || 0) === 1}
+            onChange={(e) => setItemForm({ ...itemForm, note_required: e.target.checked ? 1 : 0 })}
+            className="rounded"
+          />
+          <span>Nota obligatoria al pedir</span>
+        </label>
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancelar</button>
+          <button type="submit" className="btn-primary flex-1">Guardar</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 const ALMACEN_VIEWS = [
   { id: 'movimiento_interno', label: 'Movimiento interno' },
   { id: 'ir_modulo_logistica', label: 'Inventario y kardex' },
@@ -125,6 +234,15 @@ export default function Almacen() {
   const [selectedRequirementIds, setSelectedRequirementIds] = useState([]);
   const [latestRequirement, setLatestRequirement] = useState(null);
   const [receptionForm, setReceptionForm] = useState({});
+  const [receptionExtraLines, setReceptionExtraLines] = useState([]);
+  const [showReceptionAddModal, setShowReceptionAddModal] = useState(false);
+  const [receptionAddDraft, setReceptionAddDraft] = useState({
+    product_id: '',
+    warehouse_id: '',
+    quantity: '1',
+    unit_cost: '0',
+  });
+  const [createModalAfterReception, setCreateModalAfterReception] = useState(false);
   const [receptionNotes, setReceptionNotes] = useState('');
   const [expenseHistory, setExpenseHistory] = useState([]);
   const [kardexBajoMin, setKardexBajoMin] = useState([]);
@@ -151,6 +269,18 @@ export default function Almacen() {
     ...categories.filter(c => (c.name || '').toUpperCase() === WAREHOUSE_CATEGORY_NAMES.supplies),
   ];
   const principalWarehouse = warehouses.find(w => w.name === 'Almacen Principal') || warehouses[0];
+  const receptionProductPicker = useMemo(() => {
+    const reqProductIds = new Set(
+      (latestRequirement?.items || [])
+        .filter((i) => !isRequirementInsumoRow(i))
+        .map((i) => i.product_id)
+    );
+    const extraIds = new Set(receptionExtraLines.map((l) => l.product_id));
+    return products
+      .filter((p) => !reqProductIds.has(p.id) && !extraIds.has(p.id))
+      .slice()
+      .sort((a, b) => String(a.name || '').localeCompare(b.name || '', 'es'));
+  }, [latestRequirement, products, receptionExtraLines]);
   const sameWarehouseId = (a, b) => String(a || '') === String(b || '');
   const getDefaultCreateWarehouseId = () => {
     if (selectedWarehouseView && warehouses.some(w => sameWarehouseId(w.id, selectedWarehouseView))) {
@@ -205,6 +335,11 @@ export default function Almacen() {
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (activeView === 'recepcion') {
+      setReceptionExtraLines([]);
+    }
+  }, [activeView]);
   useEffect(() => {
     const loadViewData = async () => {
       try {
@@ -424,6 +559,20 @@ export default function Almacen() {
         });
       }
       toast.success('Producto creado');
+      if (createModalAfterReception) {
+        setCreateModalAfterReception(false);
+        setReceptionExtraLines((prev) => [
+          ...prev,
+          {
+            lineId: `rx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            product_id: created.id,
+            product_name: created.name || itemForm.name,
+            warehouse_id: String(selectedWarehouseId || principalWarehouse?.id || ''),
+            quantity: '1',
+            unit_cost: String(parseFloat(itemForm.price || '0') || 0),
+          },
+        ]);
+      }
       setShowCreateModal(false);
       setItemForm({
         name: '',
@@ -593,7 +742,25 @@ export default function Almacen() {
       toast.error('No hay requerimiento disponible');
       return;
     }
-    const payloadItems = (latestRequirement.items || [])
+    const requirementProductIds = new Set(
+      (latestRequirement.items || [])
+        .filter((i) => !isRequirementInsumoRow(i))
+        .map((i) => i.product_id)
+    );
+    const seenExtra = new Set();
+    for (const line of receptionExtraLines) {
+      if (requirementProductIds.has(line.product_id)) {
+        toast.error(`"${line.product_name}" ya está en el requerimiento; ajusta esa fila.`);
+        return;
+      }
+      if (seenExtra.has(line.product_id)) {
+        toast.error('Hay productos adicionales duplicados; elimina la fila repetida.');
+        return;
+      }
+      seenExtra.add(line.product_id);
+    }
+
+    const payloadFromReq = (latestRequirement.items || [])
       .map(item => {
         const draft = receptionForm[item.product_id] || {};
         return {
@@ -604,6 +771,15 @@ export default function Almacen() {
         };
       })
       .filter(item => item.quantity > 0);
+
+    const payloadExtra = receptionExtraLines.map((line) => ({
+      product_id: line.product_id,
+      warehouse_id: line.warehouse_id || principalWarehouse?.id || '',
+      quantity: Number(line.quantity || 0),
+      unit_cost: Number(line.unit_cost || 0),
+    })).filter((item) => item.quantity > 0);
+
+    const payloadItems = [...payloadFromReq, ...payloadExtra];
 
     if (!payloadItems.length) {
       toast.error('Ingresa cantidades para recepcionar');
@@ -623,6 +799,7 @@ export default function Almacen() {
       });
       toast.success('Recepción registrada');
       setReceptionNotes('');
+      setReceptionExtraLines([]);
       const [requirement, expenses] = await Promise.all([
         api.get('/inventory/requirements/latest?status=pending'),
         api.get('/inventory/expenses'),
@@ -633,6 +810,63 @@ export default function Almacen() {
     } catch (err) {
       toast.error(err.message || 'No se pudo registrar recepción');
     }
+  };
+
+  const openReceptionAddModal = () => {
+    if (!latestRequirement?.items?.length) {
+      toast.error('No hay requerimiento pendiente. Cree uno en Requerimiento.');
+      return;
+    }
+    setReceptionAddDraft({
+      product_id: '',
+      warehouse_id: String(principalWarehouse?.id || warehouses[0]?.id || ''),
+      quantity: '1',
+      unit_cost: '0',
+    });
+    setShowReceptionAddModal(true);
+  };
+
+  const confirmReceptionAddLine = () => {
+    const pid = receptionAddDraft.product_id;
+    if (!pid) return toast.error('Selecciona un producto');
+    const qty = Number(receptionAddDraft.quantity || 0);
+    const cost = Number(receptionAddDraft.unit_cost || 0);
+    if (qty <= 0) return toast.error('La cantidad debe ser mayor a 0');
+    if (cost <= 0) return toast.error('Indica el costo de compra unitario');
+    const requirementProductIds = new Set(
+      (latestRequirement?.items || [])
+        .filter((i) => !isRequirementInsumoRow(i))
+        .map((i) => i.product_id)
+    );
+    if (requirementProductIds.has(pid)) {
+      return toast.error('Este producto ya está en el requerimiento');
+    }
+    if (receptionExtraLines.some((l) => l.product_id === pid)) {
+      return toast.error('Este producto ya está en la lista adicional');
+    }
+    const prod = products.find((p) => p.id === pid);
+    setReceptionExtraLines((prev) => [
+      ...prev,
+      {
+        lineId: `rx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        product_id: pid,
+        product_name: prod?.name || 'Producto',
+        warehouse_id: String(receptionAddDraft.warehouse_id || principalWarehouse?.id || ''),
+        quantity: String(qty),
+        unit_cost: String(cost),
+      },
+    ]);
+    setShowReceptionAddModal(false);
+  };
+
+  const updateReceptionExtraField = (lineId, field, value) => {
+    setReceptionExtraLines((prev) =>
+      prev.map((line) => (line.lineId === lineId ? { ...line, [field]: value } : line))
+    );
+  };
+
+  const removeReceptionExtraLine = (lineId) => {
+    setReceptionExtraLines((prev) => prev.filter((l) => l.lineId !== lineId));
   };
 
   const calcReceptionTotal = (productId) => {
@@ -647,6 +881,7 @@ export default function Almacen() {
 
   if (activeView !== 'movimiento_interno') {
     return (
+      <>
       <div>
         <div className="flex items-center justify-between mb-5">
           <h1 className="text-2xl font-bold text-[var(--ui-body-text)]">Almacenes e Inventario · {activeViewLabel}</h1>
@@ -665,7 +900,10 @@ export default function Almacen() {
         {activeView === 'recepcion' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
             <h3 className="font-bold text-slate-800 mb-2">Recepción de mercadería</h3>
-            <p className="text-slate-500 mb-4">Se usa el último requerimiento descargado. Ingresa cantidad y costo para recepcionar compra.</p>
+            <p className="text-slate-500 mb-4">
+              Se usa el último requerimiento descargado. Ingresa cantidad y costo para recepcionar compra.
+              Puedes <strong>agregar productos adicionales</strong> no incluidos en el requerimiento (existente o nuevo).
+            </p>
             {!latestRequirement?.items?.length ? (
               <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-4">
                 No hay requerimientos descargados. Primero crea uno en Requerimiento.
@@ -674,6 +912,11 @@ export default function Almacen() {
               <div className="space-y-4">
                 <div className="text-xs text-slate-500">
                   Requerimiento: <strong>{latestRequirement.id?.slice(0, 8)}</strong> · Estado: <strong>{latestRequirement.status}</strong>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="btn-secondary text-sm flex items-center gap-1" onClick={openReceptionAddModal}>
+                    <MdAdd className="text-lg" /> Agregar producto adicional
+                  </button>
                 </div>
                 <div className="overflow-x-auto border border-slate-200 rounded-lg">
                   <table className="w-full text-sm">
@@ -685,6 +928,7 @@ export default function Almacen() {
                         <th className="text-left p-2.5 font-medium">Cantidad compra</th>
                         <th className="text-left p-2.5 font-medium">Costo compra</th>
                         <th className="text-left p-2.5 font-medium">Total</th>
+                        <th className="text-left p-2.5 font-medium w-24"> </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -713,6 +957,60 @@ export default function Almacen() {
                             />
                           </td>
                           <td className="p-2.5 font-semibold text-slate-700">{formatCurrency(calcReceptionTotal(item.product_id))}</td>
+                          <td className="p-2.5" />
+                        </tr>
+                      ))}
+                      {receptionExtraLines.map((line) => (
+                        <tr key={line.lineId} className="border-b border-slate-100 bg-sky-50/40">
+                          <td className="p-2.5 font-medium text-slate-800">
+                            {line.product_name}
+                            <span className="ml-2 text-[10px] uppercase tracking-wide text-sky-700 font-semibold">Adicional</span>
+                          </td>
+                          <td className="p-2.5 text-sky-600 font-semibold">
+                            {products.find((p) => p.id === line.product_id)?.stock ?? '—'}
+                          </td>
+                          <td className="p-2.5 text-slate-600">
+                            <select
+                              className="input-field py-1.5 text-sm"
+                              value={line.warehouse_id}
+                              onChange={(e) => updateReceptionExtraField(line.lineId, 'warehouse_id', e.target.value)}
+                            >
+                              {warehouses.map((w) => (
+                                <option key={w.id} value={w.id}>{w.name}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="p-2.5">
+                            <input
+                              type="number"
+                              min="0"
+                              value={line.quantity}
+                              onChange={(e) => updateReceptionExtraField(line.lineId, 'quantity', e.target.value)}
+                              className="input-field py-1.5"
+                            />
+                          </td>
+                          <td className="p-2.5">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={line.unit_cost}
+                              onChange={(e) => updateReceptionExtraField(line.lineId, 'unit_cost', e.target.value)}
+                              className="input-field py-1.5"
+                            />
+                          </td>
+                          <td className="p-2.5 font-semibold text-slate-700">
+                            {formatCurrency((Number(line.quantity || 0)) * (Number(line.unit_cost || 0)))}
+                          </td>
+                          <td className="p-2.5">
+                            <button
+                              type="button"
+                              className="text-xs text-red-600 hover:underline"
+                              onClick={() => removeReceptionExtraLine(line.lineId)}
+                            >
+                              Quitar
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -775,6 +1073,111 @@ export default function Almacen() {
         )}
 
         {activeView === 'ir_modulo_logistica' && <LogisticaKardexModule />}
+        <CreateProductModal
+          isOpen={showCreateModal}
+          onClose={() => {
+            setShowCreateModal(false);
+            setCreateModalAfterReception(false);
+          }}
+          itemForm={itemForm}
+          setItemForm={setItemForm}
+          categoryOptionsForCreate={categoryOptionsForCreate}
+          getCategoryIdByType={getCategoryIdByType}
+          warehouses={warehouses}
+          handleCreateItem={handleCreateItem}
+        />
+        <Modal
+          isOpen={showReceptionAddModal}
+          onClose={() => setShowReceptionAddModal(false)}
+          title="Producto adicional (fuera del requerimiento)"
+          size="md"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Para artículos comprados que no estaban en el requerimiento: elija un producto de almacén ya registrado o use «Crear producto nuevo».
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Producto</label>
+              <select
+                className="input-field"
+                value={receptionAddDraft.product_id}
+                onChange={(e) => setReceptionAddDraft((d) => ({ ...d, product_id: e.target.value }))}
+              >
+                <option value="">— Seleccionar —</option>
+                {receptionProductPicker.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              {receptionProductPicker.length === 0 && (
+                <p className="text-xs text-amber-700 mt-1">
+                  No hay más productos para elegir aquí. Use «Crear producto nuevo».
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Almacén de ingreso</label>
+              <select
+                className="input-field"
+                value={receptionAddDraft.warehouse_id}
+                onChange={(e) => setReceptionAddDraft((d) => ({ ...d, warehouse_id: e.target.value }))}
+              >
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cantidad</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="input-field"
+                  value={receptionAddDraft.quantity}
+                  onChange={(e) => setReceptionAddDraft((d) => ({ ...d, quantity: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Costo unitario</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="input-field"
+                  value={receptionAddDraft.unit_cost}
+                  onChange={(e) => setReceptionAddDraft((d) => ({ ...d, unit_cost: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <button
+                type="button"
+                className="btn-secondary text-sm"
+                onClick={() => {
+                  setShowReceptionAddModal(false);
+                  setItemForm((prev) => ({
+                    ...prev,
+                    stock_warehouse: String(
+                      receptionAddDraft.warehouse_id || principalWarehouse?.id || getDefaultCreateWarehouseId()
+                    ),
+                  }));
+                  setCreateModalAfterReception(true);
+                  setShowCreateModal(true);
+                }}
+              >
+                Crear producto nuevo…
+              </button>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" className="btn-secondary flex-1" onClick={() => setShowReceptionAddModal(false)}>
+                Cancelar
+              </button>
+              <button type="button" className="btn-primary flex-1" onClick={confirmReceptionAddLine}>
+                Añadir a la tabla
+              </button>
+            </div>
+          </div>
+        </Modal>
         <Modal
           isOpen={showRequirementModal}
           onClose={() => setShowRequirementModal(false)}
@@ -844,6 +1247,7 @@ export default function Almacen() {
           </div>
         </Modal>
       </div>
+      </>
     );
   }
 
@@ -1138,103 +1542,19 @@ export default function Almacen() {
         </div>
       </Modal>
 
-      <Modal
+      <CreateProductModal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        title="Nuevo producto"
-        size="sm"
-        placement="right"
-      >
-        <form onSubmit={handleCreateItem} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
-            <input
-              value={itemForm.name}
-              onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
-              className="input-field"
-              required
-              placeholder="Ej: Gaseosa 500ml o Harina x Kg"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
-            <input
-              value={itemForm.description}
-              onChange={e => setItemForm({ ...itemForm, description: e.target.value })}
-              className="input-field"
-              placeholder="Descripción breve"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Precio</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={itemForm.price}
-                onChange={e => setItemForm({ ...itemForm, price: e.target.value })}
-                className="input-field"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Stock</label>
-              <input
-                type="number"
-                min="0"
-                value={itemForm.stock}
-                onChange={e => setItemForm({ ...itemForm, stock: e.target.value })}
-                className="input-field"
-                required
-              />
-            </div>
-          </div>
-          <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Categoría de producto</label>
-              <select
-                value={itemForm.category_id}
-                onChange={e => setItemForm({ ...itemForm, category_id: e.target.value })}
-                className="input-field"
-              >
-                <option value="">Sin categoría (solo almacén)</option>
-                {categoryOptionsForCreate.length === 0 && (
-                  <option value="">No hay categorías disponibles</option>
-                )}
-                {categoryOptionsForCreate.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.id === getCategoryIdByType('products') ? 'PRODUCTOS ALMACEN (solo almacén)' : c.name}
-                  </option>
-                ))}
-              </select>
-          </div>
-          <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Almacén destino</label>
-              <select
-                value={itemForm.stock_warehouse}
-                onChange={e => setItemForm({ ...itemForm, stock_warehouse: e.target.value })}
-                className="input-field"
-              >
-                {warehouses.map(w => (
-                  <option key={w.id} value={w.id}>{w.name}</option>
-                ))}
-              </select>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={Number(itemForm.note_required || 0) === 1}
-              onChange={(e) => setItemForm({ ...itemForm, note_required: e.target.checked ? 1 : 0 })}
-              className="rounded"
-            />
-            <span>Nota obligatoria al pedir</span>
-          </label>
-          <div className="flex gap-3">
-            <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary flex-1">Cancelar</button>
-            <button type="submit" className="btn-primary flex-1">Guardar</button>
-          </div>
-        </form>
-      </Modal>
+        onClose={() => {
+          setShowCreateModal(false);
+          setCreateModalAfterReception(false);
+        }}
+        itemForm={itemForm}
+        setItemForm={setItemForm}
+        categoryOptionsForCreate={categoryOptionsForCreate}
+        getCategoryIdByType={getCategoryIdByType}
+        warehouses={warehouses}
+        handleCreateItem={handleCreateItem}
+      />
 
       <Modal
         isOpen={showWarehouseModal}
