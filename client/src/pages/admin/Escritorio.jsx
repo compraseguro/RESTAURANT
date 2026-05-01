@@ -324,7 +324,7 @@ export default function Escritorio() {
     const stationCfg = station === 'bar' ? printConfig?.bar : printConfig?.cocina;
     const width = [58, 80].includes(Number(stationCfg?.width_mm)) ? Number(stationCfg.width_mm) : 80;
     const copies = Math.min(5, Math.max(1, Number(stationCfg?.copies || 1)));
-    const ticketWidth = width === 58 ? '50mm' : '72mm';
+    const ticketWidth = width === 58 ? '54mm' : '76mm';
     const title = `${station === 'bar' ? 'Comandas pendientes - Bar' : 'Comandas pendientes - Cocina'} · ${scope === 'delivery' ? 'Delivery' : scope === 'salon' ? 'Mesas/Salón' : 'Todas'}`;
     const stationKey = station === 'bar' ? 'bar' : 'cocina';
     if (shouldSendToNetworkPrinter(stationCfg)) {
@@ -374,15 +374,16 @@ export default function Escritorio() {
       <head>
         <title>${title}</title>
         <style>
-          @page { size: ${width}mm auto; margin: 3mm; }
-          body { font-family: 'Courier New', monospace; width: ${ticketWidth}; margin: 0; font-size: 11px; line-height: 1.3; }
+          @page { size: ${width}mm auto; margin: 2mm; }
+          body { font-family: 'Courier New', Courier, monospace; width: ${ticketWidth}; max-width: 100%; margin: 0; font-size: 15px; line-height: 1.45; font-weight: 600; }
+          h2 { font-size: 19px; font-weight: 800; }
         </style>
       </head>
       <body>
-        <h2 style="margin:0 0 4px 0;">${restaurantInfo?.name || 'Resto-FADEY'}</h2>
-        <p style="margin:0;font-size:10px;">${restaurantInfo?.address || ''}</p>
-        <p style="margin:0 0 6px 0;font-size:10px;">${restaurantInfo?.phone || ''}</p>
-        <h2 style="margin:0 0 6px 0;">${title}</h2>
+        <h2 style="margin:0 0 6px 0;">${restaurantInfo?.name || 'Resto-FADEY'}</h2>
+        <p style="margin:0;font-size:12px;">${restaurantInfo?.address || ''}</p>
+        <p style="margin:0 0 8px 0;font-size:12px;">${restaurantInfo?.phone || ''}</p>
+        <h2 style="margin:0 0 8px 0;">${title}</h2>
         ${repeated}
       </body>
       </html>

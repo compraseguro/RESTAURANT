@@ -147,8 +147,12 @@ function formatPrinterNetworkError(err) {
 
 function sendEscPosToHost(host, port, text, copies) {
   const init = Buffer.from([0x1b, 0x40]);
+  /** ESC ! n — modo carácter: 0x10 altura doble (mejor lectura en térmica 58/80 mm). */
+  const doubleHeightOn = Buffer.from([0x1b, 0x21, 0x10]);
+  const normalSize = Buffer.from([0x1b, 0x21, 0x00]);
   const cut = Buffer.from([0x1d, 0x56, 0x00]);
-  const body = Buffer.from(`${String(text || '')}\n\n`, 'utf8');
+  const textBuf = Buffer.from(`${String(text || '')}\n\n`, 'utf8');
+  const body = Buffer.concat([doubleHeightOn, textBuf, normalSize]);
   const n = Math.min(5, Math.max(1, Number(copies || 1)));
   const chunks = [];
   for (let i = 0; i < n; i += 1) {

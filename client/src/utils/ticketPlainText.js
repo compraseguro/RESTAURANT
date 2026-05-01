@@ -20,6 +20,7 @@ export function buildKitchenTicketPlainText({
   lines.push(clip(title));
   lines.push(new Date().toLocaleString('es-PE'));
   lines.push('================================');
+  lines.push('');
   (orders || []).forEach((order) => {
     const orderTypeLabel =
       order.type === 'delivery' ? 'Delivery' : order.type === 'pickup' ? 'Recojo' : 'Mesa/Salon';
@@ -38,6 +39,7 @@ export function buildKitchenTicketPlainText({
       if (item.notes) line += ` - ${item.notes}`;
       lines.push(line.slice(0, 48));
     });
+    lines.push('');
     lines.push('--------------------------------');
   });
   lines.push('');

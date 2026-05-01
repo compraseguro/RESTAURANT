@@ -127,7 +127,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     const stationConfig = station === 'bar' ? cfgPrinters?.bar : cfgPrinters?.cocina;
     const width = [58, 80].includes(Number(stationConfig?.width_mm)) ? Number(stationConfig.width_mm) : 80;
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
-    const ticketWidth = width === 58 ? '50mm' : '72mm';
+    const ticketWidth = width === 58 ? '54mm' : '76mm';
     const stationKey = isBar ? 'bar' : 'cocina';
     if (shouldSendToNetworkPrinter(stationConfig)) {
       const plain = buildKitchenTicketPlainText({
@@ -168,7 +168,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
         .join('');
       const cliente = isCuentaClienteSelfOrder(order);
       const esc = (s) => String(s || '').replace(/</g, '');
-      const timeSmall = `<small>${formatTime(order.created_at)}</small>`;
+      const timeSmall = `<span style="font-size:13px;font-weight:700">${formatTime(order.created_at)}</span>`;
       let header;
       if (cliente) {
         header = `<strong>${esc(order.customer_name)}</strong><br/><strong>#${order.order_number}</strong> - ${orderTypeLabel}<br/>${timeSmall}`;
@@ -204,7 +204,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     doc.open();
     const repeatedRows = Array.from({ length: copies }).map((_, idx) => `
       <div style="margin-bottom:8px;">
-        ${copies > 1 ? `<p style="margin:0 0 4px 0;font-size:10px;">Copia ${idx + 1} de ${copies}</p>` : ''}
+        ${copies > 1 ? `<p style="margin:0 0 6px 0;font-size:12px;font-weight:700;">Copia ${idx + 1} de ${copies}</p>` : ''}
         ${htmlRows}
       </div>
     `).join('');
@@ -214,18 +214,18 @@ export default function KitchenPanel({ station = 'cocina' }) {
       <head>
         <title>${title}</title>
         <style>
-          @page { size: ${width}mm auto; margin: 3mm; }
-          body { font-family: 'Courier New', monospace; width: ${ticketWidth}; margin: 0; font-size: 11px; line-height: 1.3; }
-          .ticket { border-bottom: 1px dashed #999; padding-bottom: 6px; margin-bottom: 6px; }
-          h2 { font-size: 13px; margin: 0 0 4px 0; }
+          @page { size: ${width}mm auto; margin: 2mm; }
+          body { font-family: 'Courier New', Courier, monospace; width: ${ticketWidth}; max-width: 100%; margin: 0; font-size: 15px; line-height: 1.45; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .ticket { border-bottom: 1px dashed #999; padding-bottom: 8px; margin-bottom: 8px; }
+          h2 { font-size: 19px; font-weight: 800; margin: 0 0 6px 0; letter-spacing: 0.02em; }
           ul { margin: 6px 0 0 12px; padding: 0; }
           li { margin-bottom: 2px; }
         </style>
       </head>
       <body>
         <h2>${cfgRestaurant?.name || 'Resto-FADEY'}</h2>
-        <p style="margin:0;font-size:10px;">${cfgRestaurant?.address || ''}</p>
-        <p style="margin:0 0 6px 0;font-size:10px;">${cfgRestaurant?.phone || ''}</p>
+        <p style="margin:0;font-size:12px;">${cfgRestaurant?.address || ''}</p>
+        <p style="margin:0 0 8px 0;font-size:12px;">${cfgRestaurant?.phone || ''}</p>
         <h2>${title}</h2>
         <p style="margin:0 0 8px 0;">${new Date().toLocaleString()}</p>
         ${repeatedRows}
