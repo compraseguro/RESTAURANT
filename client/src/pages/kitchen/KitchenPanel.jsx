@@ -344,32 +344,27 @@ export default function KitchenPanel({ station = 'cocina' }) {
             {[{ v: 'all', l: 'Todos' }, { v: 'dine_in', l: 'Mesas' }, { v: 'delivery', l: 'Delivery' }].map(f => (
               <button key={f.v} onClick={() => setFilter(f.v)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f.v ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'}`}>{f.l}</button>
             ))}
-            <label
-              title="El ticket sale por TCP (IP:9100) desde el servidor. Si la impresora es solo USB en la laptop, el programa necesita la IP que Windows comparte como impresora en red o un puerto RAW; si no, use imprimir manual y elija la impresora en el diálogo."
-              className="flex flex-col gap-0.5 cursor-pointer text-sm text-[var(--ui-body-text)] border border-[color:var(--ui-border)] rounded-lg px-3 py-2 bg-[var(--ui-surface)] hover:bg-[var(--ui-sidebar-hover)] max-w-md"
+            <button
+              type="button"
+              title="Impresión automática al nuevo pedido. Requiere IP en Configuración → Impresoras; el envío lo hace el servidor por red (TCP), no el navegador."
+              onClick={() => {
+                const v = !autoPrint;
+                setAutoPrint(v);
+                try {
+                  localStorage.setItem(storageKeyAutoPrint, v ? '1' : '0');
+                } catch (_) {
+                  /* noop */
+                }
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 ${
+                autoPrint
+                  ? 'bg-[var(--ui-accent)] text-white shadow-sm'
+                  : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'
+              }`}
             >
-              <span className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="rounded border-[color:var(--ui-border)]"
-                  checked={autoPrint}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setAutoPrint(v);
-                    try {
-                      localStorage.setItem(storageKeyAutoPrint, v ? '1' : '0');
-                    } catch (_) {
-                      /* noop */
-                    }
-                  }}
-                />
-                <MdPrint className="text-[var(--ui-accent-muted)] shrink-0" />
-                <span className="font-medium">Impresión automática al nuevo pedido</span>
-              </span>
-              <span className="text-xs text-[var(--ui-muted)] pl-7 leading-snug">
-                Requiere IP en Configuración → Impresoras (estación correcta). El envío lo hace el servidor en esa red, no el navegador.
-              </span>
-            </label>
+              <MdPrint className={`shrink-0 text-base ${autoPrint ? 'text-white' : 'text-[var(--ui-accent-muted)]'}`} />
+              Automática
+            </button>
           </div>
           <button onClick={() => printQueue('salon')} className="px-3 py-2 bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)] rounded-lg text-sm font-medium flex items-center gap-2">
             <MdPrint /> Imprimir Mesas
