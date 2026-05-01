@@ -290,24 +290,24 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const typeIcons = { dine_in: MdTableBar, delivery: MdDeliveryDining, pickup: MdRestaurant };
 
   return (
-    <div className="min-h-screen bg-[#111827] text-[#F9FAFB]">
-      <header className="bg-[#1F2937]/90 backdrop-blur-xl border-b border-[#3B82F6]/30 px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[var(--ui-body-bg)] text-[var(--ui-body-text)]">
+      <header className="bg-[var(--ui-surface)] backdrop-blur-xl border-b border-[color:var(--ui-border)] px-6 py-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <StationIcon className="text-3xl text-[#F9FAFB]" />
+          <StationIcon className="text-3xl text-[var(--ui-body-text)]" />
           <div>
             <h1 className="text-xl font-bold">{panelTitle}</h1>
-            <p className="text-[#9CA3AF] text-sm">{orders.length} pedidos activos</p>
+            <p className="text-[var(--ui-muted)] text-sm">{orders.length} pedidos activos</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {[{ v: 'all', l: 'Todos' }, { v: 'dine_in', l: 'Mesas' }, { v: 'delivery', l: 'Delivery' }].map(f => (
-              <button key={f.v} onClick={() => setFilter(f.v)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f.v ? 'bg-[#3B82F6] text-white' : 'bg-[#111827]/60 text-[#F9FAFB] hover:bg-[#1F2937] border border-[#3B82F6]/25'}`}>{f.l}</button>
+              <button key={f.v} onClick={() => setFilter(f.v)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f.v ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'}`}>{f.l}</button>
             ))}
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-[#E5E7EB] border border-[#3B82F6]/35 rounded-lg px-3 py-2 bg-[#111827]/80 hover:bg-[#1F2937]">
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-[var(--ui-body-text)] border border-[color:var(--ui-border)] rounded-lg px-3 py-2 bg-[var(--ui-surface)] hover:bg-[var(--ui-sidebar-hover)]">
               <input
                 type="checkbox"
-                className="rounded border-[#3B82F6]/50"
+                className="rounded border-[color:var(--ui-border)]"
                 checked={autoPrint}
                 onChange={(e) => {
                   const v = e.target.checked;
@@ -319,26 +319,26 @@ export default function KitchenPanel({ station = 'cocina' }) {
                   }
                 }}
               />
-              <MdPrint className="text-[#93C5FD] shrink-0" />
+              <MdPrint className="text-[var(--ui-accent-muted)] shrink-0" />
               <span>Impresión automática al nuevo pedido</span>
             </label>
           </div>
-          <button onClick={() => printQueue('salon')} className="px-3 py-2 bg-[#111827]/60 hover:bg-[#1F2937] border border-[#3B82F6]/25 rounded-lg text-sm font-medium flex items-center gap-2">
+          <button onClick={() => printQueue('salon')} className="px-3 py-2 bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)] rounded-lg text-sm font-medium flex items-center gap-2">
             <MdPrint /> Imprimir Mesas
           </button>
-          <button onClick={() => printQueue('delivery')} className="px-3 py-2 bg-[#111827]/60 hover:bg-[#1F2937] border border-[#3B82F6]/25 rounded-lg text-sm font-medium flex items-center gap-2">
+          <button onClick={() => printQueue('delivery')} className="px-3 py-2 bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)] rounded-lg text-sm font-medium flex items-center gap-2">
             <MdPrint /> Imprimir Delivery
           </button>
-          <button onClick={() => printQueue('all')} className="px-3 py-2 bg-[#111827]/60 hover:bg-[#1F2937] border border-[#3B82F6]/25 rounded-lg text-sm font-medium flex items-center gap-2">
+          <button onClick={() => printQueue('all')} className="px-3 py-2 bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)] rounded-lg text-sm font-medium flex items-center gap-2">
             <MdPrint /> Imprimir Todo
           </button>
           {canReturnToAdmin && (
-            <button onClick={() => navigate('/admin')} className="px-3 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg text-white border border-[#3B82F6]/25 text-sm font-medium">
+            <button onClick={() => navigate('/admin')} className="px-3 py-2 bg-[var(--ui-accent)] hover:bg-[var(--ui-accent-hover)] rounded-lg text-white border border-[color:var(--ui-border)] text-sm font-medium">
               Volver al Centro Operativo
             </button>
           )}
           <NotificationCenter />
-          <button type="button" onClick={() => setEndShiftOpen(true)} className="px-3 py-2 hover:bg-[#1F2937] rounded-lg text-[#9CA3AF] hover:text-[#F9FAFB] border border-[#3B82F6]/25 text-sm font-medium inline-flex items-center gap-2">
+          <button type="button" onClick={() => setEndShiftOpen(true)} className="px-3 py-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-body-text)] border border-[color:var(--ui-border)] text-sm font-medium inline-flex items-center gap-2">
             <MdLogout className="text-lg" /> Finalizar jornada
           </button>
         </div>
@@ -356,16 +356,16 @@ export default function KitchenPanel({ station = 'cocina' }) {
               ? 'border-2 border-red-500 shadow-[0_0_24px_rgba(239,68,68,0.22)]'
               : 'border-2 border-red-500/75'
             : order.status === 'pending'
-              ? 'border-2 border-[#3B82F6]/60'
-              : 'border border-[#3B82F6]/25';
-          const cardBg = order.status === 'pending' ? 'bg-[#1F2937]' : 'bg-[#1F2937]/85';
+              ? 'border-2 border-[color:color-mix(in_srgb,var(--ui-accent-muted)_55%,transparent)]'
+              : 'border border-[color:var(--ui-border)]';
+          const cardBg = 'bg-[var(--ui-surface)]';
           const headerBg = isOverdue
             ? order.status === 'pending'
               ? 'bg-red-950/55'
               : 'bg-red-950/40'
             : order.status === 'pending'
-              ? 'bg-[#3B82F6]/20'
-              : 'bg-[#111827]/45';
+              ? 'bg-[var(--ui-sidebar-active-bg)]'
+              : 'bg-[var(--ui-surface-2)]';
 
           return (
             <div key={order.id} className={`rounded-xl overflow-hidden backdrop-blur-xl ${cardBg} ${cardBorder} ${isOverdue ? 'ring-2 ring-red-500/45' : ''}`}>
@@ -373,32 +373,32 @@ export default function KitchenPanel({ station = 'cocina' }) {
                 {cuentaCliente ? (
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-lg font-bold leading-tight text-white" title={order.customer_name}>
+                      <p className="truncate text-lg font-bold leading-tight text-[var(--ui-body-text)]" title={order.customer_name}>
                         {order.customer_name || 'Cliente'}
                       </p>
-                      <p className="mt-1 text-xs text-[#9CA3AF]">Pedido #{order.order_number}</p>
+                      <p className="mt-1 text-xs text-[var(--ui-muted)]">Pedido #{order.order_number}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1 text-sm">
-                      <MdAccessTime className={isOverdue ? 'text-red-400' : 'text-[#9CA3AF]'} />
-                      <span className={isOverdue ? 'font-bold text-red-300' : 'text-[#9CA3AF]'}>{getTimeDiff(order.created_at)}</span>
+                      <MdAccessTime className={isOverdue ? 'text-red-400' : 'text-[var(--ui-muted)]'} />
+                      <span className={isOverdue ? 'font-bold text-red-300' : 'text-[var(--ui-muted)]'}>{getTimeDiff(order.created_at)}</span>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       {order.type === 'delivery' ? (
-                        <span className="text-lg font-bold tracking-tight">Delivery</span>
+                        <span className="text-lg font-bold tracking-tight text-[var(--ui-body-text)]">Delivery</span>
                       ) : (
-                        <span className="text-lg font-bold">#{order.order_number}</span>
+                        <span className="text-lg font-bold text-[var(--ui-body-text)]">#{order.order_number}</span>
                       )}
-                      <TypeIcon className="text-xl shrink-0" />
+                      <TypeIcon className="text-xl shrink-0 text-[var(--ui-body-text)]" />
                       {order.table_number ? (
-                        <span className="rounded border border-[#3B82F6]/25 bg-[#111827]/60 px-2 py-0.5 text-sm">Mesa {order.table_number}</span>
+                        <span className="rounded border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-2 py-0.5 text-sm text-[var(--ui-body-text)]">Mesa {order.table_number}</span>
                       ) : null}
                     </div>
                     <div className="flex items-center gap-1 text-sm">
-                      <MdAccessTime className={isOverdue ? 'text-red-400' : 'text-[#9CA3AF]'} />
-                      <span className={isOverdue ? 'font-bold text-red-300' : 'text-[#9CA3AF]'}>{getTimeDiff(order.created_at)}</span>
+                      <MdAccessTime className={isOverdue ? 'text-red-400' : 'text-[var(--ui-muted)]'} />
+                      <span className={isOverdue ? 'font-bold text-red-300' : 'text-[var(--ui-muted)]'}>{getTimeDiff(order.created_at)}</span>
                     </div>
                   </div>
                 )}
@@ -407,11 +407,11 @@ export default function KitchenPanel({ station = 'cocina' }) {
               <div className="space-y-2 px-4 py-3">
                 {order.items?.map(item => (
                   <div key={item.id} className="flex items-start gap-2">
-                    <span className="bg-[#111827]/60 border border-[#3B82F6]/25 text-[#F9FAFB] w-6 h-6 rounded flex items-center justify-center text-sm font-bold flex-shrink-0">{item.quantity}</span>
+                    <span className="bg-[var(--ui-surface-2)] border border-[color:var(--ui-border)] text-[var(--ui-body-text)] w-6 h-6 rounded flex items-center justify-center text-sm font-bold flex-shrink-0">{item.quantity}</span>
                     <div className="flex-1">
-                      <p className="font-medium text-sm">{item.product_name}</p>
-                      {item.variant_name && <p className="text-xs text-[#9CA3AF]">{item.variant_name}</p>}
-                      {item.notes && <p className="text-xs text-[#9CA3AF] italic">{item.notes}</p>}
+                      <p className="font-medium text-sm text-[var(--ui-body-text)]">{item.product_name}</p>
+                      {item.variant_name && <p className="text-xs text-[var(--ui-muted)]">{item.variant_name}</p>}
+                      {item.notes && <p className="text-xs text-[var(--ui-muted)] italic">{item.notes}</p>}
                     </div>
                   </div>
                 ))}
@@ -419,14 +419,14 @@ export default function KitchenPanel({ station = 'cocina' }) {
                   const noteBlock = getKitchenOrderNotesDisplay(order);
                   if (!noteBlock) return null;
                   return (
-                    <div className="bg-[#111827]/55 border border-[#3B82F6]/25 rounded-lg p-2 mt-2">
-                      <p className="text-xs text-[#F9FAFB] whitespace-pre-line leading-relaxed">{noteBlock}</p>
+                    <div className="bg-[var(--ui-surface-2)] border border-[color:var(--ui-border)] rounded-lg p-2 mt-2">
+                      <p className="text-xs text-[var(--ui-body-text)] whitespace-pre-line leading-relaxed">{noteBlock}</p>
                     </div>
                   );
                 })()}
               </div>
 
-              <div className="px-4 py-3 border-t border-[#3B82F6]/25">
+              <div className="px-4 py-3 border-t border-[color:var(--ui-border)]">
                 {order.status === 'pending' ? (
                   <button onClick={() => updateStatus(order.id, 'preparing')} className="w-full py-2.5 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2">
                     <StationIcon /> PREPARAR
@@ -443,9 +443,9 @@ export default function KitchenPanel({ station = 'cocina' }) {
 
         {orders.length === 0 && (
           <div className="col-span-full text-center py-20">
-            <StationIcon className="text-6xl text-[#9CA3AF] mx-auto mb-4" />
-            <p className="text-xl text-[#F9FAFB]">No hay pedidos pendientes en {isBar ? 'bar' : 'cocina'}</p>
-            <p className="text-[#9CA3AF] mt-2">Los nuevos pedidos aparecerán aquí automáticamente</p>
+            <StationIcon className="text-6xl text-[var(--ui-muted)] mx-auto mb-4" />
+            <p className="text-xl text-[var(--ui-body-text)]">No hay pedidos pendientes en {isBar ? 'bar' : 'cocina'}</p>
+            <p className="text-[var(--ui-muted)] mt-2">Los nuevos pedidos aparecerán aquí automáticamente</p>
           </div>
         )}
       </div>

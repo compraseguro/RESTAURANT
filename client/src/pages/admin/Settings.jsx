@@ -825,8 +825,8 @@ export default function Settings() {
     <div className="flex gap-6 -mt-2">
       {/* Sidebar Menu */}
       <div className="w-72 flex-shrink-0">
-        <div className="bg-[#1F2937] rounded-xl overflow-hidden shadow-lg border border-[#3B82F6]/30">
-          <div className="px-4 py-3 bg-[#2563EB]">
+        <div className="bg-[var(--ui-surface)] rounded-xl overflow-hidden shadow-lg border border-[color:var(--ui-border)]">
+          <div className="px-4 py-3 bg-[var(--ui-accent)]">
             <h2 className="text-white font-bold text-sm flex items-center gap-2">
               <MdSettings className="text-lg" /> Opciones sistema
             </h2>
@@ -841,13 +841,13 @@ export default function Settings() {
                   onClick={() => setActiveSection(item.id)}
                   className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
                     isActive
-                      ? 'bg-[#1D4ED8] text-white font-medium'
-                      : 'text-[#E5E7EB] hover:bg-[#3B82F6]/20 hover:text-white'
+                      ? 'bg-[var(--ui-accent-hover)] text-white font-medium'
+                      : 'text-[var(--ui-muted)] hover:bg-[var(--ui-sidebar-hover)] hover:text-[var(--ui-body-text)]'
                   }`}
                 >
                   <Icon className="text-lg flex-shrink-0" />
                   <span className="flex-1 text-left">{item.label}</span>
-                  <MdChevronRight className={`text-lg flex-shrink-0 ${isActive ? 'text-white' : 'text-[#93C5FD]'}`} />
+                  <MdChevronRight className={`text-lg flex-shrink-0 ${isActive ? 'text-white' : 'text-[var(--ui-accent-muted)]'}`} />
                 </button>
               );
             })}
@@ -861,7 +861,7 @@ export default function Settings() {
           {activeMenu && <activeMenu.icon className="text-2xl text-[var(--ui-accent)]" />}
           <h1 className="text-2xl font-bold text-[var(--ui-body-text)]">{activeMenu?.label || 'Configuración'}</h1>
           {activeSection && PARTIAL_SECTIONS.has(activeSection) && (
-            <span className={`text-xs px-2 py-1 rounded-full ${isSavingAppSettings ? 'bg-[#3B82F6]/20 text-[#F9FAFB]' : hasUnsavedAppSettings ? 'bg-[#1E40AF]/20 text-[#F9FAFB]' : 'bg-[#2563EB]/20 text-[#F9FAFB]'}`}>
+            <span className={`text-xs px-2 py-1 rounded-full border border-[color:var(--ui-border)] ${isSavingAppSettings ? 'bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)]' : hasUnsavedAppSettings ? 'bg-amber-100 text-amber-950 border-amber-200/80' : 'bg-[var(--ui-surface-2)] text-[var(--ui-muted)]'}`}>
               {isSavingAppSettings ? 'Guardando...' : hasUnsavedAppSettings ? 'Cambios sin guardar' : 'Sincronizado'}
             </span>
           )}
@@ -910,7 +910,7 @@ export default function Settings() {
               <p className="text-sm font-semibold text-slate-700">Historial reciente de configuración</p>
               <div className="flex items-center gap-3">
                 <button onClick={exportHistoryCsv} className="text-xs text-emerald-600 hover:underline">Exportar CSV</button>
-                <button onClick={clearHistoryFilters} className="text-xs text-[#93C5FD] hover:underline">Limpiar filtros</button>
+                <button onClick={clearHistoryFilters} className="text-xs text-[var(--ui-accent-muted)] hover:underline">Limpiar filtros</button>
                 <button onClick={loadAppSettingsHistory} className="text-xs text-sky-600 hover:underline">Actualizar</button>
               </div>
             </div>
@@ -1100,7 +1100,7 @@ export default function Settings() {
                     ><MdEdit /></button>
                     <button
                       onClick={() => deleteAppSectionItem('locales', i, `el local "${loc.name}"`)}
-                      className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]"
+                      className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]"
                     ><MdDelete /></button>
                   </div>
                 </div>
@@ -1153,7 +1153,7 @@ export default function Settings() {
                   <div className="flex items-center gap-2">
                     <button onClick={() => toggleAppSection('almacenes', i)} className={`px-2 py-1 text-xs rounded-full ${wh.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{wh.active ? 'Activo' : 'Inactivo'}</button>
                     <button onClick={() => openSettingsCrudModal('almacenes', i)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><MdEdit /></button>
-                    <button onClick={() => deleteAppSectionItem('almacenes', i, `el almacén "${wh.name}"`)} className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]"><MdDelete /></button>
+                    <button onClick={() => deleteAppSectionItem('almacenes', i, `el almacén "${wh.name}"`)} className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]"><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1191,7 +1191,7 @@ export default function Settings() {
                   <div className="flex items-center gap-2">
                     <button onClick={() => toggleAppSection('cajas', i)} className={`px-2 py-1 text-xs rounded-full ${caja.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{caja.active ? 'Activa' : 'Inactiva'}</button>
                     <button onClick={() => openSettingsCrudModal('cajas', i)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><MdEdit /></button>
-                    <button onClick={() => deleteAppSectionItem('cajas', i, `la caja "${caja.name}"`)} className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]"><MdDelete /></button>
+                    <button onClick={() => deleteAppSectionItem('cajas', i, `la caja "${caja.name}"`)} className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]"><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1223,7 +1223,7 @@ export default function Settings() {
                       <div className="w-9 h-5 bg-slate-300 peer-checked:bg-gold-600 rounded-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
                     </label>
                     <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('comprobantes', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]" onClick={() => deleteAppSectionItem('comprobantes', i, `el comprobante "${tipo.name}"`)}><MdDelete /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('comprobantes', i, `el comprobante "${tipo.name}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1237,12 +1237,12 @@ export default function Settings() {
         {/* IMPRESORAS */}
         {activeSection === 'impresoras' && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-[#3B82F6]/35 bg-[#0F172A] px-4 py-3 text-sm text-[#E5E7EB] shadow-inner">
-              <p className="font-semibold text-[#F9FAFB] mb-2">Control central de impresoras</p>
+            <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-4 py-3 text-sm text-[var(--ui-body-text)] shadow-inner">
+              <p className="font-semibold text-[var(--ui-body-text)] mb-2">Control central de impresoras</p>
               <p className="text-[#D1D5DB] leading-relaxed">
-                Defina aquí cocina, bar y caja. Modo <strong className="text-[#BFDBFE]">Red local</strong>: IP y puerto (típico <strong className="text-[#BFDBFE]">9100</strong>) de la impresora térmica en la misma red que el <strong className="text-[#BFDBFE]">servidor</strong> de la aplicación.
-                Si el backend está en la nube (Render, etc.), no podrá abrir la IP de su WiFi: use <strong className="text-[#BFDBFE]">Navegador</strong> o un servidor en el local.
-                Cocina y bar envían comandas desde su panel; la caja usa la impresora marcada como estación <strong className="text-[#BFDBFE]">caja</strong> cuando imprima desde POS.
+                Defina aquí cocina, bar y caja. Modo <strong className="text-[var(--ui-accent-muted)]">Red local</strong>: IP y puerto (típico <strong className="text-[var(--ui-accent-muted)]">9100</strong>) de la impresora térmica en la misma red que el <strong className="text-[var(--ui-accent-muted)]">servidor</strong> de la aplicación.
+                Si el backend está en la nube (Render, etc.), no podrá abrir la IP de su WiFi: use <strong className="text-[var(--ui-accent-muted)]">Navegador</strong> o un servidor en el local.
+                Cocina y bar envían comandas desde su panel; la caja usa la impresora marcada como estación <strong className="text-[var(--ui-accent-muted)]">caja</strong> cuando imprima desde POS.
               </p>
             </div>
             <div className="flex justify-between items-center">
@@ -1270,7 +1270,7 @@ export default function Settings() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button type="button" onClick={() => toggleAppSection('impresoras', i)} className={`px-2 py-1 text-xs rounded-full ${pr.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{pr.active ? 'Activa' : 'Inactiva'}</button>
                     <button type="button" className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('impresoras', i)}><MdEdit /></button>
-                    <button type="button" className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]" onClick={() => deleteAppSectionItem('impresoras', i, `la impresora "${pr.name}"`)}><MdDelete /></button>
+                    <button type="button" className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('impresoras', i, `la impresora "${pr.name}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1350,7 +1350,7 @@ export default function Settings() {
                       <div className="w-9 h-5 bg-slate-300 peer-checked:bg-gold-600 rounded-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
                     </label>
                     <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('tarjetas', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]" onClick={() => deleteAppSectionItem('tarjetas', i, `la tarjeta "${t.name}"`)}><MdDelete /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('tarjetas', i, `la tarjeta "${t.name}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1561,7 +1561,7 @@ export default function Settings() {
                       <div className="w-9 h-5 bg-slate-300 peer-checked:bg-gold-600 rounded-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
                     </label>
                     <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('monedas', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]" onClick={() => deleteAppSectionItem('monedas', i, `la moneda "${m.code}"`)}><MdDelete /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('monedas', i, `la moneda "${m.code}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1611,7 +1611,7 @@ export default function Settings() {
                     <div><p className="font-medium text-sm">{c.bank}</p><p className="text-xs text-slate-400">{c.type} · {c.account}</p></div>
                   </div>
                   <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('cuentas_transferencia', i)}><MdEdit /></button>
-                  <button className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]" onClick={() => deleteAppSectionItem('cuentas_transferencia', i, `la cuenta de ${c.bank}`)}><MdDelete /></button>
+                  <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('cuentas_transferencia', i, `la cuenta de ${c.bank}`)}><MdDelete /></button>
                 </div>
               ))}
             </div>
@@ -1641,7 +1641,7 @@ export default function Settings() {
                   <div className="flex items-center gap-2">
                     <button onClick={() => toggleAppSection('marcas', i)} className={`px-2 py-1 text-xs rounded-full ${m.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{m.active ? 'Activa' : 'Inactiva'}</button>
                     <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('marcas', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]" onClick={() => deleteAppSectionItem('marcas', i, `la marca "${m.name}"`)}><MdDelete /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('marcas', i, `la marca "${m.name}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1669,7 +1669,7 @@ export default function Settings() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('categoria_anular', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]" onClick={() => deleteAppSectionItem('categoria_anular', i, `el motivo "${motivo}"`)}><MdDelete /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('categoria_anular', i, `el motivo "${motivo}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1700,7 +1700,7 @@ export default function Settings() {
                       <div className="w-9 h-5 bg-slate-300 peer-checked:bg-gold-600 rounded-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
                     </label>
                     <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('formas_pago', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]" onClick={() => deleteAppSectionItem('formas_pago', i, `la forma de pago "${fp.name}"`)}><MdDelete /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('formas_pago', i, `la forma de pago "${fp.name}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1977,7 +1977,7 @@ function UsersSection({
                     )}
                   </td>
                   <td className="p-3 text-center">
-                    <button onClick={() => toggleActive(u)} className={`px-3 py-1 rounded-full text-xs font-bold ${u.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-[#1E40AF]/20 text-[#F9FAFB]'}`}>
+                    <button onClick={() => toggleActive(u)} className={`px-3 py-1 rounded-full text-xs font-bold ${u.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-[var(--ui-surface-2)] text-[var(--ui-muted)] border border-[color:var(--ui-border)]'}`}>
                       {u.is_active ? 'ACTIVO' : 'INACTIVO'}
                     </button>
                   </td>
@@ -1990,7 +1990,7 @@ function UsersSection({
                         <MdSecurity className="text-sm" /> Permisos POS
                       </button>
                       {u.id !== currentUser?.id && (
-                        <button onClick={() => handleDelete(u)} className="p-1.5 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]">
+                        <button onClick={() => handleDelete(u)} className="p-1.5 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]">
                           <MdDelete className="text-sm" />
                         </button>
                       )}
@@ -2280,7 +2280,7 @@ function SalonMesasSection() {
                   <MdAdd /> Agregar Mesa
                 </button>
                 <button onClick={() => openEditSalon(salon)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><MdEdit /></button>
-                <button onClick={() => deleteSalon(salon)} className="p-2 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]"><MdDelete /></button>
+                <button onClick={() => deleteSalon(salon)} className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]"><MdDelete /></button>
               </div>
             </div>
 
@@ -2335,7 +2335,7 @@ function SalonMesasSection() {
                         <td className="p-3">
                           <div className="flex items-center justify-center gap-1">
                             <button onClick={() => openEditMesa(t)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600"><MdEdit className="text-sm" /></button>
-                            <button onClick={() => deleteMesa(t)} className="p-1.5 hover:bg-[#3B82F6]/10 rounded-lg text-slate-400 hover:text-[#2563EB]"><MdDelete className="text-sm" /></button>
+                            <button onClick={() => deleteMesa(t)} className="p-1.5 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]"><MdDelete className="text-sm" /></button>
                           </div>
                         </td>
                       </tr>

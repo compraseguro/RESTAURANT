@@ -1,22 +1,24 @@
 ---
-description: Formato para comandos Git Bash al subir cambios (uno por bloque copiable).
+description: Tras cambios en el repo, siempre dar comandos Git para GitHub (uno por bloque).
 alwaysApply: true
 ---
 
 # Comandos Git para el usuario
 
-Cuando el usuario pida subir cambios, códigos git, `git push`, actualizar el repo, o similar; **y siempre al final de una respuesta donde el asistente haya modificado uno o más archivos del repo** (incluido este archivo de reglas):
+**Obligatorio:** al final de **cualquier** respuesta en la que el asistente haya **modificado, creado o borrado** archivos dentro de este repositorio (código, reglas, config, etc.), incluir los pasos para subir todo a GitHub, **aunque el usuario no lo pida en ese mensaje**.
 
-1. **No crear archivos** en el proyecto solo para listar comandos (el usuario lo pidió explícitamente antes).
+También aplicar cuando el usuario pida explícitamente subir cambios, `git push`, actualizar el repo, o similar.
 
-2. Responder **siempre** con **cinco partes numeradas del 1 al 5**. En cada parte: título en negrita (ej. **1**), línea en blanco, y **un solo** bloque de código con etiqueta `text` que contenga **exactamente una línea** (el comando). Orden típico de líneas:
+1. **No crear archivos** en el proyecto solo para listar comandos.
 
-   - **1:** `cd` al repo (ruta por defecto del proyecto en Git Bash: `/c/Users/Intel/OneDrive/RESTAURANT.DEMO` salvo que el usuario use otra).
+2. Responder **siempre** con **cinco partes numeradas del 1 al 5**. En cada parte: título en negrita (**1**, **2**, …), línea en blanco, y **un solo** bloque de código con etiqueta `text` que contenga **exactamente una línea** (el comando). Orden:
+
+   - **1:** `cd` al repo. Ruta por defecto en **PowerShell** (Windows): `cd "c:\Users\Intel\OneDrive\RESTAURANT.DEMO"`. Si el usuario usa **Git Bash**: `cd /c/Users/Intel/OneDrive/RESTAURANT.DEMO`.
    - **2:** `git status`
-   - **3:** `git add -A` (o los archivos que pida el usuario)
-   - **4:** `git commit -m "…"` con mensaje acorde al cambio
-   - **5:** `git push origin main` (u otra rama si aplica)
+   - **3:** `git add -A` (o archivos concretos si el usuario lo pide)
+   - **4:** `git commit -m "…"` con mensaje breve acorde al cambio (en español o inglés, según el estilo del commit en el repo)
+   - **5:** `git push origin main` (u otra rama si el contexto indica otra rama activa)
 
-3. Después de los cinco bloques, **una o dos frases** recordando: cambiar el mensaje del paso 4 si hace falta; ajustar `cd` o la rama si no coinciden con su máquina.
+3. Tras los cinco bloques, **una o dos frases**: recordar ajustar el mensaje del paso 4 si hace falta; ajustar `cd` o la rama si no coinciden con su máquina.
 
-4. Para otros flujos (`git pull`, otra rama, etc.), **misma regla**: un comando = un bloque numerado; no poner varios comandos en un único bloque largo.
+4. Otros flujos (`git pull`, otra rama): **misma regla** — un comando = un bloque numerado; no agrupar varios comandos en un solo bloque.

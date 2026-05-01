@@ -205,20 +205,20 @@ export default function DeliveryPanel() {
     return (
     <div
       key={o.id}
-      className="rounded-2xl overflow-hidden bg-[#1F2937]/95 border border-[#3B82F6]/35 shadow-md min-h-0 w-full"
+      className="rounded-2xl overflow-hidden bg-[var(--ui-surface)] border border-[color:var(--ui-border)] shadow-md min-h-0 w-full"
     >
-      <div className="px-3.5 py-3 sm:px-4 sm:py-3.5 flex items-center justify-between gap-2 border-b border-[#3B82F6]/25 bg-[#111827]/50">
-        <span className="font-bold text-[#F9FAFB] text-base sm:text-lg tabular-nums">#{o.order_number}</span>
-        <div className="flex items-center gap-1 text-sm text-[#9CA3AF] shrink-0">
+      <div className="px-3.5 py-3 sm:px-4 sm:py-3.5 flex items-center justify-between gap-2 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
+        <span className="font-bold text-[var(--ui-body-text)] text-base sm:text-lg tabular-nums">#{o.order_number}</span>
+        <div className="flex items-center gap-1 text-sm text-[var(--ui-muted)] shrink-0">
           <MdAccessTime className="text-lg" />
           <span>{getTimeDiffShort(o.created_at)}</span>
         </div>
       </div>
       <div className="px-3.5 py-3 sm:px-4 sm:py-4 space-y-2.5 text-base">
         <div className="flex items-start gap-2">
-          <MdLocationOn className="text-[#93C5FD] mt-0.5 shrink-0 text-xl" />
+          <MdLocationOn className="text-[var(--ui-accent-muted)] mt-0.5 shrink-0 text-xl" />
           <div className="min-w-0 flex-1">
-            <p className="text-[#F9FAFB] leading-snug text-[15px] sm:text-base break-words">
+            <p className="text-[var(--ui-body-text)] leading-snug text-[15px] sm:text-base break-words">
               {o.delivery_address || 'Sin dirección'}
             </p>
             {mapsUrl ? (
@@ -226,7 +226,7 @@ export default function DeliveryPanel() {
                 href={mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center justify-center gap-1.5 w-full min-h-[44px] px-3 py-2 rounded-xl text-sm font-semibold bg-[#1E3A5F] text-[#BFDBFE] border border-[#3B82F6]/50 hover:bg-[#2563EB]/30 active:opacity-90 touch-manipulation"
+                className="mt-2 inline-flex items-center justify-center gap-1.5 w-full min-h-[44px] px-3 py-2 rounded-xl text-sm font-semibold bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-accent-hover)] border border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)] active:opacity-90 touch-manipulation"
               >
                 <MdMap className="text-lg shrink-0" />
                 Abrir en Google Maps
@@ -235,24 +235,24 @@ export default function DeliveryPanel() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <MdPhone className="text-[#93C5FD] shrink-0 text-xl" />
-          <p className="text-[#F9FAFB] font-semibold">{o.customer_name || 'Cliente'}</p>
+          <MdPhone className="text-[var(--ui-accent-muted)] shrink-0 text-xl" />
+          <p className="text-[var(--ui-body-text)] font-semibold">{o.customer_name || 'Cliente'}</p>
         </div>
-        <p className="text-[#BFDBFE] font-bold text-lg">{formatCurrency(o.total)}</p>
-        <p className="text-sm text-[#E5E7EB]">
-          <span className="text-[#9CA3AF]">Modalidad de pago:</span>{' '}
-          <span className="font-semibold text-[#BFDBFE]">{labelDeliveryPaymentModality(o.delivery_payment_modality) || '—'}</span>
+        <p className="text-[var(--ui-accent-muted)] font-bold text-lg">{formatCurrency(o.total)}</p>
+        <p className="text-sm text-[var(--ui-body-text)]">
+          <span className="text-[var(--ui-muted)]">Modalidad de pago:</span>{' '}
+          <span className="font-semibold text-[var(--ui-accent-hover)]">{labelDeliveryPaymentModality(o.delivery_payment_modality) || '—'}</span>
         </p>
         {o.notes ? (
-          <p className="text-sm text-[#9CA3AF] bg-[#0f172A]/50 rounded-xl px-3 py-2 border border-[#3B82F6]/20">
+          <p className="text-sm text-[var(--ui-muted)] bg-[var(--ui-surface-2)] rounded-xl px-3 py-2 border border-[color:var(--ui-border)]">
             {o.notes}
           </p>
         ) : null}
         {o.items && o.items.length > 0 ? (
-          <div className="pt-2 border-t border-[#3B82F6]/20">
-            <p className="text-xs uppercase tracking-wide text-[#9CA3AF] mb-1.5 font-semibold">Productos</p>
+          <div className="pt-2 border-t border-[color:var(--ui-border)]">
+            <p className="text-xs uppercase tracking-wide text-[var(--ui-muted)] mb-1.5 font-semibold">Productos</p>
             {o.items.map((it) => (
-              <p key={it.id} className="text-sm text-[#E5E7EB] leading-relaxed">
+              <p key={it.id} className="text-sm text-[var(--ui-body-text)] leading-relaxed">
                 {it.quantity}× {it.product_name}
               </p>
             ))}
@@ -260,7 +260,7 @@ export default function DeliveryPanel() {
         ) : null}
       </div>
       {(showIniciar || showListo) && (
-        <div className="px-3.5 py-3 sm:px-4 border-t border-[#3B82F6]/25">
+        <div className="px-3.5 py-3 sm:px-4 border-t border-[color:var(--ui-border)]">
           {showIniciar && (
             <button
               type="button"
@@ -301,12 +301,12 @@ export default function DeliveryPanel() {
         onClick={() => setTab(key)}
         className={`flex-1 min-h-[56px] sm:min-h-[60px] px-1 sm:px-2 py-2 text-center font-bold text-[11px] sm:text-sm leading-snug touch-manipulation transition-colors ${rounded} ${
           selected
-            ? 'bg-[#2563EB] text-white shadow-inner z-10'
-            : 'bg-[#111827]/90 text-[#E5E7EB] hover:bg-[#1F2937]'
+            ? 'bg-[var(--ui-accent)] text-white shadow-inner z-10'
+            : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
         }`}
       >
         <span className="block hyphens-auto">{label}</span>
-        <span className={`block text-[10px] sm:text-xs font-semibold mt-1 ${selected ? 'text-[#BFDBFE]' : 'text-[#9CA3AF]'}`}>
+        <span className={`block text-[10px] sm:text-xs font-semibold mt-1 ${selected ? 'text-white/90' : 'text-[var(--ui-muted)]'}`}>
           ({tabCount(key)})
         </span>
       </button>
@@ -314,15 +314,15 @@ export default function DeliveryPanel() {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-[#111827] text-[#F9FAFB] pb-safe pb-28">
-      <header className="sticky top-0 z-30 bg-[#1F2937]/95 backdrop-blur-md border-b border-[#3B82F6]/30 px-3 sm:px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+    <div className="min-h-screen min-h-[100dvh] bg-[var(--ui-body-bg)] text-[var(--ui-body-text)] pb-safe pb-28">
+      <header className="sticky top-0 z-30 bg-[var(--ui-surface)] backdrop-blur-md border-b border-[color:var(--ui-border)] px-3 sm:px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
         <div className="flex flex-col gap-3 max-w-lg mx-auto w-full">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <MdDeliveryDining className="text-3xl sm:text-4xl text-[#93C5FD] shrink-0" />
+              <MdDeliveryDining className="text-3xl sm:text-4xl text-[var(--ui-accent-muted)] shrink-0" />
               <div className="min-w-0">
                 <h1 className="text-xl sm:text-2xl font-bold leading-tight truncate">Panel de Delivery</h1>
-                <p className="text-sm text-[#9CA3AF] truncate mt-0.5">
+                <p className="text-sm text-[var(--ui-muted)] truncate mt-0.5">
                   {user?.username || user?.full_name} · {activos.length + enProceso.length} en bandeja
                 </p>
               </div>
@@ -332,12 +332,12 @@ export default function DeliveryPanel() {
             </div>
           </div>
 
-          <div className="flex w-full shadow-lg rounded-2xl overflow-hidden ring-1 ring-[#3B82F6]/25 divide-x divide-[#3B82F6]/35">
+          <div className="flex w-full shadow-lg rounded-2xl overflow-hidden ring-1 ring-[color:var(--ui-border)] divide-x divide-[color:var(--ui-border)]">
             {tabButton(TAB_KEYS.activos, 'Activos', 'left')}
             {tabButton(TAB_KEYS.proceso, 'En ruta', 'middle')}
             {tabButton(TAB_KEYS.completados, 'Hoy', 'right')}
           </div>
-          <p className="text-[11px] sm:text-xs text-center text-[#64748B] -mt-1 px-1">
+          <p className="text-[11px] sm:text-xs text-center text-[var(--ui-muted)] -mt-1 px-1">
             Lista ordenada: los más recientes arriba; los más antiguos abajo en la cuadrícula.
           </p>
 
@@ -346,7 +346,7 @@ export default function DeliveryPanel() {
               <button
                 type="button"
                 onClick={() => navigate('/admin')}
-                className="flex-1 min-w-[10rem] min-h-[44px] px-3 py-2.5 bg-[#2563EB] rounded-xl text-white text-sm font-semibold border border-[#3B82F6]/30 touch-manipulation"
+                className="flex-1 min-w-[10rem] min-h-[44px] px-3 py-2.5 bg-[var(--ui-accent)] rounded-xl text-white text-sm font-semibold border border-[color:var(--ui-border)] touch-manipulation"
               >
                 Centro operativo
               </button>
@@ -354,7 +354,7 @@ export default function DeliveryPanel() {
             <button
               type="button"
               onClick={openEndShiftFlow}
-              className="flex-1 min-w-[10rem] min-h-[44px] px-3 py-2.5 rounded-xl text-[#F9FAFB] text-sm font-semibold border border-[#3B82F6]/35 bg-[#111827]/80 hover:bg-[#1F2937] inline-flex items-center justify-center gap-2 touch-manipulation"
+              className="flex-1 min-w-[10rem] min-h-[44px] px-3 py-2.5 rounded-xl text-[var(--ui-body-text)] text-sm font-semibold border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] inline-flex items-center justify-center gap-2 touch-manipulation"
             >
               <MdLogout className="text-xl shrink-0" /> Finalizar jornada
             </button>
@@ -363,13 +363,13 @@ export default function DeliveryPanel() {
       </header>
 
       <main className="px-3 sm:px-4 pt-4 pb-6 max-w-lg mx-auto w-full">
-        <p className="text-center text-base text-[#9CA3AF] mb-4">
+        <p className="text-center text-base text-[var(--ui-muted)] mb-4">
           Fecha del día:{' '}
-          <span className="text-[#E5E7EB] font-bold">{formatDate(todayLocalYyyyMmDd())}</span>
+          <span className="text-[var(--ui-body-text)] font-bold">{formatDate(todayLocalYyyyMmDd())}</span>
         </p>
 
         {displayedOrders.length === 0 ? (
-          <p className="text-base text-[#9CA3AF] py-12 text-center border-2 border-dashed border-[#3B82F6]/30 rounded-2xl">
+          <p className="text-base text-[var(--ui-muted)] py-12 text-center border-2 border-dashed border-[color:var(--ui-border)] rounded-2xl">
             {tab === TAB_KEYS.activos && 'No hay pedidos activos'}
             {tab === TAB_KEYS.proceso && 'No hay pedidos en proceso'}
             {tab === TAB_KEYS.completados && 'No hay pedidos completados hoy'}
@@ -391,14 +391,14 @@ export default function DeliveryPanel() {
         onClose={() => setReportGateOpen(false)}
         title="Antes de finalizar la jornada"
         size="md"
-        headerClassName="bg-[#1F2937] border-b border-[#3B82F6]/30"
-        titleClassName="text-[#F9FAFB] font-bold"
+        headerClassName="bg-[var(--ui-surface)] border-b border-[color:var(--ui-border)]"
+        titleClassName="text-[var(--ui-body-text)] font-bold"
       >
-        <p className="text-sm text-[#9CA3AF] mb-3">
+        <p className="text-sm text-[var(--ui-muted)] mb-3">
           Imprima el reporte de los pedidos que completó hoy en ruta (cliente, pedido y costo). El cobro en caja es independiente de este registro.
         </p>
-        <p className="text-xs text-[#9CA3AF] mb-2">
-          Completados hoy: <span className="text-[#E5E7EB] font-semibold">{completadosHoy.length}</span>
+        <p className="text-xs text-[var(--ui-muted)] mb-2">
+          Completados hoy: <span className="text-[var(--ui-body-text)] font-semibold">{completadosHoy.length}</span>
         </p>
         <button
           type="button"
@@ -407,10 +407,10 @@ export default function DeliveryPanel() {
         >
           <MdPrint className="text-lg" /> Imprimir reporte
         </button>
-        <label className="flex items-start gap-2 text-sm text-[#E5E7EB] cursor-pointer mb-4">
+        <label className="flex items-start gap-2 text-sm text-[var(--ui-body-text)] cursor-pointer mb-4">
           <input
             type="checkbox"
-            className="mt-1 rounded border-[#3B82F6]/50"
+            className="mt-1 rounded border-[color:var(--ui-border)]"
             checked={reportPrintedConfirmed}
             onChange={(e) => setReportPrintedConfirmed(e.target.checked)}
           />
@@ -420,14 +420,14 @@ export default function DeliveryPanel() {
           <button
             type="button"
             onClick={() => setReportGateOpen(false)}
-            className="px-4 py-2 rounded-lg border border-[#3B82F6]/35 text-sm text-[#F9FAFB] hover:bg-[#1F2937]"
+            className="px-4 py-2 rounded-lg border border-[color:var(--ui-border)] text-sm text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
           >
             Cancelar
           </button>
           <button
             type="button"
             onClick={continueToLogoutModal}
-            className="px-4 py-2 rounded-lg bg-[#2563EB] text-white text-sm font-medium hover:bg-[#1D4ED8]"
+            className="px-4 py-2 rounded-lg bg-[var(--ui-accent)] text-white text-sm font-medium hover:bg-[var(--ui-accent-hover)]"
           >
             Continuar al cierre de sesión
           </button>
