@@ -89,6 +89,13 @@ function isInsumosWarehouse(warehouse) {
   return String(warehouse.name || '').toLowerCase().includes('insumos');
 }
 
+/** Producto de catálogo asociado a un almacén (por defecto o con fila de stock). */
+function productLinkedToWarehouse(p, whId) {
+  if (!whId) return true;
+  if (String(p.stock_warehouse_id || '') === String(whId)) return true;
+  return (p.warehouse_stocks || []).some((ws) => String(ws.warehouse_id) === String(whId));
+}
+
 function CreateProductModal({
   isOpen,
   onClose,
@@ -272,20 +279,37 @@ export default function Almacen() {
   );
 
   const receptionPickProducts = useMemo(() => {
+    const whId = receptionAddDraft.warehouse_id;
+    const selectedWh = warehouses.find((w) => String(w.id) === String(whId));
+    const insumosDestino = selectedWh && isInsumosWarehouse(selectedWh);
     const extraIds = new Set(receptionExtraLines.map((l) => l.product_id));
-    return products
-      .filter((p) => !receptionRequirementIds.has(p.id) && !extraIds.has(p.id))
+    const isSupplySku = (p) => (p.category_name || '').toUpperCase() === WAREHOUSE_CATEGORY_NAMES.supplies;
+
+    let list = products.filter((p) => !receptionRequirementIds.has(p.id) && !extraIds.has(p.id));
+
+    if (insumosDestino) {
+      list = list.filter((p) => isSupplySku(p));
+    } else if (whId) {
+      list = list.filter((p) => productLinkedToWarehouse(p, whId));
+    }
+
+    return list
       .slice()
       .sort((a, b) => String(a.name || '').localeCompare(b.name || '', 'es'));
-  }, [products, receptionRequirementIds, receptionExtraLines]);
+  }, [products, receptionRequirementIds, receptionExtraLines, receptionAddDraft.warehouse_id, warehouses]);
 
   const receptionPickInsumos = useMemo(() => {
+    const whId = receptionAddDraft.warehouse_id;
+    const selectedWh = warehouses.find((w) => String(w.id) === String(whId));
+    if (!selectedWh || !isInsumosWarehouse(selectedWh)) {
+      return [];
+    }
     const extraIds = new Set(receptionExtraLines.map((l) => l.product_id));
     return kardexInsumos
       .filter((ins) => Number(ins.activo) !== 0 && ins.id && !receptionRequirementIds.has(ins.id) && !extraIds.has(ins.id))
       .slice()
       .sort((a, b) => String(a.nombre || '').localeCompare(b.nombre || '', 'es'));
-  }, [kardexInsumos, receptionRequirementIds, receptionExtraLines]);
+  }, [kardexInsumos, receptionRequirementIds, receptionExtraLines, receptionAddDraft.warehouse_id, warehouses]);
 
   const receptionPickListEmpty = receptionPickProducts.length === 0 && receptionPickInsumos.length === 0;
   const sameWarehouseId = (a, b) => String(a || '') === String(b || '');
@@ -1108,7 +1132,7 @@ export default function Almacen() {
         >
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
-              Elija primero el <strong>almacén de ingreso</strong>. La lista incluye <strong>productos de almacén</strong> (todas las ubicaciones) e <strong>insumos del kardex</strong>, excepto los que ya están en este requerimiento.
+              Elija el <strong>almacén de ingreso</strong>: en almacenes normales verá solo <strong>productos vinculados a ese almacén</strong> (stock o almacén por defecto). En un <strong>almacén de insumos</strong> verá <strong>insumos kardex</strong> y artículos con categoría INSUMOS, no bebidas u otros productos de otro almacén.
             </p>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Almacén de ingreso</label>
