@@ -329,7 +329,7 @@ export default function StaffDineInOrderUI({
   );
 
   const cartAsideInner = (
-    <>
+    <div className="flex min-h-0 flex-col overflow-hidden lg:max-h-[min(calc(100dvh-12rem),85vh)]">
       <h3 className="mb-3 flex shrink-0 items-center gap-2 font-bold text-white">
         <MdShoppingCart /> Pedido
         {cart.length > 0 && (
@@ -337,7 +337,7 @@ export default function StaffDineInOrderUI({
         )}
       </h3>
       {sidebarTop ? <div className="mb-3 shrink-0 space-y-2">{sidebarTop}</div> : null}
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain pr-0.5">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
         {sidebarPreCart}
         {sidebarPreCart ? <div className="mt-1 border-t border-[#3B82F6]/20 pt-3" /> : null}
         {sidebarPreCart ? (
@@ -354,8 +354,12 @@ export default function StaffDineInOrderUI({
           updateItemNote={updateItemNote}
         />
       </div>
-      {footer ? <div className="mt-3 shrink-0 space-y-2 border-t border-[#3B82F6]/30 pt-3">{footer}</div> : null}
-    </>
+      {footer ? (
+        <div className="mt-3 shrink-0 space-y-2 border-t border-[#3B82F6]/30 bg-[#1F2937] pt-3 lg:shadow-[0_-8px_24px_rgba(15,23,42,0.45)]">
+          {footer}
+        </div>
+      ) : null}
+    </div>
   );
 
   if (stackedSelfOrder) {
@@ -395,12 +399,12 @@ export default function StaffDineInOrderUI({
   }
 
   return (
-    <div className={`flex min-h-0 flex-col gap-4 lg:flex-row ${rootClass} ${className}`}>
+    <div className={`flex min-h-0 flex-col gap-4 lg:flex-row lg:items-start ${rootClass} ${className}`}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="mb-3 shrink-0">{searchBlock}</div>
         <div className="mb-3 shrink-0">{categoriesBlock}</div>
         <div
-          className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 ${
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch] ${
             embedded ? '' : 'min-h-[200px]'
           }`}
         >
@@ -408,7 +412,7 @@ export default function StaffDineInOrderUI({
         </div>
       </div>
 
-      <div className="flex min-h-0 w-full flex-col overflow-hidden border-t border-[#3B82F6]/30 pt-4 lg:max-h-full lg:w-72 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+      <div className="flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-[#3B82F6]/30 bg-[#1F2937] pt-4 lg:sticky lg:top-0 lg:z-10 lg:w-72 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0 lg:shadow-[-6px_0_20px_rgba(0,0,0,0.12)]">
         {cartAsideInner}
       </div>
     </div>

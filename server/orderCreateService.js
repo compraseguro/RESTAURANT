@@ -238,6 +238,169 @@ function createOrderInTransaction(tx, orderId, body, actor) {
   return { orderId };
 }
 
+function restoreNonTransformedStockForOrderTx(tx, orderId) {
+  const oldItems = tx.queryAll('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
+  for (const item of oldItems) {
+    const product = tx.queryOne('SELECT * FROM products WHERE id = ?', [item.product_id]);
+    if (!product || product.process_type !== 'non_transformed') continue;
+    const qtyBack = Number(item.quantity || 0);
+    const rows = tx.queryAll('SELECT * FROM inventory_warehouse_stocks WHERE product_id = ?', [product.id]);
+    if (rows.length === 0) {
+      tx.run('UPDATE products SET stock = stock + ?, updated_at = datetime(\'now\') WHERE id = ?', [qtyBack, product.id]);
+      continue;
+    }
+    const preferredId = product.stock_warehouse_id || rows[0].warehouse_id;
+    const target = rows.find((r) => r.warehouse_id === preferredId) || rows[0];
+    const current = Number(target.quantity || 0);
+    tx.run(
+      'UPDATE inventory_warehouse_stocks SET quantity = ?, updated_at = datetime(\'now\') WHERE id = ?',
+      [current + qtyBack, target.id]
+    );
+    const newSum = tx.queryOne(
+      'SELECT COALESCE(SUM(quantity), 0) as total FROM inventory_warehouse_stocks WHERE product_id = ?',
+      [product.id]
+    );
+    tx.run('UPDATE products SET stock = ?, updated_at = datetime(\'now\') WHERE id = ?', [Number(newSum?.total || 0), product.id]);
+  }
+}
+
+/**
+ * Sustituye ítems de un pedido existente (caja/mesas). Devuelve stock anterior, recalcula totales.
+ */
+function replaceOrderLinesInTransaction(tx, orderId, items, actor) {
+  const order = tx.queryOne('SELECT * FROM orders WHERE id = ?', [orderId]);
+  if (!order) throw new Error('Pedido no encontrado');
+  if (!['pending', 'preparing'].includes(String(order.status || ''))) {
+    throw new Error('Solo se pueden modificar pedidos pendientes o en preparación');
+  }
+  if (String(order.payment_status || 'pending') !== 'pending') {
+    throw new Error('No se puede modificar un pedido ya cobrado');
+  }
+
+  const orderType = order.type;
+  const staffInHouseOrder =
+    actor.kind === 'staff' &&
+    (orderType === 'dine_in' || orderType === 'pickup') &&
+    actor.user &&
+    actor.user.type !== 'customer' &&
+    ['admin', 'cajero', 'mozo', 'cocina', 'bar'].includes(String(actor.user.role || ''));
+
+  restoreNonTransformedStockForOrderTx(tx, orderId);
+  tx.run('DELETE FROM order_items WHERE order_id = ?', [orderId]);
+
+  let subtotal = 0;
+  const orderItems = items.map((item) => {
+    const product = tx.queryOne('SELECT * FROM products WHERE id = ?', [item.product_id]);
+    if (!product) throw new Error(`Producto no encontrado: ${item.product_id}`);
+    const qty = Number(item.quantity || 0);
+    if (qty <= 0) throw new Error(`Cantidad inválida para ${product.name}`);
+    const requiresStock = product.process_type === 'non_transformed';
+    if (requiresStock) {
+      const whSum = tx.queryOne(
+        'SELECT COALESCE(SUM(quantity), 0) as total FROM inventory_warehouse_stocks WHERE product_id = ?',
+        [product.id]
+      );
+      const available = Math.max(Number(product.stock || 0), Number(whSum?.total || 0));
+      if (available < qty && !staffInHouseOrder) {
+        throw new Error(`Stock insuficiente para ${product.name}`);
+      }
+    }
+    const productModifierId = String(product.modifier_id || '').trim();
+    let modifierName = '';
+    let modifierOption = '';
+    if (productModifierId) {
+      const modifier = tx.queryOne('SELECT * FROM modifiers WHERE id = ?', [productModifierId]);
+      if (modifier) {
+        const requestedModifierId = String(item.modifier_id || '').trim();
+        const requestedOption = String(item.modifier_option || '').trim();
+        const availableOptions = tx
+          .queryAll('SELECT option_name FROM modifier_options WHERE modifier_id = ?', [productModifierId])
+          .map((row) => String(row.option_name || '').trim())
+          .filter(Boolean);
+        const isRequired = Number(modifier.required || 0) === 1;
+
+        if (requestedModifierId && requestedModifierId !== productModifierId) {
+          throw new Error(`El producto ${product.name} tiene un modificador inválido`);
+        }
+        if (isRequired && !requestedOption) {
+          throw new Error(`El producto ${product.name} requiere seleccionar ${modifier.name}`);
+        }
+        if (requestedOption) {
+          if (availableOptions.length > 0 && !availableOptions.includes(requestedOption)) {
+            throw new Error(`La opción "${requestedOption}" no es válida para ${modifier.name}`);
+          }
+          modifierName = String(modifier.name || '').trim();
+          modifierOption = requestedOption;
+        }
+      }
+    }
+    const unitPrice = Number(product.price || 0) + Number(item.price_modifier || 0);
+    const itemNote = String(item.notes || '').trim();
+    if (Number(product.note_required || 0) === 1 && !itemNote) {
+      throw new Error(`El producto ${product.name} requiere una nota obligatoria`);
+    }
+    const itemSubtotal = unitPrice * qty;
+    subtotal += itemSubtotal;
+    const composedNotes = [itemNote, modifierName && modifierOption ? `${modifierName}: ${modifierOption}` : ''].filter(Boolean).join(' | ');
+    return {
+      id: uuidv4(),
+      order_id: orderId,
+      product_id: product.id,
+      product_name: product.name,
+      variant_name: item.variant_name || '',
+      quantity: qty,
+      unit_price: unitPrice,
+      subtotal: itemSubtotal,
+      notes: composedNotes,
+      process_type: product.process_type,
+    };
+  });
+
+  const discountAmount = Math.max(0, Number(order.discount || 0));
+  const deliveryFee = Number(order.delivery_fee || 0);
+  const total = Math.max(0, subtotal - discountAmount + deliveryFee);
+
+  tx.run(
+    `UPDATE orders SET subtotal = ?, tax = 0, total = ?, updated_at = datetime('now') WHERE id = ?`,
+    [subtotal, total, orderId]
+  );
+
+  orderItems.forEach((item) => {
+    if (item.process_type === 'non_transformed') {
+      const stockRows = tx.queryAll(
+        'SELECT id, quantity FROM inventory_warehouse_stocks WHERE product_id = ? ORDER BY quantity DESC',
+        [item.product_id]
+      );
+      let pending = Number(item.quantity || 0);
+      for (const row of stockRows) {
+        if (pending <= 0) break;
+        const available = Number(row.quantity || 0);
+        if (available <= 0) continue;
+        const consume = Math.min(available, pending);
+        tx.run(
+          'UPDATE inventory_warehouse_stocks SET quantity = ?, updated_at = datetime(\'now\') WHERE id = ?',
+          [available - consume, row.id]
+        );
+        pending -= consume;
+      }
+      if (pending > 0 && !staffInHouseOrder) {
+        throw new Error(`No hay stock suficiente en almacenes para ${item.product_name}`);
+      }
+      const newSum = tx.queryOne(
+        'SELECT COALESCE(SUM(quantity), 0) as total FROM inventory_warehouse_stocks WHERE product_id = ?',
+        [item.product_id]
+      );
+      tx.run('UPDATE products SET stock = ?, updated_at = datetime(\'now\') WHERE id = ?', [Number(newSum?.total || 0), item.product_id]);
+    }
+    tx.run(
+      'INSERT INTO order_items (id, order_id, product_id, product_name, variant_name, quantity, unit_price, subtotal, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [item.id, item.order_id, item.product_id, item.product_name, item.variant_name, item.quantity, item.unit_price, item.subtotal, item.notes]
+    );
+  });
+
+  return { orderId };
+}
+
 function actorFromRequest(req) {
   if (req.user?.type === 'customer') return { kind: 'customer', user: req.user };
   return { kind: 'staff', user: req.user };
@@ -246,5 +409,6 @@ function actorFromRequest(req) {
 module.exports = {
   getOrderWithItems,
   createOrderInTransaction,
+  replaceOrderLinesInTransaction,
   actorFromRequest,
 };

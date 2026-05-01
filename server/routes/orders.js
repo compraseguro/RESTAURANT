@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql, withTransaction, logAudit } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { assertPaymentMethodAllowed } = require('../businessRules');
-const { getOrderWithItems, createOrderInTransaction, actorFromRequest } = require('../orderCreateService');
+const { getOrderWithItems, createOrderInTransaction, replaceOrderLinesInTransaction, actorFromRequest } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
 
 const router = express.Router();
@@ -339,6 +339,25 @@ router.post('/:id/delivery-driver-action', authenticateToken, requireRole('deliv
   const io = req.app.get('io');
   if (io) io.emit('order-update', updated);
   res.json(updated);
+});
+
+router.put('/:id/lines', authenticateToken, requireRole('admin', 'cajero', 'mozo'), (req, res) => {
+  const { items } = req.body || {};
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'El pedido debe tener al menos un producto' });
+  }
+  try {
+    const actor = actorFromRequest(req);
+    withTransaction((tx) => replaceOrderLinesInTransaction(tx, req.params.id, items, actor));
+    const order = getOrderWithItems(req.params.id);
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('order-update', order);
+    }
+    res.json(order);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'No se pudo actualizar el pedido' });
+  }
 });
 
 router.get('/:id', authenticateToken, (req, res) => {

@@ -19,6 +19,7 @@ import {
   MdRestaurantMenu,
   MdAccessTime, MdPersonAdd, MdEmail, MdSearch,
   MdDeliveryDining,
+  MdEdit, MdDelete,
 } from 'react-icons/md';
 
 /** Mesa sintética al cobrar cuenta desde Clientes (no existe fila en `tables`). */
@@ -83,6 +84,58 @@ const getOrderChargeTotal = (order) => {
   const discount = Number(order.discount || 0);
   return Math.max(0, base - discount);
 };
+
+/** Reconstruye nota y modificador desde `order_items.notes` (mismo formato que al crear el pedido). */
+function parseOrderItemNotes(notesStr, product) {
+  const s = String(notesStr || '').trim();
+  const modId = String(product?.modifier_id || '').trim();
+  if (!s) return { itemNote: '', modifierId: modId, modifierOption: '' };
+  const parts = s.split(' | ').map((x) => x.trim()).filter(Boolean);
+  if (parts.length === 1) {
+    const m = parts[0].match(/^([^:]+):\s*(.+)$/);
+    if (m && modId) {
+      return { itemNote: '', modifierId: modId, modifierOption: m[2].trim() };
+    }
+    return { itemNote: parts[0], modifierId: modId, modifierOption: '' };
+  }
+  const itemNote = parts[0];
+  const last = parts[parts.length - 1];
+  const m = last.match(/^([^:]+):\s*(.+)$/);
+  if (m && modId) {
+    return { itemNote, modifierId: modId, modifierOption: m[2].trim() };
+  }
+  return { itemNote: s, modifierId: modId, modifierOption: '' };
+}
+
+function canEditOrderLines(order) {
+  return (
+    order &&
+    ['pending', 'preparing'].includes(String(order.status || '')) &&
+    String(order.payment_status || 'pending') === 'pending'
+  );
+}
+
+function orderItemsToCart(order, productsById) {
+  return (order.items || []).map((it) => {
+    const product = productsById.get(it.product_id);
+    const parsed = parseOrderItemNotes(it.notes, product);
+    const modId = parsed.modifierId || '';
+    const modOpt = parsed.modifierOption || '';
+    const lineKey = `${it.product_id}::${modId}::${modOpt}`;
+    return {
+      line_key: lineKey,
+      product_id: it.product_id,
+      name: it.product_name,
+      price: Number(product?.price ?? it.unit_price ?? 0),
+      quantity: Number(it.quantity || 0),
+      modifier_id: modId,
+      modifier_name: '',
+      modifier_option: modOpt,
+      note_required: product ? Number(product.note_required || 0) : 0,
+      notes: parsed.itemNote,
+    };
+  });
+}
 
 function filterUnpaidDeliveryOrdersForCaja(orders) {
   return (orders || [])
@@ -151,7 +204,9 @@ export default function POSPanel() {
     updateItemNote,
     cartTotal,
     resetCart,
+    setCart,
   } = useStaffOrderCart(modifiers);
+  const [editingOrderId, setEditingOrderId] = useState('');
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [customerForm, setCustomerForm] = useState(EMPTY_CUSTOMER_FORM);
   const [savingCustomer, setSavingCustomer] = useState(false);
@@ -1000,6 +1055,7 @@ export default function POSPanel() {
   const openMenuForTable = (table) => {
     if (isDeliveryCheckoutTable(table)) return;
     setQuickSaleMode(false);
+    setEditingOrderId('');
     setSelectedTable(table);
     setShowMenu(true);
     resetCart();
@@ -1009,8 +1065,61 @@ export default function POSPanel() {
     resetBillingForm();
   };
 
+  const startEditOrder = (order) => {
+    if (!tableDetail || isClientCheckoutTable(tableDetail)) return;
+    if (!order?.id) return;
+    if (!canEditOrderLines(order)) {
+      toast.error('Solo se pueden modificar pedidos pendientes o en preparación y sin cobrar.');
+      return;
+    }
+    setQuickSaleMode(false);
+    setEditingOrderId(order.id);
+    setSelectedTable(tableDetail);
+    setSearch('');
+    setSelectedCat('all');
+    setCart(orderItemsToCart(order, productsById));
+    setShowMenu(true);
+    setAmountReceived('');
+    resetBillingForm();
+  };
+
+  const openEditOrderFromToolbar = () => {
+    const list = tableDetail?.orders || [];
+    if (list.length === 1) {
+      if (!canEditOrderLines(list[0])) {
+        toast.error('Este pedido ya no se puede modificar desde aquí (estado o cobro).');
+        return;
+      }
+      startEditOrder(list[0]);
+      return;
+    }
+    if (list.length > 1) {
+      toast.error('Hay varios pedidos: usa el lápiz en la fila del pedido que quieres modificar.');
+      return;
+    }
+    toast.error('No hay pedidos para modificar.');
+  };
+
+  const confirmCancelOrder = async (order) => {
+    if (!order?.id) return;
+    const ok = window.confirm(`¿Anular el pedido #${order.order_number}? Se devolverá stock si aplica.`);
+    if (!ok) return;
+    const tid = toast.loading('Anulando pedido…');
+    try {
+      await api.put(`/orders/${order.id}/status`, {
+        status: 'cancelled',
+        cancellation_reason: 'Anulado desde caja',
+      });
+      toast.success('Pedido anulado', { id: tid });
+      await loadData();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo anular', { id: tid });
+    }
+  };
+
   const openQuickSaleMenu = () => {
     setQuickSaleMode(true);
+    setEditingOrderId('');
     setSelectedTable(null);
     setPaymentMethod('efectivo');
     setShowMenu(true);
@@ -1039,8 +1148,27 @@ export default function POSPanel() {
       const billingError = validateBillingData();
       if (billingError) return toast.error(billingError);
     }
-    const tid = toast.loading(quickSaleMode ? 'Registrando venta…' : 'Enviando pedido…');
+    const tid = toast.loading(
+      editingOrderId ? 'Guardando cambios…' : quickSaleMode ? 'Registrando venta…' : 'Enviando pedido…'
+    );
     try {
+      if (editingOrderId) {
+        await api.put(`/orders/${editingOrderId}/lines`, {
+          items: cart.map((i) => ({
+            product_id: i.product_id,
+            quantity: i.quantity,
+            modifier_id: i.modifier_id || '',
+            modifier_option: i.modifier_option || '',
+            notes: String(i.notes || '').trim(),
+          })),
+        });
+        toast.success('Pedido actualizado', { id: tid });
+        setShowMenu(false);
+        setEditingOrderId('');
+        resetCart();
+        loadData();
+        return;
+      }
       const createdOrder = await api.post('/orders', {
         items: cart.map(i => ({
           product_id: i.product_id,
@@ -1168,6 +1296,7 @@ export default function POSPanel() {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+  const productsById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
   const registerSales = Number(register?.total_sales || 0);
   const todaySales = registerSales;
@@ -1661,37 +1790,97 @@ export default function POSPanel() {
             <p className="text-xl font-bold text-gold-600">{formatCurrency((tableDetail.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}</p>
           </div>
 
-          <div className={`grid gap-2 ${isDeliveryCheckoutTable(tableDetail) ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'}`}>
-            {!isDeliveryCheckoutTable(tableDetail) && (
+          <div className="flex flex-col gap-3">
+            <div
+              className={`flex flex-wrap gap-2 items-stretch ${
+                isDeliveryCheckoutTable(tableDetail) ? '' : ''
+              }`}
+            >
+              {!isDeliveryCheckoutTable(tableDetail) && (
+                <button
+                  type="button"
+                  onClick={() => openMenuForTable(tableDetail)}
+                  className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-medium bg-sky-100 text-sky-700 hover:bg-sky-200 flex items-center justify-center gap-2"
+                >
+                  <MdRestaurantMenu /> Tomar Pedido
+                </button>
+              )}
               <button
-                onClick={() => openMenuForTable(tableDetail)}
-                className="w-full py-2 rounded-lg text-sm font-medium bg-sky-100 text-sky-700 hover:bg-sky-200 flex items-center justify-center gap-2"
+                type="button"
+                onClick={() => {
+                  setSelectedTable(tableDetail);
+                  setShowBill(true);
+                  setPaymentMethod('efectivo');
+                  setAmountReceived('');
+                  setSplitMode(false);
+                  setSelectedOrderIds((tableDetail.orders || []).map(o => o.id));
+                  setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
+                }}
+                disabled={!tableDetail.orders?.length}
+                className="btn-primary flex-1 min-w-[140px] py-2 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <MdRestaurantMenu /> Tomar Pedido
+                <MdAttachMoney /> {isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar Mesa'}
               </button>
+              <div className="flex flex-1 min-w-[200px] gap-2">
+                <button
+                  type="button"
+                  onClick={() => printTableOrder(tableDetail)}
+                  disabled={!tableDetail.orders?.length}
+                  className="flex-1 py-2 rounded-lg text-sm font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <MdPrint /> Imprimir Precuenta
+                </button>
+                <button
+                  type="button"
+                  title="Modificar pedido"
+                  onClick={openEditOrderFromToolbar}
+                  disabled={
+                    !tableDetail.orders?.length ||
+                    isClientCheckoutTable(tableDetail) ||
+                    !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
+                  }
+                  className="shrink-0 w-11 h-11 rounded-lg bg-indigo-100 text-indigo-700 hover:bg-indigo-200 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed border border-indigo-200/60"
+                >
+                  <MdEdit className="text-xl" />
+                </button>
+              </div>
+            </div>
+            {!isClientCheckoutTable(tableDetail) && (tableDetail.orders || []).length > 0 && (
+              <div className="border-t border-slate-200 pt-3 space-y-2">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Pedidos</p>
+                {(tableDetail.orders || []).map((o) => (
+                  <div
+                    key={o.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/90 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <span className="font-semibold text-slate-800">#{o.order_number}</span>
+                      <span className="text-slate-700 ml-2">{formatCurrency(getOrderChargeTotal(o))}</span>
+                      <span className="text-xs text-slate-500 ml-2 capitalize">{o.status}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        title="Modificar pedido"
+                        onClick={() => startEditOrder(o)}
+                        disabled={!canEditOrderLines(o)}
+                        className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-100 disabled:opacity-35 disabled:cursor-not-allowed"
+                      >
+                        <MdEdit className="text-lg" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Anular pedido"
+                        onClick={() => void confirmCancelOrder(o)}
+                        className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                      >
+                        <MdDelete className="text-lg" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-            <button
-              onClick={() => {
-                setSelectedTable(tableDetail);
-                setShowBill(true);
-                setPaymentMethod('efectivo');
-                setAmountReceived('');
-                setSplitMode(false);
-                setSelectedOrderIds((tableDetail.orders || []).map(o => o.id));
-                setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
-              }}
-              disabled={!tableDetail.orders?.length}
-              className="btn-primary w-full py-2 flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <MdAttachMoney /> {isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar Mesa'}
-            </button>
-            <button
-              onClick={() => printTableOrder(tableDetail)}
-              disabled={!tableDetail.orders?.length}
-              className="w-full py-2 rounded-lg text-sm font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <MdPrint /> Imprimir Precuenta
-            </button>
           </div>
         </div>
       )}
@@ -1905,13 +2094,25 @@ export default function POSPanel() {
         onClose={() => {
           setShowMenu(false);
           setQuickSaleMode(false);
+          setEditingOrderId('');
           setAmountReceived('');
           resetBillingForm();
           resetCart();
         }}
-        title={quickSaleMode ? 'Venta rápida' : `Agregar Pedido — ${selectedTable?.name || ''}`}
+        title={(() => {
+          if (quickSaleMode) return 'Venta rápida';
+          if (editingOrderId && selectedTable) {
+            const o = (selectedTable.orders || []).find((x) => x.id === editingOrderId);
+            return o
+              ? `Modificar pedido #${o.order_number} — ${selectedTable.name || ''}`
+              : `Modificar pedido — ${selectedTable.name || ''}`;
+          }
+          return `Agregar Pedido — ${selectedTable?.name || ''}`;
+        })()}
         size="xl"
+        bodyClassName="!overflow-hidden flex min-h-0 flex-1 flex-col p-6"
       >
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {quickSaleMode ? (
         <StaffDineInOrderUI
           search={search}
@@ -1929,7 +2130,7 @@ export default function POSPanel() {
           updateItemNote={updateItemNote}
           cartTotal={cartTotal}
           formatCurrency={formatCurrency}
-          minHeightClass="min-h-[60vh]"
+          minHeightClass="min-h-0 flex-1"
           sidebarTop={(
               <div className="space-y-2">
                 <div>
@@ -2106,18 +2307,50 @@ export default function POSPanel() {
                   </label>
                 )}
                 <button type="button" onClick={submitOrder} className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
-                  <MdReceipt /> {quickSaleMode ? 'Cobrar venta rápida' : 'Enviar Pedido'}
+                  <MdReceipt /> {quickSaleMode ? 'Cobrar venta rápida' : editingOrderId ? 'Guardar cambios' : 'Enviar Pedido'}
                 </button>
               </>
             ) : null
           }
         />
+        ) : selectedTable && editingOrderId ? (
+          <StaffDineInOrderUI
+            search={search}
+            onSearchChange={setSearch}
+            selectedCat={selectedCat}
+            onSelectedCatChange={setSelectedCat}
+            categories={categories}
+            filteredProducts={filteredProducts}
+            onProductPick={addToCart}
+            cart={cart}
+            noteEditorLineKey={noteEditorLineKey}
+            setNoteEditorLineKey={setNoteEditorLineKey}
+            updateQty={updateQty}
+            removeFromCart={removeFromCart}
+            updateItemNote={updateItemNote}
+            cartTotal={cartTotal}
+            formatCurrency={formatCurrency}
+            minHeightClass="min-h-0 flex-1"
+            footer={
+              cart.length > 0 ? (
+                <>
+                  <div className="flex justify-between font-bold text-lg text-white">
+                    <span>Total</span>
+                    <span className="text-[#BFDBFE]">{formatCurrency(cartTotal)}</span>
+                  </div>
+                  <button type="button" onClick={submitOrder} className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-base">
+                    <MdReceipt /> Guardar cambios
+                  </button>
+                </>
+              ) : null
+            }
+          />
         ) : selectedTable ? (
           <StaffMesaPedidoTabs
             orders={selectedTable.orders || []}
             formatCurrency={formatCurrency}
             resetKey={selectedTable.id}
-            className="min-h-[60vh] max-h-[min(90vh,780px)] flex-1 min-h-0"
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
           >
             <StaffDineInOrderUI
               search={search}
@@ -2169,7 +2402,7 @@ export default function POSPanel() {
             updateItemNote={updateItemNote}
             cartTotal={cartTotal}
             formatCurrency={formatCurrency}
-            minHeightClass="min-h-[60vh]"
+            minHeightClass="min-h-0 flex-1"
             footer={
               cart.length > 0 ? (
                 <>
@@ -2185,6 +2418,7 @@ export default function POSPanel() {
             }
           />
         )}
+        </div>
       </Modal>
 
       <StaffModifierPromptModal
