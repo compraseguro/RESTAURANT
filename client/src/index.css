@@ -132,61 +132,161 @@ html[data-ui-theme='purple'] {
 }
 
 /*
- * Modo claro: muchas pantallas usan utilidades pensadas para fondo oscuro (text-[#F9FAFB], etc.).
- * Solo aplicamos dentro de <main> del Layout staff para no afectar:
- * - Login (sin main), modales en portal (fuera de main), Self-order (sus propios estilos).
+ * Modo claro (`html[data-ui-theme='light']`): texto oscuro en todo #root cuando se usaron utilidades
+ * pensadas para fondo oscuro (#F9FAFB, text-white en tarjetas, slate-100, etc.).
+ * `data-ui-isolate="dark-surface"` revierte en login, modales oscuros, toolbar oscuro del escritorio, etc.
  */
-[data-ui-theme='light'] main .text-\[\#F9FAFB\] {
+html[data-ui-theme='light'] #root .text-\[\#F9FAFB\] {
   color: #0f172a !important;
 }
-[data-ui-theme='light'] main .text-\[\#E5E7EB\] {
+html[data-ui-theme='light'] #root .text-\[\#E5E7EB\] {
   color: #334155 !important;
 }
-[data-ui-theme='light'] main .text-\[\#D1D5DB\] {
+html[data-ui-theme='light'] #root .text-\[\#E2E8F0\] {
+  color: #334155 !important;
+}
+html[data-ui-theme='light'] #root .text-\[\#D1D5DB\] {
   color: #475569 !important;
 }
-[data-ui-theme='light'] main .text-\[\#9CA3AF\] {
+html[data-ui-theme='light'] #root .text-\[\#CBD5E1\] {
+  color: #475569 !important;
+}
+html[data-ui-theme='light'] #root .text-\[\#9CA3AF\] {
   color: #64748b !important;
 }
-[data-ui-theme='light'] main .text-\[\#BFDBFE\] {
+html[data-ui-theme='light'] #root .text-\[\#94A3B8\] {
+  color: #64748b !important;
+}
+html[data-ui-theme='light'] #root .text-\[\#A1A1AA\] {
+  color: #64748b !important;
+}
+html[data-ui-theme='light'] #root .text-\[\#BFDBFE\] {
   color: #1d4ed8 !important;
 }
-[data-ui-theme='light'] main .text-\[\#93C5FD\] {
+html[data-ui-theme='light'] #root .text-\[\#93C5FD\] {
   color: #2563eb !important;
 }
-[data-ui-theme='light'] main .text-\[\#DBEAFE\] {
+html[data-ui-theme='light'] #root .text-\[\#DBEAFE\] {
   color: #1e40af !important;
 }
 
-[data-ui-theme='light'] main .text-white {
+html[data-ui-theme='light'] #root .text-white {
   color: #0f172a !important;
 }
-[data-ui-theme='light'] main .btn-primary,
-[data-ui-theme='light'] main .btn-success,
-[data-ui-theme='light'] main .btn-danger,
-[data-ui-theme='light'] main .btn-warning,
-[data-ui-theme='light'] main .btn-info {
+html[data-ui-theme='light'] #root .btn-primary,
+html[data-ui-theme='light'] #root .btn-success,
+html[data-ui-theme='light'] #root .btn-danger,
+html[data-ui-theme='light'] #root .btn-warning,
+html[data-ui-theme='light'] #root .btn-info {
   color: #ffffff !important;
 }
-[data-ui-theme='light'] main button.text-white[class*='bg-red-'],
-[data-ui-theme='light'] main button.text-white[class*='bg-blue-'],
-[data-ui-theme='light'] main button.text-white[class*='bg-emerald-'],
-[data-ui-theme='light'] main button.text-white[class*='bg-green-'],
-[data-ui-theme='light'] main button.text-white[class*='bg-indigo-'],
-[data-ui-theme='light'] main button.text-white[class*='bg-sky-'],
-[data-ui-theme='light'] main button.text-white[class*='bg-amber-'],
-[data-ui-theme='light'] main button.text-white[class*='bg-orange-'],
-[data-ui-theme='light'] main button.text-white[class*='bg-purple-'],
-[data-ui-theme='light'] main button.text-white[class*='bg-violet-'],
-[data-ui-theme='light'] main button.text-white[class*='bg-gradient-'],
-[data-ui-theme='light'] main a.text-white[class*='bg-'] {
+html[data-ui-theme='light'] #root button.text-white[class*='bg-red-'],
+html[data-ui-theme='light'] #root button.text-white[class*='bg-blue-'],
+html[data-ui-theme='light'] #root button.text-white[class*='bg-emerald-'],
+html[data-ui-theme='light'] #root button.text-white[class*='bg-green-'],
+html[data-ui-theme='light'] #root button.text-white[class*='bg-indigo-'],
+html[data-ui-theme='light'] #root button.text-white[class*='bg-sky-'],
+html[data-ui-theme='light'] #root button.text-white[class*='bg-amber-'],
+html[data-ui-theme='light'] #root button.text-white[class*='bg-orange-'],
+html[data-ui-theme='light'] #root button.text-white[class*='bg-purple-'],
+html[data-ui-theme='light'] #root button.text-white[class*='bg-violet-'],
+html[data-ui-theme='light'] #root button.text-white[class*='bg-gradient-'],
+html[data-ui-theme='light'] #root a.text-white[class*='bg-'] {
   color: #ffffff !important;
 }
 
-/* slate muy pálido sobre tarjetas blancas */
-[data-ui-theme='light'] main .text-slate-300,
-[data-ui-theme='light'] main .text-slate-400 {
+/* Grises de Tailwind demasiado claros sobre fondo claro (p. ej. Escritorio / tarjetas) */
+html[data-ui-theme='light'] #root .text-slate-50,
+html[data-ui-theme='light'] #root .text-slate-100,
+html[data-ui-theme='light'] #root .text-slate-200 {
+  color: #0f172a !important;
+}
+html[data-ui-theme='light'] #root .text-slate-300,
+html[data-ui-theme='light'] #root .text-slate-400 {
   color: #64748b !important;
+}
+html[data-ui-theme='light'] #root .text-gray-50,
+html[data-ui-theme='light'] #root .text-gray-100,
+html[data-ui-theme='light'] #root .text-gray-200 {
+  color: #0f172a !important;
+}
+html[data-ui-theme='light'] #root .text-gray-300,
+html[data-ui-theme='light'] #root .text-gray-400 {
+  color: #64748b !important;
+}
+html[data-ui-theme='light'] #root .text-zinc-50,
+html[data-ui-theme='light'] #root .text-zinc-100,
+html[data-ui-theme='light'] #root .text-zinc-200 {
+  color: #0f172a !important;
+}
+html[data-ui-theme='light'] #root .text-zinc-300,
+html[data-ui-theme='light'] #root .text-zinc-400 {
+  color: #64748b !important;
+}
+html[data-ui-theme='light'] #root .text-neutral-50,
+html[data-ui-theme='light'] #root .text-neutral-100,
+html[data-ui-theme='light'] #root .text-neutral-200 {
+  color: #0f172a !important;
+}
+html[data-ui-theme='light'] #root .text-neutral-300,
+html[data-ui-theme='light'] #root .text-neutral-400 {
+  color: #64748b !important;
+}
+
+/*
+ * Superficies oscuras aisladas: mantener texto claro aunque el tema global sea claro.
+ */
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#F9FAFB\] {
+  color: #f9fafb !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#E5E7EB\] {
+  color: #e5e7eb !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#E2E8F0\] {
+  color: #e2e8f0 !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#D1D5DB\] {
+  color: #d1d5db !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#CBD5E1\] {
+  color: #cbd5e1 !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#9CA3AF\] {
+  color: #9ca3af !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#94A3B8\] {
+  color: #94a3b8 !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#BFDBFE\] {
+  color: #bfdbfe !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#93C5FD\] {
+  color: #93c5fd !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#DBEAFE\] {
+  color: #dbeafe !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-white {
+  color: #ffffff !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-300,
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-400 {
+  color: #94a3b8 !important;
+}
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-100,
+html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-200 {
+  color: #f1f5f9 !important;
+}
+
+/* Badges: colores definidos en @layer con utilidades embebidas */
+html[data-ui-theme='light'] #root .badge-pending,
+html[data-ui-theme='light'] #root .badge-preparing,
+html[data-ui-theme='light'] #root .badge-ready,
+html[data-ui-theme='light'] #root .badge-delivered {
+  color: #0f172a !important;
+}
+html[data-ui-theme='light'] #root .badge-cancelled {
+  color: #ffffff !important;
 }
 
 @layer components {

@@ -485,7 +485,7 @@ export default function Escritorio() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2" data-ui-isolate="dark-surface">
         <button
           type="button"
           className="w-full rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] px-3 py-2 text-left flex items-center justify-between text-sm text-[#F9FAFB] hover:border-[#3B82F6]/60"

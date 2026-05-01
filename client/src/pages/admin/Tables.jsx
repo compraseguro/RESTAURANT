@@ -271,7 +271,7 @@ export default function Tables() {
       {showMenu && selectedTable && (
         <>
           <div className="fixed inset-0 bg-black/30 z-40" onClick={closeMenuPanel} />
-          <aside className="fixed top-0 right-0 h-screen w-full md:w-1/2 bg-[#1F2937] z-50 shadow-2xl border-l border-[#3B82F6]/40 flex flex-col text-white">
+          <aside data-ui-isolate="dark-surface" className="fixed top-0 right-0 h-screen w-full md:w-1/2 bg-[#1F2937] z-50 shadow-2xl border-l border-[#3B82F6]/40 flex flex-col text-white">
             <div className="px-5 py-4 border-b border-[#3B82F6]/30 bg-[#1D4ED8]/30 backdrop-blur-xl flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-white">Agregar Pedido — {selectedTable.name}</h3>

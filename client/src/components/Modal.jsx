@@ -66,6 +66,7 @@ export default function Modal({
     >
       <div className={`fixed inset-0 ${overlayClass}`} aria-hidden />
       <div
+        data-ui-isolate={isLight ? undefined : 'dark-surface'}
         className={`relative rounded-2xl w-full ${sizeClass} ${maxHeightClass} flex flex-col overflow-hidden ${panelClass} ${dialogClassName}`.trim()}
         onClick={(e) => e.stopPropagation()}
         role="dialog"

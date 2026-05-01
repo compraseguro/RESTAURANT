@@ -113,7 +113,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#111827] flex items-center justify-center p-4 relative overflow-hidden">
+    <div data-ui-isolate="dark-surface" className="min-h-screen bg-[#111827] flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-96 h-96 bg-[#3B82F6]/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#2563EB]/25 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
       <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
