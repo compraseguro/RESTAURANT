@@ -89,10 +89,6 @@ function isInsumosWarehouse(warehouse) {
   return String(warehouse.name || '').toLowerCase().includes('insumos');
 }
 
-function isRequirementInsumoRow(item) {
-  return String(item?.item_type || 'product') === 'insumo';
-}
-
 function CreateProductModal({
   isOpen,
   onClose,
@@ -237,7 +233,7 @@ export default function Almacen() {
   const [receptionExtraLines, setReceptionExtraLines] = useState([]);
   const [showReceptionAddModal, setShowReceptionAddModal] = useState(false);
   const [receptionAddDraft, setReceptionAddDraft] = useState({
-    product_id: '',
+    pickValue: '',
     warehouse_id: '',
     quantity: '1',
     unit_cost: '0',
@@ -269,18 +265,29 @@ export default function Almacen() {
     ...categories.filter(c => (c.name || '').toUpperCase() === WAREHOUSE_CATEGORY_NAMES.supplies),
   ];
   const principalWarehouse = warehouses.find(w => w.name === 'Almacen Principal') || warehouses[0];
-  const receptionProductPicker = useMemo(() => {
-    const reqProductIds = new Set(
-      (latestRequirement?.items || [])
-        .filter((i) => !isRequirementInsumoRow(i))
-        .map((i) => i.product_id)
-    );
+  /** Ítems ya listados en el requerimiento (producto o insumo kardex comparten `product_id` en la fila). */
+  const receptionRequirementIds = useMemo(
+    () => new Set((latestRequirement?.items || []).map((i) => i.product_id).filter(Boolean)),
+    [latestRequirement]
+  );
+
+  const receptionPickProducts = useMemo(() => {
     const extraIds = new Set(receptionExtraLines.map((l) => l.product_id));
     return products
-      .filter((p) => !reqProductIds.has(p.id) && !extraIds.has(p.id))
+      .filter((p) => !receptionRequirementIds.has(p.id) && !extraIds.has(p.id))
       .slice()
       .sort((a, b) => String(a.name || '').localeCompare(b.name || '', 'es'));
-  }, [latestRequirement, products, receptionExtraLines]);
+  }, [products, receptionRequirementIds, receptionExtraLines]);
+
+  const receptionPickInsumos = useMemo(() => {
+    const extraIds = new Set(receptionExtraLines.map((l) => l.product_id));
+    return kardexInsumos
+      .filter((ins) => Number(ins.activo) !== 0 && ins.id && !receptionRequirementIds.has(ins.id) && !extraIds.has(ins.id))
+      .slice()
+      .sort((a, b) => String(a.nombre || '').localeCompare(b.nombre || '', 'es'));
+  }, [kardexInsumos, receptionRequirementIds, receptionExtraLines]);
+
+  const receptionPickListEmpty = receptionPickProducts.length === 0 && receptionPickInsumos.length === 0;
   const sameWarehouseId = (a, b) => String(a || '') === String(b || '');
   const getDefaultCreateWarehouseId = () => {
     if (selectedWarehouseView && warehouses.some(w => sameWarehouseId(w.id, selectedWarehouseView))) {
@@ -565,6 +572,7 @@ export default function Almacen() {
           ...prev,
           {
             lineId: `rx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            lineKind: 'product',
             product_id: created.id,
             product_name: created.name || itemForm.name,
             warehouse_id: String(selectedWarehouseId || principalWarehouse?.id || ''),
@@ -742,14 +750,9 @@ export default function Almacen() {
       toast.error('No hay requerimiento disponible');
       return;
     }
-    const requirementProductIds = new Set(
-      (latestRequirement.items || [])
-        .filter((i) => !isRequirementInsumoRow(i))
-        .map((i) => i.product_id)
-    );
     const seenExtra = new Set();
     for (const line of receptionExtraLines) {
-      if (requirementProductIds.has(line.product_id)) {
+      if (receptionRequirementIds.has(line.product_id)) {
         toast.error(`"${line.product_name}" ya está en el requerimiento; ajusta esa fila.`);
         return;
       }
@@ -818,7 +821,7 @@ export default function Almacen() {
       return;
     }
     setReceptionAddDraft({
-      product_id: '',
+      pickValue: '',
       warehouse_id: String(principalWarehouse?.id || warehouses[0]?.id || ''),
       quantity: '1',
       unit_cost: '0',
@@ -827,30 +830,35 @@ export default function Almacen() {
   };
 
   const confirmReceptionAddLine = () => {
-    const pid = receptionAddDraft.product_id;
-    if (!pid) return toast.error('Selecciona un producto');
+    const raw = receptionAddDraft.pickValue;
+    if (!raw || !String(raw).includes(':')) return toast.error('Selecciona un producto o insumo');
+    const [kind, ...rest] = String(raw).split(':');
+    const pid = rest.join(':');
+    if (!pid) return toast.error('Selección inválida');
+    const lineKind = kind === 'i' ? 'insumo' : 'product';
     const qty = Number(receptionAddDraft.quantity || 0);
     const cost = Number(receptionAddDraft.unit_cost || 0);
     if (qty <= 0) return toast.error('La cantidad debe ser mayor a 0');
     if (cost <= 0) return toast.error('Indica el costo de compra unitario');
-    const requirementProductIds = new Set(
-      (latestRequirement?.items || [])
-        .filter((i) => !isRequirementInsumoRow(i))
-        .map((i) => i.product_id)
-    );
-    if (requirementProductIds.has(pid)) {
-      return toast.error('Este producto ya está en el requerimiento');
+    if (receptionRequirementIds.has(pid)) {
+      return toast.error('Este ítem ya está en el requerimiento');
     }
     if (receptionExtraLines.some((l) => l.product_id === pid)) {
-      return toast.error('Este producto ya está en la lista adicional');
+      return toast.error('Este ítem ya está en la lista adicional');
     }
-    const prod = products.find((p) => p.id === pid);
+    let label = 'Producto';
+    if (lineKind === 'insumo') {
+      label = kardexInsumos.find((k) => k.id === pid)?.nombre || 'Insumo';
+    } else {
+      label = products.find((p) => p.id === pid)?.name || 'Producto';
+    }
     setReceptionExtraLines((prev) => [
       ...prev,
       {
         lineId: `rx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        lineKind,
         product_id: pid,
-        product_name: prod?.name || 'Producto',
+        product_name: label,
         warehouse_id: String(receptionAddDraft.warehouse_id || principalWarehouse?.id || ''),
         quantity: String(qty),
         unit_cost: String(cost),
@@ -967,7 +975,13 @@ export default function Almacen() {
                             <span className="ml-2 text-[10px] uppercase tracking-wide text-sky-700 font-semibold">Adicional</span>
                           </td>
                           <td className="p-2.5 text-sky-600 font-semibold">
-                            {products.find((p) => p.id === line.product_id)?.stock ?? '—'}
+                            {line.lineKind === 'insumo'
+                              ? (() => {
+                                  const k = kardexInsumos.find((x) => x.id === line.product_id);
+                                  if (!k) return '—';
+                                  return formatInsumoWithUnit(k.stock_actual, insumoUnidadMedidaDisplay(k));
+                                })()
+                              : (products.find((p) => p.id === line.product_id)?.stock ?? '—')}
                           </td>
                           <td className="p-2.5 text-slate-600">
                             <select
@@ -1094,37 +1108,54 @@ export default function Almacen() {
         >
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
-              Para artículos comprados que no estaban en el requerimiento: elija un producto de almacén ya registrado o use «Crear producto nuevo».
+              Elija primero el <strong>almacén de ingreso</strong>. La lista incluye <strong>productos de almacén</strong> (todas las ubicaciones) e <strong>insumos del kardex</strong>, excepto los que ya están en este requerimiento.
             </p>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Producto</label>
-              <select
-                className="input-field"
-                value={receptionAddDraft.product_id}
-                onChange={(e) => setReceptionAddDraft((d) => ({ ...d, product_id: e.target.value }))}
-              >
-                <option value="">— Seleccionar —</option>
-                {receptionProductPicker.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              {receptionProductPicker.length === 0 && (
-                <p className="text-xs text-amber-700 mt-1">
-                  No hay más productos para elegir aquí. Use «Crear producto nuevo».
-                </p>
-              )}
-            </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Almacén de ingreso</label>
               <select
                 className="input-field"
                 value={receptionAddDraft.warehouse_id}
-                onChange={(e) => setReceptionAddDraft((d) => ({ ...d, warehouse_id: e.target.value }))}
+                onChange={(e) =>
+                  setReceptionAddDraft((d) => ({
+                    ...d,
+                    warehouse_id: e.target.value,
+                    pickValue: '',
+                  }))
+                }
               >
                 {warehouses.map((w) => (
                   <option key={w.id} value={w.id}>{w.name}</option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Producto o insumo</label>
+              <select
+                className="input-field"
+                value={receptionAddDraft.pickValue}
+                onChange={(e) => setReceptionAddDraft((d) => ({ ...d, pickValue: e.target.value }))}
+              >
+                <option value="">— Seleccionar —</option>
+                {receptionPickProducts.length > 0 && (
+                  <optgroup label="Productos de almacén (unidades)">
+                    {receptionPickProducts.map((p) => (
+                      <option key={`p-${p.id}`} value={`p:${p.id}`}>{p.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {receptionPickInsumos.length > 0 && (
+                  <optgroup label="Insumos kardex (kg/L, unidades)">
+                    {receptionPickInsumos.map((ins) => (
+                      <option key={`i-${ins.id}`} value={`i:${ins.id}`}>{ins.nombre}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              {receptionPickListEmpty && (
+                <p className="text-xs text-amber-700 mt-1">
+                  No quedan ítems disponibles (o ya están todos en el requerimiento). Use «Crear producto nuevo» para un artículo de almacén nuevo.
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
