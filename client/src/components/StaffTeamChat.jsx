@@ -177,8 +177,8 @@ export default function StaffTeamChat({ isActive, onUnreadDelta }) {
           onClick={() => { setMode('group'); setPrivateUserId(''); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
             mode === 'group'
-              ? 'bg-[#2563EB] border-[#2563EB] text-white'
-              : 'bg-[#111827]/60 border-[#3B82F6]/35 text-[#9CA3AF] hover:text-[#F9FAFB]'
+              ? 'bg-[var(--ui-accent)] border-[color:var(--ui-accent)] text-white'
+              : 'bg-[var(--ui-surface-2)] border-[color:var(--ui-border)] text-[var(--ui-muted)] hover:text-[var(--ui-body-text)]'
           }`}
         >
           <MdGroup className="text-base" /> Chat de grupo
@@ -188,8 +188,8 @@ export default function StaffTeamChat({ isActive, onUnreadDelta }) {
           onClick={() => setMode('private')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
             mode === 'private'
-              ? 'bg-[#2563EB] border-[#2563EB] text-white'
-              : 'bg-[#111827]/60 border-[#3B82F6]/35 text-[#9CA3AF] hover:text-[#F9FAFB]'
+              ? 'bg-[var(--ui-accent)] border-[color:var(--ui-accent)] text-white'
+              : 'bg-[var(--ui-surface-2)] border-[color:var(--ui-border)] text-[var(--ui-muted)] hover:text-[var(--ui-body-text)]'
           }`}
         >
           <MdPerson className="text-base" /> Mensaje privado
@@ -198,11 +198,11 @@ export default function StaffTeamChat({ isActive, onUnreadDelta }) {
 
       {mode === 'private' && (
         <div className="mb-3">
-          <label className="block text-[10px] uppercase tracking-wide text-[#9CA3AF] mb-1">Enviar a</label>
+          <label className="block text-[10px] uppercase tracking-wide text-[var(--ui-muted)] mb-1">Enviar a</label>
           <select
             value={privateUserId}
             onChange={(e) => setPrivateUserId(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-[#111827]/80 border border-[#3B82F6]/35 text-[#F9FAFB] text-sm outline-none focus:ring-2 focus:ring-[#3B82F6]"
+            className="input-field text-sm"
           >
             <option value="">— Seleccione usuario —</option>
             {recipients.map((r) => (
@@ -214,9 +214,9 @@ export default function StaffTeamChat({ isActive, onUnreadDelta }) {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-[#3B82F6]/25 bg-[#0f172a]/80 p-3 space-y-2 mb-3">
+      <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 space-y-2 mb-3">
         {messages.length === 0 ? (
-          <p className="text-sm text-[#9CA3AF] text-center py-8">
+          <p className="text-sm text-[var(--ui-muted)] text-center py-8">
             {mode === 'private' && !privateUserId
               ? 'Seleccione un compañero para ver el historial.'
               : 'Sin mensajes en este ciclo. Escriba el primero.'}
@@ -229,17 +229,17 @@ export default function StaffTeamChat({ isActive, onUnreadDelta }) {
                 <div
                   className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
                     mine
-                      ? 'bg-[#2563EB]/90 text-white rounded-br-sm'
-                      : 'bg-[#1F2937] text-[#F9FAFB] border border-[#3B82F6]/20 rounded-bl-sm'
+                      ? 'bg-[var(--ui-accent)]/90 text-white rounded-br-sm'
+                      : 'bg-[var(--ui-surface)] text-[var(--ui-body-text)] border border-[color:var(--ui-border)] rounded-bl-sm'
                   }`}
                 >
                   {!mine && (
-                    <p className="text-[10px] font-semibold text-[#93C5FD] mb-0.5">
+                    <p className="text-[10px] font-semibold text-[var(--ui-accent)] mb-0.5">
                       {m.sender_name || m.sender_username || 'Usuario'}
                     </p>
                   )}
                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                  <p className={`text-[10px] mt-1 ${mine ? 'text-blue-100/80' : 'text-[#9CA3AF]'}`}>
+                  <p className={`text-[10px] mt-1 ${mine ? 'text-blue-100/80' : 'text-[var(--ui-muted)]'}`}>
                     {formatDateTime(m.created_at)}
                   </p>
                 </div>
@@ -256,20 +256,20 @@ export default function StaffTeamChat({ isActive, onUnreadDelta }) {
           onChange={(e) => setText(e.target.value)}
           placeholder={mode === 'private' && !privateUserId ? 'Seleccione destinatario…' : 'Escribir mensaje…'}
           disabled={mode === 'private' && !privateUserId}
-          className="flex-1 px-3 py-2 rounded-lg bg-[#111827]/80 border border-[#3B82F6]/35 text-[#F9FAFB] text-sm placeholder:text-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#3B82F6] disabled:opacity-50"
+          className="input-field flex-1 text-sm disabled:opacity-50"
           maxLength={2000}
         />
         <button
           type="submit"
           disabled={sending || !text.trim() || (mode === 'private' && !privateUserId)}
-          className="shrink-0 px-4 py-2 rounded-lg bg-[#2563EB] text-white hover:bg-[#1D4ED8] disabled:opacity-50 flex items-center gap-1"
+          className="shrink-0 px-4 py-2 rounded-lg btn-primary disabled:opacity-50 flex items-center gap-1"
         >
           <MdSend className="text-lg" />
         </button>
       </form>
 
       {chatMeta && (
-        <p className="text-[10px] text-[#9CA3AF] mt-2 leading-snug">
+        <p className="text-[10px] text-[var(--ui-muted)] mt-2 leading-snug">
           Ciclo #{chatMeta.cycle_id}. El historial se renueva cuando nadie tiene sesión abierta y han pasado 24 h desde ese momento (al iniciar sesión se aplica el cambio).
         </p>
       )}

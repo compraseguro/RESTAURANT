@@ -1861,7 +1861,7 @@ export default function POSPanel() {
                 <button
                   type="button"
                   onClick={() => openMenuForTable(tableDetail)}
-                  className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F2937]"
+                  className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
                 >
                   <MdRestaurantMenu /> Tomar Pedido
                 </button>
@@ -1878,7 +1878,7 @@ export default function POSPanel() {
                   setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
                 }}
                 disabled={!tableDetail.orders?.length}
-                className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F2937]"
+                className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
               >
                 <MdAttachMoney /> {isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar Mesa'}
               </button>
@@ -1887,7 +1887,7 @@ export default function POSPanel() {
                   type="button"
                   onClick={() => printTableOrder(tableDetail)}
                   disabled={!tableDetail.orders?.length}
-                  className="flex-1 py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F2937]"
+                  className="flex-1 py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
                 >
                   <MdPrint /> Imprimir Precuenta
                 </button>
@@ -1896,7 +1896,7 @@ export default function POSPanel() {
                   title="Ver pedido"
                   onClick={() => setViewOrdersModal({ table: tableDetail, orderId: null })}
                   disabled={!tableDetail.orders?.length}
-                  className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F2937]"
+                  className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
                 >
                   <MdVisibility className="text-xl" />
                 </button>
@@ -1909,7 +1909,7 @@ export default function POSPanel() {
                     isClientCheckoutTable(tableDetail) ||
                     !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
                   }
-                  className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F2937]"
+                  className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
                 >
                   <MdEdit className="text-xl" />
                 </button>
@@ -2201,7 +2201,7 @@ export default function POSPanel() {
                     </div>
                   </>
                 )}
-                <div className="rounded-lg border border-[#3B82F6]/30 bg-[#111827] p-2 space-y-2">
+                <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-2 space-y-2">
                   {!billingForm.enabled && (
                     <p className="text-[11px] text-[#9CA3AF]">Activa «Emitir comprobante» debajo del total para completar boleta o factura.</p>
                   )}
@@ -2211,7 +2211,7 @@ export default function POSPanel() {
                         <button
                           type="button"
                           onClick={openCustomerModal}
-                          className="px-2 py-1 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1"
+                          className="px-2 py-1 rounded-lg border border-[color:var(--ui-accent)] text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1"
                         >
                           <MdPersonAdd className="text-sm" />
                           Agregar cliente
@@ -2238,7 +2238,7 @@ export default function POSPanel() {
                           <option value="0">Sin documento</option>
                         </select>
                       </div>
-                      <div className="rounded-lg border border-[#3B82F6]/25 bg-[#0F172A]/60 p-2 space-y-1.5">
+                      <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/60 p-2 space-y-1.5">
                         <p className="text-[11px] font-medium text-[#E5E7EB]">Detalle en el comprobante</p>
                         <div className="flex flex-wrap gap-3 text-xs text-[#D1D5DB]">
                           <label className="flex items-center gap-1.5 cursor-pointer">
@@ -2247,7 +2247,7 @@ export default function POSPanel() {
                               name="invoice_lines_quick"
                               checked={billingForm.invoice_lines_mode === 'detallado'}
                               onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'detallado' }))}
-                              className="border-[#3B82F6]/50"
+                              className="border-[color:var(--ui-accent)]"
                               disabled={billingForm.doc_type === 'nota_venta'}
                             />
                             Detallado (cada producto)
@@ -2258,7 +2258,7 @@ export default function POSPanel() {
                               name="invoice_lines_quick"
                               checked={billingForm.invoice_lines_mode === 'consumo'}
                               onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'consumo' }))}
-                              className="border-[#3B82F6]/50"
+                              className="border-[color:var(--ui-accent)]"
                               disabled={billingForm.doc_type === 'nota_venta'}
                             />
                             Por consumo (una línea)
@@ -2280,7 +2280,7 @@ export default function POSPanel() {
                             title="Consultar nombre o razón social en padrón (requiere PERU_CONSULTAS_TOKEN en el servidor)"
                             onClick={() => void handleConsultaPadron()}
                             disabled={consultaPadronLoading}
-                            className="shrink-0 px-2.5 py-2 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center justify-center gap-1 disabled:opacity-50"
+                            className="shrink-0 px-2.5 py-2 rounded-lg border border-[color:var(--ui-accent)] text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center justify-center gap-1 disabled:opacity-50"
                           >
                             <MdSearch className="text-lg shrink-0" />
                             <span className="hidden sm:inline">Padrón</span>
@@ -2335,7 +2335,7 @@ export default function POSPanel() {
                           invoice_lines_mode: 'detallado',
                         }
                         : { ...prev, enabled: false }))}
-                      className="rounded border-[#3B82F6]/50"
+                      className="rounded border-[color:var(--ui-accent)]"
                     />
                     Emitir Comprovate
                   </label>
@@ -2386,7 +2386,7 @@ export default function POSPanel() {
                 </ul>
               )}
             </div>
-            <div className="mt-4 shrink-0 space-y-3 border-t border-[#3B82F6]/25 pt-4">
+            <div className="mt-4 shrink-0 space-y-3 border-t border-[color:var(--ui-border)] pt-4">
               {cart.length > 0 ? (
                 <>
                   <div className="flex justify-between text-base font-bold text-white">
@@ -2525,7 +2525,7 @@ export default function POSPanel() {
                 </ul>
               )}
               {lines.length > 0 && (
-                <div className="flex justify-between border-t border-[#3B82F6]/25 pt-3 text-base font-bold text-white">
+                <div className="flex justify-between border-t border-[color:var(--ui-border)] pt-3 text-base font-bold text-white">
                   <span>Total</span>
                   <span className="text-[#BFDBFE]">{formatCurrency(totalMesa)}</span>
                 </div>
@@ -2561,7 +2561,7 @@ export default function POSPanel() {
               : 'COBRAR MESA'
         }
         size="xl"
-        headerClassName="bg-[#1D4ED8]/40 border-b border-[#3B82F6]/30"
+        headerClassName="bg-[var(--ui-surface-2)] border-b border-[color:var(--ui-border)]"
         titleClassName="text-[#F9FAFB] font-extrabold tracking-wide uppercase"
         closeButtonClassName="hover:bg-[#1E3A8A]/50"
         closeIconClassName="text-[#BFDBFE]"
@@ -2572,12 +2572,12 @@ export default function POSPanel() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 items-start">
                 {/* Pedidos o formulario de facturación (reemplazo al activar emitir comprobante) */}
                 <div className="flex flex-col gap-2 min-h-0">
-                  <div className="rounded-xl border border-[#3B82F6]/35 bg-[#111827]/70 backdrop-blur-md shadow-lg shadow-black/20 p-3 sm:p-4 flex flex-col min-h-0 overflow-hidden">
+                  <div className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/70 backdrop-blur-md shadow-lg shadow-black/20 p-3 sm:p-4 flex flex-col min-h-0 overflow-hidden">
                     <div className="flex flex-col flex-1 min-h-0 gap-2">
                       {!billingForm.enabled ? (
                         <>
                           <h3 className="text-base font-bold text-[#F9FAFB] shrink-0">Pedidos</h3>
-                          <div className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-[10px] sm:text-xs font-semibold text-[#9CA3AF] border-b border-[#3B82F6]/25 pb-2 shrink-0">
+                          <div className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-[10px] sm:text-xs font-semibold text-[#9CA3AF] border-b border-[color:var(--ui-border)] pb-2 shrink-0">
                             <span>Producto</span>
                             <span className="text-center tabular-nums">Cant.</span>
                             <span className="text-right tabular-nums">P. unit.</span>
@@ -2592,7 +2592,7 @@ export default function POSPanel() {
                                   <div
                                     key={order.id}
                                     className={`rounded-lg border p-2 ${
-                                      sel ? 'border-[#3B82F6]/50 bg-[#1D4ED8]/10' : 'border-[#3B82F6]/20 bg-[#111827]/40 opacity-70'
+                                      sel ? 'border-[color:var(--ui-accent)] bg-[var(--ui-sidebar-active-bg)]' : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/40 opacity-70'
                                     }`}
                                   >
                                     <label className="flex items-center gap-2 cursor-pointer mb-1.5">
@@ -2600,7 +2600,7 @@ export default function POSPanel() {
                                         type="checkbox"
                                         checked={sel}
                                         onChange={() => toggleOrderSelection(order.id)}
-                                        className="rounded border-[#3B82F6]/50"
+                                        className="rounded border-[color:var(--ui-accent)]"
                                       />
                                       <span className="text-xs font-bold text-[#BFDBFE]">Pedido #{order.order_number}</span>
                                     </label>
@@ -2647,7 +2647,7 @@ export default function POSPanel() {
                             <button
                               type="button"
                               onClick={openCustomerModal}
-                              className="px-2 py-1 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1 shrink-0"
+                              className="px-2 py-1 rounded-lg border border-[color:var(--ui-accent)] text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center gap-1 shrink-0"
                             >
                               <MdPersonAdd className="text-sm" />
                               Agregar cliente
@@ -2673,7 +2673,7 @@ export default function POSPanel() {
                               <option value="6">RUC</option>
                               <option value="0">Sin documento</option>
                             </select>
-                            <div className="sm:col-span-2 rounded-lg border border-[#3B82F6]/25 bg-[#0F172A]/60 p-2 space-y-1.5">
+                            <div className="sm:col-span-2 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/60 p-2 space-y-1.5">
                               <p className="text-xs font-medium text-[#E5E7EB]">Detalle en el comprobante</p>
                               <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-xs text-[#D1D5DB]">
                                 <label className="flex items-center gap-1.5 cursor-pointer">
@@ -2682,7 +2682,7 @@ export default function POSPanel() {
                                     name="invoice_lines_mesa"
                                     checked={billingForm.invoice_lines_mode === 'detallado'}
                                     onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'detallado' }))}
-                                    className="border-[#3B82F6]/50"
+                                    className="border-[color:var(--ui-accent)]"
                                     disabled={billingForm.doc_type === 'nota_venta'}
                                   />
                                   Detallado (cada producto)
@@ -2693,7 +2693,7 @@ export default function POSPanel() {
                                     name="invoice_lines_mesa"
                                     checked={billingForm.invoice_lines_mode === 'consumo'}
                                     onChange={() => setBillingForm((prev) => ({ ...prev, invoice_lines_mode: 'consumo' }))}
-                                    className="border-[#3B82F6]/50"
+                                    className="border-[color:var(--ui-accent)]"
                                     disabled={billingForm.doc_type === 'nota_venta'}
                                   />
                                   Por consumo (una línea)
@@ -2715,7 +2715,7 @@ export default function POSPanel() {
                                   title="Consultar nombre o razón social en padrón (requiere PERU_CONSULTAS_TOKEN en el servidor)"
                                   onClick={() => void handleConsultaPadron()}
                                   disabled={consultaPadronLoading}
-                                  className="shrink-0 px-2.5 py-2 rounded-lg border border-[#3B82F6]/50 text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center justify-center gap-1 disabled:opacity-50"
+                                  className="shrink-0 px-2.5 py-2 rounded-lg border border-[color:var(--ui-accent)] text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center justify-center gap-1 disabled:opacity-50"
                                 >
                                   <MdSearch className="text-lg shrink-0" />
                                   <span className="hidden sm:inline">Padrón</span>
@@ -2789,7 +2789,7 @@ export default function POSPanel() {
                             <button
                               type="button"
                               onClick={() => setDiscountConfig((prev) => ({ ...prev, active: false, value: '', reason: '' }))}
-                              className="px-3 py-2 rounded-lg border border-[#3B82F6]/40 text-[#BFDBFE] text-xs"
+                              className="px-3 py-2 rounded-lg border border-[color:var(--ui-border)] text-[#BFDBFE] text-xs"
                             >
                               Cancelar
                             </button>
@@ -2801,8 +2801,8 @@ export default function POSPanel() {
                 </div>
 
                 {/* Cobro */}
-                <div className="lg:border-l lg:border-[#3B82F6]/25 lg:pl-4">
-                  <div className="rounded-xl border border-[#3B82F6]/35 bg-[#111827]/70 backdrop-blur-md p-3 sm:p-4 space-y-3">
+                <div className="lg:border-l lg:border-[color:var(--ui-border)] lg:pl-4">
+                  <div className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/70 backdrop-blur-md p-3 sm:p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <h3 className="text-base font-bold text-[#F9FAFB] shrink-0">Cobro</h3>
                       <p className="text-base sm:text-lg font-extrabold text-[#F9FAFB] tracking-wide text-right leading-tight">
@@ -2812,7 +2812,7 @@ export default function POSPanel() {
                             : '—')}
                       </p>
                     </div>
-                    <div className="text-right border-b border-[#3B82F6]/25 pb-3">
+                    <div className="text-right border-b border-[color:var(--ui-border)] pb-3">
                       <p className="text-2xl sm:text-3xl font-bold text-[#BFDBFE] tabular-nums">{formatCurrency(payableTotal)}</p>
                       <p className="text-xs text-[#9CA3AF] mt-0.5">Total a pagar</p>
                     </div>
@@ -2874,7 +2874,7 @@ export default function POSPanel() {
                       </div>
                     )}
 
-                    <label className="flex items-start gap-2 text-sm font-medium text-[#F9FAFB] cursor-pointer pt-1 border-t border-[#3B82F6]/20">
+                    <label className="flex items-start gap-2 text-sm font-medium text-[#F9FAFB] cursor-pointer pt-1 border-t border-[color:var(--ui-border)]">
                       <input
                         type="checkbox"
                         checked={billingForm.enabled}
@@ -2887,7 +2887,7 @@ export default function POSPanel() {
                             invoice_lines_mode: 'detallado',
                           }
                           : { ...prev, enabled: false }))}
-                        className="rounded border-[#3B82F6]/50 mt-0.5"
+                        className="rounded border-[color:var(--ui-accent)] mt-0.5"
                       />
                       <span>Emitir Comprovate</span>
                     </label>
@@ -2905,19 +2905,19 @@ export default function POSPanel() {
             </div>
 
             {/* Barra fija inferior: solo dividir / descuento (la mesa va arriba del total a pagar) */}
-            <div className="shrink-0 flex flex-wrap items-center gap-3 py-3 px-1 mt-1 border-t border-[#3B82F6]/40 bg-[#0f172a]/95 backdrop-blur-md rounded-b-lg">
+            <div className="shrink-0 flex flex-wrap items-center gap-3 py-3 px-1 mt-1 border-t border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/95 backdrop-blur-md rounded-b-lg">
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={togglePartialSelection}
-                  className="px-4 py-2.5 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm font-semibold border border-[#3B82F6]/40 shadow-md shadow-black/20"
+                  className="px-4 py-2.5 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm font-semibold border border-[color:var(--ui-border)] shadow-md shadow-black/20"
                 >
                   {splitMode ? 'Cerrar dividir cuentas' : 'Dividir cuentas'}
                 </button>
                 <button
                   type="button"
                   onClick={handleDiscountButton}
-                  className="px-4 py-2.5 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm font-semibold border border-[#3B82F6]/40 shadow-md shadow-black/20"
+                  className="px-4 py-2.5 rounded-lg bg-[#1E3A8A] hover:bg-[#1D4ED8] text-white text-sm font-semibold border border-[color:var(--ui-border)] shadow-md shadow-black/20"
                 >
                   {discountConfig.applied
                     ? 'Anular descuento'
@@ -3077,29 +3077,29 @@ export default function POSPanel() {
             </div>
 
             <div className="mt-4 space-y-4">
-              <div className="rounded-xl p-4 border border-[#475569] bg-[#1e293b]">
+              <div className="rounded-xl p-4 border border-[color:var(--ui-border)] bg-[var(--ui-surface)]">
                 <h3 className="font-semibold text-[#f8fafc] mb-3 flex items-center gap-2"><MdAccountBalanceWallet className="text-[#93c5fd]" /> Resumen de ventas (métodos activos)</h3>
                 <div className={`grid gap-3 ${registerPaymentRows.length <= 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 lg:grid-cols-4'}`}>
                   {registerPaymentRows.map((row) => (
-                    <div key={row.value} className="rounded-lg p-3 border border-[#475569] bg-[#111827]">
+                    <div key={row.value} className="rounded-lg p-3 border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
                       <p className="text-xs text-[#94a3b8]">{row.label}</p>
                       <p className={`font-bold text-lg ${paymentRowAmountClass(row.value)}`}>{formatCurrency(row.amount)}</p>
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#475569]">
+                <div className="flex justify-between items-center mt-3 pt-3 border-t border-[color:var(--ui-border)]">
                   <span className="font-bold text-[#f1f5f9]">Total ventas</span>
                   <span className="font-bold text-xl text-emerald-400">{formatCurrency(registerSales)}</span>
                 </div>
               </div>
 
-              <div className="rounded-xl p-4 border border-[#475569] bg-[#1e293b]">
+              <div className="rounded-xl p-4 border border-[color:var(--ui-border)] bg-[var(--ui-surface)]">
                 <h3 className="font-semibold text-[#f8fafc] mb-1">Conteo de efectivo</h3>
                 <div className="mb-3">
                   <p className="text-xs font-semibold text-[#cbd5e1] mb-2">Arqueo por denominación (soles)</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {denomDefs.map(d => (
-                      <div key={d.key} className="rounded-lg border border-[#475569] bg-[#111827] p-2">
+                      <div key={d.key} className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-2">
                         <label className="block text-xs text-[#cbd5e1] mb-1">{d.label}</label>
                         <div className="flex items-center gap-2">
                           <input
@@ -3118,7 +3118,7 @@ export default function POSPanel() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex justify-between items-center mt-2 p-2 rounded-lg border border-[#475569] bg-[#0f172a]">
+                  <div className="flex justify-between items-center mt-2 p-2 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
                     <span className="text-xs font-medium text-[#cbd5e1]">Total por arqueo</span>
                     <span className="font-bold text-amber-300 tabular-nums">{formatCurrency(calculateDenominationTotal())}</span>
                   </div>
@@ -3126,7 +3126,7 @@ export default function POSPanel() {
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
                     <label className="block text-xs font-medium text-[#cbd5e1] mb-1">Efectivo esperado en caja</label>
-                    <div className="rounded-lg p-3 border border-[#475569] bg-[#111827]">
+                    <div className="rounded-lg p-3 border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
                       <p className="font-bold text-lg text-[#f9fafb] tabular-nums">{formatCurrency(expectedCash)}</p>
                     </div>
                   </div>
@@ -3184,15 +3184,15 @@ export default function POSPanel() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-3 pt-4 mt-4 border-t border-[#475569]">
+            <div className="flex flex-wrap gap-3 pt-4 mt-4 border-t border-[color:var(--ui-border)]">
               <button onClick={() => setShowCloseModal(false)} className="btn-secondary flex-1 min-w-[120px]">Cancelar</button>
-              <button onClick={handlePrint} className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm border border-[#475569] bg-[#374151] text-[#f9fafb] hover:bg-[#4b5563] min-w-[140px]">
+              <button onClick={handlePrint} className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm btn-secondary min-w-[140px]">
                 <MdPrint /> Enviar a impresora
               </button>
               <button
                 onClick={sendCloseByEmail}
                 disabled={sendingCloseMail}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm border border-[#475569] bg-[#374151] text-[#f9fafb] hover:bg-[#4b5563] disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm btn-secondary disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
               >
                 <MdEmail /> {sendingCloseMail ? 'Enviando...' : 'Enviar a correo'}
               </button>

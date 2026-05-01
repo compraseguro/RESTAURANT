@@ -133,11 +133,11 @@ export default function SelfOrder() {
 
   if (!mesaParam) {
     return (
-      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-6 text-center">
-        <div className="max-w-md rounded-2xl border border-[#3B82F6]/30 bg-[#1e293b] p-8 text-white shadow-xl">
-          <MdRestaurantMenu className="text-5xl mx-auto mb-4 text-[#93C5FD]" />
+      <div className="min-h-screen bg-[var(--ui-body-bg)] flex items-center justify-center p-6 text-center">
+        <div className="max-w-md rounded-2xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-8 text-[var(--ui-body-text)] shadow-xl">
+          <MdRestaurantMenu className="text-5xl mx-auto mb-4 text-[var(--ui-accent)]" />
           <h1 className="text-xl font-bold mb-2">Auto pedido</h1>
-          <p className="text-[#94a3b8] text-sm">
+          <p className="text-[var(--ui-muted)] text-sm">
             Escanea el código QR de tu mesa para ver la carta y hacer tu pedido. Si llegaste aquí sin QR, pide al personal el enlace con el número de mesa.
           </p>
         </div>
@@ -147,8 +147,8 @@ export default function SelfOrder() {
 
   if (bootError || !bootstrap) {
     return (
-      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-6 text-center">
-        <div className="max-w-md rounded-2xl border border-red-500/40 bg-[#1e293b] p-8 text-white">
+      <div className="min-h-screen bg-[var(--ui-body-bg)] flex items-center justify-center p-6 text-center">
+        <div className="max-w-md rounded-2xl border border-red-500/40 bg-[var(--ui-surface)] p-8 text-[var(--ui-body-text)]">
           <h1 className="text-lg font-bold mb-2">No disponible</h1>
           <p className="text-red-200/90 text-sm">{bootError || 'Cargando…'}</p>
         </div>
@@ -157,17 +157,17 @@ export default function SelfOrder() {
   }
 
   return (
-    <div className="fixed inset-0 z-0 flex flex-col overflow-hidden bg-[#0f172a] text-white">
-      <header className="z-20 flex shrink-0 items-center justify-between gap-3 border-b border-[#3B82F6]/25 bg-[#1e293b]/95 px-4 py-3">
+    <div className="fixed inset-0 z-0 flex flex-col overflow-hidden bg-[var(--ui-body-bg)] text-[var(--ui-body-text)]">
+      <header className="z-20 flex shrink-0 items-center justify-between gap-3 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface)]/95 px-4 py-3">
         <div className="min-w-0">
-          <h1 className="text-lg font-bold text-white truncate">Auto pedido (QR)</h1>
-          <p className="text-xs text-[#93C5FD] truncate">{table?.name || `Mesa ${table?.number}`}</p>
+          <h1 className="text-lg font-bold text-[var(--ui-body-text)] truncate">Auto pedido (QR)</h1>
+          <p className="text-xs text-[var(--ui-accent)] truncate">{table?.name || `Mesa ${table?.number}`}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => setShowCartaModal(true)}
-            className="px-3 py-2.5 rounded-xl border border-[#93C5FD]/40 bg-[#1E3A8A]/35 text-[#E0E7FF] text-sm font-semibold hover:bg-[#1E3A8A]/55"
+            className="px-3 py-2.5 rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] text-sm font-semibold hover:bg-[var(--ui-sidebar-hover)]"
           >
             Ver carta
           </button>
@@ -181,7 +181,7 @@ export default function SelfOrder() {
         </div>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#111827]/50">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--ui-surface-2)]">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-3">
           <StaffDineInOrderUI
             stackedSelfOrder
@@ -226,15 +226,15 @@ export default function SelfOrder() {
       {showOrderPanel && table && (
         <>
           <div className="fixed inset-0 bg-black/40 z-40" onClick={closeOrderPanel} />
-          <aside className="fixed top-0 right-0 flex h-[100dvh] max-h-[100dvh] w-full flex-col border-l border-[#3B82F6]/40 bg-[#1F2937] text-white shadow-2xl md:w-[520px] z-50">
-            <div className="px-5 py-4 border-b border-[#3B82F6]/30 bg-[#1D4ED8]/30 backdrop-blur-xl flex items-center justify-between">
+          <aside className="fixed top-0 right-0 flex h-[100dvh] max-h-[100dvh] w-full flex-col border-l border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-body-text)] shadow-2xl md:w-[520px] z-50">
+            <div className="px-5 py-4 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] backdrop-blur-xl flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-white">Tu pedido</h3>
+                <h3 className="text-lg font-bold text-[var(--ui-body-text)]">Tu pedido</h3>
               </div>
               <button
                 type="button"
                 onClick={closeOrderPanel}
-                className="p-2 rounded-lg hover:bg-[#1E3A8A]/50 text-[#BFDBFE]"
+                className="p-2 rounded-lg hover:bg-[var(--ui-sidebar-hover)] text-[var(--ui-accent)]"
                 aria-label="Cerrar"
               >
                 <MdClose className="text-xl" />
@@ -243,24 +243,24 @@ export default function SelfOrder() {
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
               <div className="min-h-0 flex-1 overflow-y-auto space-y-2 pr-1">
                 {cart.length === 0 ? (
-                  <p className="text-sm text-[#BFDBFE]">No hay productos en tu lista.</p>
+                  <p className="text-sm text-[var(--ui-muted)]">No hay productos en tu lista.</p>
                 ) : (
                   cart.map((item) => (
-                    <div key={item.line_key} className="rounded-lg border border-[#3B82F6]/20 bg-[#1D4ED8]/20 p-3">
+                    <div key={item.line_key} className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-white">{item.name}</p>
+                          <p className="text-sm font-medium text-[var(--ui-body-text)]">{item.name}</p>
                           {item.modifier_name && item.modifier_option ? (
-                            <p className="mt-0.5 truncate text-[11px] text-[#BFDBFE]">
+                            <p className="mt-0.5 truncate text-[11px] text-[var(--ui-muted)]">
                               {item.modifier_name}: {item.modifier_option}
                             </p>
                           ) : null}
-                          <p className="mt-0.5 text-xs text-[#93C5FD]">{formatCurrency(item.price)} c/u</p>
+                          <p className="mt-0.5 text-xs text-[var(--ui-accent)]">{formatCurrency(item.price)} c/u</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => removeFromCart(item.line_key)}
-                          className="shrink-0 rounded-lg p-1.5 text-[#93C5FD] hover:bg-[#1E3A8A]/60 hover:text-white"
+                          className="shrink-0 rounded-lg p-1.5 text-[var(--ui-accent)] hover:bg-[var(--ui-sidebar-hover)]"
                           aria-label="Quitar del pedido"
                         >
                           <MdDelete className="text-xl" />
@@ -271,22 +271,22 @@ export default function SelfOrder() {
                           <button
                             type="button"
                             onClick={() => updateQty(item.line_key, -1)}
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#93C5FD]/30 bg-[#1E3A8A]/50 text-[#DBEAFE] hover:bg-[#1E3A8A]/80"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
                             aria-label="Menos"
                           >
                             <MdRemove className="text-lg" />
                           </button>
-                          <span className="min-w-[2rem] text-center text-sm font-bold tabular-nums text-white">{item.quantity}</span>
+                          <span className="min-w-[2rem] text-center text-sm font-bold tabular-nums text-[var(--ui-body-text)]">{item.quantity}</span>
                           <button
                             type="button"
                             onClick={() => updateQty(item.line_key, 1)}
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#93C5FD]/30 bg-[#1E3A8A]/50 text-[#DBEAFE] hover:bg-[#1E3A8A]/80"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
                             aria-label="Más"
                           >
                             <MdAdd className="text-lg" />
                           </button>
                         </div>
-                        <p className="text-sm font-semibold tabular-nums text-[#DBEAFE]">
+                        <p className="text-sm font-semibold tabular-nums text-[var(--ui-body-text)]">
                           {formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}
                         </p>
                       </div>
@@ -294,10 +294,10 @@ export default function SelfOrder() {
                   ))
                 )}
               </div>
-              <div className="mt-3 border-t border-[#3B82F6]/30 pt-3 space-y-2">
-                <div className="flex justify-between text-lg font-bold text-white">
+              <div className="mt-3 border-t border-[color:var(--ui-border)] pt-3 space-y-2">
+                <div className="flex justify-between text-lg font-bold text-[var(--ui-body-text)]">
                   <span>Total</span>
-                  <span className="text-[#DBEAFE]">{formatCurrency(cartTotal)}</span>
+                  <span className="text-[var(--ui-accent)]">{formatCurrency(cartTotal)}</span>
                 </div>
                 <button
                   type="button"

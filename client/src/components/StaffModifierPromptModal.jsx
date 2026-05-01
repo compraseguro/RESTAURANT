@@ -20,7 +20,7 @@ export default function StaffModifierPromptModal({
       size="sm"
     >
       <div className="space-y-3">
-        <p className="text-sm text-[#D1D5DB]">
+        <p className="text-sm text-[var(--ui-body-text)]">
           {product?.name || 'Producto'} · {required ? 'Obligatorio' : 'Opcional'}
         </p>
         <div className="space-y-2 max-h-56 overflow-y-auto">
@@ -31,8 +31,8 @@ export default function StaffModifierPromptModal({
               onClick={() => setModifierPrompt((prev) => ({ ...prev, selectedOption: opt }))}
               className={`w-full px-3 py-2 rounded-lg border text-left text-sm ${
                 modifierPrompt.selectedOption === opt
-                  ? 'border-[#3B82F6] bg-[#2563EB]/25 text-[#BFDBFE]'
-                  : 'border-[#3B82F6]/30 hover:border-[#60A5FA] text-[#E5E7EB]'
+                  ? 'border-[color:var(--ui-accent)] bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)]'
+                  : 'border-[color:var(--ui-border)] hover:border-[var(--ui-accent)] text-[var(--ui-body-text)]'
               }`}
             >
               {opt}

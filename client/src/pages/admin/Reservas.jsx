@@ -338,7 +338,7 @@ export default function Reservas() {
               placeholder="Busca o escribe nombre del cliente"
             />
             {showSuggestions && customerSuggestions.length > 0 && (
-              <div className="absolute z-20 mt-1 w-full rounded-lg border border-[#3B82F6]/40 bg-[#111827] shadow-xl max-h-44 overflow-y-auto">
+              <div className="absolute z-20 mt-1 w-full rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] shadow-xl max-h-44 overflow-y-auto">
                 {customerSuggestions.map((c) => (
                   <button
                     key={c.id}
@@ -356,7 +356,7 @@ export default function Reservas() {
               </div>
             )}
             {showSuggestions && customerSuggestions.length === 0 && (
-              <div className="absolute z-20 mt-1 w-full rounded-lg border border-[#3B82F6]/40 bg-[#111827] shadow-xl p-3">
+              <div className="absolute z-20 mt-1 w-full rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] shadow-xl p-3">
                 <p className="text-xs text-[#9CA3AF]">No hay coincidencias. Puedes crear cliente nuevo con la opción de abajo.</p>
               </div>
             )}
@@ -414,7 +414,7 @@ export default function Reservas() {
             </select>
           </div>
 
-          <div className="rounded-xl border border-[#3B82F6]/30 bg-[#111827] overflow-hidden">
+          <div className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] overflow-hidden">
             <button
               type="button"
               onClick={toggleOptionalOrder}

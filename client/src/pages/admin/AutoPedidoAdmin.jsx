@@ -287,7 +287,7 @@ export default function AutoPedidoAdmin() {
     <div>
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <MdQrCode2 className="text-[#2563EB]" />
+          <MdQrCode2 className="text-[var(--ui-accent)]" />
           Auto pedido (QR)
         </h1>
       </div>
@@ -298,7 +298,7 @@ export default function AutoPedidoAdmin() {
             type="button"
             onClick={() => setSelectedCategory('all')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-              selectedCategory === 'all' ? 'bg-[#2563EB] text-white' : 'bg-slate-100 text-slate-700'
+              selectedCategory === 'all' ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] border border-[color:var(--ui-border)]'
             }`}
           >
             Todas
@@ -309,7 +309,7 @@ export default function AutoPedidoAdmin() {
               type="button"
               onClick={() => setSelectedCategory(c.id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                selectedCategory === c.id ? 'bg-[#2563EB] text-white' : 'bg-slate-100 text-slate-700'
+                selectedCategory === c.id ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] border border-[color:var(--ui-border)]'
               }`}
             >
               {c.name}
@@ -318,16 +318,16 @@ export default function AutoPedidoAdmin() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredProducts.map((p) => (
-            <div key={p.id} className="rounded-xl border border-slate-200 bg-[#0f172a] p-3">
-              <div className="aspect-[4/3] rounded-lg bg-[#111827] border border-slate-700/50 overflow-hidden mb-2">
+            <div key={p.id} className="rounded-xl border border-slate-200 bg-[var(--ui-surface)] p-3">
+              <div className="aspect-[4/3] rounded-lg bg-[var(--ui-surface-2)] border border-slate-700/50 overflow-hidden mb-2">
                 {p.image ? (
                   <img src={resolveMediaUrl(p.image)} alt={p.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Sin imagen</div>
                 )}
               </div>
-              <p className="text-sm font-semibold text-[#F9FAFB] truncate">{p.name}</p>
-              <p className="text-sm text-[#BFDBFE]">S/ {Number(p.price || 0).toFixed(2)}</p>
+              <p className="text-sm font-semibold text-[var(--ui-body-text)] truncate">{p.name}</p>
+              <p className="text-sm text-[var(--ui-accent)]">S/ {Number(p.price || 0).toFixed(2)}</p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <input
                   type="file"
@@ -339,14 +339,14 @@ export default function AutoPedidoAdmin() {
                 />
                 <label
                   htmlFor={`product-image-${p.id}`}
-                  className={`text-xs py-1.5 rounded-lg text-center border ${canSave ? 'border-[#3B82F6]/40 text-[#BFDBFE] cursor-pointer hover:bg-[#1E3A8A]/40' : 'border-slate-500/40 text-slate-500'}`}
+                  className={`text-xs py-1.5 rounded-lg text-center border ${canSave ? 'border-[color:var(--ui-border)] text-[var(--ui-accent)] cursor-pointer hover:bg-[var(--ui-sidebar-hover)]' : 'border-slate-500/40 text-slate-500'}`}
                 >
                   Agregar imagen
                 </label>
                 <button
                   type="button"
                   onClick={() => openEditProduct(p)}
-                  className="text-xs py-1.5 rounded-lg border border-[#3B82F6]/40 text-[#BFDBFE] hover:bg-[#1E3A8A]/40 inline-flex items-center justify-center gap-1"
+                  className="text-xs py-1.5 rounded-lg border border-[color:var(--ui-border)] text-[var(--ui-accent)] hover:bg-[var(--ui-sidebar-hover)] inline-flex items-center justify-center gap-1"
                   disabled={!canSave}
                 >
                   <MdEdit /> Editar
@@ -359,7 +359,7 @@ export default function AutoPedidoAdmin() {
 
       <div className="card mb-6">
         <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
-          <div className="lg:w-[min(100%,420px)] shrink-0 rounded-xl border border-slate-200 bg-[#0f172a] overflow-hidden min-h-[280px] lg:min-h-[460px] flex flex-col">
+          <div className="lg:w-[min(100%,420px)] shrink-0 rounded-xl border border-slate-200 bg-[var(--ui-surface)] overflow-hidden min-h-[280px] lg:min-h-[460px] flex flex-col">
             <CartasHorizontalCarousel cartas={cartas} className="flex-1 min-h-0" />
           </div>
 
@@ -469,7 +469,7 @@ export default function AutoPedidoAdmin() {
                 <button
                   type="button"
                   onClick={() => copyLink(t.number)}
-                  className="text-xs text-[#2563EB] inline-flex items-center gap-1 hover:underline"
+                  className="text-xs text-[var(--ui-accent)] inline-flex items-center gap-1 hover:underline"
                 >
                   <MdContentCopy /> Copiar enlace
                 </button>
@@ -535,14 +535,14 @@ export default function AutoPedidoAdmin() {
         maxHeightClass="max-h-[min(98dvh,calc(100dvh-0.5rem))]"
         bodyClassName="flex flex-col min-h-0 overflow-hidden !p-4 sm:!p-5"
       >
-        <div className="flex min-h-0 flex-1 flex-col gap-2 text-[#E5E7EB]">
-          <p className="shrink-0 text-[11px] leading-snug text-[#9CA3AF] sm:text-xs">
-            Una línea por plato y precio al final (opcional <span className="font-mono text-[#BFDBFE]">S/</span>). Categoría solo si la línea empieza por{' '}
-            <span className="font-mono text-[#BFDBFE]">#</span>.
+        <div className="flex min-h-0 flex-1 flex-col gap-2 text-[var(--ui-body-text)]">
+          <p className="shrink-0 text-[11px] leading-snug text-[var(--ui-muted)] sm:text-xs">
+            Una línea por plato y precio al final (opcional <span className="font-mono text-[var(--ui-accent)]">S/</span>). Categoría solo si la línea empieza por{' '}
+            <span className="font-mono text-[var(--ui-accent)]">#</span>.
           </p>
           <div className="grid shrink-0 grid-cols-1 items-start gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,260px)] lg:gap-3">
             <div>
-              <label className="mb-0.5 block text-xs font-medium text-[#9CA3AF]">Título de la carta</label>
+              <label className="mb-0.5 block text-xs font-medium text-[var(--ui-muted)]">Título de la carta</label>
               <input
                 className="input-field py-1.5 text-sm"
                 value={genTitle}
@@ -551,42 +551,42 @@ export default function AutoPedidoAdmin() {
               />
             </div>
             <div>
-              <p className="mb-1 text-xs font-medium text-[#9CA3AF]">Colores</p>
+              <p className="mb-1 text-xs font-medium text-[var(--ui-muted)]">Colores</p>
               <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                <label className="flex flex-col gap-1 text-[11px] text-[#9CA3AF]">
+                <label className="flex flex-col gap-1 text-[11px] text-[var(--ui-muted)]">
                   Fondo
                   <input
                     type="color"
                     value={normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg)}
                     onChange={(e) => setGenColors((c) => ({ ...c, bg: e.target.value }))}
-                    className="h-9 w-full min-w-0 rounded border border-[#3B82F6]/35 cursor-pointer bg-[#111827] p-0.5"
+                    className="h-9 w-full min-w-0 rounded border border-[color:var(--ui-border)] cursor-pointer bg-[var(--ui-surface-2)] p-0.5"
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-[11px] text-[#9CA3AF]">
+                <label className="flex flex-col gap-1 text-[11px] text-[var(--ui-muted)]">
                   Texto
                   <input
                     type="color"
                     value={normalizeHex(genColors.text, DEFAULT_MENU_CARTA_COLORS.text)}
                     onChange={(e) => setGenColors((c) => ({ ...c, text: e.target.value }))}
-                    className="h-9 w-full min-w-0 rounded border border-[#3B82F6]/35 cursor-pointer bg-[#111827] p-0.5"
+                    className="h-9 w-full min-w-0 rounded border border-[color:var(--ui-border)] cursor-pointer bg-[var(--ui-surface-2)] p-0.5"
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-[11px] text-[#9CA3AF]">
+                <label className="flex flex-col gap-1 text-[11px] text-[var(--ui-muted)]">
                   Líneas #
                   <input
                     type="color"
                     value={normalizeHex(genColors.section, DEFAULT_MENU_CARTA_COLORS.section)}
                     onChange={(e) => setGenColors((c) => ({ ...c, section: e.target.value }))}
-                    className="h-9 w-full min-w-0 rounded border border-[#3B82F6]/35 cursor-pointer bg-[#111827] p-0.5"
+                    className="h-9 w-full min-w-0 rounded border border-[color:var(--ui-border)] cursor-pointer bg-[var(--ui-surface-2)] p-0.5"
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-[11px] text-[#9CA3AF]">
+                <label className="flex flex-col gap-1 text-[11px] text-[var(--ui-muted)]">
                   Precios
                   <input
                     type="color"
                     value={normalizeHex(genColors.price, DEFAULT_MENU_CARTA_COLORS.price)}
                     onChange={(e) => setGenColors((c) => ({ ...c, price: e.target.value }))}
-                    className="h-9 w-full min-w-0 rounded border border-[#3B82F6]/35 cursor-pointer bg-[#111827] p-0.5"
+                    className="h-9 w-full min-w-0 rounded border border-[color:var(--ui-border)] cursor-pointer bg-[var(--ui-surface-2)] p-0.5"
                   />
                 </label>
               </div>
@@ -594,12 +594,12 @@ export default function AutoPedidoAdmin() {
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-2 pt-1">
             <div className="mb-0.5 hidden shrink-0 items-end gap-3 xl:grid xl:grid-cols-2">
-              <label className="block text-xs font-medium text-[#9CA3AF]">Contenido</label>
-              <label className="block text-xs font-medium text-[#9CA3AF]">Vista previa</label>
+              <label className="block text-xs font-medium text-[var(--ui-muted)]">Contenido</label>
+              <label className="block text-xs font-medium text-[var(--ui-muted)]">Vista previa</label>
             </div>
             <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-2 xl:gap-3">
               <div className="flex min-h-0 flex-1 flex-col">
-                <label className="mb-0.5 block shrink-0 text-xs font-medium text-[#9CA3AF] xl:sr-only">Contenido</label>
+                <label className="mb-0.5 block shrink-0 text-xs font-medium text-[var(--ui-muted)] xl:sr-only">Contenido</label>
                 <div className="flex min-h-0 flex-1 flex-col">
                   <MenuCartaSyntaxEditor
                     value={genText}
@@ -611,9 +611,9 @@ export default function AutoPedidoAdmin() {
                 </div>
               </div>
               <div className="flex min-h-0 flex-1 flex-col">
-                <label className="mb-0.5 block shrink-0 text-xs font-medium text-[#9CA3AF] xl:sr-only">Vista previa</label>
+                <label className="mb-0.5 block shrink-0 text-xs font-medium text-[var(--ui-muted)] xl:sr-only">Vista previa</label>
                 <div
-                  className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-xl border border-[#3B82F6]/30 p-3"
+                  className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-xl border border-[color:var(--ui-border)] p-3"
                   style={{ backgroundColor: normalizeHex(genColors.bg, DEFAULT_MENU_CARTA_COLORS.bg) }}
                 >
                   {genPreviewUrl ? (
@@ -623,13 +623,13 @@ export default function AutoPedidoAdmin() {
                       className="max-h-full max-w-full h-auto w-auto rounded-lg object-contain"
                     />
                   ) : (
-                    <p className="px-4 text-center text-sm text-[#64748B]">Escribe platos y precios para ver la vista previa</p>
+                    <p className="px-4 text-center text-sm text-[var(--ui-muted)]">Escribe platos y precios para ver la vista previa</p>
                   )}
                 </div>
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-[#3B82F6]/25 pt-2">
+          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-[color:var(--ui-border)] pt-2">
             <button type="button" onClick={closeGenerator} className="btn-secondary text-sm">
               Cerrar
             </button>

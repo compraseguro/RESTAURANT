@@ -85,11 +85,11 @@ export default function NotificationCenter({ className = '' }) {
           setOpen((p) => !p);
           if (!open) setTab('chat');
         }}
-        className="p-2 hover:bg-[#3B82F6]/20 rounded-lg transition-colors relative"
+        className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg transition-colors relative"
         title="Mensajes y notificaciones"
         aria-expanded={open}
       >
-        <MdNotificationsNone className="text-xl text-[#F9FAFB]" />
+        <MdNotificationsNone className="text-xl text-[var(--ui-body-text)]" />
         {totalBadge > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold bg-[#EF4444] text-white rounded-full">
             {totalBadge > 99 ? '99+' : totalBadge}
@@ -101,19 +101,19 @@ export default function NotificationCenter({ className = '' }) {
         <>
           <div className="fixed inset-0 z-[55]" onClick={() => setOpen(false)} aria-hidden />
           <div
-            className="fixed z-[60] top-14 right-3 sm:right-6 w-[min(100vw-1.5rem,420px)] h-[min(72vh,580px)] flex flex-col rounded-2xl border border-[#3B82F6]/35 bg-[#1F2937] shadow-2xl shadow-black/50 overflow-hidden"
+            className="fixed z-[60] top-14 right-3 sm:right-6 w-[min(100vw-1.5rem,420px)] h-[min(72vh,580px)] flex flex-col rounded-2xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] shadow-2xl overflow-hidden text-[var(--ui-body-text)]"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-label="Centro de mensajes"
           >
-            <div className="flex items-center justify-between px-3 py-2 border-b border-[#3B82F6]/30 bg-[#111827]/90">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
               {showAvisosTab ? (
-                <div className="flex rounded-lg bg-[#0f172a] p-0.5 gap-0.5">
+                <div className="flex rounded-lg bg-[var(--ui-body-bg)] p-0.5 gap-0.5 border border-[color:var(--ui-border)]">
                   <button
                     type="button"
                     onClick={() => setTab('chat')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${
-                      tab === 'chat' ? 'bg-[#2563EB] text-white' : 'text-[#9CA3AF] hover:text-[#F9FAFB]'
+                      tab === 'chat' ? 'bg-[var(--ui-accent)] text-white' : 'text-[var(--ui-muted)] hover:text-[var(--ui-body-text)]'
                     }`}
                   >
                     <MdChat className="text-base" /> Mensajes
@@ -122,7 +122,7 @@ export default function NotificationCenter({ className = '' }) {
                     type="button"
                     onClick={() => setTab('avisos')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${
-                      tab === 'avisos' ? 'bg-[#2563EB] text-white' : 'text-[#9CA3AF] hover:text-[#F9FAFB]'
+                      tab === 'avisos' ? 'bg-[var(--ui-accent)] text-white' : 'text-[var(--ui-muted)] hover:text-[var(--ui-body-text)]'
                     }`}
                   >
                     <MdCampaign className="text-base" /> Avisos
@@ -132,14 +132,14 @@ export default function NotificationCenter({ className = '' }) {
                   </button>
                 </div>
               ) : (
-                <p className="text-sm font-semibold text-[#F9FAFB] flex items-center gap-2">
-                  <MdChat className="text-lg text-[#93C5FD]" /> Mensajes del equipo
+                <p className="text-sm font-semibold text-[var(--ui-body-text)] flex items-center gap-2">
+                  <MdChat className="text-lg text-[var(--ui-accent)]" /> Mensajes del equipo
                 </p>
               )}
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-[#374151] text-[#9CA3AF]"
+                className="p-1.5 rounded-lg hover:bg-[var(--ui-sidebar-hover)] text-[var(--ui-muted)]"
                 aria-label="Cerrar"
               >
                 <MdClose className="text-lg" />
@@ -153,12 +153,12 @@ export default function NotificationCenter({ className = '' }) {
               {tab === 'avisos' && showAvisosTab && (
                 <div className="h-full overflow-y-auto space-y-2">
                   {visibleAdminNotifications.length === 0 ? (
-                    <p className="text-sm text-[#9CA3AF] text-center py-8">Sin avisos del sistema.</p>
+                    <p className="text-sm text-[var(--ui-muted)] text-center py-8">Sin avisos del sistema.</p>
                   ) : (
                     visibleAdminNotifications.slice(0, 15).map((n) => (
-                      <div key={n.id} className="rounded-xl border border-[#3B82F6]/20 bg-[#111827]/60 p-3">
+                      <div key={n.id} className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-semibold text-[#F9FAFB] pr-2 flex-1 min-w-0 select-none cursor-default">
+                          <p className="text-sm font-semibold text-[var(--ui-body-text)] pr-2 flex-1 min-w-0 select-none cursor-default">
                             {n.title}
                           </p>
                           <button
@@ -171,10 +171,10 @@ export default function NotificationCenter({ className = '' }) {
                             Quitar
                           </button>
                         </div>
-                        <p className="text-[10px] text-[#9CA3AF] mt-1">{new Date(n.created_at).toLocaleString('es-PE')}</p>
-                        <p className="text-xs text-[#D1D5DB] mt-2 whitespace-pre-wrap select-text">{n.message}</p>
+                        <p className="text-[10px] text-[var(--ui-muted)] mt-1">{new Date(n.created_at).toLocaleString('es-PE')}</p>
+                        <p className="text-xs text-[var(--ui-body-text)] mt-2 whitespace-pre-wrap select-text">{n.message}</p>
                         {n.image_url ? (
-                          <img src={n.image_url} alt="" className="mt-2 rounded-lg max-h-32 w-full object-cover border border-[#3B82F6]/20" />
+                          <img src={n.image_url} alt="" className="mt-2 rounded-lg max-h-32 w-full object-cover border border-[color:var(--ui-border)]" />
                         ) : null}
                       </div>
                     ))
@@ -198,8 +198,8 @@ export default function NotificationCenter({ className = '' }) {
             <strong>No podrá recuperarlo</strong> en esta lista en este navegador (solo deja de mostrarse aquí; el historial completo lo gestiona el administrador maestro).
           </div>
           {avisoToDismiss ? (
-            <p className="text-sm text-[#D1D5DB]">
-              ¿Quitar «<span className="font-semibold text-[#F9FAFB]">{avisoToDismiss.title}</span>» de sus avisos?
+            <p className="text-sm text-[var(--ui-body-text)]">
+              ¿Quitar «<span className="font-semibold">{avisoToDismiss.title}</span>» de sus avisos?
             </p>
           ) : null}
           <div className="flex flex-wrap justify-end gap-2 pt-1">

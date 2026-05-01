@@ -23,15 +23,15 @@ function CartLineItems({
   showLineDeleteLabel = false,
 }) {
   if (cart.length === 0) {
-    return <p className="py-4 text-center text-sm text-[#BFDBFE]">Selecciona productos arriba</p>;
+    return <p className="py-4 text-center text-sm text-[var(--ui-accent)]">Selecciona productos arriba</p>;
   }
   if (cartLayout === 'lines') {
     return cart.map((item) => {
       const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
       return (
-        <div key={item.line_key} className="border-b border-[#3B82F6]/25 py-2">
+        <div key={item.line_key} className="border-b border-[color:var(--ui-border)] py-2">
           <div className="flex items-center gap-2 text-sm">
-            <span className="min-w-0 flex-1 truncate font-medium text-white" title={item.name}>
+            <span className="min-w-0 flex-1 truncate font-medium text-[var(--ui-body-text)]" title={item.name}>
               {item.name}
             </span>
             <div className="flex shrink-0 items-center gap-1">
@@ -41,7 +41,7 @@ function CartLineItems({
                 className={`flex h-7 w-7 items-center justify-center rounded border ${
                   item.notes?.trim()
                     ? 'border-amber-300 bg-amber-100 text-amber-700'
-                    : 'border-[#93C5FD]/30 bg-[#1E3A8A]/50 text-[#DBEAFE] hover:bg-[#1E3A8A]/70'
+                    : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
                 }`}
                 title="Agregar nota"
               >
@@ -50,20 +50,20 @@ function CartLineItems({
               <button
                 type="button"
                 onClick={() => updateQty(item.line_key, -1)}
-                className="flex h-6 w-6 items-center justify-center rounded border border-[#93C5FD]/30 bg-[#1E3A8A]/50 text-[#DBEAFE] hover:bg-[#1E3A8A]/70"
+                className="flex h-6 w-6 items-center justify-center rounded border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
               >
                 <MdRemove className="text-xs" />
               </button>
-              <span className="w-7 text-center font-bold tabular-nums text-white">{item.quantity}</span>
+              <span className="w-7 text-center font-bold tabular-nums text-[var(--ui-body-text)]">{item.quantity}</span>
               <button
                 type="button"
                 onClick={() => updateQty(item.line_key, 1)}
-                className="flex h-6 w-6 items-center justify-center rounded border border-[#93C5FD]/30 bg-[#1E3A8A]/50 text-[#DBEAFE] hover:bg-[#1E3A8A]/70"
+                className="flex h-6 w-6 items-center justify-center rounded border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
               >
                 <MdAdd className="text-xs" />
               </button>
             </div>
-            <span className="w-[5.5rem] shrink-0 text-right font-semibold tabular-nums text-[#DBEAFE]">
+            <span className="w-[5.5rem] shrink-0 text-right font-semibold tabular-nums text-[var(--ui-body-text)]">
               {formatCurrency(lineTotal)}
             </span>
             <button
@@ -72,7 +72,7 @@ function CartLineItems({
               className={
                 showLineDeleteLabel
                   ? 'shrink-0 inline-flex items-center gap-1 rounded-md border border-red-500/45 bg-red-950/40 px-2 py-1 text-xs font-semibold text-red-200 hover:bg-red-900/55'
-                  : 'shrink-0 p-0.5 text-[#93C5FD] hover:text-white'
+                  : 'shrink-0 p-0.5 text-[var(--ui-accent)] hover:text-[var(--ui-body-text)]'
               }
               aria-label={showLineDeleteLabel ? 'Eliminar producto' : 'Quitar'}
             >
@@ -84,7 +84,7 @@ function CartLineItems({
             <p className="mt-0.5 text-[11px] font-semibold text-[#FCA5A5]">Nota obligatoria</p>
           )}
           {item.modifier_name && item.modifier_option && (
-            <p className="mt-0.5 truncate text-[11px] text-[#BFDBFE]">
+            <p className="mt-0.5 truncate text-[11px] text-[var(--ui-accent)]">
               {item.modifier_name}: {item.modifier_option}
             </p>
           )}
@@ -94,7 +94,7 @@ function CartLineItems({
                 value={item.notes || ''}
                 onChange={(e) => updateItemNote(item.line_key, e.target.value)}
                 placeholder="Escribe una nota para cocina..."
-                className="w-full rounded border border-[#60A5FA] bg-[#111827] px-2 py-1.5 text-xs text-[#F9FAFB] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                className="w-full rounded border border-[color:var(--ui-accent)] bg-[var(--ui-surface-2)] px-2 py-1.5 text-xs text-[var(--ui-body-text)] placeholder:text-[var(--ui-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ui-focus-ring)]"
                 rows={2}
               />
             </div>
@@ -104,19 +104,19 @@ function CartLineItems({
     });
   }
   return cart.map((item) => (
-    <div key={item.line_key} className="rounded-lg border border-[#3B82F6]/20 bg-[#1D4ED8]/25 p-2">
+    <div key={item.line_key} className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-2">
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-white">{item.name}</p>
+          <p className="truncate text-sm font-medium text-[var(--ui-body-text)]">{item.name}</p>
           {Number(item.note_required || 0) === 1 && (
             <p className="text-[11px] font-semibold text-[#FCA5A5]">Nota obligatoria</p>
           )}
           {item.modifier_name && item.modifier_option && (
-            <p className="truncate text-[11px] text-[#BFDBFE]">
+            <p className="truncate text-[11px] text-[var(--ui-accent)]">
               {item.modifier_name}: {item.modifier_option}
             </p>
           )}
-          <p className="text-xs text-[#BFDBFE]">{formatCurrency(item.price)}</p>
+          <p className="text-xs text-[var(--ui-accent)]">{formatCurrency(item.price)}</p>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -125,7 +125,7 @@ function CartLineItems({
             className={`flex h-7 w-7 items-center justify-center rounded border ${
               item.notes?.trim()
                 ? 'border-amber-300 bg-amber-100 text-amber-700'
-                : 'border-[#93C5FD]/30 bg-[#1E3A8A]/50 text-[#DBEAFE] hover:bg-[#1E3A8A]/70'
+                : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
             }`}
             title="Agregar nota"
           >
@@ -134,15 +134,15 @@ function CartLineItems({
           <button
             type="button"
             onClick={() => updateQty(item.line_key, -1)}
-            className="flex h-6 w-6 items-center justify-center rounded border border-[#93C5FD]/30 bg-[#1E3A8A]/50 text-[#DBEAFE] hover:bg-[#1E3A8A]/70"
+            className="flex h-6 w-6 items-center justify-center rounded border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
           >
             <MdRemove className="text-xs" />
           </button>
-          <span className="w-6 text-center text-sm font-bold text-white">{item.quantity}</span>
+          <span className="w-6 text-center text-sm font-bold text-[var(--ui-body-text)]">{item.quantity}</span>
           <button
             type="button"
             onClick={() => updateQty(item.line_key, 1)}
-            className="flex h-6 w-6 items-center justify-center rounded border border-[#93C5FD]/30 bg-[#1E3A8A]/50 text-[#DBEAFE] hover:bg-[#1E3A8A]/70"
+            className="flex h-6 w-6 items-center justify-center rounded border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
           >
             <MdAdd className="text-xs" />
           </button>
@@ -153,7 +153,7 @@ function CartLineItems({
           className={
             showLineDeleteLabel
               ? 'inline-flex shrink-0 items-center gap-1 rounded-md border border-red-500/45 bg-red-950/40 px-2 py-1 text-xs font-semibold text-red-200 hover:bg-red-900/55'
-              : 'shrink-0 text-[#93C5FD] hover:text-white'
+              : 'shrink-0 text-[var(--ui-accent)] hover:text-[var(--ui-body-text)]'
           }
           aria-label={showLineDeleteLabel ? 'Eliminar producto' : 'Quitar'}
         >
@@ -167,7 +167,7 @@ function CartLineItems({
             value={item.notes || ''}
             onChange={(e) => updateItemNote(item.line_key, e.target.value)}
             placeholder="Escribe una nota para cocina..."
-            className="w-full rounded border border-[#60A5FA] bg-[#111827] px-2 py-1.5 text-xs text-[#F9FAFB] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+            className="w-full rounded border border-[color:var(--ui-accent)] bg-[var(--ui-surface-2)] px-2 py-1.5 text-xs text-[var(--ui-body-text)] placeholder:text-[var(--ui-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ui-focus-ring)]"
             rows={2}
           />
         </div>
@@ -219,12 +219,12 @@ export default function StaffDineInOrderUI({
 
   const searchBlock = (
     <div className="relative shrink-0">
-      <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#BFDBFE]" />
+      <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-accent)]" />
       <input
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder="Buscar producto..."
-        className="w-full rounded-lg border border-[#3B82F6]/30 bg-[#1E3A8A]/30 py-2.5 pl-10 pr-3 text-white outline-none placeholder:text-[#93C5FD] focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]"
+        className="input-field py-2.5 pl-10 pr-3 placeholder:text-[var(--ui-muted)]"
       />
     </div>
   );
@@ -236,8 +236,8 @@ export default function StaffDineInOrderUI({
         onClick={() => onSelectedCatChange('all')}
         className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
           selectedCat === 'all'
-            ? 'border border-[#BFDBFE] bg-[#BFDBFE] text-[#1E3A8A]'
-            : 'border border-[#3B82F6]/20 bg-[#1E3A8A]/30 text-[#DBEAFE] hover:bg-[#1E3A8A]/50'
+            ? 'border border-[color:var(--ui-accent)] bg-[var(--ui-accent)] text-white'
+            : 'border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
         }`}
       >
         Todos
@@ -249,8 +249,8 @@ export default function StaffDineInOrderUI({
           onClick={() => onSelectedCatChange(c.id)}
           className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
             selectedCat === c.id
-              ? 'border border-[#BFDBFE] bg-[#BFDBFE] text-[#1E3A8A]'
-              : 'border border-[#3B82F6]/20 bg-[#1E3A8A]/30 text-[#DBEAFE] hover:bg-[#1E3A8A]/50'
+              ? 'border border-[color:var(--ui-accent)] bg-[var(--ui-accent)] text-white'
+              : 'border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
           }`}
         >
           {c.name}
@@ -267,7 +267,7 @@ export default function StaffDineInOrderUI({
   const productGrid = (
     <>
       {filteredProducts.length === 0 ? (
-        <div className="py-10 text-center text-[#BFDBFE]">
+        <div className="py-10 text-center text-[var(--ui-accent)]">
           <MdRestaurantMenu className="mx-auto mb-3 text-5xl opacity-40" />
           <p>No hay productos para este filtro</p>
         </div>
@@ -280,13 +280,13 @@ export default function StaffDineInOrderUI({
               return (
                 <div
                   key={p.id}
-                  className="flex flex-col overflow-hidden rounded-xl border border-[#3B82F6]/20 bg-[#1D4ED8]/25 text-left transition-shadow hover:border-[#93C5FD]/60 hover:shadow-md"
+                  className="flex flex-col overflow-hidden rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-left transition-shadow hover:border-[color:var(--ui-accent)] hover:shadow-md"
                 >
-                  <div className="aspect-[4/3] w-full shrink-0 overflow-hidden border-b border-[#3B82F6]/20 bg-[#111827]">
+                  <div className="aspect-[4/3] w-full shrink-0 overflow-hidden border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
                     {imgUrl ? (
                       <img src={imgUrl} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center text-[#64748B]">
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center text-[var(--ui-muted)]">
                         <MdRestaurantMenu className="text-4xl opacity-40" aria-hidden />
                         <span className="text-xs">Sin imagen</span>
                       </div>
@@ -298,15 +298,15 @@ export default function StaffDineInOrderUI({
                       onClick={() => onProductPick(p)}
                       className="w-full text-left"
                     >
-                      <p className="text-sm font-semibold leading-snug text-white">{p.name}</p>
-                      <p className="mt-1 text-base font-bold text-[#DBEAFE]">{formatCurrency(p.price)}</p>
-                      {showStock ? <p className="mt-0.5 text-xs text-[#BFDBFE]">Stock: {p.stock}</p> : null}
+                      <p className="text-sm font-semibold leading-snug text-[var(--ui-body-text)]">{p.name}</p>
+                      <p className="mt-1 text-base font-bold text-[var(--ui-body-text)]">{formatCurrency(p.price)}</p>
+                      {showStock ? <p className="mt-0.5 text-xs text-[var(--ui-accent)]">Stock: {p.stock}</p> : null}
                     </button>
                     {productActionLabel ? (
                       <button
                         type="button"
                         onClick={() => onProductPick(p)}
-                        className="w-full rounded-lg border border-[#93C5FD]/35 bg-[#1E3A8A]/40 px-3 py-2.5 text-sm font-semibold text-[#E0E7FF] hover:bg-[#1E3A8A]/65"
+                        className="w-full rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2.5 text-sm font-semibold text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
                       >
                         {productActionLabel}
                       </button>
@@ -318,22 +318,22 @@ export default function StaffDineInOrderUI({
             return (
               <div
                 key={p.id}
-                className="rounded-xl border border-[#3B82F6]/20 bg-[#1D4ED8]/25 p-3 text-left transition-shadow hover:border-[#93C5FD]/60 hover:shadow-md"
+                className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 text-left transition-shadow hover:border-[color:var(--ui-accent)] hover:shadow-md"
               >
                 <button
                   type="button"
                   onClick={() => onProductPick(p)}
                   className="w-full text-left"
                 >
-                  <p className="truncate text-sm font-medium text-white">{p.name}</p>
-                  <p className="mt-1 text-sm font-bold text-[#DBEAFE]">{formatCurrency(p.price)}</p>
-                  {showStock ? <p className="mt-0.5 text-xs text-[#BFDBFE]">Stock: {p.stock}</p> : null}
+                  <p className="truncate text-sm font-medium text-[var(--ui-body-text)]">{p.name}</p>
+                  <p className="mt-1 text-sm font-bold text-[var(--ui-body-text)]">{formatCurrency(p.price)}</p>
+                  {showStock ? <p className="mt-0.5 text-xs text-[var(--ui-accent)]">Stock: {p.stock}</p> : null}
                 </button>
                 {productActionLabel ? (
                   <button
                     type="button"
                     onClick={() => onProductPick(p)}
-                    className="mt-2 w-full rounded-lg border border-[#93C5FD]/35 bg-[#1E3A8A]/40 px-2 py-1.5 text-xs font-semibold text-[#E0E7FF] hover:bg-[#1E3A8A]/65"
+                    className="mt-2 w-full rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-2 py-1.5 text-xs font-semibold text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
                   >
                     {productActionLabel}
                   </button>
@@ -348,18 +348,18 @@ export default function StaffDineInOrderUI({
 
   const cartAsideInner = (
     <div className="flex min-h-0 flex-col overflow-hidden lg:max-h-[min(calc(100dvh-12rem),85vh)]">
-      <h3 className="mb-3 flex shrink-0 items-center gap-2 font-bold text-white">
+      <h3 className="mb-3 flex shrink-0 items-center gap-2 font-bold text-[var(--ui-body-text)]">
         <MdShoppingCart /> Pedido
         {cart.length > 0 && (
-          <span className="rounded-full bg-[#BFDBFE] px-2 py-0.5 text-xs text-[#1E3A8A]">{cart.length}</span>
+          <span className="rounded-full bg-[var(--ui-accent)] px-2 py-0.5 text-xs text-white">{cart.length}</span>
         )}
       </h3>
       {sidebarTop ? <div className="mb-3 shrink-0 space-y-2">{sidebarTop}</div> : null}
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
         {sidebarPreCart}
-        {sidebarPreCart ? <div className="mt-1 border-t border-[#3B82F6]/20 pt-3" /> : null}
+        {sidebarPreCart ? <div className="mt-1 border-t border-[color:var(--ui-border)] pt-3" /> : null}
         {sidebarPreCart ? (
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#BFDBFE]">Agregar al pedido</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ui-accent)]">Agregar al pedido</p>
         ) : null}
         <CartLineItems
           cart={cart}
@@ -374,7 +374,7 @@ export default function StaffDineInOrderUI({
         />
       </div>
       {footer ? (
-        <div className="mt-3 shrink-0 space-y-2 border-t border-[#3B82F6]/30 bg-[#1F2937] pt-3 lg:shadow-[0_-8px_24px_rgba(15,23,42,0.45)]">
+        <div className="mt-3 shrink-0 space-y-2 border-t border-[color:var(--ui-border)] bg-[var(--ui-surface)] pt-3 lg:shadow-[0_-8px_24px_rgba(15,23,42,0.45)]">
           {footer}
         </div>
       ) : null}
@@ -392,11 +392,11 @@ export default function StaffDineInOrderUI({
         >
           {productGrid}
         </div>
-        <div className="shrink-0 rounded-xl border border-[#3B82F6]/30 bg-[#172554]/50 p-3">
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-white">
+        <div className="shrink-0 rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-[var(--ui-body-text)]">
             <MdShoppingCart /> Tu pedido
             {cart.length > 0 && (
-              <span className="rounded-full bg-[#BFDBFE] px-2 py-0.5 text-xs text-[#1E3A8A]">{cart.length}</span>
+              <span className="rounded-full bg-[var(--ui-accent)] px-2 py-0.5 text-xs text-white">{cart.length}</span>
             )}
           </h3>
           <div className="max-h-[min(26vh,200px)] overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] touch-pan-y pr-0.5">
@@ -412,7 +412,7 @@ export default function StaffDineInOrderUI({
               showLineDeleteLabel={showLineDeleteLabel}
             />
           </div>
-          {footer ? <div className="mt-3 space-y-2 border-t border-[#3B82F6]/35 pt-3">{footer}</div> : null}
+          {footer ? <div className="mt-3 space-y-2 border-t border-[color:var(--ui-border)] pt-3">{footer}</div> : null}
         </div>
       </div>
     );
@@ -432,7 +432,7 @@ export default function StaffDineInOrderUI({
         </div>
       </div>
 
-      <div className="flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-[#3B82F6]/30 bg-[#1F2937] pt-4 lg:sticky lg:top-0 lg:z-10 lg:w-72 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0 lg:shadow-[-6px_0_20px_rgba(0,0,0,0.12)]">
+      <div className="flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-[color:var(--ui-border)] bg-[var(--ui-surface)] pt-4 lg:sticky lg:top-0 lg:z-10 lg:w-72 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0 lg:shadow-[-6px_0_20px_rgba(0,0,0,0.12)]">
         {cartAsideInner}
       </div>
     </div>

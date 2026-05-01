@@ -271,16 +271,16 @@ export default function Tables() {
       {showMenu && selectedTable && (
         <>
           <div className="fixed inset-0 bg-black/30 z-40" onClick={closeMenuPanel} />
-          <aside data-ui-isolate="dark-surface" className="fixed top-0 right-0 h-screen w-full md:w-1/2 bg-[#1F2937] z-50 shadow-2xl border-l border-[#3B82F6]/40 flex flex-col text-white">
-            <div className="px-5 py-4 border-b border-[#3B82F6]/30 bg-[#1D4ED8]/30 backdrop-blur-xl flex items-center justify-between">
+          <aside className="fixed top-0 right-0 h-screen w-full md:w-1/2 bg-[var(--ui-surface)] z-50 shadow-2xl border-l border-[color:var(--ui-border)] flex flex-col text-[var(--ui-body-text)]">
+            <div className="px-5 py-4 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] backdrop-blur-xl flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-white">Agregar Pedido — {selectedTable.name}</h3>
-                <p className="text-xs text-[#BFDBFE]">Mesa {selectedTable.number}</p>
+                <h3 className="text-lg font-bold text-[var(--ui-body-text)]">Agregar Pedido — {selectedTable.name}</h3>
+                <p className="text-xs text-[var(--ui-accent)]">Mesa {selectedTable.number}</p>
               </div>
               <button
                 type="button"
                 onClick={closeMenuPanel}
-                className="p-2 rounded-lg hover:bg-[#1E3A8A]/50 text-[#BFDBFE]"
+                className="p-2 rounded-lg hover:bg-[var(--ui-sidebar-hover)] text-[var(--ui-accent)]"
                 aria-label="Cerrar ventana"
               >
                 <MdClose className="text-xl" />
@@ -316,14 +316,14 @@ export default function Tables() {
                   footer={
                     cart.length > 0 ? (
                       <>
-                        <div className="flex justify-between font-bold text-lg text-white">
+                        <div className="flex justify-between font-bold text-lg text-[var(--ui-body-text)]">
                           <span>Total</span>
-                          <span className="text-[#DBEAFE]">{formatCurrency(cartTotal)}</span>
+                          <span className="text-[var(--ui-accent)]">{formatCurrency(cartTotal)}</span>
                         </div>
                         <button
                           type="button"
                           onClick={submitOrder}
-                          className="w-full py-3 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-base hover:from-[#1D4ED8] hover:to-[#1E40AF] transition-all shadow-lg shadow-[#1D4ED8]/30 flex items-center justify-center gap-2"
+                          className="w-full py-3 btn-primary rounded-lg font-semibold text-base shadow-lg flex items-center justify-center gap-2"
                         >
                           <MdReceipt /> Enviar Pedido
                         </button>

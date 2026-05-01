@@ -113,14 +113,14 @@ export default function Login() {
   };
 
   return (
-    <div data-ui-isolate="dark-surface" className="min-h-screen bg-[#111827] flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-96 h-96 bg-[#3B82F6]/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#2563EB]/25 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
-      <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+    <div className="min-h-screen bg-[var(--ui-body-bg)] text-[var(--ui-body-text)] flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-96 h-96 bg-[var(--ui-accent)]/15 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-[var(--ui-accent)]/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-[var(--ui-surface)]/30 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
 
       <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-2xl mx-auto mb-4 shadow-lg shadow-[#2563EB]/30 overflow-hidden flex items-center justify-center bg-[#1F2937] ring-1 ring-[#3B82F6]/25">
+          <div className="w-20 h-20 rounded-2xl mx-auto mb-4 shadow-lg overflow-hidden flex items-center justify-center bg-[var(--ui-surface)] ring-1 ring-[color:var(--ui-border)]">
             {brandLogo ? (
               <img
                 src={resolveMediaUrl(brandLogo)}
@@ -128,30 +128,30 @@ export default function Login() {
                 className="h-full w-full object-cover object-center"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-[#3B82F6] to-[#2563EB] flex items-center justify-center">
+              <div className="w-full h-full bg-gradient-to-br from-[var(--ui-accent)] to-[var(--ui-accent-hover)] flex items-center justify-center">
                 <MdStorefront className="text-white text-4xl" />
               </div>
             )}
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight px-1">{restaurantName}</h1>
+          <h1 className="text-3xl font-bold text-[var(--ui-body-text)] tracking-tight px-1">{restaurantName}</h1>
         </div>
 
-        <div className="bg-[#1F2937]/85 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-[#3B82F6]/35">
+        <div className="bg-[var(--ui-surface)] backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-[color:var(--ui-border)]">
           {step === 1 && (
             <>
-              <h2 className="text-xl font-bold text-white mb-1">Iniciar Sesión</h2>
-              <p className="text-sm text-[#9CA3AF] mb-6">Ingresa tus credenciales</p>
+              <h2 className="text-xl font-bold text-[var(--ui-body-text)] mb-1">Iniciar Sesión</h2>
+              <p className="text-sm text-[var(--ui-muted)] mb-6">Ingresa tus credenciales</p>
               <form onSubmit={handleContinue} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-[#F9FAFB] mb-1.5">Usuario</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1.5">Usuario</label>
                   <div className="relative">
-                    <MdPerson className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] text-xl" />
+                    <MdPerson className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)] text-xl pointer-events-none" />
                     <input
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="Ingresa tu usuario"
-                      className="w-full px-3 py-2.5 pl-10 bg-[#111827]/70 border border-[#3B82F6]/35 rounded-lg focus:ring-2 focus:ring-[#3B82F6] focus:border-[#3B82F6] outline-none text-[#F9FAFB] placeholder:text-[#9CA3AF] transition-all"
+                      className="input-field pl-10"
                       required
                       autoComplete="username"
                     />
@@ -159,22 +159,22 @@ export default function Login() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[#F9FAFB] mb-1.5">Contraseña</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1.5">Contraseña</label>
                   <div className="relative">
-                    <MdLock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] text-xl" />
+                    <MdLock className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)] text-xl pointer-events-none" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Ingresa tu contraseña"
-                      className="w-full px-3 py-2.5 pl-10 pr-10 bg-[#111827]/70 border border-[#3B82F6]/35 rounded-lg focus:ring-2 focus:ring-[#3B82F6] focus:border-[#3B82F6] outline-none text-[#F9FAFB] placeholder:text-[#9CA3AF] transition-all"
+                      className="input-field pl-10 pr-10"
                       required
                       autoComplete="current-password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#F9FAFB] transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)] hover:text-[var(--ui-body-text)] transition-colors"
                     >
                       {showPassword ? <MdVisibilityOff className="text-xl" /> : <MdVisibility className="text-xl" />}
                     </button>
@@ -184,7 +184,7 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={loading || !policyReady}
-                  className="w-full py-3 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-lg hover:from-[#1D4ED8] hover:to-[#1E40AF] transition-all shadow-lg shadow-[#2563EB]/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3 btn-primary rounded-lg font-semibold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {!policyReady ? (
                     <span className="flex items-center justify-center gap-2">
@@ -212,26 +212,26 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => { setStep(1); setPhotoLogin(null); }}
-                  className="p-2 rounded-lg hover:bg-[#111827]/80 text-[#9CA3AF] hover:text-[#F9FAFB]"
+                  className="p-2 rounded-lg hover:bg-[var(--ui-sidebar-hover)] text-[var(--ui-muted)] hover:text-[var(--ui-body-text)]"
                   aria-label="Volver"
                   disabled={loading}
                 >
                   <MdArrowBack className="text-xl" />
                 </button>
                 <div>
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <MdCameraAlt className="text-[#93C5FD]" /> Foto de asistencia
+                  <h2 className="text-xl font-bold text-[var(--ui-body-text)] flex items-center gap-2">
+                    <MdCameraAlt className="text-[var(--ui-accent)]" /> Foto de asistencia
                   </h2>
                 </div>
               </div>
-              <div className="rounded-xl border border-[#3B82F6]/25 bg-[#111827]/50 p-4 mb-5">
+              <div className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-4 mb-5">
                 <AttendancePhotoCapture onCapture={setPhotoLogin} disabled={loading} />
               </div>
               <button
                 type="button"
                 onClick={() => void submitLogin()}
                 disabled={loading || !photoLogin}
-                className="w-full py-3 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold text-lg hover:from-[#1D4ED8] hover:to-[#1E40AF] transition-all shadow-lg shadow-[#2563EB]/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 btn-primary rounded-lg font-semibold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -246,7 +246,7 @@ export default function Login() {
           )}
         </div>
 
-        <p className="text-center text-[#9CA3AF] text-xs mt-6 select-none" aria-hidden="true">
+        <p className="text-center text-[var(--ui-muted)] text-xs mt-6 select-none" aria-hidden="true">
           {LOGIN_PRODUCT_FOOTER}
         </p>
       </div>

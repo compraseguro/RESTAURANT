@@ -84,8 +84,8 @@ export default function StaffMesaPedidoTabs({
           onClick={() => setPanel('add')}
           className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
             panel === 'add'
-              ? 'bg-[#BFDBFE] text-[#1E3A8A] border-[#BFDBFE]'
-              : 'bg-[#1E3A8A]/40 text-[#DBEAFE] border-[#3B82F6]/30 hover:bg-[#1E3A8A]/60'
+              ? 'bg-[var(--ui-accent)] text-white border-[color:var(--ui-accent)]'
+              : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)]'
           }`}
         >
           {labels.add}
@@ -95,8 +95,8 @@ export default function StaffMesaPedidoTabs({
           onClick={() => setPanel('view')}
           className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
             panel === 'view'
-              ? 'bg-[#BFDBFE] text-[#1E3A8A] border-[#BFDBFE]'
-              : 'bg-[#1E3A8A]/40 text-[#DBEAFE] border-[#3B82F6]/30 hover:bg-[#1E3A8A]/60'
+              ? 'bg-[var(--ui-accent)] text-white border-[color:var(--ui-accent)]'
+              : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)]'
           }`}
         >
           {labels.view}
@@ -104,22 +104,22 @@ export default function StaffMesaPedidoTabs({
       </div>
 
       {panel === 'view' ? (
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden text-[#F9FAFB]">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden text-[var(--ui-body-text)]">
           {(orders || []).length === 0 ? (
-            <p className="text-sm text-[#BFDBFE]">{labels.empty}</p>
+            <p className="text-sm text-[var(--ui-muted)]">{labels.empty}</p>
           ) : (
             <>
               <div className="flex items-center justify-between gap-2 shrink-0 mb-2">
-                <p className="text-xs uppercase tracking-wide text-[#BFDBFE] font-semibold">{labels.listTitle}</p>
+                <p className="text-xs uppercase tracking-wide text-[var(--ui-accent)] font-semibold">{labels.listTitle}</p>
                 <button
                   type="button"
                   onClick={toggleUnir}
-                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#1E3A8A]/60 border border-[#3B82F6]/35 text-[#DBEAFE] hover:bg-[#1E3A8A]/80"
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[var(--ui-surface-2)] border border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
                 >
                   {unirPorNombre ? labels.unmerge : labels.merge}
                 </button>
               </div>
-              <div className="flex text-[10px] uppercase tracking-wide text-[#93C5FD] border-b border-[#3B82F6]/35 pb-1.5 shrink-0 gap-1">
+              <div className="flex text-[10px] uppercase tracking-wide text-[var(--ui-muted)] border-b border-[color:var(--ui-border)] pb-1.5 shrink-0 gap-1">
                 <span className="flex-1 min-w-0 pr-1">Producto</span>
                 <span className="w-[5.5rem] shrink-0 text-center">Estado</span>
                 <span className="w-10 text-center shrink-0">Cant.</span>
@@ -131,11 +131,11 @@ export default function StaffMesaPedidoTabs({
                   return (
                     <div
                       key={row.key}
-                      className="flex items-center gap-1 py-1.5 border-b border-[#3B82F6]/20 text-sm text-[#F1F5F9]"
+                      className="flex items-center gap-1 py-1.5 border-b border-[color:var(--ui-border)] text-sm text-[var(--ui-body-text)]"
                     >
                       <span className="flex-1 min-w-0 flex items-center gap-1.5">
                         {!unirPorNombre && row.orderNumber != null ? (
-                          <span className="text-[10px] text-[#93C5FD] shrink-0 tabular-nums">#{row.orderNumber}</span>
+                          <span className="text-[10px] text-[var(--ui-accent)] shrink-0 tabular-nums">#{row.orderNumber}</span>
                         ) : null}
                         <span className="truncate">{row.name}</span>
                       </span>
@@ -147,17 +147,17 @@ export default function StaffMesaPedidoTabs({
                           {st.label}
                         </span>
                       </span>
-                      <span className="w-10 text-center tabular-nums text-[#DBEAFE] font-medium shrink-0">{row.quantity}</span>
-                      <span className="w-[5.25rem] text-right tabular-nums font-semibold text-white shrink-0">
+                      <span className="w-10 text-center tabular-nums text-[var(--ui-body-text)] font-medium shrink-0">{row.quantity}</span>
+                      <span className="w-[5.25rem] text-right tabular-nums font-semibold text-[var(--ui-body-text)] shrink-0">
                         {formatCurrency(row.subtotal)}
                       </span>
                     </div>
                   );
                 })}
               </div>
-              <div className="mt-2 pt-2 border-t border-[#3B82F6]/40 shrink-0 flex justify-between items-center gap-3">
-                <span className="text-sm font-bold text-[#BFDBFE]">{labels.totalMesa}</span>
-                <span className="text-lg font-bold text-white tabular-nums">{formatCurrency(totalMesa)}</span>
+              <div className="mt-2 pt-2 border-t border-[color:var(--ui-border)] shrink-0 flex justify-between items-center gap-3">
+                <span className="text-sm font-bold text-[var(--ui-body-text)]">{labels.totalMesa}</span>
+                <span className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{formatCurrency(totalMesa)}</span>
               </div>
             </>
           )}

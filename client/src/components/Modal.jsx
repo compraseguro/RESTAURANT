@@ -1,8 +1,9 @@
 import { MdClose } from 'react-icons/md';
+import { useIsUiThemeLight } from '../theme/useUiTheme';
 
 /**
- * Modales centrados por defecto (misma sensación que el flujo de pedidos).
- * Tema oscuro por defecto para alinear con body / Mesas; usa variant="light" en rutas de cliente.
+ * Modales centrados por defecto. Con tema global «claro», el panel usa superficie clara aunque variant sea oscuro.
+ * Usa variant="light" en rutas de cliente; variant por defecto sigue siendo oscuro en temas blue/dark/gray/purple.
  */
 export default function Modal({
   isOpen,
@@ -22,9 +23,10 @@ export default function Modal({
   dialogClassName = '',
   bodyClassName = '',
 }) {
+  const globalLight = useIsUiThemeLight();
   if (!isOpen) return null;
 
-  const isLight = variant === 'light';
+  const isLight = variant === 'light' || globalLight;
 
   const sizeClass = {
     sm: 'max-w-md',
@@ -38,25 +40,25 @@ export default function Modal({
 
   const placementClass = placement === 'right' ? 'justify-end' : 'justify-center';
 
-  const overlayClass = isLight ? 'bg-slate-900/70' : 'bg-black/75';
+  const overlayClass = isLight ? 'bg-black/40' : 'bg-black/75';
 
   const panelClass = isLight
-    ? 'border border-slate-300 bg-[#F1F5F9] shadow-xl text-slate-900'
-    : 'border border-[#3B82F6]/40 bg-[#1F2937] shadow-2xl shadow-black/50';
+    ? 'border border-[color:var(--ui-border)] bg-[var(--ui-surface)] shadow-xl text-[var(--ui-body-text)]'
+    : 'border border-[color:var(--ui-border)] bg-[var(--ui-surface)] shadow-2xl shadow-black/50';
 
   const headerDefault = isLight
-    ? 'border-b border-slate-200 bg-[#F8FAFC] text-slate-900'
-    : 'border-b border-[#3B82F6]/30 bg-[#111827]';
+    ? 'border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)]'
+    : 'border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]';
 
-  const titleDefault = isLight ? 'text-slate-900' : 'text-[#F9FAFB]';
+  const titleDefault = 'text-[var(--ui-body-text)]';
 
-  const closeDefault = isLight ? 'hover:bg-slate-200' : 'hover:bg-[#374151]';
+  const closeDefault = 'hover:bg-[var(--ui-sidebar-hover)]';
 
-  const closeIconDefault = isLight ? 'text-slate-500' : 'text-[#9CA3AF]';
+  const closeIconDefault = 'text-[var(--ui-muted)]';
 
   const bodyClass = isLight
-    ? `overflow-y-auto p-6 flex-1 bg-[#F1F5F9] text-slate-800 [&_strong]:text-slate-900 ${bodyClassName}`.trim()
-    : `overflow-y-auto p-6 flex-1 bg-[#1F2937] modal-sheet-body ${bodyClassName}`.trim();
+    ? `overflow-y-auto p-6 flex-1 bg-[var(--ui-surface)] text-[var(--ui-body-text)] [&_strong]:text-[var(--ui-body-text)] ${bodyClassName}`.trim()
+    : `overflow-y-auto p-6 flex-1 bg-[var(--ui-surface)] modal-sheet-body ${bodyClassName}`.trim();
 
   return (
     <div
@@ -66,7 +68,6 @@ export default function Modal({
     >
       <div className={`fixed inset-0 ${overlayClass}`} aria-hidden />
       <div
-        data-ui-isolate={isLight ? undefined : 'dark-surface'}
         className={`relative rounded-2xl w-full ${sizeClass} ${maxHeightClass} flex flex-col overflow-hidden ${panelClass} ${dialogClassName}`.trim()}
         onClick={(e) => e.stopPropagation()}
         role="dialog"

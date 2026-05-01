@@ -76,7 +76,7 @@ export default function CartasHorizontalCarousel({ cartas = [], className = '', 
           type="button"
           onClick={() => go(-1)}
           disabled={index <= 0}
-          className="absolute left-1 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-[#1e293b]/90 border border-[#3B82F6]/40 text-white shadow-lg disabled:opacity-30 disabled:pointer-events-none hover:bg-[#334155]"
+          className="absolute left-1 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-[var(--ui-surface)] border border-[color:var(--ui-border)] text-[var(--ui-body-text)] shadow-lg disabled:opacity-30 disabled:pointer-events-none hover:bg-[var(--ui-sidebar-hover)]"
           aria-label="Carta anterior"
         >
           <MdChevronLeft className="text-2xl" />
@@ -85,7 +85,7 @@ export default function CartasHorizontalCarousel({ cartas = [], className = '', 
           type="button"
           onClick={() => go(1)}
           disabled={index >= len - 1}
-          className="absolute right-1 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-[#1e293b]/90 border border-[#3B82F6]/40 text-white shadow-lg disabled:opacity-30 disabled:pointer-events-none hover:bg-[#334155]"
+          className="absolute right-1 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-[var(--ui-surface)] border border-[color:var(--ui-border)] text-[var(--ui-body-text)] shadow-lg disabled:opacity-30 disabled:pointer-events-none hover:bg-[var(--ui-sidebar-hover)]"
           aria-label="Carta siguiente"
         >
           <MdChevronRight className="text-2xl" />
@@ -99,7 +99,7 @@ export default function CartasHorizontalCarousel({ cartas = [], className = '', 
           {cartas.map((c) => (
             <div
               key={c.id}
-              className="snap-center shrink-0 w-full h-full min-w-full flex items-center justify-center bg-[#0f172a] px-2 pb-2 box-border"
+              className="snap-center shrink-0 w-full h-full min-w-full flex items-center justify-center bg-[var(--ui-body-bg)] px-2 pb-2 box-border"
             >
               {c.url && isPdfUrl(c.url) ? (
                 <iframe

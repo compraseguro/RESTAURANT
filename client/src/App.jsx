@@ -140,10 +140,10 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#111827]">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--ui-body-bg)] text-[var(--ui-body-text)]">
         <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-4 border-white border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-[#9CA3AF]">Cargando...</p>
+          <div className="animate-spin w-12 h-12 border-4 border-[var(--ui-accent)] border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-[var(--ui-muted)]">Cargando...</p>
         </div>
       </div>
     );
