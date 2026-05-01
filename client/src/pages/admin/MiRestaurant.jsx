@@ -483,7 +483,7 @@ export default function MiRestaurant() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-slate-800">Mi Restaurante · {activeViewLabel}</h1>
+        <h1 className="text-2xl font-bold text-[var(--ui-body-text)]">Mi Restaurante · {activeViewLabel}</h1>
         {showSaveButton ? (
           <button type="button" onClick={save} className="btn-primary flex items-center gap-2"><MdSave /> Guardar Cambios</button>
         ) : null}
@@ -493,12 +493,12 @@ export default function MiRestaurant() {
         <>
           <div className="flex gap-2 mb-5">
             {[{ id: 'info', label: 'Información', icon: MdStore }, { id: 'schedule', label: 'Horarios', icon: MdSchedule }, { id: 'delivery', label: 'Delivery', icon: MdLocationOn }].map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${tab === t.id ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}><t.icon /> {t.label}</button>
+              <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${tab === t.id ? 'bg-gold-600 text-white' : 'bg-[var(--ui-surface)] border border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'}`}><t.icon /> {t.label}</button>
             ))}
           </div>
 
           {tab === 'info' && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+        <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6">
           <div className="flex items-center gap-6 mb-6">
             <div
               className="w-24 h-24 bg-gold-100 rounded-2xl flex items-center justify-center border-2 border-dashed border-gold-300 cursor-pointer hover:bg-gold-50 overflow-hidden"
@@ -512,7 +512,7 @@ export default function MiRestaurant() {
             </div>
             <div>
               <h3 className="font-bold text-lg">{restaurant.name}</h3>
-              <p className="text-sm text-slate-500">Logo del restaurante</p>
+              <p className="text-sm text-[var(--ui-muted)]">Logo del restaurante</p>
               <button
                 type="button"
                 className="text-xs text-gold-600 mt-1 hover:underline"
@@ -530,26 +530,26 @@ export default function MiRestaurant() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Restaurante</label><input value={restaurant.name} onChange={e => update('name', e.target.value)} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label><input value={restaurant.phone} onChange={e => update('phone', e.target.value)} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Email</label><input value={restaurant.email} onChange={e => update('email', e.target.value)} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Dirección</label><input value={restaurant.address} onChange={e => update('address', e.target.value)} className="input-field" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre del Restaurante</label><input value={restaurant.name} onChange={e => update('name', e.target.value)} className="input-field" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Teléfono</label><input value={restaurant.phone} onChange={e => update('phone', e.target.value)} className="input-field" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Email</label><input value={restaurant.email} onChange={e => update('email', e.target.value)} className="input-field" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Dirección</label><input value={restaurant.address} onChange={e => update('address', e.target.value)} className="input-field" /></div>
           </div>
         </div>
           )}
 
           {tab === 'schedule' && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-          <h3 className="font-bold text-slate-800 mb-4">Horario de Atención</h3>
+        <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6">
+          <h3 className="font-bold text-[var(--ui-body-text)] mb-4">Horario de Atención</h3>
           <div className="space-y-3">
             {DAYS.map(day => (
-              <div key={day} className="flex items-center gap-4 py-2 border-b border-slate-50 last:border-0">
+              <div key={day} className="flex items-center gap-4 py-2 border-b border-[color:var(--ui-border)] last:border-0">
                 <label className="flex items-center gap-2 w-32">
                   <input type="checkbox" checked={restaurant.schedule[day]?.enabled} onChange={e => updateSchedule(day, 'enabled', e.target.checked)} className="rounded text-gold-600" />
                   <span className="font-medium text-sm">{DAY_NAMES[day]}</span>
                 </label>
                 <input type="time" value={restaurant.schedule[day]?.open || '11:00'} onChange={e => updateSchedule(day, 'open', e.target.value)} className="input-field w-auto" disabled={!restaurant.schedule[day]?.enabled} />
-                <span className="text-slate-400">a</span>
+                <span className="text-[var(--ui-muted)]">a</span>
                 <input type="time" value={restaurant.schedule[day]?.close || '23:00'} onChange={e => updateSchedule(day, 'close', e.target.value)} className="input-field w-auto" disabled={!restaurant.schedule[day]?.enabled} />
               </div>
             ))}
@@ -558,18 +558,18 @@ export default function MiRestaurant() {
           )}
 
           {tab === 'delivery' && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-          <h3 className="font-bold text-slate-800 mb-4">Configuración de Delivery</h3>
+        <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6">
+          <h3 className="font-bold text-[var(--ui-body-text)] mb-4">Configuración de Delivery</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Delivery habilitado</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Delivery habilitado</label>
               <select className="input-field" value={restaurant.delivery_enabled ? '1' : '0'} onChange={e => update('delivery_enabled', parseInt(e.target.value))}>
                 <option value="1">Sí</option><option value="0">No</option>
               </select>
             </div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Costo de Delivery (S/)</label><input type="number" step="0.50" value={restaurant.delivery_fee} onChange={e => update('delivery_fee', parseFloat(e.target.value))} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Pedido Mínimo (S/)</label><input type="number" step="1" value={restaurant.delivery_min_order} onChange={e => update('delivery_min_order', parseFloat(e.target.value))} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Radio de Cobertura (km)</label><input type="number" step="0.5" value={restaurant.delivery_radius_km} onChange={e => update('delivery_radius_km', parseFloat(e.target.value))} className="input-field" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Costo de Delivery (S/)</label><input type="number" step="0.50" value={restaurant.delivery_fee} onChange={e => update('delivery_fee', parseFloat(e.target.value))} className="input-field" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Pedido Mínimo (S/)</label><input type="number" step="1" value={restaurant.delivery_min_order} onChange={e => update('delivery_min_order', parseFloat(e.target.value))} className="input-field" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Radio de Cobertura (km)</label><input type="number" step="0.5" value={restaurant.delivery_radius_km} onChange={e => update('delivery_radius_km', parseFloat(e.target.value))} className="input-field" /></div>
           </div>
         </div>
           )}
@@ -579,10 +579,10 @@ export default function MiRestaurant() {
       {activeView !== 'mi_empresa' && (
         <>
           {activeView === 'facturacion_electronica' ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
+            <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <MdReceipt className="text-red-600 text-2xl" />
-                <h3 className="font-bold text-slate-800 text-lg">Facturación electrónica</h3>
+                <h3 className="font-bold text-[var(--ui-body-text)] text-lg">Facturación electrónica</h3>
               </div>
 
               <fieldset disabled={!canEditBillingBot} className="border-0 p-0 m-0 min-w-0 space-y-5">
@@ -600,7 +600,7 @@ export default function MiRestaurant() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Modo offline</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Modo offline</label>
                   <select
                     className="input-field"
                     value={billingConfig.billing_offline_mode ? '1' : '0'}
@@ -611,7 +611,7 @@ export default function MiRestaurant() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Reintentos automáticos</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Reintentos automáticos</label>
                   <select
                     className="input-field"
                     value={billingConfig.billing_auto_retry_enabled ? '1' : '0'}
@@ -622,7 +622,7 @@ export default function MiRestaurant() {
                   </select>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Intervalo entre reintentos (segundos)</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Intervalo entre reintentos (segundos)</label>
                   <input
                     type="number"
                     min="30"
@@ -636,15 +636,15 @@ export default function MiRestaurant() {
               </fieldset>
             </div>
           ) : activeView === 'pagos_sistema' ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
+            <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <MdPayment className="text-red-600 text-2xl" />
-                <h3 className="font-bold text-slate-800 text-lg">Parámetros de cobro y crédito</h3>
+                <h3 className="font-bold text-[var(--ui-body-text)] text-lg">Parámetros de cobro y crédito</h3>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Aceptar efectivo</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Aceptar efectivo</label>
                   <select
                     className="input-field"
                     value={appConfig.pagos_sistema?.acepta_efectivo ? '1' : '0'}
@@ -655,7 +655,7 @@ export default function MiRestaurant() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Aceptar tarjeta</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Aceptar tarjeta</label>
                   <select
                     className="input-field"
                     value={appConfig.pagos_sistema?.acepta_tarjeta ? '1' : '0'}
@@ -666,7 +666,7 @@ export default function MiRestaurant() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Aceptar Yape</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Aceptar Yape</label>
                   <select
                     className="input-field"
                     value={appConfig.pagos_sistema?.acepta_yape ? '1' : '0'}
@@ -677,7 +677,7 @@ export default function MiRestaurant() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Aceptar Plin</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Aceptar Plin</label>
                   <select
                     className="input-field"
                     value={appConfig.pagos_sistema?.acepta_plin ? '1' : '0'}
@@ -688,7 +688,7 @@ export default function MiRestaurant() {
                   </select>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Requiere referencia para pagos digitales</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Requiere referencia para pagos digitales</label>
                   <select
                     className="input-field"
                     value={appConfig.pagos_sistema?.requiere_referencia_digital ? '1' : '0'}
@@ -702,7 +702,7 @@ export default function MiRestaurant() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Propina sugerida (%)</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Propina sugerida (%)</label>
                   <input
                     type="number"
                     min="0"
@@ -713,7 +713,7 @@ export default function MiRestaurant() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Tolerancia diferencia de caja (S/)</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Tolerancia diferencia de caja (S/)</label>
                   <input
                     type="number"
                     min="0"
@@ -724,7 +724,7 @@ export default function MiRestaurant() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Días máximos de crédito</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Días máximos de crédito</label>
                   <input
                     type="number"
                     min="0"
@@ -734,7 +734,7 @@ export default function MiRestaurant() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Monto máximo por crédito (S/)</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Monto máximo por crédito (S/)</label>
                   <input
                     type="number"
                     min="0"
@@ -745,7 +745,7 @@ export default function MiRestaurant() {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Notificar mora automáticamente</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Notificar mora automáticamente</label>
                   <select
                     className="input-field"
                     value={appConfig.pagos_sistema?.notificar_mora ? '1' : '0'}
@@ -756,7 +756,7 @@ export default function MiRestaurant() {
                   </select>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Política de cobranza</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Política de cobranza</label>
                   <textarea
                     rows="3"
                     className="input-field"
@@ -778,13 +778,13 @@ export default function MiRestaurant() {
               onChange={(next) => setAppConfig((prev) => ({ ...prev, contrato: next }))}
             />
           ) : activeView === 'pago_uso_sistema' ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5">
+            <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <MdReceipt className="text-blue-600 text-2xl" />
-                <h3 className="font-bold text-slate-800 text-lg">Pago por uso del sistema</h3>
+                <h3 className="font-bold text-[var(--ui-body-text)] text-lg">Pago por uso del sistema</h3>
               </div>
               {pagoUsoComprobanteUi?.policy_active && pagoUsoComprobanteUi.upload_comprobante_message ? (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 text-sm text-[var(--ui-body-text)]">
                   <p className="whitespace-nowrap overflow-x-auto text-xs md:text-sm">
                     {pagoUsoComprobanteUi.fecha_proxima_facturacion
                       ? `Próxima facturación: ${pagoUsoComprobanteUi.fecha_proxima_facturacion}`
@@ -804,7 +804,7 @@ export default function MiRestaurant() {
               <fieldset disabled={!canEditBillingMaster} className="border-0 p-0 m-0 min-w-0 space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Frecuencia de facturación</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Frecuencia de facturación</label>
                   <select
                     className="input-field"
                     value={appConfig.pago_uso_sistema?.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual'}
@@ -828,7 +828,7 @@ export default function MiRestaurant() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Próxima fecha de facturación (opcional)</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Próxima fecha de facturación (opcional)</label>
                   <input
                     type="date"
                     className="input-field"
@@ -837,7 +837,7 @@ export default function MiRestaurant() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Días de gracia para subir comprobante</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Días de gracia para subir comprobante</label>
                   <input
                     type="number"
                     min={1}
@@ -850,10 +850,10 @@ export default function MiRestaurant() {
                       Math.max(1, Math.min(14, Number(e.target.value) || 3)),
                     )}
                   />
-                  <p className="text-xs text-slate-500 mt-1">Tras la fecha de facturación, cuántos días tiene para cargar el comprobante antes del bloqueo.</p>
+                  <p className="text-xs text-[var(--ui-muted)] mt-1">Tras la fecha de facturación, cuántos días tiene para cargar el comprobante antes del bloqueo.</p>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Número de cuenta</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Número de cuenta</label>
                   <input
                     className="input-field"
                     placeholder="CCI, número de cuenta o datos de transferencia"
@@ -862,7 +862,7 @@ export default function MiRestaurant() {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de la empresa a la que debes pagar</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre de la empresa a la que debes pagar</label>
                   <input
                     className="input-field"
                     placeholder="Razón social o nombre del beneficiario"
@@ -873,10 +873,10 @@ export default function MiRestaurant() {
               </div>
               </fieldset>
 
-              <div className="space-y-3 pt-2 border-t border-slate-100">
+              <div className="space-y-3 pt-2 border-t border-[color:var(--ui-border)]">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Comprobante de pago</label>
-                  <p className="text-xs text-slate-500 mb-2">Sube una imagen (o PDF) del voucher o transferencia.</p>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Comprobante de pago</label>
+                  <p className="text-xs text-[var(--ui-muted)] mb-2">Sube una imagen (o PDF) del voucher o transferencia.</p>
                   <div className="flex flex-wrap items-center gap-3">
                     {(() => {
                       const compUi = pagoUsoComprobanteUi;
@@ -927,7 +927,7 @@ export default function MiRestaurant() {
                   </div>
                   {appConfig.pago_uso_sistema?.comprobante_pago_url &&
                   !String(appConfig.pago_uso_sistema.comprobante_pago_url).toLowerCase().endsWith('.pdf') ? (
-                    <div className="mt-3 rounded-lg border border-slate-200 overflow-hidden max-w-xs bg-slate-50">
+                    <div className="mt-3 rounded-lg border border-[color:var(--ui-border)] overflow-hidden max-w-xs bg-[var(--ui-surface-2)]">
                       <img
                         src={resolveMediaUrl(appConfig.pago_uso_sistema.comprobante_pago_url)}
                         alt="Vista previa del comprobante"
@@ -938,15 +938,15 @@ export default function MiRestaurant() {
                 </div>
               </div>
 
-              <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
+              <div className="rounded-lg bg-[var(--ui-surface-2)] border border-[color:var(--ui-border)] p-3 text-sm text-[var(--ui-muted)]">
                 Tras cargar el archivo, pulse <strong>Guardar cambios</strong> para guardar la URL del comprobante
                 {canEditBillingMaster ? ' junto al resto de datos' : ''}.
               </div>
             </div>
           ) : activeView === 'informacion' ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-4">
-              <h3 className="font-bold text-slate-800">Respaldo y restauración de información</h3>
-              <p className="text-sm text-slate-500">
+            <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6 space-y-4">
+              <h3 className="font-bold text-[var(--ui-body-text)]">Respaldo y restauración de información</h3>
+              <p className="text-sm text-[var(--ui-muted)]">
                 Descarga una copia completa de datos antes de actualizar la app y luego restaura desde ese archivo para recuperar toda la información.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -979,9 +979,9 @@ export default function MiRestaurant() {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-              <h3 className="font-bold text-slate-800 mb-2">{activeViewLabel}</h3>
-              <p className="text-slate-500">No se encontró la vista solicitada. Selecciona una opción válida del menú.</p>
+            <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6">
+              <h3 className="font-bold text-[var(--ui-body-text)] mb-2">{activeViewLabel}</h3>
+              <p className="text-[var(--ui-muted)]">No se encontró la vista solicitada. Selecciona una opción válida del menú.</p>
             </div>
           )}
         </>
@@ -995,12 +995,12 @@ export default function MiRestaurant() {
         size="md"
       >
         <form onSubmit={submitResetOperational} className="space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-[var(--ui-muted)]">
             Se borrarán ventas, pedidos, caja, clientes, productos y demás datos operativos. El{' '}
             <strong>contrato del servicio</strong> (texto y firmas guardados en Mi Restaurante) no se elimina.
           </p>
           <div>
-            <label htmlFor="reset-operational-password" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="reset-operational-password" className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">
               Contraseña de reinicio
             </label>
             <input
@@ -1009,7 +1009,7 @@ export default function MiRestaurant() {
               autoComplete="off"
               value={resetPassword}
               onChange={(e) => setResetPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-slate-900 focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
+              className="w-full rounded-lg border border-[color:var(--ui-border)] px-3 py-2 text-[var(--ui-body-text)] focus:ring-2 focus:ring-[#2563EB]/30 focus:border-[#2563EB]"
               placeholder="Contraseña"
             />
           </div>

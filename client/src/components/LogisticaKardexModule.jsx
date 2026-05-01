@@ -56,7 +56,7 @@ function InventarioFisicoResumenLine({ f, b, s }) {
   const ns = Number(s) || 0;
   const total = nf + nb + ns;
   if (total === 0) {
-    return <span className="text-slate-500">Sin líneas</span>;
+    return <span className="text-[var(--ui-muted)]">Sin líneas</span>;
   }
   if (nf === 0 && ns === 0) {
     return (
@@ -70,10 +70,10 @@ function InventarioFisicoResumenLine({ f, b, s }) {
   if (nb > 0) parts.push({ key: 'b', node: <span className="text-emerald-400/90">Bien: {nb}</span> });
   if (ns > 0) parts.push({ key: 's', node: <span className="text-sky-400/95 font-medium">Sobra: {ns}</span> });
   return (
-    <span className="text-[#E5E7EB]">
+    <span className="text-[var(--ui-body-text)]">
       {parts.map((p, i) => (
         <span key={p.key}>
-          {i > 0 && <span className="text-[#9CA3AF]"> · </span>}
+          {i > 0 && <span className="text-[var(--ui-muted)]"> · </span>}
           {p.node}
         </span>
       ))}
@@ -544,21 +544,21 @@ export default function LogisticaKardexModule() {
   }
 
   return (
-    <div className="logistica-kardex-module space-y-4 text-[#F9FAFB]">
-      <p className="text-sm text-[#E5E7EB]">
+    <div className="logistica-kardex-module space-y-4 text-[var(--ui-body-text)]">
+      <p className="text-sm text-[var(--ui-muted)]">
         Insumos, compras, recetas, kardex, inventario de transformables (insumos) y no transformables (cuadre en almacén).
         Las ventas en caja descuentan según recetas.
       </p>
-      <div className="flex flex-wrap gap-1.5 border-b border-[#3B82F6]/25 pb-2">
+      <div className="flex flex-wrap gap-1.5 border-b border-[color:var(--ui-border)] pb-2">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition border border-[color:var(--ui-border)] ${
               tab === t.id
-                ? 'bg-[#2563EB] text-white shadow-sm border border-[#3B82F6]/40'
-                : 'bg-[#1F2937] text-[#D1D5DB] hover:bg-[#374151] border border-[#3B82F6]/20'
+                ? 'bg-[var(--ui-accent)] text-white shadow-sm'
+                : 'bg-[var(--ui-surface)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
             }`}
           >
             {t.label}
@@ -568,12 +568,12 @@ export default function LogisticaKardexModule() {
 
       {tab === 'dashboard' && dashboard && (
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="bg-[#1F2937] rounded-xl border border-[#3B82F6]/25 p-4">
-            <p className="text-[#9CA3AF] text-sm">Valor total del inventario (insumos)</p>
+          <div className="bg-[var(--ui-surface)] rounded-xl border border-[color:var(--ui-border)] p-4">
+            <p className="text-[var(--ui-muted)] text-sm">Valor total del inventario (insumos)</p>
             <p className="text-2xl font-bold text-emerald-400 mt-1">{formatCurrency(dashboard.valor_inventario_total)}</p>
-            <p className="text-xs text-[#9CA3AF] mt-2">{dashboard.total_insumos} insumos activos</p>
+            <p className="text-xs text-[var(--ui-muted)] mt-2">{dashboard.total_insumos} insumos activos</p>
           </div>
-          <div className="bg-[#1F2937] rounded-xl border border-[#3B82F6]/25 p-4">
+          <div className="bg-[var(--ui-surface)] rounded-xl border border-[color:var(--ui-border)] p-4">
             <p className="text-amber-300/90 text-sm flex items-center gap-1.5">
               <MdWarning className="inline" /> Bajo mínimo (U o kg/L según creación)
             </p>
@@ -590,7 +590,7 @@ export default function LogisticaKardexModule() {
                   ? `${formatInsumoQty(uAct)} U / mín. ${formatInsumoQty(uMin)} U`
                   : `${formatInsumoWithUnit(sAct, um)} / mín. ${formatInsumoQty(sMin)} ${um}`;
                 return (
-                  <li key={i.id} className="flex justify-between text-[#E5E7EB] gap-2">
+                  <li key={i.id} className="flex justify-between text-[var(--ui-body-text)] gap-2">
                     <span>{i.nombre}</span>
                     <span className="text-red-400 text-right">{detail}</span>
                   </li>
@@ -598,7 +598,7 @@ export default function LogisticaKardexModule() {
               })}
             </ul>
             {(!dashboard.insumos_bajo_minimo || !dashboard.insumos_bajo_minimo.length) && (
-              <p className="text-slate-500 text-sm mt-1">Ninguno por debajo del mínimo configurado.</p>
+              <p className="text-[var(--ui-muted)] text-sm mt-1">Ninguno por debajo del mínimo configurado.</p>
             )}
           </div>
         </div>
@@ -606,19 +606,19 @@ export default function LogisticaKardexModule() {
 
       {tab === 'insumos' && (
         <div className="space-y-4">
-          <p className="text-[#E5E7EB] text-xs max-w-3xl">
-            <strong className="text-[#F9FAFB]">Kardex y recetas usan cantidad en kg/L (o ml).</strong>{' '}
+          <p className="text-[var(--ui-muted)] text-xs max-w-3xl">
+            <strong className="text-[var(--ui-body-text)]">Kardex y recetas usan cantidad en kg/L (o ml).</strong>{' '}
             <strong>Cant. (U)</strong> y el promedio kg/U se alimentan con la compra; las ventas por receta descontarán
             <strong> kg</strong> y <strong>U</strong> si aplica. Los mínimos (U y kg/L) definen alerta y requisición según
             rellenes cada uno (0 = no aplicar); no se listan en la tabla de abajo.
           </p>
           <form
             onSubmit={addInsumo}
-            className="bg-[#1F2937]/80 p-3 rounded-lg border border-[#3B82F6]/25"
+            className="bg-[var(--ui-surface-2)] p-3 rounded-lg border border-[color:var(--ui-border)]"
           >
             <div className="flex flex-nowrap gap-2 items-end overflow-x-auto pb-0.5 min-h-[3rem]">
               <div className="shrink-0">
-                <label className="block text-xs text-slate-500 mb-0.5">Insumo</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Insumo</label>
                 <input
                   className="input-field text-sm py-1.5 w-40"
                   value={insumoForm.nombre}
@@ -627,7 +627,7 @@ export default function LogisticaKardexModule() {
                 />
               </div>
               <div className="shrink-0">
-                <label className="block text-xs text-slate-500 mb-0.5">U.M. kg / L</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">U.M. kg / L</label>
                 <input
                   className="input-field text-sm py-1.5 w-[4.5rem]"
                   list="kardex-um-masa"
@@ -646,7 +646,7 @@ export default function LogisticaKardexModule() {
                 </datalist>
               </div>
               <div className="shrink-0">
-                <label className="block text-xs text-slate-500 mb-0.5">Precio compra</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Precio compra</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -658,7 +658,7 @@ export default function LogisticaKardexModule() {
                 />
               </div>
               <div className="shrink-0">
-                <label className="block text-xs text-slate-500 mb-0.5">Cant. inicial</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Cant. inicial</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -669,7 +669,7 @@ export default function LogisticaKardexModule() {
                 />
               </div>
               <div className="shrink-0">
-                <label className="block text-xs text-slate-500 mb-0.5">Mín. (U)</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Mín. (U)</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -680,7 +680,7 @@ export default function LogisticaKardexModule() {
                 />
               </div>
               <div className="shrink-0">
-                <label className="block text-xs text-slate-500 mb-0.5">Mín. kg / L</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Mín. kg / L</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -704,7 +704,7 @@ export default function LogisticaKardexModule() {
               {editingInsumoId ? (
                 <button
                   type="button"
-                  className="text-sm px-3 py-1.5 rounded-lg border border-slate-500/60 text-[#E5E7EB] shrink-0"
+                  className="text-sm px-3 py-1.5 rounded-lg border border-[color:var(--ui-border)] text-[var(--ui-body-text)] shrink-0"
                   onClick={() => {
                     setEditingInsumoId('');
                     setInsumoForm({
@@ -723,10 +723,10 @@ export default function LogisticaKardexModule() {
               ) : null}
             </div>
           </form>
-          <div className="overflow-x-auto border border-slate-600/50 rounded-lg">
+          <div className="overflow-x-auto border border-[color:var(--ui-border)] rounded-lg">
             <table className="w-full text-sm min-w-[720px]">
               <thead>
-                <tr className="bg-[#1F2937] text-[#E5E7EB] text-left border-b border-[#3B82F6]/25">
+                <tr className="bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] text-left border-b border-[color:var(--ui-border)]">
                   <th className="p-2.5">Insumo</th>
                   <th className="p-2.5">Cant. (kg / L)</th>
                   <th className="p-2.5">Cant. (U)</th>
@@ -762,13 +762,13 @@ export default function LogisticaKardexModule() {
                   const showKg = sAct > 0;
                   const showU = uAct > 0;
                   return (
-                    <tr key={i.id} className={`border-b border-slate-600/40 ${low ? 'bg-red-950/30' : ''}`}>
-                      <td className="p-2.5 font-medium text-[#F9FAFB]">{i.nombre}</td>
-                      <td className="p-2.5 text-[#F9FAFB] tabular-nums">
-                        {showKg ? formatInsumoWithUnit(i.stock_actual, umc) : <span className="text-[#9CA3AF]">—</span>}
+                    <tr key={i.id} className={`border-b border-[color:var(--ui-border)] ${low ? 'bg-red-950/30' : ''}`}>
+                      <td className="p-2.5 font-medium text-[var(--ui-body-text)]">{i.nombre}</td>
+                      <td className="p-2.5 text-[var(--ui-body-text)] tabular-nums">
+                        {showKg ? formatInsumoWithUnit(i.stock_actual, umc) : <span className="text-[var(--ui-muted)]">—</span>}
                       </td>
-                      <td className="p-2.5 text-[#F9FAFB] tabular-nums">
-                        {showU ? `${formatInsumoQty(uAct)} U` : <span className="text-[#9CA3AF]">—</span>}
+                      <td className="p-2.5 text-[var(--ui-body-text)] tabular-nums">
+                        {showU ? `${formatInsumoQty(uAct)} U` : <span className="text-[var(--ui-muted)]">—</span>}
                       </td>
                       <td className="p-2.5 text-amber-200/90 tabular-nums text-sm">
                         {kpu > 0 ? (
@@ -776,10 +776,10 @@ export default function LogisticaKardexModule() {
                             {formatInsumoQty(kpu)} {umc}/U
                           </span>
                         ) : (
-                          <span className="text-[#9CA3AF]">—</span>
+                          <span className="text-[var(--ui-muted)]">—</span>
                         )}
                       </td>
-                      <td className="p-2.5 text-right tabular-nums text-[#F9FAFB]">{formatCurrency(i.costo_promedio || 0)}</td>
+                      <td className="p-2.5 text-right tabular-nums text-[var(--ui-body-text)]">{formatCurrency(i.costo_promedio || 0)}</td>
                       <td className="p-2.5 text-right text-emerald-400/90 tabular-nums">
                         {formatCurrency((Number(i.stock_actual) * Number(i.costo_promedio)) || 0)}
                       </td>
@@ -803,8 +803,8 @@ export default function LogisticaKardexModule() {
 
       {tab === 'compras' && (
         <div className="space-y-3">
-          <p className="text-[#E5E7EB] text-sm">
-            <strong className="text-[#F9FAFB]">Cant. kg / L</strong> y <strong className="text-[#F9FAFB]">costo</strong> = peso/volumen comprado (S/ por kg, L, etc.).
+          <p className="text-[var(--ui-body-text)] text-sm">
+            <strong className="text-[var(--ui-body-text)]">Cant. kg / L</strong> y <strong className="text-[var(--ui-body-text)]">costo</strong> = peso/volumen comprado (S/ por kg, L, etc.).
             <strong> Unid.</strong> = pollos, cajas, bultos, etc. Si pones <strong>kg y unidades</strong>, el sistema
             promedia <strong>kg / U</strong> (p. ej. 50 kg ÷ 20 piezas = 2,5 kg por unidad) y al <strong>vender por receta</strong> (cuartos, octavos) descuenta
             a la vez el <strong>kg</strong> y la parte de <strong>U</strong> que corresponda. Solo kg (sin U) sigue yendo al kardex de masa. Formato numérico{' '}
@@ -841,7 +841,7 @@ export default function LogisticaKardexModule() {
                   })}
                 </select>
                 <div>
-                  <label className="block text-[10px] text-slate-500">Cant. kg / L</label>
+                  <label className="block text-[10px] text-[var(--ui-muted)]">Cant. kg / L</label>
                   <input
                     type="number"
                     min="0.0001"
@@ -857,7 +857,7 @@ export default function LogisticaKardexModule() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-slate-500">Costo S/ U.M.</label>
+                  <label className="block text-[10px] text-[var(--ui-muted)]">Costo S/ U.M.</label>
                   <input
                     type="number"
                     min="0"
@@ -873,7 +873,7 @@ export default function LogisticaKardexModule() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-slate-500">Unid. (opcional)</label>
+                  <label className="block text-[10px] text-[var(--ui-muted)]">Unid. (opcional)</label>
                   <input
                     type="number"
                     min="0"
@@ -926,15 +926,15 @@ export default function LogisticaKardexModule() {
 
       {tab === 'recetas' && (
         <div className="space-y-4">
-          <p className="text-[#E5E7EB] text-sm">
+          <p className="text-[var(--ui-body-text)] text-sm">
             Vincula un plato al menú. Cada <strong>cantidad usada</strong> es en la U.M. del insumo (kg, L, ml). Con pollo
             o carnes, si el insumo tiene promedio kg / U, al vender se descuentan <strong>kg y unidades en proporción</strong> (p. ej. 0,5 kg
             = 0,2 U si 1 U = 2,5 kg).
           </p>
-          <form onSubmit={saveReceta} className="bg-[#1F2937]/70 p-4 rounded-xl border border-[#3B82F6]/25 space-y-3">
+          <form onSubmit={saveReceta} className="bg-[var(--ui-surface-2)] p-4 rounded-xl border border-[color:var(--ui-border)] space-y-3">
             <div className="flex flex-wrap gap-2">
               <div>
-                <label className="block text-xs text-slate-500">Nombre receta / plato</label>
+                <label className="block text-xs text-[var(--ui-muted)]">Nombre receta / plato</label>
                 <input
                   className="input-field text-sm py-1.5 w-48"
                   value={recetaForm.nombre_plato}
@@ -942,7 +942,7 @@ export default function LogisticaKardexModule() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-500">Producto menú</label>
+                <label className="block text-xs text-[var(--ui-muted)]">Producto menú</label>
                 <select
                   className="input-field text-sm py-1.5 min-w-[200px]"
                   value={recetaForm.product_id}
@@ -964,7 +964,7 @@ export default function LogisticaKardexModule() {
               </label>
             </div>
             <div className="space-y-2">
-              <p className="text-slate-500 text-xs">Insumos por unidad de plato (1 servicio)</p>
+              <p className="text-[var(--ui-muted)] text-xs">Insumos por unidad de plato (1 servicio)</p>
               {recetaForm.detalles.map((d, di) => (
                 <div key={di} className="flex flex-wrap gap-2 items-center">
                   <select
@@ -1011,7 +1011,7 @@ export default function LogisticaKardexModule() {
               {editingRecetaId && (
                 <button
                   type="button"
-                  className="px-3 py-1.5 border border-slate-500 rounded-lg text-slate-300"
+                  className="px-3 py-1.5 border border-[color:var(--ui-border)] rounded-lg text-[var(--ui-body-text)]"
                   onClick={() => {
                     setEditingRecetaId('');
                     setRecetaForm({
@@ -1027,22 +1027,22 @@ export default function LogisticaKardexModule() {
               </button>
             </div>
           </form>
-          <div className="border border-slate-600/50 rounded-lg overflow-hidden">
+          <div className="border border-[color:var(--ui-border)] rounded-lg overflow-hidden">
             {recetas.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center justify-between p-2 border-b border-slate-600/40 last:border-0"
+                className="flex items-center justify-between p-2 border-b border-[color:var(--ui-border)] last:border-0"
               >
                 <div>
                   <span className="font-medium">{r.nombre_plato}</span>
-                  <span className="text-slate-500 text-sm ml-2">· {r.product_name || r.product_id}</span>
+                  <span className="text-[var(--ui-muted)] text-sm ml-2">· {r.product_name || r.product_id}</span>
                 </div>
                 <button type="button" className="text-amber-400/90 text-sm" onClick={() => loadRecetaEdit(r.id)}>
                   Editar
                 </button>
               </div>
             ))}
-            {!recetas.length && <p className="p-4 text-slate-500 text-sm">No hay recetas. Crea una y vincúlala a un plato.</p>}
+            {!recetas.length && <p className="p-4 text-[var(--ui-muted)] text-sm">No hay recetas. Crea una y vincúlala a un plato.</p>}
           </div>
         </div>
       )}
@@ -1051,7 +1051,7 @@ export default function LogisticaKardexModule() {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2 items-end">
             <div>
-              <label className="block text-xs text-slate-500">Insumo</label>
+              <label className="block text-xs text-[var(--ui-muted)]">Insumo</label>
               <select
                 className="input-field text-sm py-1.5"
                 value={kardexInsumo}
@@ -1069,7 +1069,7 @@ export default function LogisticaKardexModule() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-500">Desde</label>
+              <label className="block text-xs text-[var(--ui-muted)]">Desde</label>
               <input
                 type="date"
                 className="input-field text-sm py-1.5"
@@ -1078,7 +1078,7 @@ export default function LogisticaKardexModule() {
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500">Hasta</label>
+              <label className="block text-xs text-[var(--ui-muted)]">Hasta</label>
               <input
                 type="date"
                 className="input-field text-sm py-1.5"
@@ -1090,14 +1090,14 @@ export default function LogisticaKardexModule() {
               <button
                 type="button"
                 onClick={() => descargarKardexCsv().catch((e) => toast.error(e.message))}
-                className="flex items-center gap-1 text-sm bg-[#1F2937] hover:bg-[#374151] border border-[#3B82F6]/35 rounded-lg px-2 py-1.5 text-[#E5E7EB]"
+                className="flex items-center gap-1 text-sm bg-[var(--ui-surface)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)] rounded-lg px-2 py-1.5 text-[var(--ui-body-text)]"
               >
                 <MdDownload /> Excel (CSV)
               </button>
             )}
           </div>
           {kardexData && (
-            <div className="text-sm text-[#E5E7EB] mb-2">
+            <div className="text-sm text-[var(--ui-body-text)] mb-2">
               <MdInventory2 className="inline mr-1" />
               Valor inventario actual: <span className="text-emerald-400 font-medium">{formatCurrency(kardexData.valor_inventario)}</span>
               {' · '}
@@ -1117,10 +1117,10 @@ export default function LogisticaKardexModule() {
               })()}
             </div>
           )}
-          <div className="overflow-x-auto border border-slate-600/50 rounded-lg max-h-[480px] overflow-y-auto">
+          <div className="overflow-x-auto border border-[color:var(--ui-border)] rounded-lg max-h-[480px] overflow-y-auto">
             <table className="w-full text-sm min-w-[900px]">
-              <thead className="sticky top-0 z-10 bg-[#1F2937] shadow-[0_1px_0_0_rgba(59,130,246,0.25)]">
-                <tr className="text-left text-[#E5E7EB] border-b border-[#3B82F6]/25">
+              <thead className="sticky top-0 z-10 bg-[var(--ui-surface-2)] border-b border-[color:var(--ui-border)]">
+                <tr className="text-left text-[var(--ui-body-text)] border-b border-[color:var(--ui-border)]">
                   <th className="p-2">Fecha</th>
                   <th className="p-2">Tipo</th>
                   <th className="p-2 text-right">Cant. (kg/L)</th>
@@ -1142,8 +1142,8 @@ export default function LogisticaKardexModule() {
                   const qtyU = canShowU ? (qtyKg / kpu) : 0;
                   const stockU = canShowU ? (stockKg / kpu) : 0;
                   return (
-                    <tr key={m.id} className="border-b border-slate-600/40">
-                      <td className="p-2 text-[#E5E7EB]">{formatDateTime(m.fecha || m.created_at)}</td>
+                    <tr key={m.id} className="border-b border-[color:var(--ui-border)]">
+                      <td className="p-2 text-[var(--ui-body-text)]">{formatDateTime(m.fecha || m.created_at)}</td>
                       <td className="p-2">
                         <span
                           className={
@@ -1161,18 +1161,18 @@ export default function LogisticaKardexModule() {
                               : 'Ajuste'}
                         </span>
                       </td>
-                      <td className="p-2 text-right tabular-nums text-[#F9FAFB]">
+                      <td className="p-2 text-right tabular-nums text-[var(--ui-body-text)]">
                         {formatInsumoQty(qtyKg)} {um || 'kg'}
                       </td>
-                      <td className="p-2 text-right tabular-nums text-[#F9FAFB]">
+                      <td className="p-2 text-right tabular-nums text-[var(--ui-body-text)]">
                         {canShowU ? `${formatInsumoQty(qtyU)} U` : '—'}
                       </td>
-                      <td className="p-2 text-right text-[#F9FAFB]">{formatCurrency(m.costo_unitario)}</td>
-                      <td className="p-2 text-right text-[#F9FAFB]">{formatCurrency(m.costo_total)}</td>
-                      <td className="p-2 text-right font-medium text-[#F9FAFB] tabular-nums">
+                      <td className="p-2 text-right text-[var(--ui-body-text)]">{formatCurrency(m.costo_unitario)}</td>
+                      <td className="p-2 text-right text-[var(--ui-body-text)]">{formatCurrency(m.costo_total)}</td>
+                      <td className="p-2 text-right font-medium text-[var(--ui-body-text)] tabular-nums">
                         {formatInsumoQty(stockKg)} {um || 'kg'}
                       </td>
-                      <td className="p-2 text-right font-medium text-[#F9FAFB] tabular-nums">
+                      <td className="p-2 text-right font-medium text-[var(--ui-body-text)] tabular-nums">
                         {canShowU ? `${formatInsumoQty(stockU)} U` : '—'}
                       </td>
                     </tr>
@@ -1181,7 +1181,7 @@ export default function LogisticaKardexModule() {
               </tbody>
             </table>
             {kardexInsumo && kardexData && !(kardexData.movimientos || []).length && (
-              <p className="p-6 text-slate-500 text-center">Sin movimientos en el rango.</p>
+              <p className="p-6 text-[var(--ui-muted)] text-center">Sin movimientos en el rango.</p>
             )}
           </div>
           {kardexData && (kardexData.movimientos || []).length > 0 && (
@@ -1212,17 +1212,17 @@ export default function LogisticaKardexModule() {
                   }
                 );
                 const Card = ({ title, data, accent }) => (
-                  <div className={`min-w-[220px] rounded-lg border p-3 bg-[#1F2937]/85 ${accent}`}>
+                  <div className={`min-w-[220px] rounded-lg border border-[color:var(--ui-border)] p-3 bg-[var(--ui-surface-2)] ${accent}`}>
                     <p className="text-sm font-semibold mb-2">{title}</p>
                     <div className="space-y-1 text-sm">
-                      <p className="text-[#F9FAFB]">
-                        Cantidad: <span className="font-semibold text-[#F9FAFB]">{formatInsumoQty(data.kg)} {um}</span>
+                      <p className="text-[var(--ui-body-text)]">
+                        Cantidad: <span className="font-semibold text-[var(--ui-body-text)]">{formatInsumoQty(data.kg)} {um}</span>
                       </p>
-                      <p className="text-[#F9FAFB]">
-                        Cantidad U: <span className="font-semibold text-[#F9FAFB]">{kpu > 1e-12 ? `${formatInsumoQty(data.u)} U` : '—'}</span>
+                      <p className="text-[var(--ui-body-text)]">
+                        Cantidad U: <span className="font-semibold text-[var(--ui-body-text)]">{kpu > 1e-12 ? `${formatInsumoQty(data.u)} U` : '—'}</span>
                       </p>
-                      <p className="text-[#F9FAFB]">
-                        Precio total: <span className="font-semibold text-[#F9FAFB]">{formatCurrency(data.cost)}</span>
+                      <p className="text-[var(--ui-body-text)]">
+                        Precio total: <span className="font-semibold text-[var(--ui-body-text)]">{formatCurrency(data.cost)}</span>
                       </p>
                     </div>
                   </div>
@@ -1249,8 +1249,8 @@ export default function LogisticaKardexModule() {
 
       {tab === 'inv_fisico' && (
         <div className="space-y-4">
-          <p className="text-[#9CA3AF] text-sm">
-            <strong className="text-[#E5E7EB]">Inventario de transformables (insumos):</strong>{' '}
+          <p className="text-[var(--ui-muted)] text-sm">
+            <strong className="text-[var(--ui-body-text)]">Inventario de transformables (insumos):</strong>{' '}
             conteo físico de materiales del kardex. Registra el conteo (pendiente) y luego <strong>cierra</strong> para generar movimientos valorizados.
           </p>
           <form onSubmit={crearInventarioFisico} className="space-y-2">
@@ -1291,22 +1291,22 @@ export default function LogisticaKardexModule() {
             <button type="submit" className="btn-primary block">Crear toma (pendiente)</button>
           </form>
           <div className="mt-4 space-y-2">
-            <p className="text-slate-500 text-xs flex items-center gap-1"><MdList /> Últimos inventarios</p>
+            <p className="text-[var(--ui-muted)] text-xs flex items-center gap-1"><MdList /> Últimos inventarios</p>
             {invList.map((iv) => {
               const n = Number(iv.cuadre_num);
               const label = Number.isFinite(n) && n > 0 ? `CUADRE ${n}` : `Inventario ${(iv.id || '').slice(0, 8)}`;
               return (
                 <div
                   key={iv.id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-[#1F2937]/90 border border-[#3B82F6]/25 rounded-lg px-3 py-2.5"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-[var(--ui-surface-2)] border border-[color:var(--ui-border)] rounded-lg px-3 py-2.5"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                      <span className="text-[#F9FAFB] font-semibold tracking-tight">{label}</span>
-                      <span className="text-slate-500 text-sm">{formatDateTime(iv.fecha || iv.created_at)}</span>
+                      <span className="text-[var(--ui-body-text)] font-semibold tracking-tight">{label}</span>
+                      <span className="text-[var(--ui-muted)] text-sm">{formatDateTime(iv.fecha || iv.created_at)}</span>
                       <span
                         className={`text-xs uppercase tracking-wide ${
-                          iv.estado === 'cerrado' ? 'text-slate-500' : 'text-amber-400'
+                          iv.estado === 'cerrado' ? 'text-[var(--ui-muted)]' : 'text-amber-400'
                         }`}
                       >
                         {iv.estado}
@@ -1341,12 +1341,12 @@ export default function LogisticaKardexModule() {
 
       {tab === 'inv_no_transform' && (
         <div className="space-y-4">
-          <p className="text-[#9CA3AF] text-sm">
-            <strong className="text-[#E5E7EB]">Inventario de no transformables:</strong>{' '}
+          <p className="text-[var(--ui-muted)] text-sm">
+            <strong className="text-[var(--ui-body-text)]">Inventario de no transformables:</strong>{' '}
             productos de almacén (sin transformar) para cuadre físico por ubicación. Alinea el stock del almacén con el conteo real.
           </p>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm text-[#D1D5DB]">
+            <label className="flex items-center gap-2 text-sm text-[var(--ui-body-text)]">
               Almacén:
               <select
                 value={cuadreWarehouseId}
@@ -1354,7 +1354,7 @@ export default function LogisticaKardexModule() {
                   setCuadreWarehouseId(e.target.value);
                   setLogisticsCounted({});
                 }}
-                className="bg-[#1F2937] border border-[#3B82F6]/35 rounded-lg px-2 py-1.5 text-[#F9FAFB] text-sm"
+                className="input-field text-sm py-1.5 min-w-[10rem]"
               >
                 {whWarehouses.map((w) => (
                   <option key={w.id} value={w.id}>{w.name}</option>
@@ -1364,15 +1364,15 @@ export default function LogisticaKardexModule() {
             <button
               type="button"
               onClick={() => setShowReconciliationsModal(true)}
-              className="text-sm px-3 py-1.5 rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] text-[#E5E7EB] hover:bg-[#374151]"
+              className="text-sm px-3 py-1.5 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
             >
               Historial de cuadres
             </button>
           </div>
-          <div className="overflow-x-auto rounded-lg border border-[#3B82F6]/25 bg-[#111827]/50">
+          <div className="overflow-x-auto rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
             <table className="w-full text-sm min-w-[900px]">
               <thead>
-                <tr className="bg-[#1F2937] border-b border-[#3B82F6]/20 text-left text-[#E5E7EB]">
+                <tr className="bg-[var(--ui-surface-2)] border-b border-[color:var(--ui-border)] text-left text-[var(--ui-body-text)]">
                   <th className="p-2.5 font-medium w-20">#</th>
                   <th className="p-2.5 font-medium">Producto</th>
                   <th className="p-2.5 font-medium">Categoría</th>
@@ -1390,36 +1390,36 @@ export default function LogisticaKardexModule() {
                   const stock = getLogisticsCurrentStock(product);
                   const valuation = unitCost * stock;
                   return (
-                    <tr key={product.id} className="border-b border-[#3B82F6]/15 hover:bg-[#1F2937]/40">
-                      <td className="p-2.5 text-[#9CA3AF]">#{String(idx + 1).padStart(3, '0')}</td>
-                      <td className="p-2.5 font-medium text-[#F9FAFB]">{product.name}</td>
-                      <td className="p-2.5 text-[#9CA3AF]">{product.category_name || '—'}</td>
-                      <td className="p-2.5 text-right">{stock}</td>
+                    <tr key={product.id} className="border-b border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)]">
+                      <td className="p-2.5 text-[var(--ui-muted)]">#{String(idx + 1).padStart(3, '0')}</td>
+                      <td className="p-2.5 font-medium text-[var(--ui-body-text)]">{product.name}</td>
+                      <td className="p-2.5 text-[var(--ui-muted)]">{product.category_name || '—'}</td>
+                      <td className="p-2.5 text-right text-[var(--ui-body-text)] tabular-nums">{stock}</td>
                       <td className="p-2.5 text-right">
                         <input
                           type="number"
                           min="0"
                           value={logisticsCounted[product.id] ?? ''}
                           onChange={(e) => setLogisticsCounted((prev) => ({ ...prev, [product.id]: e.target.value }))}
-                          className="w-24 ml-auto rounded-lg border border-[#3B82F6]/35 bg-[#1F2937] py-1.5 px-2 text-right text-sm text-[#F9FAFB]"
+                          className="input-field w-24 ml-auto py-1.5 px-2 text-right text-sm"
                           placeholder="0"
                         />
                       </td>
                       <td
                         className={`p-2.5 text-right font-medium ${
-                          diff === null ? 'text-[#6B7280]' : diff === 0 ? 'text-emerald-400' : diff < 0 ? 'text-red-400' : 'text-sky-400'
+                          diff === null ? 'text-[var(--ui-muted)]' : diff === 0 ? 'text-emerald-400' : diff < 0 ? 'text-red-400' : 'text-sky-400'
                         }`}
                       >
                         {diff === null ? '—' : diff}
                       </td>
-                      <td className="p-2.5 text-right">{formatCurrency(unitCost)}</td>
-                      <td className="p-2.5 text-right">{formatCurrency(valuation)}</td>
+                      <td className="p-2.5 text-right text-[var(--ui-body-text)] tabular-nums">{formatCurrency(unitCost)}</td>
+                      <td className="p-2.5 text-right text-[var(--ui-body-text)] tabular-nums">{formatCurrency(valuation)}</td>
                     </tr>
                   );
                 })}
                 {logisticsProductsFiltered.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="p-8 text-center text-[#9CA3AF]">
+                    <td colSpan="8" className="p-8 text-center text-[var(--ui-muted)]">
                       No hay productos no transformados en este almacén. Usa Movimiento interno en Almacén para stock.
                     </td>
                   </tr>
@@ -1437,9 +1437,9 @@ export default function LogisticaKardexModule() {
 
       {tab === 'ajustes' && (
         <form onSubmit={enviarAjuste} className="max-w-md space-y-3">
-          <p className="text-[#E5E7EB] text-sm">Entrada manual o salida por merma (al costo promedio al salir).</p>
+          <p className="text-[var(--ui-body-text)] text-sm">Entrada manual o salida por merma (al costo promedio al salir).</p>
           <div>
-            <label className="block text-xs text-slate-500">Insumo</label>
+            <label className="block text-xs text-[var(--ui-muted)]">Insumo</label>
             <select
               className="input-field text-sm py-1.5 w-full"
               value={ajusteForm.insumo_id}
@@ -1457,7 +1457,7 @@ export default function LogisticaKardexModule() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500">Cantidad (kg / L) &gt; 0</label>
+            <label className="block text-xs text-[var(--ui-muted)]">Cantidad (kg / L) &gt; 0</label>
             <input
               type="number"
               min="0.0001"
@@ -1468,7 +1468,7 @@ export default function LogisticaKardexModule() {
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500">Tipo</label>
+            <label className="block text-xs text-[var(--ui-muted)]">Tipo</label>
             <select
               className="input-field text-sm py-1.5 w-full"
               value={ajusteForm.tipo}
@@ -1479,7 +1479,7 @@ export default function LogisticaKardexModule() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500">Referencia (merma, ajuste, etc.)</label>
+            <label className="block text-xs text-[var(--ui-muted)]">Referencia (merma, ajuste, etc.)</label>
             <input
               className="input-field text-sm py-1.5 w-full"
               value={ajusteForm.referencia}
@@ -1498,20 +1498,20 @@ export default function LogisticaKardexModule() {
       >
         <div className="modal-sheet-body space-y-3 max-h-[70vh] overflow-y-auto">
           {reconciliationHistory.length === 0 && (
-            <p className="text-sm text-[#9CA3AF]">No hay cuadres guardados.</p>
+            <p className="text-sm text-[var(--ui-muted)]">No hay cuadres guardados.</p>
           )}
           {reconciliationHistory.map((rec) => (
-            <div key={rec.id} className="border border-[#3B82F6]/25 rounded-lg p-3 bg-[#1F2937]/80">
+            <div key={rec.id} className="border border-[color:var(--ui-border)] rounded-lg p-3 bg-[var(--ui-surface-2)]">
               <div className="flex items-center justify-between mb-2">
-                <p className="font-semibold text-[#F9FAFB]">{rec.warehouse_name || 'Almacén'}</p>
-                <p className="text-xs text-[#9CA3AF]">{formatDateTime(rec.created_at)}</p>
+                <p className="font-semibold text-[var(--ui-body-text)]">{rec.warehouse_name || 'Almacén'}</p>
+                <p className="text-xs text-[var(--ui-muted)]">{formatDateTime(rec.created_at)}</p>
               </div>
-              <p className="text-xs text-[#9CA3AF] mb-2">
+              <p className="text-xs text-[var(--ui-muted)] mb-2">
                 Items: {rec.total_items} · Faltante: {rec.total_shortage} · Sobrante: {rec.total_surplus}
               </p>
               <div className="space-y-1">
                 {(rec.items || []).map((item) => (
-                  <div key={item.id} className="text-sm flex items-center justify-between border-b border-[#3B82F6]/15 pb-1 text-[#E5E7EB]">
+                  <div key={item.id} className="text-sm flex items-center justify-between border-b border-[color:var(--ui-border)] pb-1 text-[var(--ui-body-text)]">
                     <span>{item.product_name}</span>
                     <span
                       className={`font-medium ${

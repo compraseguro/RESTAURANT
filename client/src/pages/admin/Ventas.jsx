@@ -378,7 +378,7 @@ export default function Ventas() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[#F9FAFB] mb-3">Ventas</h1>
+      <h1 className="text-2xl font-bold text-[var(--ui-body-text)] mb-3">Ventas</h1>
 
       <div className="flex flex-wrap gap-2 mb-5">
         {[
@@ -389,10 +389,10 @@ export default function Ventas() {
             key={t.id}
             type="button"
             onClick={() => setSaleTab(t.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border ${
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border border-[color:var(--ui-border)] ${
               saleTab === t.id
-                ? 'bg-[#2563EB] text-white border-[#3B82F6] shadow-md shadow-[#2563EB]/25'
-                : 'bg-[#0f172a] text-[#E5E7EB] border-[#3B82F6]/40 hover:bg-[#1e293b] hover:text-[#F9FAFB]'
+                ? 'bg-[var(--ui-accent)] text-white shadow-md'
+                : 'bg-[var(--ui-surface)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
             }`}
           >
             {t.label}
@@ -401,17 +401,17 @@ export default function Ventas() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-        <div className="card"><p className="text-xs text-slate-500">Total Ventas</p><p className="text-xl font-bold text-[#F9FAFB]">{formatCurrency(totals.total)}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Cobrado</p><p className="text-xl font-bold text-emerald-400">{formatCurrency(totals.paid)}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Pendiente</p><p className="text-xl font-bold text-amber-300">{formatCurrency(totals.pending)}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Transacciones</p><p className="text-xl font-bold text-[#F9FAFB]">{totals.count}</p></div>
+        <div className="card"><p className="text-xs text-[var(--ui-muted)]">Total Ventas</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{formatCurrency(totals.total)}</p></div>
+        <div className="card"><p className="text-xs text-[var(--ui-muted)]">Cobrado</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(totals.paid)}</p></div>
+        <div className="card"><p className="text-xs text-[var(--ui-muted)]">Pendiente</p><p className="text-xl font-bold text-amber-600">{formatCurrency(totals.pending)}</p></div>
+        <div className="card"><p className="text-xs text-[var(--ui-muted)]">Transacciones</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{totals.count}</p></div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-[#3B82F6]/25 p-5">
+      <div className="bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-5">
         <div className="flex flex-wrap gap-3 mb-4">
           <div className="relative flex-1 min-w-[220px]">
-            <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por # o cliente..." className="input-field pl-9 scheme-dark" />
+            <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)]" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por # o cliente..." className="input-field pl-9" />
           </div>
           <button
             onClick={() => downloadAllSalesExcel(filtered.map(o => ({ ...o, local_name: restaurantName })))}
@@ -420,13 +420,13 @@ export default function Ventas() {
           >
             <MdDownload /> Descargar todas
           </button>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-field w-auto min-w-[160px] scheme-dark cursor-pointer">
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-field w-auto min-w-[160px] cursor-pointer">
             <option value="all">Todos los pagos</option><option value="paid">Pagado</option><option value="pending">Pendiente</option><option value="refunded">Reembolsado</option>
           </select>
-          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="input-field w-auto min-w-[140px] scheme-dark cursor-pointer">
+          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="input-field w-auto min-w-[140px] cursor-pointer">
             <option value="all">Todos los tipos</option><option value="dine_in">Mesa</option><option value="delivery">Delivery</option><option value="pickup">Para llevar</option>
           </select>
-          <select value={waiterFilter} onChange={e => setWaiterFilter(e.target.value)} className="input-field w-auto min-w-[160px] scheme-dark cursor-pointer">
+          <select value={waiterFilter} onChange={e => setWaiterFilter(e.target.value)} className="input-field w-auto min-w-[160px] cursor-pointer">
             <option value="all">Todos los meseros</option>
             {waiterOptions.map(name => (
               <option key={name} value={name}>{name}</option>
@@ -436,20 +436,20 @@ export default function Ventas() {
             type="date"
             value={fromDate}
             onChange={e => setFromDate(e.target.value)}
-            className="input-field w-auto scheme-dark"
+            className="input-field w-auto"
             title="Desde"
           />
           <input
             type="date"
             value={toDate}
             onChange={e => setToDate(e.target.value)}
-            className="input-field w-auto scheme-dark"
+            className="input-field w-auto"
             title="Hasta"
           />
           <button
             type="button"
             onClick={() => { setFromDate(''); setToDate(''); }}
-            className="px-3 py-2 rounded-lg text-sm border border-[#3B82F6]/40 bg-[#1F2937] text-[#F9FAFB] hover:bg-[#374151]"
+            className="px-3 py-2 rounded-lg text-sm border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
           >
             Limpiar fechas
           </button>
@@ -457,8 +457,8 @@ export default function Ventas() {
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-[#CBD5E1] border-b border-[#3B82F6]/25">
-              <th className="pb-2 font-medium">Fecha</th><th className="pb-2 font-medium">Mesa</th><th className="pb-2 font-medium">Caja</th><th className="pb-2 font-medium">Mesero</th><th className="pb-2 font-medium">Cliente</th><th className="pb-2 font-medium">Documento</th><th className="pb-2 font-medium">Pagos</th><th className="pb-2 font-medium">Venta</th><th className="pb-2 font-medium">Estado</th><th className="pb-2 font-medium">Opciones</th>
+            <thead><tr className="text-left text-[var(--ui-body-text)] border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
+              <th className="pb-2 pt-2 px-1 font-medium">Fecha</th><th className="pb-2 pt-2 px-1 font-medium">Mesa</th><th className="pb-2 pt-2 px-1 font-medium">Caja</th><th className="pb-2 pt-2 px-1 font-medium">Mesero</th><th className="pb-2 pt-2 px-1 font-medium">Cliente</th><th className="pb-2 pt-2 px-1 font-medium">Documento</th><th className="pb-2 pt-2 px-1 font-medium">Pagos</th><th className="pb-2 pt-2 px-1 font-medium">Venta</th><th className="pb-2 pt-2 px-1 font-medium">Estado</th><th className="pb-2 pt-2 px-1 font-medium">Opciones</th>
             </tr></thead>
             <tbody>
               {filtered.map(o => {
@@ -467,23 +467,23 @@ export default function Ventas() {
                 const activeSale = o.status !== 'cancelled';
                 const mesero = o.created_by_user_name || o.customer_name || '-';
                 return (
-                  <tr key={o.id} className="border-b border-[#3B82F6]/15 hover:bg-[#1e293b]/80">
+                  <tr key={o.id} className="border-b border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)]">
                     <td className="py-2.5">
-                      <p className="font-medium text-[#F9FAFB]">{new Date(`${o.created_at}Z`).toLocaleDateString('es-PE')}</p>
-                      <p className="text-xs text-[#9CA3AF]">{new Date(`${o.created_at}Z`).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</p>
+                      <p className="font-medium text-[var(--ui-body-text)]">{new Date(`${o.created_at}Z`).toLocaleDateString('es-PE')}</p>
+                      <p className="text-xs text-[var(--ui-muted)]">{new Date(`${o.created_at}Z`).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</p>
                     </td>
-                    <td className="py-2.5 text-[#E5E7EB]">{mesa}</td>
-                    <td className="py-2.5 text-[#CBD5E1]">Caja 01</td>
-                    <td className="py-2.5 text-[#E5E7EB]">{mesero}</td>
-                    <td className="py-2.5 text-[#E5E7EB]">{o.customer_name || 'PUBLICO GENERAL'}</td>
+                    <td className="py-2.5 text-[var(--ui-body-text)]">{mesa}</td>
+                    <td className="py-2.5 text-[var(--ui-muted)]">Caja 01</td>
+                    <td className="py-2.5 text-[var(--ui-body-text)]">{mesero}</td>
+                    <td className="py-2.5 text-[var(--ui-body-text)]">{o.customer_name || 'PUBLICO GENERAL'}</td>
                     <td className="py-2.5">
-                      <p className="font-medium text-[#F9FAFB]">{docNames[doc.doc_type] || doc.doc_type}</p>
-                      <p className="text-xs text-[#9CA3AF]">{doc.full_number}</p>
+                      <p className="font-medium text-[var(--ui-body-text)]">{docNames[doc.doc_type] || doc.doc_type}</p>
+                      <p className="text-xs text-[var(--ui-muted)]">{doc.full_number}</p>
                     </td>
-                    <td className="py-2.5 font-medium text-[#E5E7EB]">{payNames[o.payment_method] || o.payment_method} (S/): {Number(o.total || 0).toFixed(2)}</td>
-                    <td className="py-2.5 font-bold text-[#F9FAFB]">{formatCurrency(o.total)}</td>
+                    <td className="py-2.5 font-medium text-[var(--ui-body-text)]">{payNames[o.payment_method] || o.payment_method} (S/): {Number(o.total || 0).toFixed(2)}</td>
+                    <td className="py-2.5 font-bold text-[var(--ui-body-text)]">{formatCurrency(o.total)}</td>
                     <td className="py-2.5">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${activeSale ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${activeSale ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300'}`}>
                         {activeSale ? 'ACTIVA' : 'ANULADA'}
                       </span>
                     </td>
@@ -506,7 +506,7 @@ export default function Ventas() {
                   </tr>
                 );
               })}
-              {filtered.length === 0 && <tr><td colSpan="10" className="py-8 text-center text-[#9CA3AF]">Sin ventas encontradas</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan="10" className="py-8 text-center text-[var(--ui-muted)]">Sin ventas encontradas</td></tr>}
             </tbody>
           </table>
         </div>

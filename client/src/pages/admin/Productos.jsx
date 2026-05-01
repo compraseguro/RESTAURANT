@@ -335,33 +335,34 @@ export default function Productos() {
       {activeTab === 'platos' && (
         <div className="flex gap-5">
           <div className="w-56 flex-shrink-0">
-            <div className="bg-[#1E3A8A] rounded-xl border border-black overflow-hidden">
-              <div className="p-2.5 border-b border-black">
-                <input value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} placeholder="Filtrar categorías" className="w-full text-sm py-1.5 px-3 rounded-lg bg-[#2563EB] border border-black text-white placeholder:text-[#DBEAFE] focus:outline-none focus:ring-1 focus:ring-[#93C5FD]" />
+            <div className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] overflow-hidden shadow-sm">
+              <div className="p-2.5 border-b border-[color:var(--ui-border)]">
+                <input value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} placeholder="Filtrar categorías" className="w-full text-sm py-1.5 px-3 rounded-lg input-field" />
               </div>
               <div className="p-2">
-                <button onClick={openNewCat} className="w-full flex items-center gap-2 px-2.5 py-1.5 text-sm bg-[#2563EB] border border-black rounded-lg hover:bg-[#1D4ED8] text-white mb-1">
-                  <MdAdd className="text-base text-white" /> Añadir nueva categoría
+                <button type="button" onClick={openNewCat} className="w-full flex items-center gap-2 px-2.5 py-1.5 text-sm btn-primary mb-1">
+                  <MdAdd className="text-base" /> Añadir nueva categoría
                 </button>
               </div>
               <nav className="max-h-[60vh] overflow-y-auto">
                 {visibleCategories.map(cat => (
-                  <div key={cat.id} className="m-1 border border-black rounded-lg bg-[#1D4ED8]/60 overflow-hidden">
+                  <div key={cat.id} className="m-1 border border-[color:var(--ui-border)] rounded-lg bg-[var(--ui-surface-2)] overflow-hidden">
                     <div className="flex items-center group">
                       <button
+                        type="button"
                         onClick={() => setSelectedCat(cat.id)}
                         className={`flex-1 text-left px-3 py-1.5 text-sm transition-colors ${
                           selectedCat === cat.id
-                            ? 'bg-[#2563EB] text-white font-semibold'
-                            : 'text-[#E5E7EB] hover:bg-[#1D4ED8]'
+                            ? 'bg-[var(--ui-accent)] text-white font-semibold'
+                            : 'text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
                         }`}
                       >
                         {cat.name}
-                        <span className={`text-xs ml-1 ${selectedCat === cat.id ? 'text-[#DBEAFE]' : 'text-[#9CA3AF]'}`}>({getCatProductCount(cat.id)})</span>
+                        <span className={`text-xs ml-1 ${selectedCat === cat.id ? 'text-blue-100' : 'text-[var(--ui-muted)]'}`}>({getCatProductCount(cat.id)})</span>
                       </button>
                       <div className="hidden group-hover:flex items-center pr-2 gap-0.5">
-                        <button onClick={() => openEditCat(cat)} className="p-1 hover:bg-[#2563EB] rounded text-[#BFDBFE] text-xs"><MdEdit /></button>
-                        <button onClick={() => deleteCat(cat)} className="p-1 hover:bg-[#2563EB] rounded text-[#BFDBFE] hover:text-red-300 text-xs"><MdDelete /></button>
+                        <button type="button" onClick={() => openEditCat(cat)} className="p-1 hover:bg-[var(--ui-sidebar-hover)] rounded text-[var(--ui-accent)] text-xs"><MdEdit /></button>
+                        <button type="button" onClick={() => deleteCat(cat)} className="p-1 hover:bg-[var(--ui-sidebar-hover)] rounded text-[var(--ui-accent)] hover:text-red-600 text-xs"><MdDelete /></button>
                       </div>
                     </div>
                   </div>
@@ -371,7 +372,7 @@ export default function Productos() {
           </div>
 
           <div className="flex-1 min-w-0">
-            <button onClick={openNewProduct} className="w-full py-3.5 bg-[#1E40AF] hover:bg-[#1E3A8A] text-white font-semibold rounded-xl mb-4 flex items-center justify-center gap-2 transition-colors shadow-sm shadow-[#1E40AF]/30">
+            <button type="button" onClick={openNewProduct} className="w-full py-3.5 btn-primary font-semibold rounded-xl mb-4 flex items-center justify-center gap-2 transition-colors shadow-sm">
               <MdAdd className="text-xl" /> Nuevo producto
             </button>
 
@@ -392,29 +393,29 @@ export default function Productos() {
               Mostrando {selectedCat ? getCatName(selectedCat) : 'sin categoría seleccionada'} · {filtered.length} productos
             </p>
 
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="bg-[var(--ui-surface)] rounded-xl border border-[color:var(--ui-border)] overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50">
-                    <th className="text-left p-3 font-semibold text-slate-700">Producto</th>
-                    <th className="text-left p-3 font-semibold text-slate-700 w-20">Cód.</th>
-                    <th className="text-left p-3 font-semibold text-slate-700 w-28">Categoría</th>
-                    <th className="text-right p-3 font-semibold text-slate-700 w-24">Precio</th>
-                    <th className="text-center p-3 font-semibold text-slate-700 w-24">Stock</th>
-                    <th className="text-center p-3 font-semibold text-slate-700 w-24">¿Activo?</th>
-                    <th className="text-center p-3 font-semibold text-slate-700 w-20"></th>
+                  <tr className="border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
+                    <th className="text-left p-3 font-semibold text-[var(--ui-body-text)]">Producto</th>
+                    <th className="text-left p-3 font-semibold text-[var(--ui-body-text)] w-20">Cód.</th>
+                    <th className="text-left p-3 font-semibold text-[var(--ui-body-text)] w-28">Categoría</th>
+                    <th className="text-right p-3 font-semibold text-[var(--ui-body-text)] w-24">Precio</th>
+                    <th className="text-center p-3 font-semibold text-[var(--ui-body-text)] w-24">Stock</th>
+                    <th className="text-center p-3 font-semibold text-[var(--ui-body-text)] w-24">¿Activo?</th>
+                    <th className="text-center p-3 font-semibold text-[var(--ui-body-text)] w-20"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((p, idx) => (
-                    <tr key={p.id} className={`border-b border-slate-50 hover:bg-slate-50 transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
+                    <tr key={p.id} className={`border-b border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)] transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
                       <td className="p-3">
-                        <p className="font-medium text-slate-800 hover:text-gold-600 cursor-pointer" onClick={() => openEditProduct(p)}>{p.name}</p>
-                        {p.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{p.description}</p>}
+                        <p className="font-medium text-[var(--ui-body-text)] hover:text-gold-600 cursor-pointer" onClick={() => openEditProduct(p)}>{p.name}</p>
+                        {p.description && <p className="text-xs text-[var(--ui-muted)] mt-0.5 line-clamp-1">{p.description}</p>}
                       </td>
-                      <td className="p-3 text-slate-500">#{String(idx + 1).padStart(2, '0')}</td>
-                      <td className="p-3"><span className="text-xs px-2 py-0.5 bg-slate-100 rounded-full text-slate-600">{getCatName(p.category_id)}</span></td>
-                      <td className="p-3 text-right font-bold text-slate-800">{formatCurrency(p.price)}</td>
+                      <td className="p-3 text-[var(--ui-muted)]">#{String(idx + 1).padStart(2, '0')}</td>
+                      <td className="p-3"><span className="text-xs px-2 py-0.5 bg-[var(--ui-surface-2)] rounded-full text-[var(--ui-body-text)] border border-[color:var(--ui-border)]">{getCatName(p.category_id)}</span></td>
+                      <td className="p-3 text-right font-bold text-[var(--ui-body-text)]">{formatCurrency(p.price)}</td>
                       <td className="p-3 text-center">
                         {showStockInOrderingUI(p) ? (
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.stock > 10 ? 'bg-emerald-100 text-emerald-700' : p.stock > 0 ? 'bg-gold-100 text-gold-700' : 'bg-red-100 text-red-700'}`}>{p.stock}</span>

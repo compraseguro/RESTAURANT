@@ -332,7 +332,7 @@ export default function MasterAdmin() {
   const lockEnabled = Number(control.global_lock_enabled || 0) === 1;
 
   return (
-    <div className="min-h-screen bg-[#111827] p-6">
+    <div className="min-h-screen bg-[var(--ui-body-bg)] text-[var(--ui-body-text)] p-6">
       <div className="max-w-7xl mx-auto">
         <div className="card mb-4">
           <div className="flex items-center justify-between gap-3">
@@ -356,7 +356,7 @@ export default function MasterAdmin() {
               <button
                 key={item.id}
                 onClick={() => setTab(item.id)}
-                className={`px-3 py-2 rounded-lg border text-sm font-medium flex items-center gap-2 ${tab === item.id ? 'bg-[#3B82F6] text-white border-[#3B82F6]' : 'bg-[#1F2937] text-[#F9FAFB] border-[#3B82F6]/30 hover:bg-[#3B82F6]/15'}`}
+                className={`px-3 py-2 rounded-lg border text-sm font-medium flex items-center gap-2 border-[color:var(--ui-border)] ${tab === item.id ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'}`}
               >
                 <item.icon />
                 {item.label}

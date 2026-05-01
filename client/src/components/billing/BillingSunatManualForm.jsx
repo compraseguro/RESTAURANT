@@ -20,11 +20,11 @@ export default function BillingSunatManualForm({
   const inputCls = isDark
     ? 'input-field bg-[#0f172a] border-slate-600 text-slate-100'
     : 'input-field';
-  const labelCls = isDark ? 'text-slate-300' : 'text-slate-600';
+  const labelCls = isDark ? 'text-slate-300' : 'text-[var(--ui-body-text)]';
   const sectionCls = isDark
     ? 'rounded-lg border border-slate-600 bg-slate-900/50 p-4 space-y-3'
-    : 'rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3';
-  const hCls = isDark ? 'font-semibold text-slate-100 text-sm' : 'font-semibold text-slate-800 text-sm';
+    : 'rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-4 space-y-3';
+  const hCls = isDark ? 'font-semibold text-slate-100 text-sm' : 'font-semibold text-[var(--ui-body-text)] text-sm';
 
   const corrFact = Math.max(1, Math.floor(Number(billingPanel?.correlativo_inicial_factura) || 1));
   const corrBol = Math.max(1, Math.floor(Number(billingPanel?.correlativo_inicial_boleta) || 1));
@@ -126,7 +126,7 @@ export default function BillingSunatManualForm({
               />
               <button
                 type="button"
-                className={`text-xs font-medium rounded-lg px-3 py-2 border ${isDark ? 'border-slate-500 bg-slate-800 text-slate-100' : 'border-slate-300 bg-white text-slate-800'}`}
+                className={`text-xs font-medium rounded-lg px-3 py-2 border ${isDark ? 'border-slate-500 bg-slate-800 text-slate-100' : 'border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-body-text)]'}`}
                 disabled={disabled || !onUploadBillingCert}
                 onClick={() => certFileRef.current?.click()}
               >

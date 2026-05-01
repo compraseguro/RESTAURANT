@@ -20,7 +20,7 @@ export default function RestaurantServiceContractForm({
   contrato,
   canEdit,
   onChange,
-  cardClassName = 'bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-5',
+  cardClassName = 'bg-[var(--ui-surface)] rounded-xl shadow-sm border border-[color:var(--ui-border)] p-6 space-y-5 text-[var(--ui-body-text)]',
 }) {
   const merged = { ...EMPTY_CONTRATO, ...contrato };
   const firmaCompradorInputRef = useRef(null);
@@ -49,19 +49,19 @@ export default function RestaurantServiceContractForm({
 
   return (
     <div className={cardClassName}>
-      <h3 className="font-bold text-slate-800 text-lg">Contrato del servicio</h3>
+      <h3 className="font-bold text-[var(--ui-body-text)] text-lg">Contrato del servicio</h3>
       <textarea
-        className={`input-field min-h-[280px] font-sans text-sm leading-relaxed ${!canEdit ? 'bg-slate-100 cursor-default' : ''}`}
+        className={`input-field min-h-[280px] font-sans text-sm leading-relaxed ${!canEdit ? 'bg-[var(--ui-surface-2)] cursor-default opacity-90' : ''}`}
         rows={12}
         readOnly={!canEdit}
         placeholder={canEdit ? 'Escribe aquí el contrato completo…' : ''}
         value={merged.texto_contrato || ''}
         onChange={(e) => patch({ texto_contrato: e.target.value })}
       />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-[color:var(--ui-border)]">
         <div className="space-y-2">
-          <p className="text-sm font-medium text-slate-800">Firma del comprador</p>
-          <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 min-h-[120px] flex items-center justify-center overflow-hidden">
+          <p className="text-sm font-medium text-[var(--ui-body-text)]">Firma del comprador</p>
+          <div className="rounded-lg border-2 border-dashed border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] min-h-[120px] flex items-center justify-center overflow-hidden">
             {merged.firma_comprador_url ? (
               <img
                 src={resolveMediaUrl(merged.firma_comprador_url)}
@@ -69,7 +69,7 @@ export default function RestaurantServiceContractForm({
                 className="max-h-32 max-w-full object-contain p-2"
               />
             ) : (
-              <span className="text-xs text-slate-400 px-4 text-center">Sin imagen</span>
+              <span className="text-xs text-[var(--ui-muted)] px-4 text-center">Sin imagen</span>
             )}
           </div>
           {canEdit ? (
@@ -101,8 +101,8 @@ export default function RestaurantServiceContractForm({
           ) : null}
         </div>
         <div className="space-y-2">
-          <p className="text-sm font-medium text-slate-800">Firma del vendedor</p>
-          <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 min-h-[120px] flex items-center justify-center overflow-hidden">
+          <p className="text-sm font-medium text-[var(--ui-body-text)]">Firma del vendedor</p>
+          <div className="rounded-lg border-2 border-dashed border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] min-h-[120px] flex items-center justify-center overflow-hidden">
             {merged.firma_vendedor_url ? (
               <img
                 src={resolveMediaUrl(merged.firma_vendedor_url)}
@@ -110,7 +110,7 @@ export default function RestaurantServiceContractForm({
                 className="max-h-32 max-w-full object-contain p-2"
               />
             ) : (
-              <span className="text-xs text-slate-400 px-4 text-center">Sin imagen</span>
+              <span className="text-xs text-[var(--ui-muted)] px-4 text-center">Sin imagen</span>
             )}
           </div>
           {canEdit ? (
