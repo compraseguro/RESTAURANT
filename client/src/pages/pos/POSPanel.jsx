@@ -1506,9 +1506,12 @@ export default function POSPanel() {
     const logoBlock = logoUrl
       ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
       : '';
-    const itemLines = payableOrders
-      .flatMap(o => o.items || [])
-      .map(i => `<tr><td style="padding:4px 0">${i.quantity}x ${i.product_name}</td><td style="text-align:right;padding:4px 0">${formatCurrency(i.subtotal)}</td></tr>`)
+    const groupedPrecuenta = groupItemsByProductNameForBill(payableOrders.flatMap((o) => o.items || []));
+    const itemLines = groupedPrecuenta
+      .map(
+        (g) =>
+          `<tr><td style="padding:4px 0">${g.qty}x ${g.name}</td><td style="text-align:right;padding:4px 0">${formatCurrency(g.subtotal)}</td></tr>`
+      )
       .join('');
     const w = window.open('', '_blank', 'width=420,height=720');
     if (!w) return toast.error('No se pudo abrir la precuenta');
@@ -1728,15 +1731,18 @@ export default function POSPanel() {
 
   const printTableOrder = (table) => {
     if (!table) return;
-    const items = (table.orders || []).flatMap(o => o.items || []);
-    if (!items.length) return toast.error('La mesa no tiene pedidos para precuenta');
+    const groupedTable = mergedProductsOnTable(table);
+    if (!groupedTable.length) return toast.error('La mesa no tiene pedidos para precuenta');
     const restaurantName = String(printRestaurantInfo?.name || 'Resto-FADEY').trim() || 'Resto-FADEY';
     const logoUrl = String(printRestaurantInfo?.logo || '').trim();
     const logoBlock = logoUrl
       ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
       : '';
-    const itemLines = items
-      .map(i => `<tr><td style="padding:4px 0">${i.quantity}x ${i.product_name}</td><td style="text-align:right;padding:4px 0">${formatCurrency(i.subtotal)}</td></tr>`)
+    const itemLines = groupedTable
+      .map(
+        (g) =>
+          `<tr><td style="padding:4px 0">${g.qty}x ${g.name}</td><td style="text-align:right;padding:4px 0">${formatCurrency(g.subtotal)}</td></tr>`
+      )
       .join('');
     const w = window.open('', '_blank', 'width=420,height=700');
     if (!w) return toast.error('No se pudo abrir la impresión de precuenta');
