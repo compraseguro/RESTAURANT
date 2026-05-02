@@ -9,7 +9,7 @@ import StaffDineInOrderUI from '../../components/StaffDineInOrderUI';
 import StaffMesaPedidoTabs from '../../components/StaffMesaPedidoTabs';
 import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
 import toast from 'react-hot-toast';
-import { MdTableRestaurant, MdReceipt, MdClose, MdPrint } from 'react-icons/md';
+import { MdTableRestaurant, MdReceipt, MdClose } from 'react-icons/md';
 import { KITCHEN_TAKEOUT_NOTE } from '../../utils/ticketPlainText';
 
 export default function Tables() {
@@ -328,13 +328,12 @@ export default function Tables() {
                         <button
                           type="button"
                           onClick={() => setParaLlevarMesa((v) => !v)}
-                          className={`w-full rounded-lg border py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                          className={`w-1/2 mx-auto rounded-lg border py-1 px-2 text-xs font-semibold uppercase tracking-wide transition-colors flex items-center justify-center ${
                             paraLlevarMesa
                               ? 'bg-[var(--ui-accent)] text-white border-transparent shadow-sm'
                               : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
                           }`}
                         >
-                          <MdPrint className={`shrink-0 text-base ${paraLlevarMesa ? 'text-white' : 'text-[var(--ui-accent-muted)]'}`} />
                           PARA LLEVAR
                         </button>
                         <button
