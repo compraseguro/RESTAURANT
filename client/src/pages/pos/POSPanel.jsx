@@ -1209,7 +1209,7 @@ export default function POSPanel() {
     <button
       type="button"
       onClick={() => setParaLlevarMesa((v) => !v)}
-      className={`mx-auto w-1/2 rounded-lg border py-1 text-xs font-medium transition-colors flex items-center justify-center ${
+      className={`w-1/2 mx-auto rounded-lg border py-1 px-2 text-xs font-semibold uppercase tracking-wide transition-colors flex items-center justify-center ${
         paraLlevarMesa
           ? 'bg-[var(--ui-accent)] text-white border-transparent shadow-sm'
           : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[#E5E7EB] hover:bg-[var(--ui-sidebar-hover)]'
