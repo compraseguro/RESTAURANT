@@ -286,23 +286,6 @@ export default function KitchenPanel({ station = 'cocina' }) {
     printWin.document.close();
   };
 
-  const printQueue = async (scope = 'all') => {
-    const qs = new URLSearchParams();
-    qs.set('station', station);
-    if (scope === 'delivery') qs.set('type', 'delivery');
-    if (scope === 'salon') qs.set('type', 'dine_in');
-    let list = orders;
-    try {
-      list = await api.get(`/orders/kitchen?${qs.toString()}`);
-    } catch (_) {
-      list = orders;
-    }
-    const titleBase = isBar ? 'Comandas de Bar' : 'Comandas de Cocina';
-    const scopeLabel = scope === 'delivery' ? 'Delivery' : scope === 'salon' ? 'Mesas/Salón' : 'Todas';
-    const title = `${titleBase} - ${scopeLabel}`;
-    await printOrdersList(list, title, { silent: false });
-  };
-
   const loadOrders = async () => {
     try {
       const qs = new URLSearchParams();
@@ -388,36 +371,27 @@ export default function KitchenPanel({ station = 'cocina' }) {
             {[{ v: 'all', l: 'Todos' }, { v: 'dine_in', l: 'Mesas' }, { v: 'delivery', l: 'Delivery' }].map(f => (
               <button key={f.v} onClick={() => setFilter(f.v)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f.v ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'}`}>{f.l}</button>
             ))}
-            <button
-              type="button"
-              title="Impresión automática al nuevo pedido. Requiere IP en Configuración → Impresoras; el envío lo hace el servidor por red (TCP), no el navegador."
-              onClick={() => {
-                const v = !autoPrint;
-                setAutoPrint(v);
-                try {
-                  localStorage.setItem(storageKeyAutoPrint, v ? '1' : '0');
-                } catch (_) {
-                  /* noop */
-                }
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 ${
-                autoPrint
-                  ? 'bg-[var(--ui-accent)] text-white shadow-sm'
-                  : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'
-              }`}
-            >
-              <MdPrint className={`shrink-0 text-base ${autoPrint ? 'text-white' : 'text-[var(--ui-accent-muted)]'}`} />
-              Automática
-            </button>
           </div>
-          <button onClick={() => printQueue('salon')} className="px-3 py-2 bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)] rounded-lg text-sm font-medium flex items-center gap-2">
-            <MdPrint /> Imprimir Mesas
-          </button>
-          <button onClick={() => printQueue('delivery')} className="px-3 py-2 bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)] rounded-lg text-sm font-medium flex items-center gap-2">
-            <MdPrint /> Imprimir Delivery
-          </button>
-          <button onClick={() => printQueue('all')} className="px-3 py-2 bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)] rounded-lg text-sm font-medium flex items-center gap-2">
-            <MdPrint /> Imprimir Todo
+          <button
+            type="button"
+            title="Impresión automática al nuevo pedido. Requiere IP en Configuración → Impresoras; el envío lo hace el servidor por red (TCP), no el navegador."
+            onClick={() => {
+              const v = !autoPrint;
+              setAutoPrint(v);
+              try {
+                localStorage.setItem(storageKeyAutoPrint, v ? '1' : '0');
+              } catch (_) {
+                /* noop */
+              }
+            }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 ${
+              autoPrint
+                ? 'bg-[var(--ui-accent)] text-white shadow-sm'
+                : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'
+            }`}
+          >
+            <MdPrint className={`shrink-0 text-base ${autoPrint ? 'text-white' : 'text-[var(--ui-accent-muted)]'}`} />
+            Automática
           </button>
           {canReturnToAdmin && (
             <button onClick={() => navigate('/admin')} className="px-3 py-2 bg-[var(--ui-accent)] hover:bg-[var(--ui-accent-hover)] rounded-lg text-white border border-[color:var(--ui-border)] text-sm font-medium">
