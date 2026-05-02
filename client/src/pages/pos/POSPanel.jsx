@@ -1209,13 +1209,12 @@ export default function POSPanel() {
     <button
       type="button"
       onClick={() => setParaLlevarMesa((v) => !v)}
-      className={`w-full rounded-lg border py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+      className={`mx-auto w-1/2 rounded-lg border py-1 text-xs font-medium transition-colors flex items-center justify-center ${
         paraLlevarMesa
           ? 'bg-[var(--ui-accent)] text-white border-transparent shadow-sm'
           : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[#E5E7EB] hover:bg-[var(--ui-sidebar-hover)]'
       }`}
     >
-      <MdPrint className={`shrink-0 text-base ${paraLlevarMesa ? 'text-white' : 'text-[#93C5FD]'}`} />
       PARA LLEVAR
     </button>
   ) : null;
