@@ -124,14 +124,16 @@ function mergedProductsOnTable(table) {
 }
 
 function orderItemsToCart(order, productsById) {
-  return (order.items || []).map((it) => {
+  return (order.items || []).map((it, idx) => {
     const product = productsById.get(it.product_id);
     const parsed = parseOrderItemNotes(it.notes, product);
-    const modId = parsed.modifierId || '';
-    const modOpt = parsed.modifierOption || '';
-    const lineKey = `${it.product_id}::${modId}::${modOpt}`;
+    const modId = parsed.modifierId || String(it.modifier_id || '').trim();
+    const modOpt = parsed.modifierOption || String(it.modifier_option || '').trim();
+    const baseKey = `${it.product_id}::${modId}::${modOpt}`;
+    /** Una fila por ítem en BD: si dos líneas repiten producto/modificador, cada una tiene id distinto (React/cart usan line_key). */
+    const line_key = it.id ? `oi:${it.id}` : `row:${String(order.id || 'o')}:${idx}:${baseKey}`;
     return {
-      line_key: lineKey,
+      line_key,
       product_id: it.product_id,
       name: it.product_name,
       price: Number(product?.price ?? it.unit_price ?? 0),

@@ -30,8 +30,8 @@ function CartLineItems({
       const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
       return (
         <div key={item.line_key} className="border-b border-[color:var(--ui-border)] py-2">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="min-w-0 flex-1 truncate font-medium text-[var(--ui-body-text)]" title={item.name}>
+          <div className="flex items-start gap-2 text-sm">
+            <span className="min-w-0 flex-1 break-words font-medium leading-snug text-[var(--ui-body-text)]">
               {item.name}
             </span>
             <div className="flex shrink-0 items-center gap-1">
@@ -84,7 +84,7 @@ function CartLineItems({
             <p className="mt-0.5 text-[11px] font-semibold text-[#FCA5A5]">Nota obligatoria</p>
           )}
           {item.modifier_name && item.modifier_option && (
-            <p className="mt-0.5 truncate text-[11px] text-[var(--ui-accent)]">
+            <p className="mt-0.5 break-words text-[11px] leading-snug text-[var(--ui-accent)]">
               {item.modifier_name}: {item.modifier_option}
             </p>
           )}
@@ -105,14 +105,14 @@ function CartLineItems({
   }
   return cart.map((item) => (
     <div key={item.line_key} className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-2">
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-[var(--ui-body-text)]">{item.name}</p>
+          <p className="break-words text-sm font-medium leading-snug text-[var(--ui-body-text)]">{item.name}</p>
           {Number(item.note_required || 0) === 1 && (
             <p className="text-[11px] font-semibold text-[#FCA5A5]">Nota obligatoria</p>
           )}
           {item.modifier_name && item.modifier_option && (
-            <p className="truncate text-[11px] text-[var(--ui-accent)]">
+            <p className="break-words text-[11px] leading-snug text-[var(--ui-accent)]">
               {item.modifier_name}: {item.modifier_option}
             </p>
           )}
