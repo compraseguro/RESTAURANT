@@ -1514,6 +1514,7 @@ export default function POSPanel() {
       .join('');
     const w = window.open('', '_blank', 'width=420,height=720');
     if (!w) return toast.error('No se pudo abrir la precuenta');
+    const precuentaParaLlevar = payableOrders.some((o) => orderHasTakeoutNote(o));
     w.document.write(`
       <html><head><title>Precuenta ${selectedTable.name}</title>
       <style>
@@ -1525,6 +1526,7 @@ export default function POSPanel() {
       <div class="center">${logoBlock}<h3 style="margin:0 0 6px 0">${restaurantName}</h3></div>
       <h3>PRECUENTA - ${selectedTable.name}</h3>
       <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
+      ${precuentaParaLlevar ? `<p style="text-align:center;font-weight:800;font-size:14px;letter-spacing:0.08em;margin:8px 0 0 0;">${KITCHEN_TAKEOUT_NOTE}</p>` : ''}
       <div class="sep"></div>
       <table>${itemLines}</table>
       <div class="sep"></div>
@@ -1745,6 +1747,7 @@ export default function POSPanel() {
       .join('');
     const w = window.open('', '_blank', 'width=420,height=700');
     if (!w) return toast.error('No se pudo abrir la impresión de precuenta');
+    const precuentaParaLlevar = (table.orders || []).some((o) => orderHasTakeoutNote(o));
     w.document.write(`
       <html><head><title>Precuenta ${table.name}</title>
       <style>
@@ -1756,6 +1759,7 @@ export default function POSPanel() {
       <div class="center">${logoBlock}<h3 style="margin:0 0 6px 0">${restaurantName}</h3></div>
       <h3>PRECUENTA - ${table.name}</h3>
       <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
+      ${precuentaParaLlevar ? `<p style="text-align:center;font-weight:800;font-size:14px;letter-spacing:0.08em;margin:8px 0 0 0;">${KITCHEN_TAKEOUT_NOTE}</p>` : ''}
       <div class="sep"></div>
       <table>${itemLines}</table>
       <div class="sep"></div>

@@ -1,5 +1,7 @@
 /** Texto plano para impresoras térmicas por red (ESC/POS vía TCP). */
 
+import { formatDateTime } from './api';
+
 /** Nota de pedido mesa/salón «para llevar» (POS). Debe coincidir con lo guardado en `orders.notes`. */
 export const KITCHEN_TAKEOUT_NOTE = 'PARA LLEVAR';
 
@@ -12,8 +14,8 @@ function isCuentaClienteSelfOrder(order) {
 }
 
 /**
- * Comanda mínima (reimpresión desde cocina/bar): solo ubicación, fecha/hora de impresión e ítems.
- * Sin nombre del restaurante, totales ni notas extendidas.
+ * Comanda mínima (reimpresión desde cocina/bar): ubicación, fecha/hora de impresión,
+ * «PARA LLEVAR» si aplica (debajo de esa fecha), ítems. Sin nombre del restaurante ni totales.
  */
 export function buildSimpleComandaPlainText(order, printedAt = new Date()) {
   const lines = [];
@@ -28,6 +30,9 @@ export function buildSimpleComandaPlainText(order, printedAt = new Date()) {
     lines.push(order.table_number ? `Mesa ${order.table_number}` : 'Mesa —');
   }
   lines.push(when);
+  if (orderHasTakeoutNote(order)) {
+    lines.push(KITCHEN_TAKEOUT_NOTE);
+  }
   lines.push('--------------------------------');
   for (const it of order.items || []) {
     const q = Number(it.quantity || 0);
@@ -56,10 +61,6 @@ export function buildKitchenTicketPlainText({
   lines.push('================================');
   lines.push('');
   (orders || []).forEach((order) => {
-    if (orderHasTakeoutNote(order)) {
-      lines.push(KITCHEN_TAKEOUT_NOTE);
-      lines.push('--------------------------------');
-    }
     const orderTypeLabel =
       order.type === 'delivery' ? 'Delivery' : order.type === 'pickup' ? 'Recojo' : 'Mesa/Salon';
     if (isCuentaClienteSelfOrder(order)) {
@@ -70,6 +71,11 @@ export function buildKitchenTicketPlainText({
     } else {
       const tbl = order.table_number ? ` Mesa ${order.table_number}` : '';
       lines.push(`#${order.order_number} ${orderTypeLabel}${tbl}`);
+    }
+    const fechaPedido = formatDateTime(order.updated_at || order.created_at);
+    if (fechaPedido) lines.push(fechaPedido);
+    if (orderHasTakeoutNote(order)) {
+      lines.push(KITCHEN_TAKEOUT_NOTE);
     }
     (order.items || []).forEach((item) => {
       let line = ` ${item.quantity}x ${item.product_name || ''}`;

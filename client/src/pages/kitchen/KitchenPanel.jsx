@@ -178,10 +178,13 @@ export default function KitchenPanel({ station = 'cocina' }) {
         const mesa = order.table_number ? ` - Mesa ${esc(order.table_number)}` : '';
         header = `<strong>#${order.order_number}</strong> - ${orderTypeLabel}${mesa}<br/>${timeSmall}`;
       }
+      const paraLlevarBlock = orderHasTakeoutNote(order)
+        ? `<div style="text-align:center;font-weight:800;font-size:17px;letter-spacing:0.08em;margin-top:6px;color:inherit;">PARA LLEVAR</div>`
+        : '';
       return `
         <div class="ticket">
-          ${orderHasTakeoutNote(order) ? `<div style="text-align:center;font-weight:800;font-size:17px;letter-spacing:0.08em;margin-bottom:8px;color:inherit;">PARA LLEVAR</div>` : ''}
           ${header}
+          ${paraLlevarBlock}
           <ul style="margin:8px 0 0 16px;padding:0;">${items}</ul>
         </div>
       `;
