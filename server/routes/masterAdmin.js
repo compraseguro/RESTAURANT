@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { queryAll, queryOne, resetOperationalData } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const {
+  PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE,
   getControlConfig,
   setControlConfig,
   getNotifications,
@@ -19,10 +20,13 @@ const {
 router.use(authenticateToken);
 
 router.get('/admin-notifications', (req, res) => {
-  if (!['admin', 'master_admin'].includes(req.user?.role)) {
-    return res.status(403).json({ error: 'Sin permisos para ver notificaciones' });
+  const role = req.user?.role;
+  const seesPagoUsoAviso = role === 'admin' || role === 'master_admin';
+  let list = getActiveNotifications().slice(0, 30);
+  if (!seesPagoUsoAviso) {
+    list = list.filter((n) => String(n.title || '') !== PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE);
   }
-  return res.json(getActiveNotifications().slice(0, 30));
+  return res.json(list);
 });
 
 /** Misma configuración que edita el maestro en «Fecha de facturación»; el admin del restaurante solo la consulta. */

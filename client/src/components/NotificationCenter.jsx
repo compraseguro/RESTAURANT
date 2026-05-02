@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import StaffTeamChat from './StaffTeamChat';
 import Modal from './Modal';
 import { MdNotificationsNone, MdClose, MdChat, MdCampaign, MdDelete } from 'react-icons/md';
+import { PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE } from '../constants/masterNotifications';
 
 const DISMISSED_AVISOS_STORAGE_KEY = 'admin_avisos_descartados_v1';
 
@@ -33,12 +34,17 @@ export default function NotificationCenter({ className = '' }) {
   const [dismissedAvisoIds, setDismissedAvisoIds] = useState(loadDismissedAvisoIds);
   const [avisoToDismiss, setAvisoToDismiss] = useState(null);
 
-  const showAvisosTab = user?.role === 'admin';
+  /** Avisos del maestro: visibles para todo el personal; el aviso de «pago por uso» solo admin / maestro. */
+  const showAvisosTab = Boolean(user);
+  const seesPagoUsoAviso = user?.role === 'admin' || user?.role === 'master_admin';
 
-  const visibleAdminNotifications = useMemo(
-    () => adminNotifications.filter((n) => !dismissedAvisoIds.includes(String(n.id))),
-    [adminNotifications, dismissedAvisoIds],
-  );
+  const visibleAdminNotifications = useMemo(() => {
+    let list = adminNotifications.filter((n) => !dismissedAvisoIds.includes(String(n.id)));
+    if (!seesPagoUsoAviso) {
+      list = list.filter((n) => n.title !== PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE);
+    }
+    return list;
+  }, [adminNotifications, dismissedAvisoIds, seesPagoUsoAviso]);
 
   useEffect(() => {
     if (!showAvisosTab) setTab('chat');

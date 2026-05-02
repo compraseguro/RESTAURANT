@@ -3,6 +3,9 @@ const bcrypt = require('bcryptjs');
 const { queryOne, runSql } = require('./database');
 const { proximaFechaFromControlAnchor, addDaysToIsoDate } = require('./pagoUsoBillingSync');
 
+/** Título fijo del aviso automático de comprobante; también filtra quién lo ve en la API. */
+const PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE = 'Pago por uso — subir comprobante';
+
 const REASON_PAGO_USO_SIN_COMPROBANTE =
   'Bloqueo automático: sin comprobante de pago por uso tras el plazo de gracia.';
 
@@ -379,7 +382,7 @@ function evaluatePagoUsoComprobanteWindow() {
       && String(pago.comprobante_alert_sent_for || '') !== nextDue
     ) {
       addNotification({
-        title: 'Pago por uso — subir comprobante',
+        title: PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE,
         message: `Próxima facturación: ${nextDue}. Carga permitida hasta: ${deadline}.`,
         created_by: 'Sistema automático',
         level: 'warning',
@@ -415,7 +418,7 @@ function evaluatePagoUsoComprobanteWindow() {
     controlChanged = true;
   }
   if (hasUrl) {
-    clearNotificationsByTitle('Pago por uso — subir comprobante');
+    clearNotificationsByTitle(PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE);
   }
 
   if (pagoChanged) upsertSetting(PAGO_USO_APP_KEY, pago);
@@ -501,7 +504,7 @@ function todayBeforeDue(st) {
 
 function releaseAutoLockIfComprobantePresent(urlTrimmed) {
   if (!String(urlTrimmed || '').trim()) return;
-  clearNotificationsByTitle('Pago por uso — subir comprobante');
+  clearNotificationsByTitle(PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE);
   clearNotificationsByTitle('Gracias por preferir trabajar con Resto FADET.app');
   addNotification({
     title: 'Gracias por preferir trabajar con Resto FADET.app',
@@ -580,6 +583,7 @@ function getLockState() {
 }
 
 module.exports = {
+  PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE,
   MASTER_SETTING_KEY,
   MASTER_NOTIFICATIONS_KEY,
   MASTER_AUTH_KEY,
