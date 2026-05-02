@@ -1,43 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
-import {
-  flattenOrdersToLines,
-  mergeLinesByProductName,
-  getStaffOrderStatusUi,
-} from '../utils/mesaOrderLines';
+import { groupTableOrderItemsForBill, getStaffOrderStatusUi } from '../utils/mesaOrderLines';
 
 const defaultLabels = {
   add: 'Agregar pedido',
   view: 'Ver pedido',
-  listTitle: 'Pedidos de la mesa',
-  merge: 'Unir pedidos',
-  unmerge: 'Desagrupar',
+  listTitle: 'Productos en la mesa',
   empty: 'No hay pedidos en esta mesa.',
   totalMesa: 'Total mesa',
 };
 
-const MERGE_STORAGE_PREFIX = 'mesaPedidoMerge:';
-
-function readMergeSaved(resetKey) {
-  if (resetKey == null || resetKey === '') return false;
-  try {
-    return sessionStorage.getItem(`${MERGE_STORAGE_PREFIX}${resetKey}`) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function writeMergeSaved(resetKey, value) {
-  if (resetKey == null || resetKey === '') return;
-  try {
-    sessionStorage.setItem(`${MERGE_STORAGE_PREFIX}${resetKey}`, value ? '1' : '0');
-  } catch {
-    /* private mode / quota */
-  }
-}
-
 /**
- * Pestañas Agregar / Ver + lista en líneas + unir por nombre (Mesas, Caja, auto-pedido).
- * «Unir pedidos» se recuerda por mesa (sessionStorage) hasta pulsar «Desagrupar», aunque se cierre el panel.
+ * Pestañas Agregar / Ver pedido: lista por **productos** (líneas iguales agrupadas), no por comanda.
+ * Cocina/bar siguen imprimiendo por comanda en sus paneles.
  */
 export default function StaffMesaPedidoTabs({
   orders = [],
@@ -50,31 +24,19 @@ export default function StaffMesaPedidoTabs({
 }) {
   const labels = { ...defaultLabels, ...labelsProp };
   const [panel, setPanel] = useState('add');
-  const [unirPorNombre, setUnirPorNombre] = useState(() => readMergeSaved(resetKey));
 
   useEffect(() => {
     setPanel('add');
-    setUnirPorNombre(readMergeSaved(resetKey));
   }, [resetKey]);
 
-  const lineRows = useMemo(() => flattenOrdersToLines(orders), [orders]);
-  const mergedRows = useMemo(() => mergeLinesByProductName(lineRows), [lineRows]);
-  const rowsToShow = unirPorNombre ? mergedRows : lineRows;
+  const rowsToShow = useMemo(() => groupTableOrderItemsForBill(orders), [orders]);
 
   /** Total cuenta mesa: suma de totales de pedidos; si no hay total, suma de subtotales por ítem */
   const totalMesa = useMemo(() => {
     const byOrders = (orders || []).reduce((s, o) => s + Number(o.total || 0), 0);
     if (byOrders > 0) return byOrders;
-    return lineRows.reduce((s, r) => s + Number(r.subtotal || 0), 0);
-  }, [orders, lineRows]);
-
-  const toggleUnir = () => {
-    setUnirPorNombre((prev) => {
-      const next = !prev;
-      writeMergeSaved(resetKey, next);
-      return next;
-    });
-  };
+    return rowsToShow.reduce((s, r) => s + Number(r.subtotal || 0), 0);
+  }, [orders, rowsToShow]);
 
   return (
     <div className={`flex flex-col gap-3 min-h-0 flex-1 ${className}`}>
@@ -111,13 +73,6 @@ export default function StaffMesaPedidoTabs({
             <>
               <div className="flex items-center justify-between gap-2 shrink-0 mb-2">
                 <p className="text-xs uppercase tracking-wide text-[var(--ui-accent)] font-semibold">{labels.listTitle}</p>
-                <button
-                  type="button"
-                  onClick={toggleUnir}
-                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[var(--ui-surface-2)] border border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
-                >
-                  {unirPorNombre ? labels.unmerge : labels.merge}
-                </button>
               </div>
               <div className="flex text-[10px] uppercase tracking-wide text-[var(--ui-muted)] border-b border-[color:var(--ui-border)] pb-1.5 shrink-0 gap-1">
                 <span className="flex-1 min-w-0 pr-1">Producto</span>
@@ -134,10 +89,7 @@ export default function StaffMesaPedidoTabs({
                       className="flex items-center gap-1 py-1.5 border-b border-[color:var(--ui-border)] text-sm text-[var(--ui-body-text)]"
                     >
                       <span className="flex-1 min-w-0 flex items-center gap-1.5">
-                        {!unirPorNombre && row.orderNumber != null ? (
-                          <span className="text-[10px] text-[var(--ui-accent)] shrink-0 tabular-nums">#{row.orderNumber}</span>
-                        ) : null}
-                        <span className="truncate">{row.name}</span>
+                        <span className="min-w-0 break-words leading-snug">{row.name}</span>
                       </span>
                       <span className="w-[5.5rem] shrink-0 flex justify-center px-0.5">
                         <span

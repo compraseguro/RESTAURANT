@@ -4,7 +4,7 @@ import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, fo
 import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
 import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
-import { groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
+import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -117,34 +117,40 @@ function canEditOrderLines(order) {
   );
 }
 
-/** Todos los productos de la mesa agrupados por nombre (misma lógica que precuenta). */
+/** Todos los productos de la mesa agrupados por línea de producto (misma lógica que precuenta/cobro). */
 function mergedProductsOnTable(table) {
   const allItems = (table?.orders || []).flatMap((o) => o.items || []);
   return groupItemsByProductNameForBill(allItems);
 }
 
+/** Al editar comanda: una fila por línea de producto — ítems iguales (producto/variante/notas/P.unit.) suman cantidad. */
 function orderItemsToCart(order, productsById) {
-  return (order.items || []).map((it, idx) => {
+  const m = new Map();
+  for (const it of order.items || []) {
     const product = productsById.get(it.product_id);
     const parsed = parseOrderItemNotes(it.notes, product);
     const modId = parsed.modifierId || String(it.modifier_id || '').trim();
     const modOpt = parsed.modifierOption || String(it.modifier_option || '').trim();
-    const baseKey = `${it.product_id}::${modId}::${modOpt}`;
-    /** Una fila por ítem en BD: si dos líneas repiten producto/modificador, cada una tiene id distinto (React/cart usan line_key). */
-    const line_key = it.id ? `oi:${it.id}` : `row:${String(order.id || 'o')}:${idx}:${baseKey}`;
-    return {
-      line_key,
-      product_id: it.product_id,
-      name: it.product_name,
-      price: Number(product?.price ?? it.unit_price ?? 0),
-      quantity: Number(it.quantity || 0),
-      modifier_id: modId,
-      modifier_name: '',
-      modifier_option: modOpt,
-      note_required: product ? Number(product.note_required || 0) : 0,
-      notes: parsed.itemNote,
-    };
-  });
+    const k = billLineKey(it);
+    const qty = Number(it.quantity || 0);
+    if (!m.has(k)) {
+      m.set(k, {
+        line_key: `mg:${order.id}:${k}`,
+        product_id: it.product_id,
+        name: billLineDisplayName(it),
+        price: Number(product?.price ?? it.unit_price ?? 0),
+        quantity: 0,
+        modifier_id: modId,
+        modifier_name: '',
+        modifier_option: modOpt,
+        note_required: product ? Number(product.note_required || 0) : 0,
+        notes: parsed.itemNote,
+      });
+    }
+    const row = m.get(k);
+    row.quantity += qty;
+  }
+  return [...m.values()];
 }
 
 function filterUnpaidDeliveryOrdersForCaja(orders) {
@@ -2621,7 +2627,7 @@ export default function POSPanel() {
                     <div className="flex flex-col flex-1 min-h-0 gap-2">
                       {!billingForm.enabled ? (
                         <>
-                          <h3 className="text-base font-bold text-[#F9FAFB] shrink-0">Pedidos</h3>
+                          <h3 className="text-base font-bold text-[#F9FAFB] shrink-0">Productos</h3>
                           <div className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-[10px] sm:text-xs font-semibold text-[#9CA3AF] border-b border-[color:var(--ui-border)] pb-2 shrink-0">
                             <span>Producto</span>
                             <span className="text-center tabular-nums">Cant.</span>
@@ -2629,43 +2635,35 @@ export default function POSPanel() {
                             <span className="text-right tabular-nums">Total</span>
                           </div>
                           <div className="overflow-y-auto flex-1 space-y-2 max-h-[min(28vh,220px)] pr-1">
-                            {splitMode ? (
-                              (selectedTable.orders || []).map((order) => {
-                                const sel = selectedOrderIds.includes(order.id);
-                                const groupedOrderLines = groupItemsByProductNameForBill(order.items || []);
-                                return (
-                                  <div
-                                    key={order.id}
-                                    className={`rounded-lg border p-2 ${
-                                      sel ? 'border-[color:var(--ui-accent)] bg-[var(--ui-sidebar-active-bg)]' : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/40 opacity-70'
-                                    }`}
-                                  >
-                                    <label className="flex items-center gap-2 cursor-pointer mb-1.5">
-                                      <input
-                                        type="checkbox"
-                                        checked={sel}
-                                        onChange={() => toggleOrderSelection(order.id)}
-                                        className="rounded border-[color:var(--ui-accent)]"
-                                      />
-                                      <span className="text-xs font-bold text-[#BFDBFE]">Pedido #{order.order_number}</span>
-                                    </label>
-                                    <div className="space-y-0.5 pl-2 sm:pl-4">
-                                      {groupedOrderLines.map((row) => (
-                                        <div
-                                          key={row.key}
-                                          className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-xs sm:text-sm text-[#D1D5DB] py-0.5 border-b border-[#3B82F6]/10 last:border-0"
+                            {splitMode && (
+                                <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/50 px-2 py-1.5 space-y-1.5 shrink-0">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#9CA3AF]">Incluir en cobro</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {(selectedTable.orders || []).map((order) => {
+                                      const sel = selectedOrderIds.includes(order.id);
+                                      return (
+                                        <label
+                                          key={order.id}
+                                          className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
+                                            sel
+                                              ? 'border-[color:var(--ui-accent)] bg-[var(--ui-sidebar-active-bg)] text-[#BFDBFE]'
+                                              : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/40 text-[#9CA3AF]'
+                                          }`}
                                         >
-                                          <span className="min-w-0 truncate">{row.name}</span>
-                                          <span className="text-center tabular-nums text-[#F9FAFB]">{row.qty}</span>
-                                          <span className="text-right tabular-nums text-[#D1D5DB]">{formatCurrency(row.unitPrice)}</span>
-                                          <span className="text-right tabular-nums font-medium text-[#F9FAFB]">{formatCurrency(row.subtotal)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
+                                          <input
+                                            type="checkbox"
+                                            checked={sel}
+                                            onChange={() => toggleOrderSelection(order.id)}
+                                            className="rounded border-[color:var(--ui-accent)]"
+                                          />
+                                          <span className="font-bold tabular-nums">#{order.order_number}</span>
+                                        </label>
+                                      );
+                                    })}
                                   </div>
-                                );
-                              })
-                            ) : billLineItemsGrouped.length === 0 ? (
+                                </div>
+                              )}
+                            {billLineItemsGrouped.length === 0 ? (
                               <p className="text-sm text-[#9CA3AF] text-center py-6">Sin ítems</p>
                             ) : (
                               billLineItemsGrouped.map((row) => (
@@ -2673,7 +2671,7 @@ export default function POSPanel() {
                                   key={row.key}
                                   className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-sm text-[#D1D5DB] py-1.5 border-b border-[#3B82F6]/10 last:border-0"
                                 >
-                                  <span className="min-w-0 truncate">{row.name}</span>
+                                  <span className="min-w-0 break-words leading-snug">{row.name}</span>
                                   <span className="text-center tabular-nums text-[#F9FAFB]">{row.qty}</span>
                                   <span className="text-right tabular-nums text-[#D1D5DB]">{formatCurrency(row.unitPrice)}</span>
                                   <span className="text-right tabular-nums font-medium text-[#F9FAFB]">{formatCurrency(row.subtotal)}</span>

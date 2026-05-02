@@ -1,5 +1,55 @@
 /** Líneas de producto a partir de pedidos de mesa (u órdenes con items). */
 
+/**
+ * Identidad de línea para mesa / precuenta / cobro: mismo producto, variante, notas y precio unitario → se agrupan cantidades.
+ * No agrupa solo por nombre (evita mezclar ítems distintos con el mismo texto).
+ */
+export function billLineKey(it) {
+  const pid = String(it.product_id || '').trim();
+  const variant = String(it.variant_name || '').trim().toLowerCase();
+  const notes = String(it.notes || '').trim();
+  const unit = Number(it.unit_price ?? 0);
+  return `${pid}|${variant}|${notes}|${unit.toFixed(4)}`;
+}
+
+export function billLineDisplayName(it) {
+  const base = String(it.product_name || '—').trim() || '—';
+  const v = String(it.variant_name || '').trim();
+  return v ? `${base} (${v})` : base;
+}
+
+/** Agrupa ítems de varios pedidos de mesa con etiqueta de estado (Varios si aplica). Vista «Ver pedido» en Mesas/Caja. */
+export function groupTableOrderItemsForBill(orders) {
+  const m = new Map();
+  for (const o of orders || []) {
+    const orderStatus = String(o.status || '').toLowerCase();
+    for (const it of o.items || []) {
+      const k = billLineKey(it);
+      const qty = Number(it.quantity || 0);
+      const unit = Number(it.unit_price ?? 0);
+      const sub = Number(it.subtotal != null ? it.subtotal : unit * qty);
+      if (!m.has(k)) {
+        m.set(k, {
+          key: k,
+          name: billLineDisplayName(it),
+          quantity: 0,
+          subtotal: 0,
+          statuses: new Set(),
+        });
+      }
+      const row = m.get(k);
+      row.quantity += qty;
+      row.subtotal += sub;
+      row.statuses.add(orderStatus);
+    }
+  }
+  return [...m.values()].map((row) => {
+    const list = [...row.statuses].filter(Boolean);
+    let status = list.length <= 1 ? list[0] || '' : '__mixed__';
+    return { ...row, status };
+  });
+}
+
 export function flattenOrdersToLines(orders) {
   const rows = [];
   for (const order of orders || []) {
@@ -50,17 +100,19 @@ export function mergeLinesByProductName(rows) {
   });
 }
 
-/** Agrupa ítems de pedido por nombre (cobrar mesa, precuenta): cantidad, subtotal y precio unitario medio. */
+/**
+ * Agrupa ítems por línea de producto (producto + variante + notas + P. unit.): cobrar mesa, precuenta, modal ver pedido.
+ * Líneas iguales suman cantidades; una línea distinta (otro producto u opciones/notas/precio) es otra fila.
+ */
 export function groupItemsByProductNameForBill(items) {
   const m = new Map();
   for (const it of items || []) {
-    const name = String(it.product_name || '—').trim() || '—';
-    const k = name.toLowerCase();
+    const k = billLineKey(it);
     const qty = Number(it.quantity || 0);
     const unit = Number(it.unit_price ?? 0);
     const sub = Number(it.subtotal != null ? it.subtotal : unit * qty);
     if (!m.has(k)) {
-      m.set(k, { key: `bill-${k}`, name, qty: 0, subtotal: 0 });
+      m.set(k, { key: k, name: billLineDisplayName(it), qty: 0, subtotal: 0 });
     }
     const a = m.get(k);
     a.qty += qty;
