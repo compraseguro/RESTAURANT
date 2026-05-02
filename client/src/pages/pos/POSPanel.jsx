@@ -136,6 +136,7 @@ function orderItemsToCart(order, productsById) {
     if (!m.has(k)) {
       m.set(k, {
         line_key: `mg:${order.id}:${k}`,
+        source_order_id: order.id,
         product_id: it.product_id,
         name: billLineDisplayName(it),
         price: Number(product?.price ?? it.unit_price ?? 0),
@@ -224,6 +225,8 @@ export default function POSPanel() {
     setCart,
   } = useStaffOrderCart(modifiers);
   const [editingOrderId, setEditingOrderId] = useState('');
+  /** Comanda “principal” (nuevas líneas sin `source_order_id` y nota para llevar). */
+  const [editingSessionOrderIds, setEditingSessionOrderIds] = useState([]);
   /** Comanda cocina/bar: «PARA LLEVAR» en mayúsculas (orders.notes). Solo mesa/salón, no venta rápida. */
   const [paraLlevarMesa, setParaLlevarMesa] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -1075,6 +1078,7 @@ export default function POSPanel() {
     if (isDeliveryCheckoutTable(table)) return;
     setQuickSaleMode(false);
     setEditingOrderId('');
+    setEditingSessionOrderIds([]);
     setParaLlevarMesa(false);
     setSelectedTable(table);
     setShowMenu(true);
@@ -1086,56 +1090,35 @@ export default function POSPanel() {
   };
 
   /** @returns {boolean} si se abrió el editor */
-  const startEditOrder = (order, tableForContext = tableDetail) => {
-    if (!tableForContext || isClientCheckoutTable(tableForContext)) return false;
-    if (!order?.id) return false;
-    if (!canEditOrderLines(order)) {
-      toast.error('Solo se pueden modificar pedidos pendientes o en preparación y sin cobrar.');
-      return false;
+  const openEditOrderFromToolbar = () => {
+    const list = tableDetail?.orders || [];
+    const editable = list.filter((o) => canEditOrderLines(o));
+    if (editable.length === 0) {
+      if (list.length === 0) {
+        toast.error('No hay pedidos para modificar.');
+      } else {
+        toast.error('Ninguna comanda se puede modificar desde aquí (estado o cobro).');
+      }
+      return;
     }
+    const sorted = [...editable].sort((a, b) => {
+      const na = Number(a.order_number);
+      const nb = Number(b.order_number);
+      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return nb - na;
+      return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+    });
+    const primary = sorted[0];
     setQuickSaleMode(false);
-    setEditingOrderId(order.id);
-    setParaLlevarMesa(orderHasTakeoutNote(order));
-    setSelectedTable(tableForContext);
+    setEditingSessionOrderIds(editable.map((o) => o.id));
+    setEditingOrderId(primary.id);
+    setParaLlevarMesa(editable.some((o) => orderHasTakeoutNote(o)));
+    setSelectedTable(tableDetail);
     setSearch('');
     setSelectedCat('all');
-    setCart(orderItemsToCart(order, productsById));
+    setCart(editable.flatMap((o) => orderItemsToCart(o, productsById)));
     setShowMenu(true);
     setAmountReceived('');
     resetBillingForm();
-    return true;
-  };
-
-  const openEditOrderFromToolbar = () => {
-    const list = tableDetail?.orders || [];
-    if (list.length === 1) {
-      if (!canEditOrderLines(list[0])) {
-        toast.error('Este pedido ya no se puede modificar desde aquí (estado o cobro).');
-        return;
-      }
-      startEditOrder(list[0]);
-      return;
-    }
-    if (list.length > 1) {
-      const sorted = [...list].sort((a, b) => {
-        const na = Number(a.order_number);
-        const nb = Number(b.order_number);
-        if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return nb - na;
-        return String(b.created_at || '').localeCompare(String(a.created_at || ''));
-      });
-      const target = sorted.find((o) => canEditOrderLines(o));
-      if (!target) {
-        toast.error('Ninguna comanda se puede modificar desde aquí (estado o cobro).');
-        return;
-      }
-      const editableCount = list.filter((o) => canEditOrderLines(o)).length;
-      if (editableCount > 1) {
-        toast(`Varias comandas editables: se abre la más reciente (#${target.order_number}).`, { duration: 4500 });
-      }
-      startEditOrder(target);
-      return;
-    }
-    toast.error('No hay pedidos para modificar.');
   };
 
   const confirmCancelOrder = async (order) => {
@@ -1160,16 +1143,22 @@ export default function POSPanel() {
   /** Modificar pedido: carrito vacío → anular pedido y liberar mesa si no quedan pedidos activos. */
   const liberarMesaDesdeEdicionPedidoVacio = async () => {
     if (!editingOrderId || !selectedTable) return;
+    const idsToCancel =
+      editingSessionOrderIds.length > 0 ? editingSessionOrderIds : [editingOrderId];
     const ok = window.confirm(
-      '¿Anular este pedido sin productos y marcar la mesa como libre si no quedan otros pedidos activos?'
+      idsToCancel.length > 1
+        ? `¿Anular ${idsToCancel.length} pedidos de esta mesa y marcarla libre si no queda ningún pedido activo?`
+        : '¿Anular este pedido sin productos y marcar la mesa como libre si no quedan otros pedidos activos?'
     );
     if (!ok) return;
     const tid = toast.loading('Liberando mesa…');
     try {
-      await api.put(`/orders/${editingOrderId}/status`, {
-        status: 'cancelled',
-        cancellation_reason: 'Pedido vaciado desde caja — liberar mesa',
-      });
+      for (const oid of idsToCancel) {
+        await api.put(`/orders/${oid}/status`, {
+          status: 'cancelled',
+          cancellation_reason: 'Pedido vaciado desde caja — liberar mesa',
+        });
+      }
       if (!isClientCheckoutTable(selectedTable) && !isDeliveryCheckoutTable(selectedTable) && selectedTable.id) {
         const updatedTable = await api.get(`/tables/${selectedTable.id}`);
         const remaining = (updatedTable.orders || []).filter((o) =>
@@ -1179,9 +1168,15 @@ export default function POSPanel() {
           await api.patch(`/tables/${selectedTable.id}/status`, { status: 'available' });
         }
       }
-      toast.success('Pedido anulado. Mesa liberada si no había otros pedidos activos.', { id: tid });
+      toast.success(
+        idsToCancel.length > 1
+          ? 'Pedidos anulados. Mesa liberada si no había otros pedidos activos.'
+          : 'Pedido anulado. Mesa liberada si no había otros pedidos activos.',
+        { id: tid }
+      );
       setShowMenu(false);
       setEditingOrderId('');
+      setEditingSessionOrderIds([]);
       resetCart();
       loadData();
     } catch (err) {
@@ -1192,6 +1187,7 @@ export default function POSPanel() {
   const openQuickSaleMenu = () => {
     setQuickSaleMode(true);
     setEditingOrderId('');
+    setEditingSessionOrderIds([]);
     setParaLlevarMesa(false);
     setSelectedTable(null);
     setPaymentMethod('efectivo');
@@ -1251,19 +1247,41 @@ export default function POSPanel() {
     );
     try {
       if (editingOrderId) {
-        await api.put(`/orders/${editingOrderId}/lines`, {
-          items: cart.map((i) => ({
-            product_id: i.product_id,
-            quantity: i.quantity,
-            modifier_id: i.modifier_id || '',
-            modifier_option: i.modifier_option || '',
-            notes: String(i.notes || '').trim(),
-          })),
-          notes: paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
-        });
-        toast.success('Pedido actualizado', { id: tid });
+        const noteOrder = paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '';
+        const sessionIds =
+          editingSessionOrderIds.length > 0 ? editingSessionOrderIds : [editingOrderId];
+        const byOrder = new Map();
+        for (const i of cart) {
+          const oid = String(i.source_order_id || editingOrderId);
+          if (!byOrder.has(oid)) byOrder.set(oid, []);
+          byOrder.get(oid).push(i);
+        }
+        const linesPayload = (lines) =>
+          lines.map((x) => ({
+            product_id: x.product_id,
+            quantity: x.quantity,
+            modifier_id: x.modifier_id || '',
+            modifier_option: x.modifier_option || '',
+            notes: String(x.notes || '').trim(),
+          }));
+        for (const oid of sessionIds) {
+          const lines = byOrder.get(oid) || [];
+          if (lines.length === 0) {
+            await api.put(`/orders/${oid}/status`, {
+              status: 'cancelled',
+              cancellation_reason: 'Líneas retiradas al editar mesa desde caja',
+            });
+          } else {
+            await api.put(`/orders/${oid}/lines`, {
+              items: linesPayload(lines),
+              notes: noteOrder,
+            });
+          }
+        }
+        toast.success(sessionIds.length > 1 ? 'Pedidos actualizados' : 'Pedido actualizado', { id: tid });
         setShowMenu(false);
         setEditingOrderId('');
+        setEditingSessionOrderIds([]);
         resetCart();
         loadData();
         return;
@@ -2176,6 +2194,7 @@ export default function POSPanel() {
           setShowMenu(false);
           setQuickSaleMode(false);
           setEditingOrderId('');
+          setEditingSessionOrderIds([]);
           setParaLlevarMesa(false);
           setAmountReceived('');
           resetBillingForm();
@@ -2184,6 +2203,14 @@ export default function POSPanel() {
         title={(() => {
           if (quickSaleMode) return 'Venta rápida';
           if (editingOrderId && selectedTable) {
+            if (editingSessionOrderIds.length > 1) {
+              const nums = (selectedTable.orders || [])
+                .filter((x) => editingSessionOrderIds.includes(x.id))
+                .map((x) => x.order_number)
+                .filter((n) => n != null);
+              const suffix = nums.length ? ` · #${nums.join(', #')}` : '';
+              return `Modificar pedidos — ${selectedTable.name || ''}${suffix}`;
+            }
             const o = (selectedTable.orders || []).find((x) => x.id === editingOrderId);
             return o
               ? `Modificar pedido #${o.order_number} — ${selectedTable.name || ''}`
