@@ -511,13 +511,15 @@ export default function KitchenPanel({ station = 'cocina' }) {
               </div>
 
               <div className="px-4 py-3 border-t border-[color:var(--ui-border)]">
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <button
                     type="button"
+                    title="Imprimir comanda"
+                    aria-label="Imprimir comanda"
                     onClick={() => void printSimpleComanda(order)}
-                    className="flex-1 min-w-0 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
+                    className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] transition-colors"
                   >
-                    <MdPrint className="text-[var(--ui-accent-muted)] shrink-0" /> Imprimir
+                    <MdPrint className="text-xl text-[var(--ui-accent-muted)]" />
                   </button>
                   {order.status === 'pending' ? (
                     <button
