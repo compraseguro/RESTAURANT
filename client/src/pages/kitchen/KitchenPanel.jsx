@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
 import {
   buildKitchenTicketPlainText,
@@ -8,7 +8,8 @@ import {
 } from '../../utils/ticketPlainText';
 import { shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
 import { printHtmlDocument } from '../../utils/printHtml';
-import { postLocalAgentPrint } from '../../utils/localPrintAgent';
+import { postLocalAgentPrint, isLocalPrintAgentConfigured } from '../../utils/localPrintAgent';
+import { orderAppliesToStation } from '../../utils/stationKitchenPrint';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -24,51 +25,11 @@ function isCuentaClienteSelfOrder(order) {
   return String(order?.table_number || '') === 'Cliente' && String(order?.customer_id || '').trim() !== '';
 }
 
-/** Misma lógica que el servidor para decidir si un pedido va a bar o a cocina. */
-function isBarItemClient(item) {
-  if (String(item?.production_area || '').toLowerCase() === 'bar') return true;
-  const name = String(item?.product_name || '').toLowerCase();
-  return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some((t) =>
-    name.includes(t)
-  );
-}
-function isBarOnlyOrderClient(order) {
-  const items = order?.items || [];
-  if (!items.length) return false;
-  return items.every(isBarItemClient);
-}
-/** @param {'cocina'|'bar'} st */
-function orderAppliesToStation(order, st) {
-  const barOnly = isBarOnlyOrderClient(order);
-  if (st === 'bar') return barOnly;
-  if (st === 'cocina') return !barOnly;
-  return true;
-}
-
 export default function KitchenPanel({ station = 'cocina' }) {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
   const [printConfig, setPrintConfig] = useState({ cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
-  const storageKeyAutoPrint = `resto_kitchen_auto_print_${station}`;
-  const readAutoPrintPreference = () => {
-    try {
-      const raw = localStorage.getItem(storageKeyAutoPrint);
-      if (raw === '0') return false;
-      if (raw === '1') return true;
-      return true; /* primera visita: impresión automática activa por defecto */
-    } catch (_) {
-      return true;
-    }
-  };
-  const [autoPrint, setAutoPrint] = useState(() => readAutoPrintPreference());
-  const autoPrintRef = useRef(false);
-  useEffect(() => {
-    autoPrintRef.current = autoPrint;
-  }, [autoPrint]);
-  useEffect(() => {
-    setAutoPrint(readAutoPrintPreference());
-  }, [storageKeyAutoPrint]);
   const { user } = useAuth();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
   const navigate = useNavigate();
@@ -160,7 +121,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
         }
       }
     }
-    if (printAgentCfg?.enabled && String(stationConfig?.ip_address || '').trim()) {
+    if (isLocalPrintAgentConfigured(printAgentCfg) && String(stationConfig?.ip_address || '').trim()) {
       try {
         await postLocalAgentPrint(printAgentCfg.base_url, {
           ip_address: stationConfig.ip_address,
@@ -302,7 +263,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
         toast.error(err.message || 'No se pudo imprimir por red; use el cuadro de impresión');
       }
     }
-    if (agentCfg?.enabled && String(stationConfig?.ip_address || '').trim()) {
+    if (isLocalPrintAgentConfigured(agentCfg) && String(stationConfig?.ip_address || '').trim()) {
       try {
         await postLocalAgentPrint(agentCfg.base_url, {
           ip_address: stationConfig.ip_address,
@@ -361,7 +322,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     loadOrders();
     playStationAlert();
     toast.success(`${toastLabel} #${order.order_number} (${isBar ? 'bar' : 'cocina'})`, { icon: '🔔', duration: 5000 });
-    if (!order || !autoPrintRef.current) return;
+    if (!order) return;
     if (!orderAppliesToStation(order, station)) return;
     const items = order.items || [];
     if (!items.length) return;
@@ -419,27 +380,6 @@ export default function KitchenPanel({ station = 'cocina' }) {
               <button key={f.v} onClick={() => setFilter(f.v)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f.v ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'}`}>{f.l}</button>
             ))}
           </div>
-          <button
-            type="button"
-            title="Impresión automática al nuevo pedido. Requiere IP en Configuración → Impresoras; el envío lo hace el servidor por red (TCP), no el navegador."
-            onClick={() => {
-              const v = !autoPrint;
-              setAutoPrint(v);
-              try {
-                localStorage.setItem(storageKeyAutoPrint, v ? '1' : '0');
-              } catch (_) {
-                /* noop */
-              }
-            }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 ${
-              autoPrint
-                ? 'bg-[var(--ui-accent)] text-white shadow-sm'
-                : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'
-            }`}
-          >
-            <MdPrint className={`shrink-0 text-base ${autoPrint ? 'text-white' : 'text-[var(--ui-accent-muted)]'}`} />
-            Automática
-          </button>
           {canReturnToAdmin && (
             <button onClick={() => navigate('/admin')} className="px-3 py-2 bg-[var(--ui-accent)] hover:bg-[var(--ui-accent-hover)] rounded-lg text-white border border-[color:var(--ui-border)] text-sm font-medium">
               Volver al Centro Operativo

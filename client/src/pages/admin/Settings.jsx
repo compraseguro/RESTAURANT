@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { api, formatDateTime } from '../../utils/api';
 import { shouldSendToNetworkPrinter, shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
-import { postLocalAgentPrint } from '../../utils/localPrintAgent';
+import { postLocalAgentPrint, isLocalPrintAgentConfigured } from '../../utils/localPrintAgent';
 import { printHtmlDocument } from '../../utils/printHtml';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
@@ -113,7 +113,7 @@ const DEFAULT_APP_SETTINGS = {
   ],
   /** Agente ESC/POS en el PC del local (ver carpeta local-print-agent). */
   print_agent: {
-    enabled: 0,
+    enabled: 1,
     base_url: 'http://127.0.0.1:49710',
   },
   tarjetas: [
@@ -342,6 +342,13 @@ export default function Settings() {
   const normalizeConfigPayload = (payload) => {
     const merged = { ...DEFAULT_APP_SETTINGS, ...((payload && payload.settings) || payload || {}) };
     merged.cajas = ensureCajaIdsDeep(Array.isArray(merged.cajas) ? merged.cajas : []);
+    const pa = merged.print_agent && typeof merged.print_agent === 'object' ? merged.print_agent : {};
+    merged.print_agent = {
+      ...pa,
+      enabled: 1,
+      base_url: String(pa.base_url || DEFAULT_APP_SETTINGS.print_agent.base_url || 'http://127.0.0.1:49710').trim()
+        || DEFAULT_APP_SETTINGS.print_agent.base_url,
+    };
     return merged;
   };
   const hasUnsavedAppSettings = serializeAppSettings(appSettings) !== appSettingsSnapshot;
@@ -596,7 +603,7 @@ export default function Settings() {
     }
 
     /** API en la nube no alcanza 192.168.x: mismo camino que cocina/POS vía agente en el PC del local. */
-    if (shouldSendToNetworkPrinter(pr) && Number(appSettings.print_agent?.enabled) === 1) {
+    if (shouldSendToNetworkPrinter(pr) && isLocalPrintAgentConfigured(appSettings.print_agent)) {
       const baseUrl = String(appSettings.print_agent?.base_url || 'http://127.0.0.1:49710').trim();
       try {
         await postLocalAgentPrint(baseUrl, {
@@ -638,7 +645,7 @@ export default function Settings() {
 
   const saveAppSettings = async ({ silent = false, nextSettings = null } = {}) => {
     if (isSavingAppSettings) return;
-    const payloadSettings = nextSettings || appSettings;
+    const payloadSettings = normalizeConfigPayload({ settings: nextSettings || appSettings });
     try {
       setIsSavingAppSettings(true);
       const saved = await api.put('/admin-modules/config/app', { settings: payloadSettings });
@@ -1342,51 +1349,23 @@ export default function Settings() {
         {/* IMPRESORAS */}
         {activeSection === 'impresoras' && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-4 py-3 text-sm text-[var(--ui-body-text)] shadow-inner">
-              <p className="font-semibold text-[var(--ui-body-text)] mb-2">Impresoras por área</p>
-              <p className="text-[#D1D5DB] leading-relaxed">
-                Configure cocina, bar, caja, delivery y parrilla. Con <strong className="text-[var(--ui-accent-muted)]">red local (IP)</strong> puede imprimir tickets directamente. Si su sistema está en internet y la impresora está en el local, active abajo <strong className="text-[var(--ui-accent-muted)]">Impresión por programa en este equipo</strong> e instale el servicio que le indique su proveedor en el PC del restaurante.
-              </p>
-            </div>
-            <div className="card space-y-3 p-4 border border-emerald-800/20 bg-emerald-950/20">
-              <p className="font-semibold text-[var(--ui-body-text)]">Impresión por programa en este equipo</p>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                Solo si imprime por IP y el servidor está fuera de su red. El programa en el PC recibe el ticket y lo envía a la térmica sin abrir el cuadro de impresión del navegador.
-              </p>
-              <label className="flex items-center gap-2 text-sm cursor-pointer text-[var(--ui-body-text)]">
-                <input
-                  type="checkbox"
-                  checked={Number(appSettings.print_agent?.enabled) === 1}
-                  onChange={(e) =>
-                    setAppSettings((prev) => ({
-                      ...prev,
-                      print_agent: {
-                        ...(prev.print_agent || {}),
-                        enabled: e.target.checked ? 1 : 0,
-                        base_url: String(prev.print_agent?.base_url || 'http://127.0.0.1:49710'),
-                      },
-                    }))
-                  }
-                />
-                Activar envío al programa local
-              </label>
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Dirección del programa (la da su proveedor)</label>
-                <input
-                  className="input-field text-sm"
-                  value={String(appSettings.print_agent?.base_url || 'http://127.0.0.1:49710')}
-                  onChange={(e) =>
-                    setAppSettings((prev) => ({
-                      ...prev,
-                      print_agent: {
-                        ...(prev.print_agent || {}),
-                        base_url: (e.target.value || 'http://127.0.0.1:49710').trim(),
-                      },
-                    }))
-                  }
-                  placeholder="http://127.0.0.1:49710"
-                />
-              </div>
+            <div className="card space-y-2 p-4">
+              <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">Servicio de impresión en este equipo</label>
+              <input
+                className="input-field text-sm"
+                value={String(appSettings.print_agent?.base_url || 'http://127.0.0.1:49710')}
+                onChange={(e) =>
+                  setAppSettings((prev) => ({
+                    ...prev,
+                    print_agent: {
+                      ...(prev.print_agent || {}),
+                      enabled: 1,
+                      base_url: (e.target.value || 'http://127.0.0.1:49710').trim(),
+                    },
+                  }))
+                }
+                placeholder="http://127.0.0.1:49710"
+              />
             </div>
             <div className="flex justify-between items-center">
               <p className="text-sm text-slate-500">Impresoras configuradas en el sistema</p>
@@ -1418,7 +1397,7 @@ export default function Settings() {
                       title={
                         shouldTryServerNetworkPrint(pr)
                           ? 'Probar impresión (red TCP vía servidor)'
-                          : shouldSendToNetworkPrinter(pr) && Number(appSettings.print_agent?.enabled) === 1
+                          : shouldSendToNetworkPrinter(pr) && isLocalPrintAgentConfigured(appSettings.print_agent)
                             ? 'Probar impresión (programa local → impresora)'
                             : 'Probar impresión (cuadro del sistema / navegador)'
                       }

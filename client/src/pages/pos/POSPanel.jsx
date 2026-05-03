@@ -3,7 +3,8 @@ import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
 import { shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
 import { printHtmlDocument } from '../../utils/printHtml';
-import { postLocalAgentPrint } from '../../utils/localPrintAgent';
+import { postLocalAgentPrint, isLocalPrintAgentConfigured } from '../../utils/localPrintAgent';
+import { silentPrintOrderToStations } from '../../utils/stationKitchenPrint';
 import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
@@ -768,7 +769,7 @@ export default function POSPanel() {
         }
       }
     }
-    if (printAgentCfg?.enabled && String(caja?.ip_address || '').trim() && textForPrint) {
+    if (isLocalPrintAgentConfigured(printAgentCfg) && String(caja?.ip_address || '').trim() && textForPrint) {
       try {
         const copies = Math.min(5, Math.max(1, Number(caja.copies || 1)));
         await postLocalAgentPrint(printAgentCfg.base_url, {
@@ -1343,6 +1344,7 @@ export default function POSPanel() {
             modifier_option: x.modifier_option || '',
             notes: String(x.notes || '').trim(),
           }));
+        const updatedOrderIds = [];
         for (const oid of sessionIds) {
           const lines = byOrder.get(oid) || [];
           if (lines.length === 0) {
@@ -1355,6 +1357,17 @@ export default function POSPanel() {
               items: linesPayload(lines),
               notes: noteOrder,
             });
+            updatedOrderIds.push(oid);
+          }
+        }
+        for (const oid of updatedOrderIds) {
+          try {
+            const updated = await api.get(`/orders/${oid}`);
+            if (updated?.items?.length) {
+              void silentPrintOrderToStations({ api, order: updated, labelPrefix: 'Comanda actualizada' });
+            }
+          } catch (_) {
+            /* noop */
           }
         }
         toast.success(sessionIds.length > 1 ? 'Pedidos actualizados' : 'Pedido actualizado', { id: tid });
@@ -1379,6 +1392,13 @@ export default function POSPanel() {
         payment_method: paymentMethod,
         notes: !quickSaleMode && paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
       });
+      if (createdOrder?.items?.length) {
+        void silentPrintOrderToStations({
+          api,
+          order: createdOrder,
+          labelPrefix: quickSaleMode ? 'Venta rápida' : 'Nuevo pedido',
+        });
+      }
       if (quickSaleMode) {
         let doc = null;
         if (billingForm.enabled) {

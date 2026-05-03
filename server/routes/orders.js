@@ -97,12 +97,12 @@ function readPrintAgentFromSettings() {
     const pa = o.print_agent && typeof o.print_agent === 'object' ? o.print_agent : {};
     const defUrl = String(process.env.LOCAL_PRINT_AGENT_URL || 'http://127.0.0.1:49710').replace(/\/$/, '');
     return {
-      enabled: Number(pa.enabled) === 1,
+      enabled: true,
       base_url: String(pa.base_url || defUrl).replace(/\/$/, ''),
     };
   } catch (_) {
     const defUrl = String(process.env.LOCAL_PRINT_AGENT_URL || 'http://127.0.0.1:49710').replace(/\/$/, '');
-    return { enabled: false, base_url: defUrl };
+    return { enabled: true, base_url: defUrl };
   }
 }
 
@@ -336,8 +336,6 @@ router.get('/print-config', authenticateToken, requireRole('admin', 'cajero', 'm
     printer_routes: listPrinterRoutes(restaurantId),
     print_agent: {
       ...printAgent,
-      description:
-        'Active «Impresión por programa en este equipo» en Configuración → Impresoras cuando el servidor esté fuera de su red y use impresoras por IP.',
     },
   });
 });

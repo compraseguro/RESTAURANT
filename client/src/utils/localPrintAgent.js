@@ -7,6 +7,11 @@ export function normalizeLocalAgentBase(url) {
   return String(url || 'http://127.0.0.1:49710').replace(/\/$/, '');
 }
 
+/** El envío por agente local está disponible si hay URL (la opción queda siempre activa en configuración). */
+export function isLocalPrintAgentConfigured(printAgent) {
+  return Boolean(String(printAgent?.base_url || '').trim());
+}
+
 /**
  * @param {string} baseUrl - p.ej. http://127.0.0.1:49710
  * @param {{ ip_address: string, port?: number, text: string, copies?: number }} payload
