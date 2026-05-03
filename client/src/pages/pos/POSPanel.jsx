@@ -87,6 +87,40 @@ const getOrderChargeTotal = (order) => {
   return Math.max(0, base - discount);
 };
 
+function escapeHtmlPrint(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/** Precuenta / nota térmica o navegador: tabla con P. unit., importe línea y rayita entre productos. */
+function buildPrintBillTableHtml(groupedRows, formatCurrencyFn) {
+  const rows = (groupedRows || [])
+    .map((g) => {
+      const qty = Number(g.qty || 0);
+      const name = escapeHtmlPrint(g.name || '—');
+      const unit = g.unitPrice != null ? Number(g.unitPrice) : 0;
+      const sub = g.subtotal != null ? Number(g.subtotal) : 0;
+      return `<tr>
+  <td style="padding:6px 0;vertical-align:top;border-bottom:1px dashed #cbd5e0">${qty}x ${name}</td>
+  <td style="text-align:right;padding:6px 0;vertical-align:top;border-bottom:1px dashed #cbd5e0;white-space:nowrap">${formatCurrencyFn(unit)}</td>
+  <td style="text-align:right;padding:6px 0;vertical-align:top;border-bottom:1px dashed #cbd5e0;font-weight:600;white-space:nowrap">${formatCurrencyFn(sub)}</td>
+</tr>`;
+    })
+    .join('');
+  return `<table style="width:100%;border-collapse:collapse">
+<thead>
+<tr>
+  <th style="text-align:left;padding:4px 0 6px 0;font-size:10px;font-weight:600;border-bottom:1px solid #64748b">Descripción</th>
+  <th style="text-align:right;padding:4px 0 6px 0;font-size:10px;font-weight:600;border-bottom:1px solid #64748b">P. unit.</th>
+  <th style="text-align:right;padding:4px 0 6px 0;font-size:10px;font-weight:600;border-bottom:1px solid #64748b">Importe</th>
+</tr>
+</thead>
+<tbody>${rows}</tbody>
+</table>`;
+}
+
 /** Reconstruye nota y modificador desde `order_items.notes` (mismo formato que al crear el pedido). */
 function parseOrderItemNotes(notesStr, product) {
   const s = String(notesStr || '').trim();
@@ -1532,12 +1566,7 @@ export default function POSPanel() {
       ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
       : '';
     const groupedPrecuenta = groupItemsByProductNameForBill(payableOrders.flatMap((o) => o.items || []));
-    const itemLines = groupedPrecuenta
-      .map(
-        (g) =>
-          `<tr><td style="padding:4px 0">${g.qty}x ${g.name}</td><td style="text-align:right;padding:4px 0">${formatCurrency(g.subtotal)}</td></tr>`
-      )
-      .join('');
+    const itemsTableHtml = buildPrintBillTableHtml(groupedPrecuenta, formatCurrency);
     const w = window.open('', '_blank', 'width=420,height=720');
     if (!w) return toast.error('No se pudo abrir la precuenta');
     const precuentaParaLlevar = payableOrders.some((o) => orderHasTakeoutNote(o));
@@ -1554,7 +1583,7 @@ export default function POSPanel() {
       <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
       ${precuentaParaLlevar ? `<p style="text-align:center;font-weight:800;font-size:14px;letter-spacing:0.08em;margin:8px 0 0 0;">${KITCHEN_TAKEOUT_NOTE}</p>` : ''}
       <div class="sep"></div>
-      <table>${itemLines}</table>
+      ${itemsTableHtml}
       <div class="sep"></div>
       <p><strong>Subtotal:</strong> ${formatCurrency(selectionBaseTotal)}</p>
       <p><strong>Descuento:</strong> ${formatCurrency(discountPreview)}</p>
@@ -1585,10 +1614,8 @@ export default function POSPanel() {
       </table>
       `
       : '';
-    const items = (orders || []).flatMap((o) => o.items || []);
-    const itemLines = items
-      .map((i) => `<tr><td style="padding:4px 0">${i.quantity}x ${i.product_name}</td><td style="text-align:right;padding:4px 0">${formatCurrency(i.subtotal)}</td></tr>`)
-      .join('');
+    const groupedNota = groupItemsByProductNameForBill((orders || []).flatMap((o) => o.items || []));
+    const itemsTableHtml = buildPrintBillTableHtml(groupedNota, formatCurrency);
     const total = (orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
     const w = window.open('', '_blank', 'width=420,height=720');
     if (!w) return toast.error('No se pudo abrir la nota de venta');
@@ -1606,7 +1633,7 @@ export default function POSPanel() {
       <p class="muted">${formatPeDateTimeLine(new Date())}</p>
       ${customerBlock}
       <div class="sep"></div>
-      <table>${itemLines}</table>
+      ${itemsTableHtml}
       <div class="sep"></div>
       <p style="font-size:16px"><strong>Total:</strong> ${formatCurrency(total)}</p>
       <script>window.print(); window.onafterprint = () => window.close();</script>
@@ -1765,12 +1792,7 @@ export default function POSPanel() {
     const logoBlock = logoUrl
       ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
       : '';
-    const itemLines = groupedTable
-      .map(
-        (g) =>
-          `<tr><td style="padding:4px 0">${g.qty}x ${g.name}</td><td style="text-align:right;padding:4px 0">${formatCurrency(g.subtotal)}</td></tr>`
-      )
-      .join('');
+    const itemsTableHtml = buildPrintBillTableHtml(groupedTable, formatCurrency);
     const w = window.open('', '_blank', 'width=420,height=700');
     if (!w) return toast.error('No se pudo abrir la impresión de precuenta');
     const precuentaParaLlevar = (table.orders || []).some((o) => orderHasTakeoutNote(o));
@@ -1787,7 +1809,7 @@ export default function POSPanel() {
       <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
       ${precuentaParaLlevar ? `<p style="text-align:center;font-weight:800;font-size:14px;letter-spacing:0.08em;margin:8px 0 0 0;">${KITCHEN_TAKEOUT_NOTE}</p>` : ''}
       <div class="sep"></div>
-      <table>${itemLines}</table>
+      ${itemsTableHtml}
       <div class="sep"></div>
       <p style="font-size:16px"><strong>Total a pagar:</strong> ${formatCurrency((table.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}</p>
       <script>window.print(); window.onafterprint = () => window.close();</script>
