@@ -20,8 +20,9 @@ export default function Indicadores() {
   const totalRevenue = paidOrders.reduce((s, o) => s + (o.total || 0), 0);
   const avgTicket = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
 
+  /** Tipo de canal (salón / delivery / llevar), no el número de mesa física. */
   const ordersByType = [
-    { name: 'Mesa', value: paidOrders.filter(o => o.type === 'dine_in').length },
+    { name: 'En local (salón)', value: paidOrders.filter(o => o.type === 'dine_in').length },
     { name: 'Delivery', value: paidOrders.filter(o => o.type === 'delivery').length },
     { name: 'Para llevar', value: paidOrders.filter(o => o.type === 'pickup').length },
   ].filter(d => d.value > 0);
@@ -93,19 +94,77 @@ export default function Indicadores() {
           </ResponsiveContainer>
         </div>
         <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Pedidos por Tipo</h3>
+          <h3 className="font-bold text-slate-800 mb-1">Pedidos por tipo de canal</h3>
+          <p className="text-xs text-slate-500 mb-3">
+            Salón, delivery o para llevar. Varias mesas en salón cuentan como un solo sector «En local».
+          </p>
           <ResponsiveContainer width="100%" height={250}>
-            <PieChart><Pie data={ordersByType} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-              {ordersByType.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
-            </Pie><Tooltip /></PieChart>
+            <PieChart>
+              <Pie
+                data={ordersByType}
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                dataKey="value"
+                nameKey="name"
+                label={({ name, percent }) => `${String(name).split('(')[0].trim()} ${(percent * 100).toFixed(0)}%`}
+              >
+                {ordersByType.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i]} />
+                ))}
+              </Pie>
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const { name, value } = payload[0];
+                  const n = Number(value) || 0;
+                  return (
+                    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-md">
+                      <p className="font-semibold text-slate-800">{name}</p>
+                      <p className="text-slate-600 mt-0.5">
+                        {n} pedido{n === 1 ? '' : 's'} en este período
+                      </p>
+                    </div>
+                  );
+                }}
+              />
+            </PieChart>
           </ResponsiveContainer>
         </div>
         <div className="card">
           <h3 className="font-bold text-slate-800 mb-4">Métodos de Pago</h3>
           <ResponsiveContainer width="100%" height={250}>
-            <PieChart><Pie data={paymentMethods} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-              {paymentMethods.map((_, i) => <Cell key={i} fill={COLORS[i + 2]} />)}
-            </Pie><Tooltip /></PieChart>
+            <PieChart>
+              <Pie
+                data={paymentMethods}
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={80}
+                dataKey="value"
+                nameKey="name"
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              >
+                {paymentMethods.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i + 2]} />
+                ))}
+              </Pie>
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const { name, value } = payload[0];
+                  const n = Number(value) || 0;
+                  return (
+                    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-md">
+                      <p className="font-semibold text-slate-800">{name}</p>
+                      <p className="text-slate-600 mt-0.5">
+                        {n} pedido{n === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                  );
+                }}
+              />
+            </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
