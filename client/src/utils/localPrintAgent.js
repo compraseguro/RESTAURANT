@@ -33,15 +33,16 @@ export async function postLocalAgentPrint(baseUrl, payload) {
   if (!ip && !printer) {
     throw new Error('Para el agente local indique IP de térmica en red o nombre de impresora USB');
   }
+  const mode = payload?.mode;
   const body = {
     area: payload?.area,
     ticket,
     text: ticket,
     printer: printer || undefined,
-    ip_address: ip || undefined,
+    ip_address: mode === 'usb' ? undefined : ip || undefined,
     port: Math.min(65535, Math.max(1, Number(payload?.port || 9100) || 9100)),
     copies: Math.min(5, Math.max(1, Number(payload?.copies || 1) || 1)),
-    mode: payload?.mode,
+    mode,
   };
   Object.keys(body).forEach((k) => body[k] === undefined && delete body[k]);
   const res = await fetch(`${base}/print`, {

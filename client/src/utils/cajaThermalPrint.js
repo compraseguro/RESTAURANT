@@ -1,4 +1,4 @@
-import { shouldTryServerNetworkPrint } from './networkPrinter';
+import { shouldTryServerNetworkPrint, isThermalLanIp } from './networkPrinter';
 import { postLocalAgentPrint, isLocalPrintAgentConfigured } from './localPrintAgent';
 
 /**
@@ -19,18 +19,30 @@ export async function sendEscPosToStation({ api, station, stationConfig, printAg
       /* siguiente */
     }
   }
-  const ip = String(c.ip_address || '').trim();
+  const ipRaw = String(c.ip_address || '').trim();
   const localName = String(c.local_printer_name || '').trim();
-  if (isLocalPrintAgentConfigured(printAgent) && (ip || localName)) {
+  const pt = String(c.printer_type || 'lan').toLowerCase();
+  const usableLanIp = isThermalLanIp(ipRaw) ? ipRaw : '';
+
+  if (isLocalPrintAgentConfigured(printAgent) && (usableLanIp || localName)) {
     try {
       let mode;
-      if (ip && !localName) mode = 'lan';
-      else if (!ip && localName) mode = 'usb';
+      let ipForAgent = usableLanIp || undefined;
+      if (pt === 'usb') {
+        mode = 'usb';
+        ipForAgent = undefined;
+      } else if (usableLanIp && localName) {
+        mode = 'lan';
+      } else if (usableLanIp) {
+        mode = 'lan';
+      } else if (localName) {
+        mode = 'usb';
+      }
       await postLocalAgentPrint(printAgent.base_url, {
         area: station,
         ticket: plain,
         printer: localName || undefined,
-        ip_address: ip || undefined,
+        ip_address: ipForAgent,
         port: c.port || 9100,
         copies: n,
         mode,

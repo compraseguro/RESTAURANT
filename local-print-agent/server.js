@@ -276,11 +276,13 @@ async function executePrintBody(body) {
       if (!isAllowedPrinterHost(ip)) throw new Error('Solo se permiten IPs de red local');
       await sendRawToHost(ip, port, buffer);
       via = 'lan';
-    } else if (ip) {
-      if (!isAllowedPrinterHost(ip)) throw new Error('Solo se permiten IPs de red local');
+    } else if (ip && isAllowedPrinterHost(ip)) {
       await sendRawToHost(ip, port, buffer);
       via = 'lan';
     } else if (printer) {
+      if (ip && !isAllowedPrinterHost(ip)) {
+        log('warn', 'IP no válida para LAN; usando cola USB/local', { ip, printer });
+      }
       await sendEscPosToUsb(printer, buffer);
       via = 'usb';
     } else {

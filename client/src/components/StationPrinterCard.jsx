@@ -189,7 +189,14 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
             <select
               className="input-field text-sm py-1.5"
               value={form.printer_type}
-              onChange={(e) => setForm((f) => ({ ...f, printer_type: e.target.value }))}
+              onChange={(e) => {
+                const v = e.target.value;
+                setForm((f) => ({
+                  ...f,
+                  printer_type: v,
+                  ip_address: v === 'usb' ? '' : f.ip_address,
+                }));
+              }}
             >
               <option value="lan">Red (IP RAW, puerto 9100)</option>
               <option value="usb">USB / cola del sistema (vía print-agent)</option>
