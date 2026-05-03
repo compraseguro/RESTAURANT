@@ -27,8 +27,9 @@ function formToPrinterStub(form) {
 
 /**
  * Configuración de la impresora de una sola estación, en el panel correspondiente.
+ * @param {{ station: string, userRole?: string, hideHeading?: boolean, embedded?: boolean }} props
  */
-export default function StationPrinterCard({ station, userRole }) {
+export default function StationPrinterCard({ station, userRole, hideHeading = false, embedded = false }) {
   const [loading, setLoading] = useState(true);
   const [printCfg, setPrintCfg] = useState(null);
   const [detecting, setDetecting] = useState(false);
@@ -159,15 +160,23 @@ export default function StationPrinterCard({ station, userRole }) {
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2 text-xs text-[var(--ui-muted)] mb-3">
+      <div
+        className={`rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2 text-xs text-[var(--ui-muted)] ${embedded ? '' : 'mb-3'}`}
+      >
         Cargando impresora…
       </div>
     );
   }
 
+  const shellClass = embedded
+    ? 'rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 text-sm'
+    : 'rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 mb-4 text-sm';
+
   return (
-    <div className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 mb-4 text-sm">
-      <p className="font-semibold text-[var(--ui-body-text)] mb-2">{TITLES[station] || station}</p>
+    <div className={shellClass}>
+      {!hideHeading ? (
+        <p className="font-semibold text-[var(--ui-body-text)] mb-2">{TITLES[station] || station}</p>
+      ) : null}
       {!canEdit ? (
         <p className="text-xs text-[var(--ui-muted)]">
           IP: {form.ip_address || '—'} · USB: {form.local_printer_name || '—'} · Puerto {form.port} · Auto{' '}

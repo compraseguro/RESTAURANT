@@ -9,7 +9,10 @@ import {
   MdCreditCard, MdPeopleAlt, MdRestaurantMenu, MdLocalOffer,
   MdDiscount, MdWarehouse, MdDeliveryDining, MdAssessment,
   MdInsights, MdStorefront, MdSettings, MdLogout, MdTableBar, MdAccessTime, MdKitchen, MdLocalBar, MdQrCode2,
+  MdPrint,
 } from 'react-icons/md';
+import Modal from './Modal';
+import StationPrinterCard from './StationPrinterCard';
 
 const allLinks = [
   { to: '/admin', icon: MdDashboard, label: 'Escritorio', end: true, roles: ['admin', 'cajero'], moduleId: 'escritorio' },
@@ -70,6 +73,7 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
   const location = useLocation();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
   const [attendanceReviewOpen, setAttendanceReviewOpen] = useState(false);
+  const [cajaPrinterModalOpen, setCajaPrinterModalOpen] = useState(false);
 
   const onAttendanceReviewComplete = useCallback(() => {
     setAttendanceReviewOpen(false);
@@ -212,6 +216,17 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
                     {option.label}
                   </NavLink>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCajaPrinterModalOpen(true);
+                    if (isMobile) onClose();
+                  }}
+                  className="flex w-full items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors text-[var(--ui-muted)] hover:bg-[var(--ui-sidebar-hover)] hover:text-[var(--ui-body-text)]"
+                >
+                  <MdPrint className="text-base shrink-0" />
+                  Impresora
+                </button>
               </div>
             )}
 
@@ -273,6 +288,15 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
         onComplete={onAttendanceReviewComplete}
       />
       <EndShiftModal isOpen={endShiftOpen} onClose={() => setEndShiftOpen(false)} />
+
+      <Modal
+        isOpen={cajaPrinterModalOpen}
+        onClose={() => setCajaPrinterModalOpen(false)}
+        title="Impresora de caja"
+        size="lg"
+      >
+        <StationPrinterCard station="caja" userRole={user?.role} hideHeading embedded />
+      </Modal>
     </aside>
   );
 }

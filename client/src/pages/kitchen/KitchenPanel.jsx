@@ -12,6 +12,7 @@ import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
 import EndShiftModal from '../../components/EndShiftModal';
 import NotificationCenter from '../../components/NotificationCenter';
+import Modal from '../../components/Modal';
 import StationPrinterCard from '../../components/StationPrinterCard';
 import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime, MdPrint } from 'react-icons/md';
 import toast from 'react-hot-toast';
@@ -29,6 +30,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
   const { user } = useAuth();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
+  const [printerModalOpen, setPrinterModalOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const emit = useSocketEmit();
@@ -239,8 +241,24 @@ export default function KitchenPanel({ station = 'cocina' }) {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {[{ v: 'all', l: 'Todos' }, { v: 'dine_in', l: 'Mesas' }, { v: 'delivery', l: 'Delivery' }].map(f => (
-              <button key={f.v} onClick={() => setFilter(f.v)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f.v ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'}`}>{f.l}</button>
+              <button
+                key={f.v}
+                type="button"
+                onClick={() => setFilter(f.v)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center justify-center gap-1.5 ${filter === f.v ? 'bg-[var(--ui-accent)] text-white' : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)]'}`}
+              >
+                {f.v === 'delivery' ? <MdDeliveryDining className="text-base shrink-0" /> : null}
+                {f.l}
+              </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setPrinterModalOpen(true)}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)] inline-flex items-center justify-center gap-1.5"
+            >
+              <MdPrint className="text-base shrink-0" />
+              Impresora
+            </button>
           </div>
           {canReturnToAdmin && (
             <button onClick={() => navigate('/admin')} className="px-3 py-2 bg-[var(--ui-accent)] hover:bg-[var(--ui-accent-hover)] rounded-lg text-white border border-[color:var(--ui-border)] text-sm font-medium">
@@ -255,9 +273,14 @@ export default function KitchenPanel({ station = 'cocina' }) {
       </header>
       <EndShiftModal isOpen={endShiftOpen} onClose={() => setEndShiftOpen(false)} />
 
-      <div className="px-6 pt-4 max-w-3xl">
-        <StationPrinterCard station={isBar ? 'bar' : 'cocina'} userRole={user?.role} />
-      </div>
+      <Modal
+        isOpen={printerModalOpen}
+        onClose={() => setPrinterModalOpen(false)}
+        title={isBar ? 'Impresora de bar' : 'Impresora de cocina'}
+        size="lg"
+      >
+        <StationPrinterCard station={isBar ? 'bar' : 'cocina'} userRole={user?.role} hideHeading embedded />
+      </Modal>
 
       <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {orders.map(order => {

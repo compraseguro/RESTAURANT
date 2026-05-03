@@ -4,7 +4,6 @@ import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, fo
 import { silentPrintOrderToStations } from '../../utils/stationKitchenPrint';
 import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote, buildPrecuentaPlainText, buildNotaVentaPlainText } from '../../utils/ticketPlainText';
 import { sendEscPosToCaja } from '../../utils/cajaThermalPrint';
-import StationPrinterCard from '../../components/StationPrinterCard';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -1841,10 +1840,7 @@ export default function POSPanel() {
       <div className="mb-4 -mt-4">
       {activeCajaOption === 'cobrar' && (
         <>
-      <div className="mb-3 max-w-3xl">
-        <StationPrinterCard station="caja" userRole={user?.role} />
-      </div>
-      <div className="flex items-center justify-between mb-3 gap-2">
+      <div className="flex flex-wrap items-center justify-between mb-3 gap-2">
         <div
           className={`inline-flex items-center justify-center w-9 h-9 rounded-full border ${
             billingStatus.provider_reachable
@@ -1855,12 +1851,29 @@ export default function POSPanel() {
         >
           {billingStatus.provider_reachable ? <MdCheckCircle className="text-xl" /> : <MdClose className="text-xl" />}
         </div>
-        <button
-          onClick={openQuickSaleMenu}
-          className="px-3 py-2 rounded-lg bg-[#2563EB] text-white hover:bg-[#1D4ED8] font-medium text-sm flex items-center gap-2"
-        >
-          <MdPointOfSale className="text-base" /> Venta rápida
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('pos-delivery-caja');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              if (!deliveryCajaSlots.length) {
+                toast.error('No hay pedidos delivery pendientes de cobro');
+              }
+            }}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 inline-flex items-center justify-center gap-1.5"
+          >
+            <MdDeliveryDining className="text-base shrink-0" />
+            Delivery
+          </button>
+          <button
+            type="button"
+            onClick={openQuickSaleMenu}
+            className="px-4 py-2 rounded-lg bg-[#2563EB] text-white hover:bg-[#1D4ED8] font-medium text-sm inline-flex items-center gap-2"
+          >
+            <MdPointOfSale className="text-base" /> Venta rápida
+          </button>
+        </div>
       </div>
       <h2 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><MdTableRestaurant /> Mapa de mesas</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -1894,7 +1907,7 @@ export default function POSPanel() {
 
       {deliveryCajaSlots.length > 0 && (
         <>
-          <h2 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><MdDeliveryDining /> Delivery en caja</h2>
+          <h2 id="pos-delivery-caja" className="font-semibold text-slate-700 mb-4 flex items-center gap-2 scroll-mt-4"><MdDeliveryDining /> Delivery en caja</h2>
           <p className="text-sm text-slate-500 mb-3">Un recuadro por pedido delivery pendiente de cobro. Al cobrar, desaparece de esta lista.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             {deliveryCajaSlots.map((slot) => {
