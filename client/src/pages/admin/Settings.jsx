@@ -1349,24 +1349,6 @@ export default function Settings() {
         {/* IMPRESORAS */}
         {activeSection === 'impresoras' && (
           <div className="space-y-4">
-            <div className="card space-y-2 p-4">
-              <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">Servicio de impresión en este equipo</label>
-              <input
-                className="input-field text-sm"
-                value={String(appSettings.print_agent?.base_url || 'http://127.0.0.1:49710')}
-                onChange={(e) =>
-                  setAppSettings((prev) => ({
-                    ...prev,
-                    print_agent: {
-                      ...(prev.print_agent || {}),
-                      enabled: 1,
-                      base_url: (e.target.value || 'http://127.0.0.1:49710').trim(),
-                    },
-                  }))
-                }
-                placeholder="http://127.0.0.1:49710"
-              />
-            </div>
             <div className="flex justify-between items-center">
               <p className="text-sm text-slate-500">Impresoras configuradas en el sistema</p>
               <button className="btn-primary flex items-center gap-2 text-sm" onClick={() => openSettingsCrudModal('impresoras')}><MdAdd /> Nueva Impresora</button>
