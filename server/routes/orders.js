@@ -337,7 +337,7 @@ router.get('/print-config', authenticateToken, requireRole('admin', 'cajero', 'm
     print_agent: {
       ...printAgent,
       description:
-        'Con la API en la nube, instale el agente local (carpeta local-print-agent) en el PC del restaurante y active «Usar agente» en Configuración → Impresoras. El navegador enviará trabajos a http://127.0.0.1 sin cuadro de impresión.',
+        'Active «Impresión por programa en este equipo» en Configuración → Impresoras cuando el servidor esté fuera de su red y use impresoras por IP.',
     },
   });
 });
