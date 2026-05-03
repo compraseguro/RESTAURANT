@@ -1064,7 +1064,10 @@ export default function POSPanel() {
         const detail = issuedDocs.map(billingSuccessSummary).join(' · ');
         toast.success(`${payableOrders.length} pedido(s) cobrados. ${detail}`);
         const pdf = issuedDocs.find((d) => d?.pdf_url)?.pdf_url;
-        if (pdf) window.open(pdf, '_blank');
+        /** Sin resolveMediaUrl, `/uploads/...` se abre en el host del front (p. ej. Vercel) y la SPA puede redirigir a /admin en lugar del PDF en la API. */
+        if (pdf && billingForm.doc_type !== 'nota_venta') {
+          window.open(resolveMediaUrl(pdf), '_blank', 'noopener,noreferrer');
+        }
         if (billingForm.doc_type === 'nota_venta') {
           printNotaVenta({
             tableName: selectedTable?.name || '',
@@ -1369,7 +1372,7 @@ export default function POSPanel() {
         await api.put(`/orders/${createdOrder.id}/status`, { status: 'delivered' });
         if (billingForm.enabled && doc) {
           toast.success(`Venta rápida cobrada · ${billingSuccessSummary(doc)}`, { id: tid });
-          if (doc?.pdf_url) window.open(doc.pdf_url, '_blank');
+          if (doc?.pdf_url) window.open(resolveMediaUrl(doc.pdf_url), '_blank', 'noopener,noreferrer');
         } else {
           toast.success('Venta rápida cobrada', { id: tid });
         }
@@ -2988,7 +2991,7 @@ export default function POSPanel() {
                           <button
                             type="button"
                             className="px-2 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500"
-                            onClick={() => window.open(billingResult.pdf_url, '_blank')}
+                            onClick={() => window.open(resolveMediaUrl(billingResult.pdf_url), '_blank', 'noopener,noreferrer')}
                           >
                             Ver PDF
                           </button>
