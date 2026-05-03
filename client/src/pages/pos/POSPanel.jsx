@@ -121,6 +121,25 @@ function buildPrintBillTableHtml(groupedRows, formatCurrencyFn) {
 </table>`;
 }
 
+/** Datos de cliente en precuenta / nota (nombre, doc, teléfono, dirección si existen). */
+function buildCustomerPrintBlockHtml({ name, doc_number, address, phone }) {
+  const customerName = String(name || '').trim();
+  const customerDoc = String(doc_number || '').trim();
+  const customerAddress = String(address || '').trim();
+  const customerPhone = String(phone || '').trim();
+  if (!customerName && !customerDoc && !customerAddress && !customerPhone) return '';
+  const esc = escapeHtmlPrint;
+  return `
+      <div class="sep"></div>
+      <table style="width:100%;border-collapse:collapse">
+        ${customerName ? `<tr><td style="padding:2px 0;vertical-align:top"><strong>Cliente:</strong></td><td style="padding:2px 0">${esc(customerName)}</td></tr>` : ''}
+        ${customerDoc ? `<tr><td style="padding:2px 0;vertical-align:top"><strong>Documento:</strong></td><td style="padding:2px 0">${esc(customerDoc)}</td></tr>` : ''}
+        ${customerPhone ? `<tr><td style="padding:2px 0;vertical-align:top"><strong>Teléfono:</strong></td><td style="padding:2px 0">${esc(customerPhone)}</td></tr>` : ''}
+        ${customerAddress ? `<tr><td style="padding:2px 0;vertical-align:top"><strong>Dirección:</strong></td><td style="padding:2px 0">${esc(customerAddress)}</td></tr>` : ''}
+      </table>
+      `;
+}
+
 /** Reconstruye nota y modificador desde `order_items.notes` (mismo formato que al crear el pedido). */
 function parseOrderItemNotes(notesStr, product) {
   const s = String(notesStr || '').trim();
@@ -1052,6 +1071,7 @@ export default function POSPanel() {
               doc_number: billingForm.customer_doc_number,
               name: billingForm.customer_name,
               address: billingForm.customer_address,
+              phone: billingForm.customer_phone,
             },
           });
         }
@@ -1567,6 +1587,12 @@ export default function POSPanel() {
       : '';
     const groupedPrecuenta = groupItemsByProductNameForBill(payableOrders.flatMap((o) => o.items || []));
     const itemsTableHtml = buildPrintBillTableHtml(groupedPrecuenta, formatCurrency);
+    const customerPrintHtml = buildCustomerPrintBlockHtml({
+      name: billingForm.customer_name,
+      doc_number: billingForm.customer_doc_number,
+      address: billingForm.customer_address,
+      phone: billingForm.customer_phone,
+    });
     const w = window.open('', '_blank', 'width=420,height=720');
     if (!w) return toast.error('No se pudo abrir la precuenta');
     const precuentaParaLlevar = payableOrders.some((o) => orderHasTakeoutNote(o));
@@ -1582,6 +1608,7 @@ export default function POSPanel() {
       <h3>PRECUENTA - ${selectedTable.name}</h3>
       <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
       ${precuentaParaLlevar ? `<p style="text-align:center;font-weight:800;font-size:14px;letter-spacing:0.08em;margin:8px 0 0 0;">${KITCHEN_TAKEOUT_NOTE}</p>` : ''}
+      ${customerPrintHtml}
       <div class="sep"></div>
       ${itemsTableHtml}
       <div class="sep"></div>
@@ -1601,19 +1628,12 @@ export default function POSPanel() {
       ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
       : '';
     const docText = (docs || []).map((d) => String(d?.full_number || '').trim()).filter(Boolean).join(' · ');
-    const customerName = String(customer?.name || '').trim();
-    const customerDoc = String(customer?.doc_number || '').trim();
-    const customerAddress = String(customer?.address || '').trim();
-    const customerBlock = (customerName || customerDoc || customerAddress)
-      ? `
-      <div class="sep"></div>
-      <table>
-        ${customerName ? `<tr><td style="padding:2px 0"><strong>Cliente:</strong></td><td style="padding:2px 0">${customerName}</td></tr>` : ''}
-        ${customerDoc ? `<tr><td style="padding:2px 0"><strong>Documento:</strong></td><td style="padding:2px 0">${customerDoc}</td></tr>` : ''}
-        ${customerAddress ? `<tr><td style="padding:2px 0"><strong>Dirección:</strong></td><td style="padding:2px 0">${customerAddress}</td></tr>` : ''}
-      </table>
-      `
-      : '';
+    const customerBlock = buildCustomerPrintBlockHtml({
+      name: customer?.name,
+      doc_number: customer?.doc_number,
+      address: customer?.address,
+      phone: customer?.phone,
+    });
     const groupedNota = groupItemsByProductNameForBill((orders || []).flatMap((o) => o.items || []));
     const itemsTableHtml = buildPrintBillTableHtml(groupedNota, formatCurrency);
     const total = (orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
@@ -1793,6 +1813,12 @@ export default function POSPanel() {
       ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
       : '';
     const itemsTableHtml = buildPrintBillTableHtml(groupedTable, formatCurrency);
+    const customerPrintHtml = buildCustomerPrintBlockHtml({
+      name: billingForm.customer_name,
+      doc_number: billingForm.customer_doc_number,
+      address: billingForm.customer_address,
+      phone: billingForm.customer_phone,
+    });
     const w = window.open('', '_blank', 'width=420,height=700');
     if (!w) return toast.error('No se pudo abrir la impresión de precuenta');
     const precuentaParaLlevar = (table.orders || []).some((o) => orderHasTakeoutNote(o));
@@ -1808,6 +1834,7 @@ export default function POSPanel() {
       <h3>PRECUENTA - ${table.name}</h3>
       <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
       ${precuentaParaLlevar ? `<p style="text-align:center;font-weight:800;font-size:14px;letter-spacing:0.08em;margin:8px 0 0 0;">${KITCHEN_TAKEOUT_NOTE}</p>` : ''}
+      ${customerPrintHtml}
       <div class="sep"></div>
       ${itemsTableHtml}
       <div class="sep"></div>
