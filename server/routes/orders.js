@@ -6,6 +6,13 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { assertPaymentMethodAllowed } = require('../businessRules');
 const { getOrderWithItems, createOrderInTransaction, replaceOrderLinesInTransaction, actorFromRequest } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
+const { normalizePrinterStation } = require('../printerStation');
+const {
+  resolveRestaurantId,
+  getPrinterRoute,
+  routeToPrinterConfig,
+  listPrinterRoutes,
+} = require('../printerRoutesService');
 
 const router = express.Router();
 const ORDER_TRANSITIONS = {
@@ -83,15 +90,20 @@ function readSettingsPrinters() {
   return Array.isArray(settings?.impresoras) ? settings.impresoras : [];
 }
 
-/** Misma regla que en database.js (inferPrinterStation): la estación explícita manda sobre el nombre. */
-function normalizePrinterStation(p) {
-  const s = String(p?.station || '').toLowerCase().trim();
-  if (['cocina', 'bar', 'caja'].includes(s)) return s;
-  const n = String(p?.name || '').toLowerCase();
-  if (n.includes('caja')) return 'caja';
-  if (n.includes('bar')) return 'bar';
-  if (n.includes('cocina')) return 'cocina';
-  return 'cocina';
+function readPrintAgentFromSettings() {
+  const settingsRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
+  try {
+    const o = settingsRow?.value ? JSON.parse(settingsRow.value) : {};
+    const pa = o.print_agent && typeof o.print_agent === 'object' ? o.print_agent : {};
+    const defUrl = String(process.env.LOCAL_PRINT_AGENT_URL || 'http://127.0.0.1:49710').replace(/\/$/, '');
+    return {
+      enabled: Number(pa.enabled) === 1,
+      base_url: String(pa.base_url || defUrl).replace(/\/$/, ''),
+    };
+  } catch (_) {
+    const defUrl = String(process.env.LOCAL_PRINT_AGENT_URL || 'http://127.0.0.1:49710').replace(/\/$/, '');
+    return { enabled: false, base_url: defUrl };
+  }
 }
 
 function buildPrinterOut(selected, kind, defaults) {
@@ -99,6 +111,12 @@ function buildPrinterOut(selected, kind, defaults) {
   const explicitWifi = String(selected?.connection || 'browser').toLowerCase() === 'wifi';
   /** Si hay IP, se usa red (muchas instalaciones guardan IP pero dejan "Navegador"). */
   const connection = ip ? 'wifi' : explicitWifi ? 'wifi' : 'browser';
+  const pt = String(selected?.printer_type || '').toLowerCase().trim();
+  const printer_type = ['lan', 'usb', 'bluetooth', 'browser'].includes(pt)
+    ? pt
+    : connection === 'wifi' || ip
+      ? 'lan'
+      : 'browser';
   return {
     name: selected?.name || defaults.name,
     area: selected?.area || defaults.area,
@@ -109,23 +127,31 @@ function buildPrinterOut(selected, kind, defaults) {
     connection,
     ip_address: ip,
     port: Math.min(65535, Math.max(1, Number(selected?.port || 9100) || 9100)),
+    printer_type,
+    auto_print: Number(selected?.auto_print ?? 1),
+    local_printer_name: String(selected?.local_printer_name || '').trim(),
   };
 }
 
-function pickPrinterConfig(kind) {
-  const printers = readSettingsPrinters();
+function pickPrinterConfig(kind, reqOrRestaurantId) {
   const k = String(kind || '').toLowerCase();
-  /**
-   * Solo impresoras activas cuya estación efectiva coincide (campo `station` o inferido del nombre
-   * si el campo falta). Evita el bug anterior: `byName` con `.includes('caja')` tomaba «Impresora Caja»
-   * aunque `station` fuera «cocina» (valor por defecto al crear), y mandaba el tique de caja a la IP de cocina.
-   */
+  const restaurantId =
+    typeof reqOrRestaurantId === 'string' && String(reqOrRestaurantId).trim()
+      ? String(reqOrRestaurantId).trim()
+      : resolveRestaurantId(reqOrRestaurantId?.user);
+  const fromDb = getPrinterRoute(restaurantId, k);
+  if (fromDb) {
+    return routeToPrinterConfig(fromDb, k);
+  }
+  const printers = readSettingsPrinters();
   const selected =
     printers.find((p) => Number(p?.active ?? 1) === 1 && normalizePrinterStation(p) === k) || null;
   const defaults = {
     cocina: { name: 'Impresora Cocina', area: 'Comandas' },
     bar: { name: 'Impresora Bar', area: 'Comandas Bar' },
     caja: { name: 'Impresora Caja', area: 'Comprobantes' },
+    delivery: { name: 'Impresora Delivery', area: 'Delivery' },
+    parrilla: { name: 'Impresora Parrilla', area: 'Parrilla' },
   }[k] || { name: 'Impresora', area: '' };
   return buildPrinterOut(selected, k, defaults);
 }
@@ -204,6 +230,8 @@ function assertStationRole(req, station) {
   if (station === 'cocina' && r === 'cocina') return true;
   if (station === 'bar' && r === 'bar') return true;
   if (station === 'caja' && r === 'cajero') return true;
+  if (station === 'delivery' && (r === 'delivery' || r === 'cajero')) return true;
+  if (station === 'parrilla' && r === 'cocina') return true;
   return false;
 }
 
@@ -294,12 +322,22 @@ router.get('/kitchen', authenticateToken, (req, res) => {
 
 router.get('/print-config', authenticateToken, requireRole('admin', 'cajero', 'mozo', 'cocina', 'bar'), (req, res) => {
   const restaurant = queryOne('SELECT name, address, phone, logo FROM restaurants LIMIT 1') || {};
+  const restaurantId = resolveRestaurantId(req.user);
+  const printAgent = readPrintAgentFromSettings();
   res.json({
     restaurant,
     printers: {
-      cocina: pickPrinterConfig('cocina'),
-      bar: pickPrinterConfig('bar'),
-      caja: pickPrinterConfig('caja'),
+      cocina: pickPrinterConfig('cocina', req),
+      bar: pickPrinterConfig('bar', req),
+      caja: pickPrinterConfig('caja', req),
+      delivery: pickPrinterConfig('delivery', req),
+      parrilla: pickPrinterConfig('parrilla', req),
+    },
+    printer_routes: listPrinterRoutes(restaurantId),
+    print_agent: {
+      ...printAgent,
+      description:
+        'Con la API en la nube, instale el agente local (carpeta local-print-agent) en el PC del restaurante y active «Usar agente» en Configuración → Impresoras. El navegador enviará trabajos a http://127.0.0.1 sin cuadro de impresión.',
     },
   });
 });
@@ -308,13 +346,13 @@ router.get('/print-config', authenticateToken, requireRole('admin', 'cajero', 'm
 router.post('/print-network', authenticateToken, requireRole('admin', 'cajero', 'cocina', 'bar'), async (req, res) => {
   try {
     const station = String(req.body?.station || '').toLowerCase();
-    if (!['cocina', 'bar', 'caja'].includes(station)) {
+    if (!['cocina', 'bar', 'caja', 'delivery', 'parrilla'].includes(station)) {
       return res.status(400).json({ error: 'Estación inválida' });
     }
     if (!assertStationRole(req, station)) {
       return res.status(403).json({ error: 'No puedes enviar impresión para esta estación' });
     }
-    const cfg = pickPrinterConfig(station);
+    const cfg = pickPrinterConfig(station, req);
     if (cfg.connection !== 'wifi' || !cfg.ip_address) {
       return res.status(400).json({ error: 'La impresora de esta estación no tiene IP configurada (o está inactiva / otra estación)' });
     }

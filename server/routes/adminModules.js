@@ -12,6 +12,7 @@ const {
 const { getOrderWithItems } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
 const { consultarPadronPeru } = require('../peruConsultaPadron');
+const { resolveRestaurantId, syncPrinterRoutesFromImpresoras, listPrinterRoutes } = require('../printerRoutesService');
 
 router.use(authenticateToken, requireRole('admin', 'cajero', 'mozo'));
 
@@ -84,6 +85,15 @@ function hasReservationConflict({ tableId, date, time, excludeId = '' }) {
 
 router.get('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
   res.json(readAppSettingsObject());
+});
+
+/** Rutas de impresión persistidas (tabla printer_routes, por restaurant_id). */
+router.get('/printer-routes', requireRole('admin', 'master_admin'), (req, res) => {
+  try {
+    res.json({ routes: listPrinterRoutes(resolveRestaurantId(req.user)) });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'No se pudieron leer las rutas' });
+  }
 });
 
 router.get('/auto-pedido/cartas', (req, res) => {
@@ -295,6 +305,16 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
     const urlAfter = String(out.pago_uso_sistema?.comprobante_pago_url || '').trim();
     releaseAutoLockIfComprobantePresent(urlAfter);
     evaluateAutomaticBillingRules();
+  }
+  if (changedKeys.includes('settings') || updatedKeys.includes('settings')) {
+    try {
+      const s = out.settings || {};
+      if (Array.isArray(s.impresoras)) {
+        syncPrinterRoutesFromImpresoras(resolveRestaurantId(req.user), s.impresoras);
+      }
+    } catch (e) {
+      console.error('[printer_routes] sync desde settings:', e.message || e);
+    }
   }
   res.json(out);
   } catch (err) {

@@ -1385,6 +1385,86 @@ async function initDatabase() {
       }
     }
 
+    const migPrinterRoutes = queryOne(
+      'SELECT 1 as ok FROM schema_migrations WHERE migration_key = ?',
+      ['2026-04-printer-routes-v1']
+    );
+    if (!migPrinterRoutes?.ok) {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS printer_routes (
+          id TEXT PRIMARY KEY,
+          restaurant_id TEXT NOT NULL,
+          area TEXT NOT NULL,
+          printer_name TEXT DEFAULT '',
+          printer_type TEXT NOT NULL DEFAULT 'browser',
+          ip_address TEXT DEFAULT '',
+          port INTEGER NOT NULL DEFAULT 9100,
+          paper_width INTEGER NOT NULL DEFAULT 80,
+          auto_print INTEGER NOT NULL DEFAULT 1,
+          copies INTEGER NOT NULL DEFAULT 1,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          local_printer_name TEXT DEFAULT '',
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(restaurant_id, area)
+        )
+      `);
+      db.run('CREATE INDEX IF NOT EXISTS idx_printer_routes_restaurant ON printer_routes(restaurant_id)');
+      try {
+        const { normalizePrinterStation } = require('./printerStation');
+        const rest = queryOne('SELECT id FROM restaurants ORDER BY created_at ASC LIMIT 1');
+        const rid = String(rest?.id || '').trim();
+        if (rid) {
+          const settingsRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
+          let impresoras = [];
+          try {
+            const parsed = settingsRow?.value ? JSON.parse(settingsRow.value) : {};
+            impresoras = Array.isArray(parsed.impresoras) ? parsed.impresoras : [];
+          } catch (_) {
+            impresoras = [];
+          }
+          const byArea = new Map();
+          for (const p of impresoras) {
+            byArea.set(normalizePrinterStation(p), p);
+          }
+          for (const [area, p] of byArea) {
+            const ip = String(p.ip_address || '').trim();
+            const conn = String(p.connection || 'browser').toLowerCase();
+            let printerType = 'browser';
+            if (ip || conn === 'wifi') printerType = 'lan';
+            const port = Math.min(65535, Math.max(1, Number(p.port || 9100) || 9100));
+            const paper = [58, 80].includes(Number(p.width_mm)) ? Number(p.width_mm) : 80;
+            const copies = Math.min(5, Math.max(1, Number(p.copies || 1)));
+            const enabled = Number(p.active ?? 1) === 1 ? 1 : 0;
+            const autoPrint = Number(p.auto_print ?? 1) === 0 ? 0 : 1;
+            db.run(
+              `INSERT INTO printer_routes (
+                id, restaurant_id, area, printer_name, printer_type, ip_address, port, paper_width,
+                auto_print, copies, enabled, local_printer_name, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+              [
+                uuidv4(),
+                rid,
+                area,
+                String(p.name || '').trim() || area,
+                printerType,
+                ip,
+                port,
+                paper,
+                autoPrint,
+                copies,
+                enabled,
+                String(p.local_printer_name || '').trim(),
+              ]
+            );
+          }
+        }
+      } catch (e) {
+        console.error('[migration] printer_routes seed:', e.message || e);
+      }
+      db.run('INSERT OR IGNORE INTO schema_migrations (migration_key) VALUES (?)', ['2026-04-printer-routes-v1']);
+    }
+
     db.run('CREATE INDEX IF NOT EXISTS idx_customers_doc_number ON customers(doc_number)');
     db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_doc_number_unique ON customers(doc_number) WHERE COALESCE(doc_number, '') != ''");
     db.run('CREATE INDEX IF NOT EXISTS idx_app_settings_history_created_at ON app_settings_history(created_at)');
@@ -1486,8 +1566,10 @@ async function initDatabase() {
       const printers = Array.isArray(parsed.impresoras) ? parsed.impresoras : [];
       const inferPrinterStation = (p) => {
         const s = String(p?.station || '').toLowerCase();
-        if (['cocina', 'bar', 'caja'].includes(s)) return s;
+        if (['cocina', 'bar', 'caja', 'delivery', 'parrilla'].includes(s)) return s;
         const n = String(p?.name || '').toLowerCase();
+        if (n.includes('parrilla')) return 'parrilla';
+        if (n.includes('delivery')) return 'delivery';
         if (n.includes('caja')) return 'caja';
         if (n.includes('bar')) return 'bar';
         if (n.includes('cocina')) return 'cocina';

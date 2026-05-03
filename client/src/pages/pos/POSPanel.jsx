@@ -3,6 +3,7 @@ import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
 import { shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
 import { printHtmlDocument } from '../../utils/printHtml';
+import { postLocalAgentPrint } from '../../utils/localPrintAgent';
 import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
@@ -328,6 +329,7 @@ export default function POSPanel() {
   const [priceResults, setPriceResults] = useState([]);
   const printRef = useRef(null);
   const [cajaPrintCfg, setCajaPrintCfg] = useState(null);
+  const [printAgentCfg, setPrintAgentCfg] = useState(null);
   const [printRestaurantInfo, setPrintRestaurantInfo] = useState({ name: 'Resto-FADEY', logo: '' });
   const { user } = useAuth();
   const [cajaStations, setCajaStations] = useState([]);
@@ -393,6 +395,7 @@ export default function POSPanel() {
         setAdminRegisterId('');
       }
       setCajaPrintCfg(printCfgRes?.printers?.caja || null);
+      setPrintAgentCfg(printCfgRes?.print_agent || null);
       setPrintRestaurantInfo({
         name: String(printCfgRes?.restaurant?.name || 'Resto-FADEY').trim() || 'Resto-FADEY',
         logo: resolveMediaUrl(printCfgRes?.restaurant?.logo || ''),
@@ -749,20 +752,35 @@ export default function POSPanel() {
     const content = printRef.current;
     if (!content) return;
     const caja = cajaPrintCfg;
+    const textForPrint = String(content.innerText || content.textContent || '')
+      .replace(/\r\n/g, '\n')
+      .trim()
+      .slice(0, 12000);
     if (shouldTryServerNetworkPrint(caja)) {
-      const text = String(content.innerText || content.textContent || '')
-        .replace(/\r\n/g, '\n')
-        .trim()
-        .slice(0, 12000);
-      if (text) {
+      if (textForPrint) {
         try {
           const copies = Math.min(5, Math.max(1, Number(caja.copies || 1)));
-          await api.post('/orders/print-network', { station: 'caja', text, copies });
+          await api.post('/orders/print-network', { station: 'caja', text: textForPrint, copies });
           toast.success('Enviado a impresora de caja (red)');
           return;
         } catch (err) {
           toast.error(err.message || 'No se pudo imprimir por red; se abrirá el cuadro de impresión');
         }
+      }
+    }
+    if (printAgentCfg?.enabled && String(caja?.ip_address || '').trim() && textForPrint) {
+      try {
+        const copies = Math.min(5, Math.max(1, Number(caja.copies || 1)));
+        await postLocalAgentPrint(printAgentCfg.base_url, {
+          ip_address: caja.ip_address,
+          port: caja.port || 9100,
+          text: textForPrint,
+          copies,
+        });
+        toast.success('Enviado al agente de impresión local');
+        return;
+      } catch (err) {
+        toast.error(err?.message || 'Agente local no disponible');
       }
     }
     const printedAt = formatPeDateTimeParts(new Date());

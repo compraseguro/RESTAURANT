@@ -8,6 +8,7 @@ import {
 } from '../../utils/ticketPlainText';
 import { shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
 import { printHtmlDocument } from '../../utils/printHtml';
+import { postLocalAgentPrint } from '../../utils/localPrintAgent';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -116,8 +117,10 @@ export default function KitchenPanel({ station = 'cocina' }) {
     /** Siempre refrescar: al llegar un pedido por socket a veces aún no cargó print-config y se caía al navegador. */
     let cfgPrinters = printConfig;
     let cfgRestaurant = restaurantInfo;
+    let printAgentCfg = null;
     try {
       const cfg = await api.get('/orders/print-config');
+      printAgentCfg = cfg?.print_agent || null;
       if (cfg?.printers) {
         cfgPrinters = cfg.printers;
         setPrintConfig(cfg.printers);
@@ -130,17 +133,20 @@ export default function KitchenPanel({ station = 'cocina' }) {
       /* usar estado previo */
     }
     const stationConfig = station === 'bar' ? cfgPrinters?.bar : cfgPrinters?.cocina;
+    if (silent && Number(stationConfig?.auto_print ?? 1) === 0) {
+      return;
+    }
     const width = [58, 80].includes(Number(stationConfig?.width_mm)) ? Number(stationConfig.width_mm) : 80;
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
     const ticketWidth = width === 58 ? '54mm' : '76mm';
     const stationKey = isBar ? 'bar' : 'cocina';
+    const plain = buildKitchenTicketPlainText({
+      restaurant: cfgRestaurant,
+      title,
+      orders: list,
+      copies: 1,
+    });
     if (shouldTryServerNetworkPrint(stationConfig)) {
-      const plain = buildKitchenTicketPlainText({
-        restaurant: cfgRestaurant,
-        title,
-        orders: list,
-        copies: 1,
-      });
       try {
         await api.post('/orders/print-network', { station: stationKey, text: plain, copies });
         if (!silent) toast.success('Enviado a impresora de red');
@@ -149,6 +155,25 @@ export default function KitchenPanel({ station = 'cocina' }) {
         const msg = err.message || 'No se pudo imprimir por red';
         if (silent) {
           toast.error(`Impresión automática (red): ${msg}. Se abre impresión del navegador.`, { duration: 6000 });
+        } else {
+          toast.error(`${msg}; se usará el cuadro de impresión del sistema`);
+        }
+      }
+    }
+    if (printAgentCfg?.enabled && String(stationConfig?.ip_address || '').trim()) {
+      try {
+        await postLocalAgentPrint(printAgentCfg.base_url, {
+          ip_address: stationConfig.ip_address,
+          port: stationConfig.port || 9100,
+          text: plain,
+          copies,
+        });
+        if (!silent) toast.success('Enviado al agente de impresión local');
+        return;
+      } catch (err) {
+        const msg = err?.message || 'Agente local no disponible';
+        if (silent) {
+          toast.error(`Impresión automática: ${msg}`, { duration: 6000 });
         } else {
           toast.error(`${msg}; se usará el cuadro de impresión del sistema`);
         }
@@ -253,8 +278,10 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const printSimpleComanda = async (order) => {
     if (!order?.id) return;
     let cfgPrinters = printConfig;
+    let agentCfg = null;
     try {
       const cfg = await api.get('/orders/print-config');
+      agentCfg = cfg?.print_agent || null;
       if (cfg?.printers) {
         cfgPrinters = cfg.printers;
         setPrintConfig(cfg.printers);
@@ -273,6 +300,20 @@ export default function KitchenPanel({ station = 'cocina' }) {
         return;
       } catch (err) {
         toast.error(err.message || 'No se pudo imprimir por red; use el cuadro de impresión');
+      }
+    }
+    if (agentCfg?.enabled && String(stationConfig?.ip_address || '').trim()) {
+      try {
+        await postLocalAgentPrint(agentCfg.base_url, {
+          ip_address: stationConfig.ip_address,
+          port: stationConfig.port || 9100,
+          text: plain,
+          copies,
+        });
+        toast.success('Enviado al agente local');
+        return;
+      } catch (err) {
+        toast.error(err?.message || 'Agente local no disponible');
       }
     }
     const inner = buildSimpleComandaPrintHtml(order);

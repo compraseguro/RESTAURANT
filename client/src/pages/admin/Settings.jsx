@@ -106,10 +106,15 @@ const DEFAULT_APP_SETTINGS = {
     { name: 'Nota de Venta', series: 'N001', active: 1 },
   ],
   impresoras: [
-    { name: 'Impresora Cocina', area: 'Comandas', station: 'cocina', connection: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1 },
-    { name: 'Impresora Bar', area: 'Comandas Bar', station: 'bar', connection: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1 },
-    { name: 'Impresora Caja', area: 'Comprobantes', station: 'caja', connection: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1 },
+    { name: 'Impresora Cocina', area: 'Comandas', station: 'cocina', connection: 'browser', printer_type: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
+    { name: 'Impresora Bar', area: 'Comandas Bar', station: 'bar', connection: 'browser', printer_type: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
+    { name: 'Impresora Caja', area: 'Comprobantes', station: 'caja', connection: 'browser', printer_type: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
   ],
+  /** Agente ESC/POS en el PC del local (ver carpeta local-print-agent). */
+  print_agent: {
+    enabled: 0,
+    base_url: 'http://127.0.0.1:49710',
+  },
   tarjetas: [
     { name: 'Visa', fee_percent: 2.5, active: 1 },
     { name: 'Mastercard', fee_percent: 3, active: 1 },
@@ -198,12 +203,26 @@ const SETTINGS_SECTION_FORMS = {
           { value: 'cocina', label: 'Cocina' },
           { value: 'bar', label: 'Bar' },
           { value: 'caja', label: 'Caja (POS / comprobantes)' },
+          { value: 'delivery', label: 'Delivery' },
+          { value: 'parrilla', label: 'Parrilla' },
         ],
       },
       { key: 'area', label: 'Texto en ticket (área)', required: true },
       {
+        key: 'printer_type',
+        label: 'Tipo de destino (SaaS / agente)',
+        required: true,
+        type: 'select',
+        options: [
+          { value: 'browser', label: 'Navegador (diálogo de impresión)' },
+          { value: 'lan', label: 'Red LAN IP:9100 (RAW ESC/POS)' },
+          { value: 'usb', label: 'USB Windows (vía agente local, en desarrollo)' },
+          { value: 'bluetooth', label: 'Bluetooth (vía agente local, en desarrollo)' },
+        ],
+      },
+      {
         key: 'connection',
-        label: 'Conexión',
+        label: 'Conexión (legacy)',
         required: true,
         type: 'select',
         options: [
@@ -211,6 +230,17 @@ const SETTINGS_SECTION_FORMS = {
           { value: 'wifi', label: 'Red local WiFi / Ethernet (IP + puerto 9100)' },
         ],
       },
+      {
+        key: 'auto_print',
+        label: 'Auto-impresión',
+        required: true,
+        type: 'select',
+        options: [
+          { value: '1', label: 'Sí (cocina/bar al recibir pedido)' },
+          { value: '0', label: 'No' },
+        ],
+      },
+      { key: 'local_printer_name', label: 'Nombre impresora Windows / cola (USB, opcional)' },
       { key: 'ip_address', label: 'IP de la impresora (solo modo red)' },
       { key: 'port', label: 'Puerto TCP', type: 'number' },
       { key: 'width_mm', label: 'Ancho ticket (mm)', type: 'number' },
@@ -309,6 +339,7 @@ export default function Settings() {
   const [historyPreview, setHistoryPreview] = useState(null);
   const [settingsCrudModal, setSettingsCrudModal] = useState({ isOpen: false, section: '', index: null });
   const [settingsCrudForm, setSettingsCrudForm] = useState({});
+  const [printerRoutesDb, setPrinterRoutesDb] = useState([]);
   const [attendanceGalleryUserId, setAttendanceGalleryUserId] = useState('');
   const [attendanceGallerySessions, setAttendanceGallerySessions] = useState([]);
   const [attendanceGalleryLoading, setAttendanceGalleryLoading] = useState(false);
@@ -378,6 +409,14 @@ export default function Settings() {
   };
 
   useEffect(() => { loadUsers(); loadRestaurant(); loadAppSettings(); }, []);
+
+  useEffect(() => {
+    if (activeSection !== 'impresoras') return;
+    api
+      .get('/admin-modules/printer-routes')
+      .then((d) => setPrinterRoutesDb(Array.isArray(d?.routes) ? d.routes : []))
+      .catch(() => setPrinterRoutesDb([]));
+  }, [activeSection]);
 
   useEffect(() => {
     if (!attendanceGalleryUserId) {
@@ -686,6 +725,14 @@ export default function Settings() {
         if (!nextForm.station) nextForm.station = String(source.station || 'cocina');
         if (!nextForm.connection) nextForm.connection = String(source.connection || 'browser');
       }
+      if (!nextForm.printer_type) {
+        nextForm.printer_type = String(nextForm.connection || '').toLowerCase() === 'wifi' ? 'lan' : 'browser';
+      }
+      if (index !== null) {
+        nextForm.auto_print = String(Number(source.auto_print ?? 1) === 0 ? 0 : 1);
+      } else if (nextForm.auto_print === undefined || nextForm.auto_print === '') {
+        nextForm.auto_print = '1';
+      }
     }
     setSettingsCrudForm(nextForm);
     setSettingsCrudModal({ isOpen: true, section, index });
@@ -725,11 +772,12 @@ export default function Settings() {
       const copies = Number(settingsCrudForm.copies || 1);
       const port = Number(settingsCrudForm.port || 9100);
       const conn = String(settingsCrudForm.connection || 'browser').toLowerCase();
+      const pt = String(settingsCrudForm.printer_type || '').toLowerCase();
       const ip = String(settingsCrudForm.ip_address || '').trim();
       if (![58, 80].includes(width)) return toast.error('El ancho debe ser 58 u 80 mm');
       if (copies < 1 || copies > 5) return toast.error('Las copias deben estar entre 1 y 5');
       if (port < 1 || port > 65535) return toast.error('Puerto TCP inválido');
-      if (conn === 'wifi') {
+      if (conn === 'wifi' || pt === 'lan') {
         if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
           return toast.error('Indica una IP válida (ej. 192.168.1.50) para impresora en red');
         }
@@ -760,6 +808,11 @@ export default function Settings() {
         const existingId = String(existing.id || '').trim();
         payload.id = existingId || newLocalCajaId();
       }
+    }
+    if (section === 'impresoras') {
+      const pt = String(payload.printer_type || 'browser').toLowerCase();
+      payload.connection = pt === 'lan' ? 'wifi' : 'browser';
+      payload.auto_print = String(payload.auto_print) === '0' ? 0 : 1;
     }
     setAppSettings(prev => {
       const list = Array.isArray(prev[section]) ? [...prev[section]] : [];
@@ -1281,10 +1334,49 @@ export default function Settings() {
             <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-4 py-3 text-sm text-[var(--ui-body-text)] shadow-inner">
               <p className="font-semibold text-[var(--ui-body-text)] mb-2">Control central de impresoras</p>
               <p className="text-[#D1D5DB] leading-relaxed">
-                Defina aquí cocina, bar y caja. Con una <strong className="text-[var(--ui-accent-muted)]">IP válida</strong> se usa impresión por red (ESC/POS en puerto TCP, habitualmente <strong className="text-[var(--ui-accent-muted)]">9100</strong>). El envío lo hace el <strong className="text-[var(--ui-accent-muted)]">servidor Node</strong>: debe estar en la misma LAN que la impresora (si la API está solo en internet, no podrá abrir <code className="text-xs bg-slate-100 px-1 rounded">192.168.x.x</code>; en ese caso ejecute el backend en local o use modo navegador).
-                Si el backend está en la nube (Render, etc.), no podrá abrir la IP de su WiFi: use <strong className="text-[var(--ui-accent-muted)]">Navegador</strong> o un servidor en el local.
-                Cocina y bar envían comandas desde su panel; la caja usa la impresora marcada como estación <strong className="text-[var(--ui-accent-muted)]">caja</strong> cuando imprima desde POS.
+                Áreas soportadas: <strong className="text-[var(--ui-accent-muted)]">cocina, bar, caja, delivery, parrilla</strong>. Cada restaurante tiene rutas en la tabla <code className="text-xs bg-slate-800/40 px-1 rounded">printer_routes</code> (sincronizada al guardar esta pantalla). Con <strong className="text-[var(--ui-accent-muted)]">IP</strong> y puerto <strong className="text-[var(--ui-accent-muted)]">9100</strong> (RAW ESC/POS) el backend en LAN o el <strong className="text-[var(--ui-accent-muted)]">agente local</strong> envían el ticket sin diálogo del navegador.
+                Si la API está en internet sin agente, use modo navegador o active el agente en el PC del local (carpeta <code className="text-xs bg-slate-800/40 px-1 rounded">local-print-agent</code>).
               </p>
+            </div>
+            <div className="card space-y-3 p-4 border border-emerald-800/20 bg-emerald-950/20">
+              <p className="font-semibold text-[var(--ui-body-text)]">Agente local (impresión directa ESC/POS)</p>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Ejecute <code className="text-xs bg-slate-900 px-1 rounded">npm install && npm start</code> dentro de <code className="text-xs bg-slate-900 px-1 rounded">local-print-agent</code>. El navegador enviará trabajos a la URL indicada (típicamente <code className="text-xs bg-slate-900 px-1 rounded">http://127.0.0.1:49710</code>). En tablets Android en la misma WiFi puede usar la IP LAN del PC donde corre el agente.
+              </p>
+              <label className="flex items-center gap-2 text-sm cursor-pointer text-[var(--ui-body-text)]">
+                <input
+                  type="checkbox"
+                  checked={Number(appSettings.print_agent?.enabled) === 1}
+                  onChange={(e) =>
+                    setAppSettings((prev) => ({
+                      ...prev,
+                      print_agent: {
+                        ...(prev.print_agent || {}),
+                        enabled: e.target.checked ? 1 : 0,
+                        base_url: String(prev.print_agent?.base_url || 'http://127.0.0.1:49710'),
+                      },
+                    }))
+                  }
+                />
+                Usar agente local para impresoras LAN (sin window.print)
+              </label>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">URL base del agente</label>
+                <input
+                  className="input-field text-sm"
+                  value={String(appSettings.print_agent?.base_url || 'http://127.0.0.1:49710')}
+                  onChange={(e) =>
+                    setAppSettings((prev) => ({
+                      ...prev,
+                      print_agent: {
+                        ...(prev.print_agent || {}),
+                        base_url: (e.target.value || 'http://127.0.0.1:49710').trim(),
+                      },
+                    }))
+                  }
+                  placeholder="http://127.0.0.1:49710"
+                />
+              </div>
             </div>
             <div className="flex justify-between items-center">
               <p className="text-sm text-slate-500">Impresoras configuradas en el sistema</p>
@@ -1305,6 +1397,15 @@ export default function Settings() {
                         {String(pr.connection || 'browser').toLowerCase() === 'wifi' && pr.ip_address
                           ? <>WiFi <code className="bg-slate-100 px-1 rounded text-slate-800">{pr.ip_address}:{Number(pr.port || 9100)}</code></>
                           : <>Navegador (diálogo de impresión en el PC)</>}
+                        {' · '}
+                        tipo <span className="font-medium text-slate-700">{pr.printer_type || '—'}</span>
+                        {' · '}auto{' '}
+                        {Number(pr.auto_print ?? 1) === 1 ? 'sí' : 'no'}
+                        {pr.local_printer_name ? (
+                          <>
+                            {' · '}USB/cola: <span className="font-medium text-slate-700">{pr.local_printer_name}</span>
+                          </>
+                        ) : null}
                       </p>
                     </div>
                   </div>
@@ -1328,6 +1429,40 @@ export default function Settings() {
                 </div>
               ))}
             </div>
+            {printerRoutesDb.length > 0 && (
+              <div className="card overflow-x-auto">
+                <p className="text-sm font-semibold text-[var(--ui-body-text)] mb-2">Rutas en base de datos (printer_routes)</p>
+                <p className="text-xs text-slate-500 mb-2">Una fila por área y restaurante; se actualiza al pulsar Guardar.</p>
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-slate-500 border-b border-slate-200">
+                      <th className="py-2 pr-3">Área</th>
+                      <th className="py-2 pr-3">Nombre</th>
+                      <th className="py-2 pr-3">Tipo</th>
+                      <th className="py-2 pr-3">IP</th>
+                      <th className="py-2 pr-3">Ancho</th>
+                      <th className="py-2 pr-3">Copias</th>
+                      <th className="py-2 pr-3">Auto</th>
+                      <th className="py-2">Activa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {printerRoutesDb.map((r) => (
+                      <tr key={r.id} className="border-b border-slate-100">
+                        <td className="py-2 pr-3 font-medium">{r.area}</td>
+                        <td className="py-2 pr-3">{r.printer_name}</td>
+                        <td className="py-2 pr-3">{r.printer_type}</td>
+                        <td className="py-2 pr-3">{r.ip_address || '—'}</td>
+                        <td className="py-2 pr-3">{r.paper_width}mm</td>
+                        <td className="py-2 pr-3">{r.copies}</td>
+                        <td className="py-2 pr-3">{Number(r.auto_print) === 1 ? 'sí' : 'no'}</td>
+                        <td className="py-2">{Number(r.enabled) === 1 ? 'sí' : 'no'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <div className="flex justify-end">
               <button type="button" onClick={saveAppSettings} className="btn-primary flex items-center gap-2"><MdSave /> Guardar</button>
             </div>
