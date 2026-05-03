@@ -1392,7 +1392,10 @@ export default function Settings() {
               <h3 className="font-semibold text-slate-800">Print-agent en el PC del local</h3>
               <p className="text-xs text-slate-500">
                 Instale y ejecute la carpeta <code className="bg-slate-100 px-1 rounded">local-print-agent</code> en cada equipo que imprime.
-                El navegador envía trabajos a esta URL (localhost). Opcional: mismo token que la variable{' '}
+                Con <strong>npm run dev</strong> el front usa el proxy <code className="bg-slate-100 px-1 rounded">/print-agent</code> (evita «Failed to fetch»
+                por HTTPS). Si la API ocupa el puerto 3001, arranque el agente en otro (p. ej. <code className="bg-slate-100 px-1 rounded">PORT=3002</code>) y en{' '}
+                <code className="bg-slate-100 px-1 rounded">client/.env</code> defina <code className="bg-slate-100 px-1 rounded">VITE_PRINT_AGENT_TARGET=http://127.0.0.1:3002</code>.
+                En la web pública HTTPS, use la app por <strong>http://</strong> en la red del local o un proxy nginx hacia el agente. Opcional: mismo token que{' '}
                 <code className="bg-slate-100 px-1 rounded">PRINT_AGENT_TOKEN</code> del agente.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

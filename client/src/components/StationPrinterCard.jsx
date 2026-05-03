@@ -102,7 +102,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
       }
       if (isLocalPrintAgentConfigured(pa)) {
         try {
-          await probeAgentTcp(pa.base_url, pa, ip, form.port);
+          await probeAgentTcp(pa, ip, form.port);
         } catch (e) {
           toast.error(
             `No se pudo validar la conexión TCP: ${e?.message || 'error'}. Revise IP, puerto 9100 y que la térmica esté encendida.`
@@ -113,7 +113,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
     }
     if (form.printer_type === 'usb' && String(form.local_printer_name || '').trim() && isLocalPrintAgentConfigured(pa)) {
       try {
-        const list = await fetchAgentPrinters(pa.base_url, pa);
+        const list = await fetchAgentPrinters(pa);
         const want = String(form.local_printer_name || '').trim();
         const found = list.some((n) => String(n).trim() === want);
         if (!found) {
@@ -150,7 +150,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
     }
     setDetecting(true);
     try {
-      const list = await fetchAgentPrinters(pa.base_url, pa);
+      const list = await fetchAgentPrinters(pa);
       if (!list.length) {
         toast.error('No se detectaron impresoras en este equipo (o el agente no tiene permisos).');
         return;
@@ -213,7 +213,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
     setStatusLoading(true);
     setAgentHint(null);
     try {
-      const ok = await probeLocalAgent(pa.base_url, pa);
+      const ok = await probeLocalAgent(pa);
       if (!ok) {
         toast.error('El agente no responde en la URL configurada.');
         return;
@@ -234,7 +234,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
     }
     setStatusLoading(true);
     try {
-      const st = await fetchAgentStatus(pa.base_url, pa);
+      const st = await fetchAgentStatus(pa);
       const q = Number(st.queueLength ?? 0);
       const last = st.lastOkAt || st.lastJobAt || '—';
       const err = st.lastError ? ` · Último error: ${String(st.lastError).slice(0, 120)}` : '';
@@ -261,7 +261,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
     }
     setStatusLoading(true);
     try {
-      await probeAgentTcp(pa.base_url, pa, ip, form.port);
+      await probeAgentTcp(pa, ip, form.port);
       toast.success('Puerto RAW responde (conexión TCP OK)');
     } catch (e) {
       toast.error(e?.message || 'No se alcanzó la impresora');

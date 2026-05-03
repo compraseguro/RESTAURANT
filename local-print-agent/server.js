@@ -19,6 +19,11 @@ const BIND_HOST = String(process.env.BIND_HOST || '127.0.0.1').trim() || '127.0.
 const PRINT_AGENT_TOKEN = String(process.env.PRINT_AGENT_TOKEN || '').trim();
 
 const app = express();
+/** Permite preflight desde páginas HTTPS públicas hacia red local (Chrome Private Network Access). */
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  next();
+});
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: '512kb' }));
 
