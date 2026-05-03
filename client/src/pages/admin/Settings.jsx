@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { api, formatDateTime } from '../../utils/api';
 import { shouldSendToNetworkPrinter, shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
+import { postLocalAgentPrint } from '../../utils/localPrintAgent';
 import { printHtmlDocument } from '../../utils/printHtml';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
@@ -568,10 +569,21 @@ export default function Settings() {
 
   const testPrinterFromSettings = async (pr) => {
     const name = String(pr?.name || 'Impresora').trim() || 'Impresora';
+    const ip = String(pr?.ip_address || '').trim();
+    const nowPe = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
+    const plainTestBody = [
+      '*** PRUEBA DE IMPRESION ***',
+      name,
+      nowPe,
+      'Si lee esto, la conexion',
+      'TCP/RAW a la impresora OK.',
+      '',
+    ].join('\n');
+
     if (shouldTryServerNetworkPrint(pr)) {
       try {
         await api.post('/orders/print-test', {
-          ip_address: String(pr.ip_address || '').trim(),
+          ip_address: ip,
           port: Number(pr.port || 9100),
           copies: Math.min(5, Math.max(1, Number(pr.copies || 1))),
           name,
@@ -582,14 +594,34 @@ export default function Settings() {
       }
       return;
     }
+
+    /** API en la nube no alcanza 192.168.x: mismo camino que cocina/POS vía agente en el PC del local. */
+    if (shouldSendToNetworkPrinter(pr) && Number(appSettings.print_agent?.enabled) === 1) {
+      const baseUrl = String(appSettings.print_agent?.base_url || 'http://127.0.0.1:49710').trim();
+      try {
+        await postLocalAgentPrint(baseUrl, {
+          ip_address: ip,
+          port: Number(pr.port || 9100),
+          copies: Math.min(5, Math.max(1, Number(pr.copies || 1))),
+          text: plainTestBody,
+        });
+        toast.success(`Prueba enviada por el programa local a «${name}»`);
+      } catch (err) {
+        toast.error(
+          err?.message || 'No se pudo enviar la prueba al programa local. ¿Está en ejecución en este equipo?'
+        );
+      }
+      return;
+    }
+
     const esc = (s) => String(s ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
-    const t = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
+    const t = nowPe;
     const hint =
       shouldSendToNetworkPrinter(pr) && !shouldTryServerNetworkPrint(pr)
-        ? '<p style="margin:12px 0 0;color:#b45309">La API está en internet: no puede enviar a la IP local. Use el cuadro de impresión y elija su térmica.</p>'
+        ? '<p style="margin:12px 0 0;color:#b45309">La API está en internet: no puede enviar sola a la IP de su red. Active abajo «Programa de impresión en este equipo» y pulse de nuevo Probar, o use Ctrl+P y elija su térmica.</p>'
         : '';
     const testHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Prueba ${esc(name)}</title>
       <style>body{font-family:system-ui,sans-serif;padding:16px;font-size:14px}</style></head><body>
@@ -1385,8 +1417,10 @@ export default function Settings() {
                       className="p-2 hover:bg-sky-50 rounded-lg text-sky-600"
                       title={
                         shouldTryServerNetworkPrint(pr)
-                          ? 'Probar impresión (red TCP)'
-                          : 'Probar impresión (cuadro del sistema)'
+                          ? 'Probar impresión (red TCP vía servidor)'
+                          : shouldSendToNetworkPrinter(pr) && Number(appSettings.print_agent?.enabled) === 1
+                            ? 'Probar impresión (programa local → impresora)'
+                            : 'Probar impresión (cuadro del sistema / navegador)'
                       }
                       onClick={() => testPrinterFromSettings(pr)}
                     >
