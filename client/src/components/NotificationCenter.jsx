@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { api } from '../utils/api';
+import { api, resolveMediaUrl } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import StaffTeamChat from './StaffTeamChat';
 import Modal from './Modal';
@@ -162,7 +162,7 @@ export default function NotificationCenter({ className = '' }) {
                     <p className="text-sm text-[var(--ui-muted)] text-center py-8">Sin avisos del sistema.</p>
                   ) : (
                     visibleAdminNotifications.slice(0, 15).map((n) => (
-                      <div key={n.id} className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3">
+                      <div key={n.id} className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 overflow-hidden">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-semibold text-[var(--ui-body-text)] pr-2 flex-1 min-w-0 select-none cursor-default">
                             {n.title}
@@ -178,10 +178,16 @@ export default function NotificationCenter({ className = '' }) {
                           </button>
                         </div>
                         <p className="text-[10px] text-[var(--ui-muted)] mt-1">{new Date(n.created_at).toLocaleString('es-PE')}</p>
-                        <p className="text-xs text-[var(--ui-body-text)] mt-2 whitespace-pre-wrap select-text">{n.message}</p>
                         {n.image_url ? (
-                          <img src={n.image_url} alt="" className="mt-2 rounded-lg max-h-32 w-full object-cover border border-[color:var(--ui-border)]" />
+                          <div className="mt-2 -mx-0.5 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-body-bg)] overflow-hidden">
+                            <img
+                              src={resolveMediaUrl(n.image_url)}
+                              alt=""
+                              className="w-full h-auto max-h-[min(42vh,320px)] object-contain object-center block"
+                            />
+                          </div>
                         ) : null}
+                        <p className="text-xs text-[var(--ui-body-text)] mt-2 whitespace-pre-wrap select-text">{n.message}</p>
                       </div>
                     ))
                   )}

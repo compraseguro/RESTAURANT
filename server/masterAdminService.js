@@ -171,12 +171,28 @@ function getActiveNotifications() {
   return getNotifications().filter((n) => isNotificationActive(n, now));
 }
 
-function addNotification({ title, message, image_url = '', created_by = 'Sistema', level = 'info', duration_hours = null }) {
+function addNotification({
+  title,
+  message,
+  image_url = '',
+  created_by = 'Sistema',
+  level = 'info',
+  duration_hours = null,
+  expires_at: explicitExpiresAt = null,
+}) {
   const notifications = getNotifications();
-  const hasDuration = duration_hours !== null && duration_hours !== undefined && Number(duration_hours) > 0;
-  const expiresAt = hasDuration
-    ? new Date(Date.now() + (Number(duration_hours) * 60 * 60 * 1000)).toISOString()
-    : null;
+  const expTrim =
+    explicitExpiresAt != null && String(explicitExpiresAt).trim() !== '' ? String(explicitExpiresAt).trim() : '';
+  let expiresAt = null;
+  if (expTrim) {
+    const parsed = new Date(expTrim);
+    expiresAt = Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  } else {
+    const hasDuration = duration_hours !== null && duration_hours !== undefined && Number(duration_hours) > 0;
+    expiresAt = hasDuration
+      ? new Date(Date.now() + (Number(duration_hours) * 60 * 60 * 1000)).toISOString()
+      : null;
+  }
   const entry = {
     id: uuidv4(),
     title: String(title || 'Notificación').trim(),
@@ -209,6 +225,43 @@ function nextLocalMidnightIso() {
   const d = new Date();
   d.setHours(24, 0, 0, 0);
   return d.toISOString();
+}
+
+/** Fin del día civil local para una fecha YYYY-MM-DD (último instante en que el aviso sigue vigente). */
+function endOfLocalDayFromDateKey(dateKey) {
+  const s = String(dateKey || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split('-').map((x) => parseInt(x, 10));
+  const dt = new Date(y, m - 1, d, 23, 59, 59, 999);
+  return dt.toISOString();
+}
+
+/**
+ * Mantiene mensaje y vencimiento del aviso automático de comprobante alineados al último día de plazo (`deadline`).
+ */
+function syncPagoUsoComprobanteAvisoFromPolicy({ nextDue, deadline, hasUrl }) {
+  if (hasUrl || !/^\d{4}-\d{2}-\d{2}$/.test(String(deadline || '').trim())) return;
+  const notifications = getNotifications();
+  const idx = notifications.findIndex(
+    (n) => String(n.title || '').trim() === PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE && !n.deleted_at
+  );
+  if (idx < 0) return;
+  const exp = endOfLocalDayFromDateKey(deadline);
+  if (!exp) return;
+  const msg = `Próxima facturación: ${nextDue}. Carga permitida hasta: ${deadline}.`;
+  let changed = false;
+  if (notifications[idx].expires_at !== exp) {
+    notifications[idx].expires_at = exp;
+    changed = true;
+  }
+  if (notifications[idx].message !== msg) {
+    notifications[idx].message = msg;
+    changed = true;
+  }
+  if (changed) {
+    notifications[idx].updated_at = new Date().toISOString();
+    saveNotifications(notifications);
+  }
 }
 
 function updateNotification({ id, title, message, image_url = '', duration_hours = null }) {
@@ -381,15 +434,21 @@ function evaluatePagoUsoComprobanteWindow() {
       && daysToDue === uploadDaysBeforeDue
       && String(pago.comprobante_alert_sent_for || '') !== nextDue
     ) {
+      const exp = endOfLocalDayFromDateKey(deadline);
       addNotification({
         title: PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE,
         message: `Próxima facturación: ${nextDue}. Carga permitida hasta: ${deadline}.`,
         created_by: 'Sistema automático',
         level: 'warning',
+        ...(exp ? { expires_at: exp } : {}),
       });
       pago.comprobante_alert_sent_for = nextDue;
       pagoChanged = true;
     }
+  }
+
+  if (!hasUrl && /^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
+    syncPagoUsoComprobanteAvisoFromPolicy({ nextDue, deadline, hasUrl: false });
   }
 
   if (!hasUrl && /^\d{4}-\d{2}-\d{2}$/.test(deadline) && diffDays(deadline, today) > 0) {

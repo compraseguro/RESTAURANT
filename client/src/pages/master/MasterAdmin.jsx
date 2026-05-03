@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { api } from '../../utils/api';
+import { api, resolveMediaUrl } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
 import RestaurantServiceContractForm, { normalizeContratoFromApi } from '../../components/RestaurantServiceContractForm';
@@ -593,8 +593,16 @@ export default function MasterAdmin() {
                     </div>
                     <p className="text-xs text-slate-500 mb-2">{new Date(n.created_at).toLocaleString('es-PE')} · {n.created_by}</p>
                     <p className={`text-xs mb-2 ${n.expires_at && new Date(n.expires_at).getTime() <= Date.now() ? 'text-red-600' : 'text-emerald-600'}`}>{getRemainingLabel(n.expires_at)}</p>
+                    {n.image_url ? (
+                      <div className="mb-2 rounded-lg border border-slate-200 bg-white overflow-hidden">
+                        <img
+                          src={resolveMediaUrl(n.image_url)}
+                          alt={n.title}
+                          className="w-full h-auto max-h-[min(40vh,280px)] object-contain object-center block"
+                        />
+                      </div>
+                    ) : null}
                     <p className="text-sm text-slate-700">{n.message}</p>
-                    {n.image_url ? <img src={n.image_url} alt={n.title} className="mt-2 w-full max-h-40 object-cover rounded-lg border" /> : null}
                   </div>
                 ))}
                 {notifications.length === 0 && <p className="text-sm text-slate-500">No hay notificaciones publicadas.</p>}
@@ -878,14 +886,20 @@ export default function MasterAdmin() {
                 {new Date(previewNotification.created_at).toLocaleString('es-PE')} · {previewNotification.created_by}
               </p>
               <p className="text-sm text-slate-600 mb-4">{getRemainingLabel(previewNotification.expires_at)}</p>
+              {previewNotification.image_url ? (
+                <div className="mb-4 rounded-xl border border-slate-200 bg-white overflow-hidden">
+                  <img
+                    src={resolveMediaUrl(previewNotification.image_url)}
+                    alt={previewNotification.title}
+                    className="w-full h-auto max-h-[min(50vh,420px)] object-contain object-center block"
+                  />
+                </div>
+              ) : (
+                <p className="mb-4 text-sm text-slate-400">Esta notificación no tiene imagen.</p>
+              )}
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-800 text-base leading-relaxed whitespace-pre-wrap">
                 {previewNotification.message}
               </div>
-              {previewNotification.image_url ? (
-                <img src={previewNotification.image_url} alt={previewNotification.title} className="mt-4 w-full max-h-[60vh] object-contain rounded-xl border border-slate-200 bg-white" />
-              ) : (
-                <p className="mt-4 text-sm text-slate-400">Esta notificación no tiene imagen.</p>
-              )}
             </div>
           </aside>
         </>
