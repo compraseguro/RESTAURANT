@@ -1,6 +1,5 @@
 import { buildKitchenTicketPlainText } from './ticketPlainText';
-import { shouldTryServerNetworkPrint } from './networkPrinter';
-import { postLocalAgentPrint, isLocalPrintAgentConfigured } from './localPrintAgent';
+import { sendEscPosToStation } from './cajaThermalPrint';
 
 /** Misma lógica que el servidor / panel cocina para repartir ítems entre bar y cocina. */
 export function isBarItemForStation(item) {
@@ -40,8 +39,6 @@ export async function silentPrintOrderToStations({ api, order, labelPrefix = 'Pe
   const printers = cfg?.printers || {};
   const restaurant = cfg?.restaurant || { name: 'Resto-FADEY', address: '', phone: '' };
   const printAgent = cfg?.print_agent || {};
-  const agentOk = isLocalPrintAgentConfigured(printAgent);
-  const baseUrl = String(printAgent.base_url || '').trim();
 
   for (const station of ['cocina', 'bar']) {
     if (!orderAppliesToStation(order, station)) continue;
@@ -55,26 +52,13 @@ export async function silentPrintOrderToStations({ api, order, labelPrefix = 'Pe
       copies: 1,
     });
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
-
-    if (shouldTryServerNetworkPrint(stationConfig)) {
-      try {
-        await api.post('/orders/print-network', { station, text: plain, copies });
-        continue;
-      } catch {
-        /* intentar agente */
-      }
-    }
-    if (agentOk && String(stationConfig?.ip_address || '').trim()) {
-      try {
-        await postLocalAgentPrint(baseUrl, {
-          ip_address: stationConfig.ip_address,
-          port: stationConfig.port || 9100,
-          text: plain,
-          copies,
-        });
-      } catch {
-        /* silencioso */
-      }
-    }
+    await sendEscPosToStation({
+      api,
+      station,
+      stationConfig,
+      printAgent,
+      text: plain,
+      copies,
+    });
   }
 }

@@ -1,6 +1,6 @@
 /** Texto plano para impresoras térmicas por red (ESC/POS vía TCP). */
 
-import { formatDateTime } from './api';
+import { formatDateTime, labelDeliveryPaymentModality } from './api';
 
 /** Nota de pedido mesa/salón «para llevar» (POS). Debe coincidir con lo guardado en `orders.notes`. */
 export const KITCHEN_TAKEOUT_NOTE = 'PARA LLEVAR';
@@ -141,4 +141,110 @@ export function buildKitchenTicketPlainText({
     blocks.push(...lines);
   }
   return blocks.join('\n');
+}
+
+/** Texto plano para precuenta en impresora térmica de caja (ESC/POS). */
+export function buildPrecuentaPlainText({
+  restaurantName = '',
+  tableName = '',
+  userLine = '',
+  takeoutLine = '',
+  customerLines = [],
+  groupedRows = [],
+  formatCurrencyFn = (n) => String(n),
+  subtotal = 0,
+  discount = 0,
+  payableTotal = 0,
+}) {
+  const clip = (s, n = 42) => String(s || '').slice(0, n);
+  const lines = [];
+  lines.push('================================');
+  lines.push(clip(restaurantName));
+  lines.push(`PRECUENTA - ${clip(tableName, 36)}`);
+  lines.push(clip(userLine, 42));
+  if (takeoutLine) lines.push(takeoutLine);
+  for (const l of customerLines) {
+    if (l) lines.push(clip(l, 42));
+  }
+  lines.push('--------------------------------');
+  for (const g of groupedRows) {
+    const qty = Number(g.qty || 0);
+    const name = String(g.name || '').trim() || '—';
+    lines.push(`${qty}x ${clip(name, 34)}`);
+    lines.push(`  ${formatCurrencyFn(g.unitPrice != null ? g.unitPrice : 0)}  ${formatCurrencyFn(g.subtotal != null ? g.subtotal : 0)}`);
+  }
+  lines.push('--------------------------------');
+  lines.push(`Subtotal: ${formatCurrencyFn(subtotal)}`);
+  lines.push(`Descuento: ${formatCurrencyFn(discount)}`);
+  lines.push(`TOTAL A PAGAR: ${formatCurrencyFn(payableTotal)}`);
+  lines.push('');
+  return lines.join('\n');
+}
+
+/** Texto plano para nota de venta en térmica. */
+export function buildNotaVentaPlainText({
+  restaurantName = '',
+  docLine = '',
+  tableName = '',
+  dateLine = '',
+  customerLines = [],
+  groupedRows = [],
+  formatCurrencyFn = (n) => String(n),
+  total = 0,
+}) {
+  const clip = (s, n = 42) => String(s || '').slice(0, n);
+  const lines = [];
+  lines.push('================================');
+  lines.push(clip(restaurantName));
+  lines.push('NOTA DE VENTA');
+  if (docLine) lines.push(clip(docLine, 42));
+  if (tableName) lines.push(clip(tableName, 42));
+  lines.push(clip(dateLine, 42));
+  for (const l of customerLines) {
+    if (l) lines.push(clip(l, 42));
+  }
+  lines.push('--------------------------------');
+  for (const g of groupedRows) {
+    const qty = Number(g.qty || 0);
+    const name = String(g.name || '').trim() || '—';
+    lines.push(`${qty}x ${clip(name, 34)}`);
+    lines.push(`  ${formatCurrencyFn(g.unitPrice != null ? g.unitPrice : 0)}  ${formatCurrencyFn(g.subtotal != null ? g.subtotal : 0)}`);
+  }
+  lines.push('--------------------------------');
+  lines.push(`TOTAL: ${formatCurrencyFn(total)}`);
+  lines.push('');
+  return lines.join('\n');
+}
+
+function orderLinesSummaryShort(order) {
+  const items = order?.items || [];
+  if (!items.length) return `Pedido #${order?.order_number ?? '—'}`;
+  return items.map((it) => `${it.quantity}× ${it.product_name}`).join(', ');
+}
+
+/** Reporte de entregas completadas del día (panel delivery). */
+export function buildDeliveryReportPlainText({
+  dateLabel = '',
+  driverName = '',
+  orders = [],
+  formatCurrencyFn = (n) => String(n),
+}) {
+  const lines = [];
+  lines.push('================================');
+  lines.push('REPORTE DELIVERY');
+  lines.push(`Fecha: ${String(dateLabel).slice(0, 42)}`);
+  if (driverName) lines.push(`Repartidor: ${String(driverName).slice(0, 42)}`);
+  lines.push('--------------------------------');
+  let sum = 0;
+  for (const o of orders || []) {
+    sum += Number(o.total || 0);
+    const mod = labelDeliveryPaymentModality(o.delivery_payment_modality) || '—';
+    lines.push(`#${o.order_number} ${String(o.customer_name || '—').slice(0, 28)}`);
+    lines.push(`  ${orderLinesSummaryShort(o).slice(0, 42)}`);
+    lines.push(`  ${mod} · ${formatCurrencyFn(o.total || 0)}`);
+  }
+  lines.push('--------------------------------');
+  lines.push(`TOTAL: ${formatCurrencyFn(sum)}`);
+  lines.push('');
+  return lines.join('\n');
 }

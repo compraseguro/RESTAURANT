@@ -8,6 +8,13 @@ export function shouldSendToNetworkPrinter(cfg) {
   return String(cfg?.ip_address ?? '').trim().length > 0;
 }
 
+/** Hay destino térmico vía servidor o agente (IP LAN o nombre de cola USB). */
+export function hasThermalDestination(cfg) {
+  return Boolean(
+    String(cfg?.ip_address ?? '').trim() || String(cfg?.local_printer_name ?? '').trim()
+  );
+}
+
 function apiHostnameLower() {
   const b = String(API_BASE || '').trim();
   if (/^https?:\/\//i.test(b)) {

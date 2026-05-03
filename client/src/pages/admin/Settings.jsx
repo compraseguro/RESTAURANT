@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { api, formatDateTime } from '../../utils/api';
-import { shouldSendToNetworkPrinter, shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
-import { postLocalAgentPrint, isLocalPrintAgentConfigured } from '../../utils/localPrintAgent';
-import { printHtmlDocument } from '../../utils/printHtml';
+import { shouldSendToNetworkPrinter, shouldTryServerNetworkPrint, hasThermalDestination } from '../../utils/networkPrinter';
+import { isLocalPrintAgentConfigured } from '../../utils/localPrintAgent';
+import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -107,14 +107,14 @@ const DEFAULT_APP_SETTINGS = {
     { name: 'Nota de Venta', series: 'N001', active: 1 },
   ],
   impresoras: [
-    { name: 'Impresora Cocina', area: 'Comandas', station: 'cocina', connection: 'browser', printer_type: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
-    { name: 'Impresora Bar', area: 'Comandas Bar', station: 'bar', connection: 'browser', printer_type: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
-    { name: 'Impresora Caja', area: 'Comprobantes', station: 'caja', connection: 'browser', printer_type: 'browser', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
+    { name: 'Impresora Cocina', area: 'Comandas', station: 'cocina', connection: 'browser', printer_type: 'lan', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
+    { name: 'Impresora Bar', area: 'Comandas Bar', station: 'bar', connection: 'browser', printer_type: 'lan', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
+    { name: 'Impresora Caja', area: 'Comprobantes', station: 'caja', connection: 'browser', printer_type: 'lan', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
   ],
   /** Agente ESC/POS en el PC del local (ver carpeta local-print-agent). */
   print_agent: {
     enabled: 1,
-    base_url: 'http://127.0.0.1:49710',
+    base_url: 'http://127.0.0.1:3001',
   },
   tarjetas: [
     { name: 'Visa', fee_percent: 2.5, active: 1 },
@@ -215,10 +215,9 @@ const SETTINGS_SECTION_FORMS = {
         required: true,
         type: 'select',
         options: [
-          { value: 'browser', label: 'Navegador (diálogo de impresión)' },
-          { value: 'lan', label: 'Red local (IP, puerto 9100)' },
-          { value: 'usb', label: 'USB (requiere agente en el PC)' },
-          { value: 'bluetooth', label: 'Bluetooth (requiere agente en el PC)' },
+          { value: 'lan', label: 'Red local (IP RAW, puerto 9100)' },
+          { value: 'usb', label: 'USB / cola del sistema (print-agent)' },
+          { value: 'bluetooth', label: 'Bluetooth (experimental, print-agent)' },
         ],
       },
       {
@@ -346,7 +345,7 @@ export default function Settings() {
     merged.print_agent = {
       ...pa,
       enabled: 1,
-      base_url: String(pa.base_url || DEFAULT_APP_SETTINGS.print_agent.base_url || 'http://127.0.0.1:49710').trim()
+      base_url: String(pa.base_url || DEFAULT_APP_SETTINGS.print_agent.base_url || 'http://127.0.0.1:3001').trim()
         || DEFAULT_APP_SETTINGS.print_agent.base_url,
     };
     return merged;
@@ -602,45 +601,35 @@ export default function Settings() {
       return;
     }
 
-    /** API en la nube no alcanza 192.168.x: mismo camino que cocina/POS vía agente en el PC del local. */
-    if (shouldSendToNetworkPrinter(pr) && isLocalPrintAgentConfigured(appSettings.print_agent)) {
-      const baseUrl = String(appSettings.print_agent?.base_url || 'http://127.0.0.1:49710').trim();
+    const station = String(pr?.station || 'caja').toLowerCase();
+    const allowedStation = ['cocina', 'bar', 'caja', 'delivery', 'parrilla'].includes(station);
+    if (hasThermalDestination(pr) && isLocalPrintAgentConfigured(appSettings.print_agent) && allowedStation) {
       try {
-        await postLocalAgentPrint(baseUrl, {
-          ip_address: ip,
-          port: Number(pr.port || 9100),
-          copies: Math.min(5, Math.max(1, Number(pr.copies || 1))),
+        const copies = Math.min(5, Math.max(1, Number(pr.copies || 1)));
+        const r = await sendEscPosToStation({
+          api,
+          station,
+          stationConfig: pr,
+          printAgent: appSettings.print_agent,
           text: plainTestBody,
+          copies,
         });
-        toast.success(`Prueba enviada por el programa local a «${name}»`);
-      } catch (err) {
+        if (r.ok) {
+          toast.success(`Prueba enviada por el print-agent a «${name}»`);
+          return;
+        }
         toast.error(
-          err?.message || 'No se pudo enviar la prueba al programa local. ¿Está en ejecución en este equipo?'
+          'El print-agent no pudo imprimir. Revise IP/puerto o nombre USB, y que el servicio esté en ejecución.'
         );
+      } catch (err) {
+        toast.error(err?.message || 'No se pudo enviar la prueba al print-agent.');
       }
       return;
     }
 
-    const esc = (s) => String(s ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    const t = nowPe;
-    const hint =
-      shouldSendToNetworkPrinter(pr) && !shouldTryServerNetworkPrint(pr)
-        ? '<p style="margin:12px 0 0;color:#b45309">La API está en internet: no puede enviar sola a la IP de su red. Active abajo «Programa de impresión en este equipo» y pulse de nuevo Probar, o use Ctrl+P y elija su térmica.</p>'
-        : '';
-    const testHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Prueba ${esc(name)}</title>
-      <style>body{font-family:system-ui,sans-serif;padding:16px;font-size:14px}</style></head><body>
-      <h2 style="margin:0 0 8px">Prueba de impresión</h2>
-      <p style="margin:0 0 4px"><strong>${esc(name)}</strong></p>
-      <p style="margin:0 0 12px;color:#64748b">${esc(t)}</p>
-      <p>Modo <strong>navegador</strong>: use el cuadro de impresión (Ctrl+P) y elija su impresora térmica.</p>
-      ${hint}
-      </body></html>`;
-    if (!printHtmlDocument(testHtml, `Prueba ${name}`)) {
-      toast.error('No se pudo abrir la prueba de impresión');
-    }
+    toast.error(
+      'Configure la IP de la térmica (red) o el nombre exacto de impresora USB, la estación (cocina/bar/caja) y la URL del print-agent en esta pantalla.'
+    );
   };
 
   const saveAppSettings = async ({ silent = false, nextSettings = null } = {}) => {

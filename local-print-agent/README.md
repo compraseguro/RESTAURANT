@@ -1,11 +1,6 @@
-# Agente de impresión local (Resto-FADEY)
+# Print-agent (Resto-FADEY)
 
-Permite **impresión térmica automática sin `window.print()`** cuando la API está en internet (Render, etc.) y las impresoras están en la **LAN del restaurante**.
-
-## Requisitos
-
-- Node.js 18+ en el PC o mini-servidor del local
-- Impresora térmica en **modo RAW / Puerto 9100** (Epson, XPrinter, Rongta, Star, etc.)
+Impresión **térmica silenciosa** (ESC/POS): el SaaS envía JSON al programa local y este imprime **sin Ctrl+P**.
 
 ## Instalación
 
@@ -15,24 +10,43 @@ npm install
 npm start
 ```
 
-Por defecto escucha en `http://127.0.0.1:49710`. En **Configuración → Impresoras** active «Usar agente local» y use la misma URL (o defina `PORT` en `.env`).
+Por defecto: `http://127.0.0.1:3001` — `POST /print`, `GET /printers`, `GET /health`.
+
+Impresoras **USB en Windows** (RAW): opcionalmente `npm install printer` (requiere herramientas de compilación). En Linux/macOS suele bastar CUPS (`lp -o raw`).
 
 ## Variables de entorno
 
 | Variable | Ejemplo | Descripción |
 |----------|---------|-------------|
-| `PORT` | `49710` | Puerto HTTP del agente |
-| | | |
+| `PORT` | `3001` | Puerto HTTP |
+| `BIND_HOST` | `0.0.0.0` | `127.0.0.1` solo local; `0.0.0.0` para que tablets/Android en la misma LAN llamen al PC |
 
-## API
+## POST `/print`
 
-- `GET /health` — comprobación
-- `POST /print` — cuerpo JSON: `{ "ip_address": "192.168.1.50", "port": 9100, "text": "...", "copies": 1 }`
+Cuerpo JSON (nuevo):
 
-## USB / Bluetooth
+```json
+{
+  "area": "cocina",
+  "ticket": "Texto del ticket…",
+  "printer": "XP-80C",
+  "ip_address": "192.168.1.120",
+  "port": 9100,
+  "copies": 1,
+  "mode": "lan"
+}
+```
 
-Las impresoras solo por USB en Windows requieren compartir la impresora en red, usar un adaptador Ethernet, o ampliar este agente con controlador nativo (no incluido en esta versión).
+- **Red (RAW TCP)**: `ip_address` + `port` (típico 9100). `mode` opcional; si hay IP se usa LAN.
+- **USB / cola del sistema**: `printer` con el nombre exacto que lista `GET /printers`, o `mode: "usb"`.
+- Compatibilidad **legado**: `text` en lugar de `ticket`.
 
 ## Android / tablet
 
-Si la tablet está en la **misma WiFi** que la térmica, puede usar IP directa: el agente puede instalarse en un mini PC en el local; el navegador de la tablet envía trabajos a ese host (configurar firewall y URL del agente a la IP LAN del mini PC, no solo 127.0.0.1).
+1. Ejecute el agente en un PC del local con `BIND_HOST=0.0.0.0`.
+2. En el firewall de Windows permita el puerto (ej. 3001).
+3. En la app web, en **Configuración → Agente de impresión**, use la URL `http://<IP-LAN-del-PC>:3001` (no `127.0.0.1` en la tablet).
+
+## Áreas (cocina / bar / caja)
+
+El campo `area` es informativo en el log; la ruta real (qué IP o qué nombre USB) la define el frontend según la estación guardada en el servidor.

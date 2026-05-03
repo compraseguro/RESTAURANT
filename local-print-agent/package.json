@@ -1,8 +1,8 @@
 {
-  "name": "resto-local-print-agent",
-  "version": "1.0.0",
+  "name": "resto-print-agent",
+  "version": "2.0.0",
   "private": true,
-  "description": "Agente ESC/POS local para Resto-FADEY (sin diálogo del navegador; API en la nube + impresoras LAN/USB vía TCP RAW).",
+  "description": "Agente ESC/POS local (LAN RAW + USB): cola, reintentos, sin window.print().",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,5 +10,8 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.0"
+  },
+  "optionalDependencies": {
+    "printer": "^0.4.0"
   }
 }

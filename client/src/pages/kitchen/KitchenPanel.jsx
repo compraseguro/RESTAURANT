@@ -3,12 +3,8 @@ import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
 import {
   buildKitchenTicketPlainText,
   buildSimpleComandaPlainText,
-  buildSimpleComandaPrintHtml,
-  orderHasTakeoutNote,
 } from '../../utils/ticketPlainText';
-import { shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
-import { printHtmlDocument } from '../../utils/printHtml';
-import { postLocalAgentPrint, isLocalPrintAgentConfigured } from '../../utils/localPrintAgent';
+import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
 import { orderAppliesToStation } from '../../utils/stationKitchenPrint';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
@@ -16,6 +12,7 @@ import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
 import EndShiftModal from '../../components/EndShiftModal';
 import NotificationCenter from '../../components/NotificationCenter';
+import StationPrinterCard from '../../components/StationPrinterCard';
 import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime, MdPrint } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -97,9 +94,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     if (silent && Number(stationConfig?.auto_print ?? 1) === 0) {
       return;
     }
-    const width = [58, 80].includes(Number(stationConfig?.width_mm)) ? Number(stationConfig.width_mm) : 80;
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
-    const ticketWidth = width === 58 ? '54mm' : '76mm';
     const stationKey = isBar ? 'bar' : 'cocina';
     const plain = buildKitchenTicketPlainText({
       restaurant: cfgRestaurant,
@@ -107,132 +102,22 @@ export default function KitchenPanel({ station = 'cocina' }) {
       orders: list,
       copies: 1,
     });
-    if (shouldTryServerNetworkPrint(stationConfig)) {
-      try {
-        await api.post('/orders/print-network', { station: stationKey, text: plain, copies });
-        if (!silent) toast.success('Enviado a impresora de red');
-        return;
-      } catch (err) {
-        const msg = err.message || 'No se pudo imprimir por red';
-        if (silent) {
-          toast.error(`Impresión automática (red): ${msg}. Se abre impresión del navegador.`, { duration: 6000 });
-        } else {
-          toast.error(`${msg}; se usará el cuadro de impresión del sistema`);
-        }
-      }
-    }
-    if (isLocalPrintAgentConfigured(printAgentCfg) && String(stationConfig?.ip_address || '').trim()) {
-      try {
-        await postLocalAgentPrint(printAgentCfg.base_url, {
-          ip_address: stationConfig.ip_address,
-          port: stationConfig.port || 9100,
-          text: plain,
-          copies,
-        });
-        if (!silent) toast.success('Enviado al agente de impresión local');
-        return;
-      } catch (err) {
-        const msg = err?.message || 'Agente local no disponible';
-        if (silent) {
-          toast.error(`Impresión automática: ${msg}`, { duration: 6000 });
-        } else {
-          toast.error(`${msg}; se usará el cuadro de impresión del sistema`);
-        }
-      }
-    }
-    const htmlRows = list.map((order) => {
-      const orderTypeLabel = order.type === 'delivery' ? 'Delivery' : order.type === 'pickup' ? 'Recojo' : 'Mesa/Salón';
-      const items = (order.items || [])
-        .map(
-          (item) =>
-            `<li>${item.quantity}x ${item.product_name}${item.variant_name ? ` (${item.variant_name})` : ''}${item.notes ? ` - ${item.notes}` : ''}</li>`
-        )
-        .join('');
-      const cliente = isCuentaClienteSelfOrder(order);
-      const esc = (s) => String(s || '').replace(/</g, '');
-      const timeSmall = `<span class="ticket-time">${formatTime(order.created_at)}</span>`;
-      let header;
-      if (cliente) {
-        header = `<strong>${esc(order.customer_name)}</strong><br/><strong>#${order.order_number}</strong> - ${orderTypeLabel}<br/>${timeSmall}`;
-      } else if (order.type === 'delivery') {
-        header = `<strong>Delivery</strong><br/>${timeSmall}`;
-      } else {
-        const rawMesa = order.table_number ? String(order.table_number).trim() : '';
-        const mesaTop = rawMesa
-          ? `<div class="ticket-mesa">MESA ${esc(rawMesa.toUpperCase())}</div>`
-          : '';
-        header = `${mesaTop}<div class="ticket-meta"><strong>#${order.order_number}</strong> · ${orderTypeLabel}<br/>${timeSmall}</div>`;
-      }
-      const paraLlevarBlock = orderHasTakeoutNote(order)
-        ? `<div style="text-align:center;font-weight:800;font-size:21px;letter-spacing:0.08em;margin-top:8px;color:inherit;">PARA LLEVAR</div>`
-        : '';
-      return `
-        <div class="ticket">
-          ${header}
-          ${paraLlevarBlock}
-          <ul style="margin:8px 0 0 16px;padding:0;">${items}</ul>
-        </div>
-      `;
-    }).join('');
-
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    iframe.style.visibility = 'hidden';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentWindow?.document;
-    if (!doc || !iframe.contentWindow) {
-      if (document.body.contains(iframe)) document.body.removeChild(iframe);
-      if (!silent) toast.error('No se pudo abrir el documento de impresión');
+    const thermal = await sendEscPosToStation({
+      api,
+      station: stationKey,
+      stationConfig,
+      printAgent: printAgentCfg,
+      text: plain,
+      copies,
+    });
+    if (thermal.ok) {
+      if (!silent) toast.success('Enviado a impresora térmica');
       return;
     }
-    doc.open();
-    const repeatedRows = Array.from({ length: copies }).map((_, idx) => `
-      <div style="margin-bottom:8px;">
-        ${copies > 1 ? `<p class="ticket-copy-label">Copia ${idx + 1} de ${copies}</p>` : ''}
-        ${htmlRows}
-      </div>
-    `).join('');
-
-    doc.write(`
-      <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          @page { size: ${width}mm auto; margin: 2mm; }
-          body { font-family: 'Courier New', Courier, monospace; width: ${ticketWidth}; max-width: 100%; margin: 0; font-size: 19px; line-height: 1.45; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .ticket { border-bottom: 1px dashed #999; padding-bottom: 10px; margin-bottom: 10px; }
-          .ticket-mesa { text-align: center; text-transform: uppercase; font-size: 24px; font-weight: 800; letter-spacing: 0.06em; margin: 0 0 8px 0; line-height: 1.15; }
-          .ticket-meta { font-size: 18px; }
-          .ticket-time { font-size: 17px; font-weight: 700; }
-          .ticket-copy-label { margin: 0 0 8px 0; font-size: 15px; font-weight: 700; }
-          h2 { font-size: 24px; font-weight: 800; margin: 0 0 6px 0; letter-spacing: 0.02em; }
-          ul { margin: 8px 0 0 14px; padding: 0; }
-          li { margin-bottom: 4px; font-size: 19px; }
-        </style>
-      </head>
-      <body>
-        <h2>${cfgRestaurant?.name || 'Resto-FADEY'}</h2>
-        <p style="margin:0;font-size:14px;">${cfgRestaurant?.address || ''}</p>
-        <p style="margin:0 0 8px 0;font-size:14px;">${cfgRestaurant?.phone || ''}</p>
-        <h2>${title}</h2>
-        <p style="margin:0 0 8px 0;">${new Date().toLocaleString()}</p>
-        ${repeatedRows}
-      </body>
-      </html>
-    `);
-    doc.close();
-    setTimeout(() => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-      setTimeout(() => {
-        if (document.body.contains(iframe)) document.body.removeChild(iframe);
-      }, 1200);
-    }, 120);
+    const hint =
+      'Configure IP de la térmica (red) o nombre USB, active el print-agent en este equipo y la URL en Configuración.';
+    if (silent) toast.error(`Impresión automática: sin ruta térmica. ${hint}`, { duration: 8000 });
+    else toast.error(hint);
   };
 
   /** Solo mesa (o delivery/cliente), ítems y fecha/hora — misma impresora de estación que la comanda completa. */
@@ -254,44 +139,21 @@ export default function KitchenPanel({ station = 'cocina' }) {
     const stationKey = isBar ? 'bar' : 'cocina';
     const plain = buildSimpleComandaPlainText(order);
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
-    if (shouldTryServerNetworkPrint(stationConfig)) {
-      try {
-        await api.post('/orders/print-network', { station: stationKey, text: plain, copies });
-        toast.success('Enviado a impresora');
-        return;
-      } catch (err) {
-        toast.error(err.message || 'No se pudo imprimir por red; use el cuadro de impresión');
-      }
+    const thermal = await sendEscPosToStation({
+      api,
+      station: stationKey,
+      stationConfig,
+      printAgent: agentCfg,
+      text: plain,
+      copies,
+    });
+    if (thermal.ok) {
+      toast.success('Enviado a impresora térmica');
+      return;
     }
-    if (isLocalPrintAgentConfigured(agentCfg) && String(stationConfig?.ip_address || '').trim()) {
-      try {
-        await postLocalAgentPrint(agentCfg.base_url, {
-          ip_address: stationConfig.ip_address,
-          port: stationConfig.port || 9100,
-          text: plain,
-          copies,
-        });
-        toast.success('Enviado al agente local');
-        return;
-      } catch (err) {
-        toast.error(err?.message || 'Agente local no disponible');
-      }
-    }
-    const inner = buildSimpleComandaPrintHtml(order);
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Comanda #${order.order_number}</title>
-      <style>
-        body { font-family: 'Courier New', Courier, monospace; padding: 14px 12px; margin: 0; color: #111; }
-        .comanda-top { text-align: center; text-transform: uppercase; font-size: 26px; font-weight: 800; letter-spacing: 0.06em; margin: 0 0 10px 0; line-height: 1.15; }
-        .comanda-fecha { text-align: center; font-size: 20px; font-weight: 600; margin: 0 0 10px 0; }
-        .comanda-pl { text-align: center; font-size: 22px; font-weight: 800; letter-spacing: 0.06em; margin: 10px 0; }
-        .comanda-sep { font-size: 18px; margin: 12px 0; text-align: center; font-weight: 600; }
-        .comanda-item { font-size: 21px; font-weight: 600; line-height: 1.45; margin: 6px 0; }
-      </style></head><body>
-      ${inner}
-      </body></html>`;
-    if (!printHtmlDocument(html, `Comanda #${order.order_number}`)) {
-      toast.error('No se pudo abrir el documento de impresión');
-    }
+    toast.error(
+      'No hay impresión térmica configurada (IP red o USB + print-agent). Revise el panel de impresora de esta estación.'
+    );
   };
 
   const loadOrders = async () => {
@@ -392,6 +254,10 @@ export default function KitchenPanel({ station = 'cocina' }) {
         </div>
       </header>
       <EndShiftModal isOpen={endShiftOpen} onClose={() => setEndShiftOpen(false)} />
+
+      <div className="px-6 pt-4 max-w-3xl">
+        <StationPrinterCard station={isBar ? 'bar' : 'cocina'} userRole={user?.role} />
+      </div>
 
       <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {orders.map(order => {

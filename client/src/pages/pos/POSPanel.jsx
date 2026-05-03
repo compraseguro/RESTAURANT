@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
-import { shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
-import { printHtmlDocument } from '../../utils/printHtml';
-import { postLocalAgentPrint, isLocalPrintAgentConfigured } from '../../utils/localPrintAgent';
 import { silentPrintOrderToStations } from '../../utils/stationKitchenPrint';
-import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote } from '../../utils/ticketPlainText';
+import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote, buildPrecuentaPlainText, buildNotaVentaPlainText } from '../../utils/ticketPlainText';
+import { sendEscPosToCaja } from '../../utils/cajaThermalPrint';
+import StationPrinterCard from '../../components/StationPrinterCard';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -89,59 +88,6 @@ const getOrderChargeTotal = (order) => {
   const discount = Number(order.discount || 0);
   return Math.max(0, base - discount);
 };
-
-function escapeHtmlPrint(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-/** Precuenta / nota térmica o navegador: tabla con P. unit., importe línea y rayita entre productos. */
-function buildPrintBillTableHtml(groupedRows, formatCurrencyFn) {
-  const rows = (groupedRows || [])
-    .map((g) => {
-      const qty = Number(g.qty || 0);
-      const name = escapeHtmlPrint(g.name || '—');
-      const unit = g.unitPrice != null ? Number(g.unitPrice) : 0;
-      const sub = g.subtotal != null ? Number(g.subtotal) : 0;
-      return `<tr>
-  <td style="padding:6px 0;vertical-align:top;border-bottom:1px dashed #cbd5e0">${qty}x ${name}</td>
-  <td style="text-align:right;padding:6px 0;vertical-align:top;border-bottom:1px dashed #cbd5e0;white-space:nowrap">${formatCurrencyFn(unit)}</td>
-  <td style="text-align:right;padding:6px 0;vertical-align:top;border-bottom:1px dashed #cbd5e0;font-weight:600;white-space:nowrap">${formatCurrencyFn(sub)}</td>
-</tr>`;
-    })
-    .join('');
-  return `<table style="width:100%;border-collapse:collapse">
-<thead>
-<tr>
-  <th style="text-align:left;padding:4px 0 6px 0;font-size:10px;font-weight:600;border-bottom:1px solid #64748b">Descripción</th>
-  <th style="text-align:right;padding:4px 0 6px 0;font-size:10px;font-weight:600;border-bottom:1px solid #64748b">P. unit.</th>
-  <th style="text-align:right;padding:4px 0 6px 0;font-size:10px;font-weight:600;border-bottom:1px solid #64748b">Importe</th>
-</tr>
-</thead>
-<tbody>${rows}</tbody>
-</table>`;
-}
-
-/** Datos de cliente en precuenta / nota (nombre, doc, teléfono, dirección si existen). */
-function buildCustomerPrintBlockHtml({ name, doc_number, address, phone }) {
-  const customerName = String(name || '').trim();
-  const customerDoc = String(doc_number || '').trim();
-  const customerAddress = String(address || '').trim();
-  const customerPhone = String(phone || '').trim();
-  if (!customerName && !customerDoc && !customerAddress && !customerPhone) return '';
-  const esc = escapeHtmlPrint;
-  return `
-      <div class="sep"></div>
-      <table style="width:100%;border-collapse:collapse">
-        ${customerName ? `<tr><td style="padding:2px 0;vertical-align:top"><strong>Cliente:</strong></td><td style="padding:2px 0">${esc(customerName)}</td></tr>` : ''}
-        ${customerDoc ? `<tr><td style="padding:2px 0;vertical-align:top"><strong>Documento:</strong></td><td style="padding:2px 0">${esc(customerDoc)}</td></tr>` : ''}
-        ${customerPhone ? `<tr><td style="padding:2px 0;vertical-align:top"><strong>Teléfono:</strong></td><td style="padding:2px 0">${esc(customerPhone)}</td></tr>` : ''}
-        ${customerAddress ? `<tr><td style="padding:2px 0;vertical-align:top"><strong>Dirección:</strong></td><td style="padding:2px 0">${esc(customerAddress)}</td></tr>` : ''}
-      </table>
-      `;
-}
 
 /** Reconstruye nota y modificador desde `order_items.notes` (mismo formato que al crear el pedido). */
 function parseOrderItemNotes(notesStr, product) {
@@ -757,56 +703,25 @@ export default function POSPanel() {
       .replace(/\r\n/g, '\n')
       .trim()
       .slice(0, 12000);
-    if (shouldTryServerNetworkPrint(caja)) {
-      if (textForPrint) {
-        try {
-          const copies = Math.min(5, Math.max(1, Number(caja.copies || 1)));
-          await api.post('/orders/print-network', { station: 'caja', text: textForPrint, copies });
-          toast.success('Enviado a impresora de caja (red)');
-          return;
-        } catch (err) {
-          toast.error(err.message || 'No se pudo imprimir por red; se abrirá el cuadro de impresión');
-        }
-      }
+    if (!textForPrint) {
+      toast.error('No hay contenido para imprimir');
+      return;
     }
-    if (isLocalPrintAgentConfigured(printAgentCfg) && String(caja?.ip_address || '').trim() && textForPrint) {
-      try {
-        const copies = Math.min(5, Math.max(1, Number(caja.copies || 1)));
-        await postLocalAgentPrint(printAgentCfg.base_url, {
-          ip_address: caja.ip_address,
-          port: caja.port || 9100,
-          text: textForPrint,
-          copies,
-        });
-        toast.success('Enviado al agente de impresión local');
-        return;
-      } catch (err) {
-        toast.error(err?.message || 'Agente local no disponible');
-      }
+    const copies = Math.min(5, Math.max(1, Number(caja?.copies || 1)));
+    const thermal = await sendEscPosToCaja({
+      api,
+      cajaConfig: caja,
+      printAgent: printAgentCfg,
+      text: textForPrint,
+      copies,
+    });
+    if (thermal.ok) {
+      toast.success('Arqueo enviado a la impresora de caja');
+      return;
     }
-    const printedAt = formatPeDateTimeParts(new Date());
-    const html = `
-      <html><head><meta charset="utf-8"/><title>Arqueo de Caja</title>
-      <style>
-        body { font-family: 'Courier New', monospace; font-size: 12px; padding: 10px; max-width: 380px; margin: 0 auto; }
-        h2 { text-align: center; margin: 5px 0; font-size: 16px; }
-        h3 { text-align: center; margin: 3px 0; font-size: 12px; font-weight: normal; color: #666; }
-        .sep { border-top: 1px dashed #333; margin: 8px 0; }
-        .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 2px 0; }
-        .row.bold { font-weight: bold; }
-        .center { text-align: center; }
-        .total-row { font-size: 14px; font-weight: bold; border-top: 2px solid #333; padding-top: 5px; margin-top: 5px; }
-        .diff-pos { color: #16a34a; }
-        .diff-neg { color: #dc2626; }
-      </style></head><body>
-      ${content.innerHTML}
-      <div class="sep"></div>
-      <p class="center" style="font-size:10px;color:#999">Impreso: ${printedAt.date} · ${printedAt.time}</p>
-      </body></html>
-    `;
-    if (!printHtmlDocument(html, 'Arqueo de Caja')) {
-      toast.error('No se pudo abrir la impresión del arqueo');
-    }
+    toast.error(
+      'No se pudo imprimir el arqueo por térmica. Configure la caja (IP en red o nombre USB) y ejecute el print-agent.'
+    );
   };
 
   const resetBillingForm = () => {
@@ -1089,7 +1004,7 @@ export default function POSPanel() {
           window.open(resolveMediaUrl(pdf), '_blank', 'noopener,noreferrer');
         }
         if (billingForm.doc_type === 'nota_venta') {
-          printNotaVenta({
+          await printNotaVenta({
             tableName: selectedTable?.name || '',
             orders: payableOrders,
             docs: issuedDocs,
@@ -1619,90 +1534,100 @@ export default function POSPanel() {
     const first = Math.min(...timestamps);
     return Math.max(0, Math.round((Date.now() - first) / (1000 * 60 * 60)));
   })();
-  const printPrecuenta = () => {
+  const printPrecuenta = async () => {
     if (!selectedTable) return;
     const payableOrders = splitMode
       ? (selectedTable.orders || []).filter(o => selectedOrderIds.includes(o.id))
       : (selectedTable.orders || []);
     if (payableOrders.length === 0) return toast.error('No hay pedidos para precuenta');
     const restaurantName = String(printRestaurantInfo?.name || 'Resto-FADEY').trim() || 'Resto-FADEY';
-    const logoUrl = String(printRestaurantInfo?.logo || '').trim();
-    const logoBlock = logoUrl
-      ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
-      : '';
     const groupedPrecuenta = groupItemsByProductNameForBill(payableOrders.flatMap((o) => o.items || []));
-    const itemsTableHtml = buildPrintBillTableHtml(groupedPrecuenta, formatCurrency);
-    const customerPrintHtml = buildCustomerPrintBlockHtml({
-      name: billingForm.customer_name,
-      doc_number: billingForm.customer_doc_number,
-      address: billingForm.customer_address,
-      phone: billingForm.customer_phone,
-    });
     const precuentaParaLlevar = payableOrders.some((o) => orderHasTakeoutNote(o));
-    const precuentaHtml = `
-      <html><head><meta charset="utf-8"/><title>Precuenta ${selectedTable.name}</title>
-      <style>
-        body{font-family:Arial,sans-serif;font-size:12px;padding:16px}
-        .muted{color:#64748b}.sep{border-top:1px dashed #cbd5e1;margin:8px 0}
-        table{width:100%;border-collapse:collapse}
-        .center{text-align:center}
-      </style></head><body>
-      <div class="center">${logoBlock}<h3 style="margin:0 0 6px 0">${restaurantName}</h3></div>
-      <h3>PRECUENTA - ${selectedTable.name}</h3>
-      <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
-      ${precuentaParaLlevar ? `<p style="text-align:center;font-weight:800;font-size:14px;letter-spacing:0.08em;margin:8px 0 0 0;">${KITCHEN_TAKEOUT_NOTE}</p>` : ''}
-      ${customerPrintHtml}
-      <div class="sep"></div>
-      ${itemsTableHtml}
-      <div class="sep"></div>
-      <p><strong>Subtotal:</strong> ${formatCurrency(selectionBaseTotal)}</p>
-      <p><strong>Descuento:</strong> ${formatCurrency(discountPreview)}</p>
-      <p style="font-size:16px"><strong>Total a pagar:</strong> ${formatCurrency(payableTotal)}</p>
-      </body></html>
-    `;
-    if (!printHtmlDocument(precuentaHtml, `Precuenta ${selectedTable.name}`)) {
-      toast.error('No se pudo abrir la precuenta para imprimir');
+    const customerLines = [
+      billingForm.customer_name && `Cliente: ${billingForm.customer_name}`,
+      billingForm.customer_doc_number && `Doc: ${billingForm.customer_doc_number}`,
+      billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
+      billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
+    ].filter(Boolean);
+    const plain = buildPrecuentaPlainText({
+      restaurantName,
+      tableName: selectedTable.name,
+      userLine: `${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}`,
+      takeoutLine: precuentaParaLlevar ? KITCHEN_TAKEOUT_NOTE : '',
+      customerLines,
+      groupedRows: groupedPrecuenta,
+      formatCurrencyFn: formatCurrency,
+      subtotal: selectionBaseTotal,
+      discount: discountPreview,
+      payableTotal,
+    });
+    let printCfg = null;
+    try {
+      printCfg = await api.get('/orders/print-config');
+    } catch (_) {
+      /* noop */
     }
+    const caja = printCfg?.printers?.caja;
+    const copies = Math.min(5, Math.max(1, Number(caja?.copies || 1)));
+    const thermal = await sendEscPosToCaja({
+      api,
+      cajaConfig: caja,
+      printAgent: printCfg?.print_agent,
+      text: plain,
+      copies,
+    });
+    if (thermal.ok) {
+      toast.success('Precuenta enviada a la impresora de caja');
+      return;
+    }
+    toast.error(
+      'No se pudo imprimir la precuenta por térmica. Configure la caja (IP o USB) y el print-agent en Configuración.'
+    );
   };
 
-  const printNotaVenta = ({ tableName, orders, docs, customer }) => {
+  const printNotaVenta = async ({ tableName, orders, docs, customer }) => {
     const restaurantName = String(printRestaurantInfo?.name || 'Resto-FADEY').trim() || 'Resto-FADEY';
-    const logoUrl = String(printRestaurantInfo?.logo || '').trim();
-    const logoBlock = logoUrl
-      ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
-      : '';
     const docText = (docs || []).map((d) => String(d?.full_number || '').trim()).filter(Boolean).join(' · ');
-    const customerBlock = buildCustomerPrintBlockHtml({
-      name: customer?.name,
-      doc_number: customer?.doc_number,
-      address: customer?.address,
-      phone: customer?.phone,
-    });
     const groupedNota = groupItemsByProductNameForBill((orders || []).flatMap((o) => o.items || []));
-    const itemsTableHtml = buildPrintBillTableHtml(groupedNota, formatCurrency);
     const total = (orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
-    const notaHtml = `
-      <html><head><meta charset="utf-8"/><title>Nota de venta ${tableName || ''}</title>
-      <style>
-        body{font-family:Arial,sans-serif;font-size:12px;padding:16px}
-        .muted{color:#64748b}.sep{border-top:1px dashed #cbd5e1;margin:8px 0}
-        table{width:100%;border-collapse:collapse}
-        .center{text-align:center}
-      </style></head><body>
-      <div class="center">${logoBlock}<h3 style="margin:0 0 6px 0">${restaurantName}</h3></div>
-      <h3 style="margin:0 0 4px 0">NOTA DE VENTA</h3>
-      ${docText ? `<p class="center" style="margin:0 0 6px 0;font-weight:600">${docText}</p>` : ''}
-      <p class="muted">${formatPeDateTimeLine(new Date())}</p>
-      ${customerBlock}
-      <div class="sep"></div>
-      ${itemsTableHtml}
-      <div class="sep"></div>
-      <p style="font-size:16px"><strong>Total:</strong> ${formatCurrency(total)}</p>
-      </body></html>
-    `;
-    if (!printHtmlDocument(notaHtml, 'Nota de venta')) {
-      toast.error('No se pudo abrir la nota de venta para imprimir');
+    const customerLines = [
+      customer?.name && `Cliente: ${customer.name}`,
+      customer?.doc_number && `Doc: ${customer.doc_number}`,
+      customer?.phone && `Tel: ${customer.phone}`,
+      customer?.address && `Dir: ${customer.address}`,
+    ].filter(Boolean);
+    const plain = buildNotaVentaPlainText({
+      restaurantName,
+      docLine: docText,
+      tableName: tableName || '',
+      dateLine: formatPeDateTimeLine(new Date()),
+      customerLines,
+      groupedRows: groupedNota,
+      formatCurrencyFn: formatCurrency,
+      total,
+    });
+    let printCfg = null;
+    try {
+      printCfg = await api.get('/orders/print-config');
+    } catch (_) {
+      /* noop */
     }
+    const caja = printCfg?.printers?.caja;
+    const copies = Math.min(5, Math.max(1, Number(caja?.copies || 1)));
+    const thermal = await sendEscPosToCaja({
+      api,
+      cajaConfig: caja,
+      printAgent: printCfg?.print_agent,
+      text: plain,
+      copies,
+    });
+    if (thermal.ok) {
+      toast.success('Nota de venta enviada a la impresora de caja');
+      return;
+    }
+    toast.error(
+      'No se pudo imprimir la nota por térmica. Configure la caja (IP o USB) y el print-agent en Configuración.'
+    );
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
@@ -1846,45 +1771,53 @@ export default function POSPanel() {
     );
   }
 
-  const printTableOrder = (table) => {
+  const printTableOrder = async (table) => {
     if (!table) return;
     const groupedTable = mergedProductsOnTable(table);
     if (!groupedTable.length) return toast.error('La mesa no tiene pedidos para precuenta');
     const restaurantName = String(printRestaurantInfo?.name || 'Resto-FADEY').trim() || 'Resto-FADEY';
-    const logoUrl = String(printRestaurantInfo?.logo || '').trim();
-    const logoBlock = logoUrl
-      ? `<img src="${logoUrl}" alt="Logo" style="max-width:70px;max-height:70px;object-fit:contain;display:block;margin:0 auto 6px;" />`
-      : '';
-    const itemsTableHtml = buildPrintBillTableHtml(groupedTable, formatCurrency);
-    const customerPrintHtml = buildCustomerPrintBlockHtml({
-      name: billingForm.customer_name,
-      doc_number: billingForm.customer_doc_number,
-      address: billingForm.customer_address,
-      phone: billingForm.customer_phone,
-    });
     const precuentaParaLlevar = (table.orders || []).some((o) => orderHasTakeoutNote(o));
-    const mesaPrecuentaHtml = `
-      <html><head><meta charset="utf-8"/><title>Precuenta ${table.name}</title>
-      <style>
-        body{font-family:Arial,sans-serif;font-size:12px;padding:16px}
-        .muted{color:#64748b}.sep{border-top:1px dashed #cbd5e1;margin:8px 0}
-        table{width:100%;border-collapse:collapse}
-        .center{text-align:center}
-      </style></head><body>
-      <div class="center">${logoBlock}<h3 style="margin:0 0 6px 0">${restaurantName}</h3></div>
-      <h3>PRECUENTA - ${table.name}</h3>
-      <p class="muted">${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}</p>
-      ${precuentaParaLlevar ? `<p style="text-align:center;font-weight:800;font-size:14px;letter-spacing:0.08em;margin:8px 0 0 0;">${KITCHEN_TAKEOUT_NOTE}</p>` : ''}
-      ${customerPrintHtml}
-      <div class="sep"></div>
-      ${itemsTableHtml}
-      <div class="sep"></div>
-      <p style="font-size:16px"><strong>Total a pagar:</strong> ${formatCurrency((table.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}</p>
-      </body></html>
-    `;
-    if (!printHtmlDocument(mesaPrecuentaHtml, `Precuenta ${table.name}`)) {
-      toast.error('No se pudo abrir la impresión de precuenta');
+    const tableTotal = (table.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
+    const customerLines = [
+      billingForm.customer_name && `Cliente: ${billingForm.customer_name}`,
+      billingForm.customer_doc_number && `Doc: ${billingForm.customer_doc_number}`,
+      billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
+      billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
+    ].filter(Boolean);
+    const plain = buildPrecuentaPlainText({
+      restaurantName,
+      tableName: table.name,
+      userLine: `${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}`,
+      takeoutLine: precuentaParaLlevar ? KITCHEN_TAKEOUT_NOTE : '',
+      customerLines,
+      groupedRows: groupedTable,
+      formatCurrencyFn: formatCurrency,
+      subtotal: tableTotal,
+      discount: 0,
+      payableTotal: tableTotal,
+    });
+    let printCfg = null;
+    try {
+      printCfg = await api.get('/orders/print-config');
+    } catch (_) {
+      /* noop */
     }
+    const caja = printCfg?.printers?.caja;
+    const copies = Math.min(5, Math.max(1, Number(caja?.copies || 1)));
+    const thermal = await sendEscPosToCaja({
+      api,
+      cajaConfig: caja,
+      printAgent: printCfg?.print_agent,
+      text: plain,
+      copies,
+    });
+    if (thermal.ok) {
+      toast.success('Precuenta enviada a la impresora de caja');
+      return;
+    }
+    toast.error(
+      'No se pudo imprimir la precuenta por térmica. Configure la caja (IP o USB) y el print-agent en Configuración.'
+    );
   };
   const chargeReservation = async (entry) => {
     const orders = entry?.linkedOrders || [];
@@ -1908,6 +1841,9 @@ export default function POSPanel() {
       <div className="mb-4 -mt-4">
       {activeCajaOption === 'cobrar' && (
         <>
+      <div className="mb-3 max-w-3xl">
+        <StationPrinterCard station="caja" userRole={user?.role} />
+      </div>
       <div className="flex items-center justify-between mb-3 gap-2">
         <div
           className={`inline-flex items-center justify-center w-9 h-9 rounded-full border ${
@@ -2041,7 +1977,7 @@ export default function POSPanel() {
               <div className="flex flex-1 min-w-[200px] gap-2">
                 <button
                   type="button"
-                  onClick={() => printTableOrder(tableDetail)}
+                  onClick={() => void printTableOrder(tableDetail)}
                   disabled={!tableDetail.orders?.length}
                   className="flex-1 py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
                 >

@@ -11,8 +11,10 @@ function normalizePrinterStation(p) {
   if (n.includes('parrilla')) return 'parrilla';
   if (n.includes('delivery')) return 'delivery';
   if (n.includes('caja')) return 'caja';
-  if (n.includes('bar')) return 'bar';
+  /** «cocina» antes que «bar» para no confundir nombres tipo «barra cocina». */
   if (n.includes('cocina')) return 'cocina';
+  /** Solo la palabra «bar» (no «barra», «barbacoa», etc.). */
+  if (/\bbar\b/.test(n)) return 'bar';
   return 'cocina';
 }
 

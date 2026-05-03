@@ -18,15 +18,8 @@ import {
   MdMap,
 } from 'react-icons/md';
 import { buildGoogleMapsSearchUrl } from '../../utils/googleMaps';
-import { printHtmlDocument } from '../../utils/printHtml';
-
-function escHtml(s) {
-  return String(s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { buildDeliveryReportPlainText } from '../../utils/ticketPlainText';
+import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
 
 function parseApiDateLike(value) {
   if (!value) return null;
@@ -46,12 +39,6 @@ function isSameLocalCalendarDay(dateValue, ref = new Date()) {
     d.getMonth() === ref.getMonth() &&
     d.getDate() === ref.getDate()
   );
-}
-
-function orderLinesSummary(order) {
-  const items = order?.items || [];
-  if (!items.length) return `Pedido #${order?.order_number ?? '—'}`;
-  return items.map((it) => `${it.quantity}× ${it.product_name}`).join(', ');
 }
 
 function getTimeDiffShort(created) {
@@ -148,38 +135,42 @@ export default function DeliveryPanel() {
     }
   };
 
-  const printCompletedReport = useCallback(() => {
+  const printCompletedReport = useCallback(async () => {
     const todayLabel = formatDate(todayLocalYyyyMmDd()) || new Date().toLocaleDateString('es-PE');
-    const rows = completadosHoy
-      .map((o) => {
-        const name = escHtml(o.customer_name || '—');
-        const pedido = escHtml(orderLinesSummary(o));
-        const total = formatCurrency(o.total || 0);
-        const mod = escHtml(labelDeliveryPaymentModality(o.delivery_payment_modality) || '—');
-        return `<tr><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0">${name}</td><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;font-size:12px">${pedido}</td><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;font-size:12px;white-space:nowrap">${mod}</td><td style="padding:8px 6px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap">${total}</td></tr>`;
-      })
-      .join('');
-    const sum = completadosHoy.reduce((s, o) => s + Number(o.total || 0), 0);
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Reporte delivery</title>
-      <style>
-        body{font-family:system-ui,sans-serif;padding:16px;max-width:640px;margin:0 auto;color:#0f172a}
-        h1{font-size:18px;margin:0 0 4px 0}
-        .d{font-size:13px;color:#64748b;margin-bottom:16px}
-        table{width:100%;border-collapse:collapse;font-size:13px}
-        th{text-align:left;font-size:11px;text-transform:uppercase;color:#64748b;padding:6px;border-bottom:2px solid #0f172a}
-        .tot{margin-top:14px;font-size:15px;font-weight:700;text-align:right}
-      </style></head><body>
-        <h1>Pedidos completados (mi ruta)</h1>
-        <p class="d">Fecha: ${escHtml(todayLabel)} · ${escHtml(user?.full_name || '')}</p>
-        <table>
-          <thead><tr><th>Cliente</th><th>Pedido</th><th>Modalidad de pago</th><th>Costo</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="4" style="padding:12px;color:#94a3b8">Sin entregas completadas hoy</td></tr>'}</tbody>
-        </table>
-        <p class="tot">Total: ${formatCurrency(sum)}</p>
-      </body></html>`;
-    if (!printHtmlDocument(html, 'Reporte delivery')) {
-      toast.error('No se pudo abrir la impresión del reporte');
+    if (!completadosHoy.length) {
+      toast.error('No hay entregas completadas hoy para imprimir');
+      return;
     }
+    const plain = buildDeliveryReportPlainText({
+      dateLabel: todayLabel,
+      driverName: user?.full_name || '',
+      orders: completadosHoy,
+      formatCurrencyFn: formatCurrency,
+    });
+    let cfg = null;
+    try {
+      cfg = await api.get('/orders/print-config');
+    } catch {
+      toast.error('No se pudo cargar la configuración de impresión');
+      return;
+    }
+    const deliveryCfg = cfg?.printers?.delivery;
+    const copies = Math.min(5, Math.max(1, Number(deliveryCfg?.copies || 1)));
+    const thermal = await sendEscPosToStation({
+      api,
+      station: 'delivery',
+      stationConfig: deliveryCfg,
+      printAgent: cfg?.print_agent,
+      text: plain,
+      copies,
+    });
+    if (thermal.ok) {
+      toast.success('Reporte enviado a la impresora');
+      return;
+    }
+    toast.error(
+      'No hay impresión térmica para delivery. Configure IP o USB en Configuración → Impresoras y el print-agent.'
+    );
   }, [completadosHoy, user?.full_name]);
 
   const openEndShiftFlow = () => {
