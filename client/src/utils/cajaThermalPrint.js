@@ -1,16 +1,27 @@
-import { shouldTryServerNetworkPrint, isThermalLanIp } from './networkPrinter';
+import { shouldTryServerNetworkPrint, isThermalLanIp, hasThermalDestination } from './networkPrinter';
 import { postLocalAgentPrint, isLocalPrintAgentConfigured } from './localPrintAgent';
+import { isQzTrayEnabled, printEscPosWithQz } from '../services/printing/qzService';
 
 /**
  * Envía texto ESC/POS a la estación indicada: API (TCP) o print-agent (LAN/USB).
- * @param {{ api: object, station: string, stationConfig: object, printAgent: object, text: string, copies?: number }} opts
+ * @param {{ api: object, station: string, stationConfig: object, printAgent: object, text: string, copies?: number, skipQz?: boolean }} opts
  * @returns {Promise<{ ok: boolean, via?: string }>}
  */
-export async function sendEscPosToStation({ api, station, stationConfig, printAgent, text, copies }) {
+export async function sendEscPosToStation({ api, station, stationConfig, printAgent, text, copies, skipQz = false }) {
   const c = stationConfig || {};
   const n = Math.min(5, Math.max(1, Number(copies ?? c.copies ?? 1) || 1));
   const plain = String(text || '').trim();
   if (!plain) return { ok: false };
+
+  if (!skipQz && isQzTrayEnabled(printAgent) && hasThermalDestination(c)) {
+    try {
+      await printEscPosWithQz({ stationConfig: c, text: plain, copies: n });
+      return { ok: true, via: 'qz' };
+    } catch (err) {
+      console.warn('[impresión] QZ Tray falló; se intentará servidor o print-agent:', err?.message || err);
+    }
+  }
+
   if (shouldTryServerNetworkPrint(c)) {
     try {
       await api.post('/orders/print-network', { station, text: plain, copies: n });

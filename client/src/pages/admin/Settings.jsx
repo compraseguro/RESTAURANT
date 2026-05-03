@@ -3,6 +3,7 @@ import { api, formatDateTime } from '../../utils/api';
 import { shouldSendToNetworkPrinter, shouldTryServerNetworkPrint, hasThermalDestination } from '../../utils/networkPrinter';
 import { isLocalPrintAgentConfigured } from '../../utils/localPrintAgent';
 import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
+import { isQzTrayEnabled, printEscPosWithQz } from '../../services/printing/qzService';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -111,11 +112,12 @@ const DEFAULT_APP_SETTINGS = {
     { name: 'Impresora Bar', area: 'Comandas Bar', station: 'bar', connection: 'browser', printer_type: 'lan', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
     { name: 'Impresora Caja', area: 'Comprobantes', station: 'caja', connection: 'browser', printer_type: 'lan', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
   ],
-  /** Agente ESC/POS en el PC del local (ver carpeta local-print-agent). */
+  /** Agente ESC/POS en el PC del local (ver carpeta local-print-agent). qz_tray: impresión vía QZ Tray en el mismo PC. */
   print_agent: {
     enabled: 1,
     base_url: 'http://127.0.0.1:3001',
     agent_token: '',
+    qz_tray: { enabled: 0 },
   },
   tarjetas: [
     { name: 'Visa', fee_percent: 2.5, active: 1 },
@@ -343,12 +345,15 @@ export default function Settings() {
     const merged = { ...DEFAULT_APP_SETTINGS, ...((payload && payload.settings) || payload || {}) };
     merged.cajas = ensureCajaIdsDeep(Array.isArray(merged.cajas) ? merged.cajas : []);
     const pa = merged.print_agent && typeof merged.print_agent === 'object' ? merged.print_agent : {};
+    const qz = pa.qz_tray && typeof pa.qz_tray === 'object' ? pa.qz_tray : {};
+    const qzOn = Number(qz.enabled) === 1 || qz.enabled === true;
     merged.print_agent = {
       ...pa,
       enabled: 1,
       base_url: String(pa.base_url || DEFAULT_APP_SETTINGS.print_agent.base_url || 'http://127.0.0.1:3001').trim()
         || DEFAULT_APP_SETTINGS.print_agent.base_url,
       agent_token: String(pa.agent_token ?? DEFAULT_APP_SETTINGS.print_agent.agent_token ?? ''),
+      qz_tray: { enabled: qzOn ? 1 : 0 },
     };
     return merged;
   };
@@ -588,26 +593,37 @@ export default function Settings() {
       '',
     ].join('\n');
 
+    const station = String(pr?.station || 'caja').toLowerCase();
+    const allowedStation = ['cocina', 'bar', 'caja', 'delivery', 'parrilla'].includes(station);
+    const copies = Math.min(5, Math.max(1, Number(pr.copies || 1)));
+
+    if (isQzTrayEnabled(appSettings.print_agent) && hasThermalDestination(pr) && allowedStation) {
+      try {
+        await printEscPosWithQz({ stationConfig: pr, text: plainTestBody, copies });
+        toast.success(`Prueba enviada por QZ Tray a «${name}»`);
+        return;
+      } catch (err) {
+        console.warn('[impresión] Prueba QZ falló:', err?.message || err);
+      }
+    }
+
     if (shouldTryServerNetworkPrint(pr)) {
       try {
         await api.post('/orders/print-test', {
           ip_address: ip,
           port: Number(pr.port || 9100),
-          copies: Math.min(5, Math.max(1, Number(pr.copies || 1))),
+          copies,
           name,
         });
-        toast.success(`Prueba enviada a «${name}»`);
+        toast.success(`Prueba enviada a «${name}» (servidor → IP de esta fila)`);
       } catch (err) {
         toast.error(err.message || 'No se pudo enviar la prueba');
       }
       return;
     }
 
-    const station = String(pr?.station || 'caja').toLowerCase();
-    const allowedStation = ['cocina', 'bar', 'caja', 'delivery', 'parrilla'].includes(station);
     if (hasThermalDestination(pr) && isLocalPrintAgentConfigured(appSettings.print_agent) && allowedStation) {
       try {
-        const copies = Math.min(5, Math.max(1, Number(pr.copies || 1)));
         const r = await sendEscPosToStation({
           api,
           station,
@@ -615,6 +631,7 @@ export default function Settings() {
           printAgent: appSettings.print_agent,
           text: plainTestBody,
           copies,
+          skipQz: true,
         });
         if (r.ok) {
           toast.success(`Prueba enviada por el print-agent a «${name}»`);
@@ -630,7 +647,7 @@ export default function Settings() {
     }
 
     toast.error(
-      'Configure la IP de la térmica (red) o el nombre exacto de impresora USB, la estación (cocina/bar/caja) y la URL del print-agent en esta pantalla.'
+      'Configure la IP de la térmica (red) o el nombre exacto de impresora USB, la estación (cocina/bar/caja) y la URL del print-agent o QZ Tray en esta pantalla.'
     );
   };
 
@@ -1398,6 +1415,33 @@ export default function Settings() {
                 En la web pública HTTPS, use la app por <strong>http://</strong> en la red del local o un proxy nginx hacia el agente. Opcional: mismo token que{' '}
                 <code className="bg-slate-100 px-1 rounded">PRINT_AGENT_TOKEN</code> del agente.
               </p>
+              <label className="flex items-start gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="mt-1 rounded border-slate-300"
+                  checked={Number(appSettings.print_agent?.qz_tray?.enabled) === 1}
+                  onChange={(e) =>
+                    setAppSettings((s) => ({
+                      ...s,
+                      print_agent: {
+                        ...(s.print_agent || {}),
+                        qz_tray: { ...(s.print_agent?.qz_tray || {}), enabled: e.target.checked ? 1 : 0 },
+                      },
+                    }))
+                  }
+                />
+                <span>
+                  <span className="text-sm font-medium text-slate-800">Usar QZ Tray en este equipo</span>
+                  <span className="block text-xs text-slate-500 mt-0.5">
+                    Impresión térmica silenciosa (sin cuadro del navegador). Instale{' '}
+                    <a href="https://qz.io/download/" target="_blank" rel="noreferrer" className="text-sky-600 underline">
+                      QZ Tray
+                    </a>
+                    , configure IP o nombre USB en cada impresora y guarde. Si QZ falla, se usa print-agent o servidor
+                    como respaldo.
+                  </span>
+                </span>
+              </label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">URL del agente</label>
