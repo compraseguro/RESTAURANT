@@ -3,7 +3,7 @@
  * Cocina / Bar / Caja: IP+puerto RAW o nombre de cola Windows.
  *
  * Cómo agregar otra impresora o sede:
- * - En Configuración → Impresoras, cree una fila con la estación (cocina, bar, caja, …),
+ * - En cada panel (Caja / Cocina / Bar) abra «Impresora» y defina la estación (cocina, bar, caja, …),
  *   tipo «Red local» + IP fija + puerto 9100, o tipo USB + nombre exacto de la cola en Windows.
  * - Active «Usar QZ Tray» en el PC que imprime; QZ usa esa IP o ese nombre sin pasar por el navegador.
  * - Por sede: guarde `app_settings` distintos por local o use rutas de impresora en BD si ya las tiene.

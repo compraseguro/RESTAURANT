@@ -1411,7 +1411,7 @@ async function initDatabase() {
       `);
       db.run('CREATE INDEX IF NOT EXISTS idx_printer_routes_restaurant ON printer_routes(restaurant_id)');
       try {
-        const { normalizePrinterStation } = require('./printerStation');
+        const { normalizePrinterStation, KNOWN_PRINT_AREAS } = require('./printerStation');
         const rest = queryOne('SELECT id FROM restaurants ORDER BY created_at ASC LIMIT 1');
         const rid = String(rest?.id || '').trim();
         if (rid) {
@@ -1425,7 +1425,9 @@ async function initDatabase() {
           }
           const byArea = new Map();
           for (const p of impresoras) {
-            byArea.set(normalizePrinterStation(p), p);
+            const area = normalizePrinterStation(p);
+            if (!KNOWN_PRINT_AREAS.includes(area)) continue;
+            byArea.set(area, p);
           }
           for (const [area, p] of byArea) {
             const ip = String(p.ip_address || '').trim();

@@ -3,7 +3,7 @@
  *
  * Requisitos:
  * - Instalar QZ Tray en Windows: https://qz.io/download/
- * - Activar «Usar QZ Tray» en Configuración → Impresoras (print_agent.qz_tray.enabled)
+ * - Activar «Usar QZ Tray» en el panel Impresora (caja / cocina / bar) y Guardar conexión local.
  *
  * Certificados (producción):
  * - Por defecto se usa el certificado de demostración de QZ + firma en demo.qz.io (apto pruebas).

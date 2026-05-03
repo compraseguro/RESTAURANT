@@ -1,6 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('./database');
-const { normalizePrinterStation } = require('./printerStation');
+const { normalizePrinterStation, KNOWN_PRINT_AREAS } = require('./printerStation');
 
 function getPrimaryRestaurantId() {
   const r = queryOne('SELECT id FROM restaurants ORDER BY created_at ASC LIMIT 1');
@@ -102,6 +102,7 @@ function syncPrinterRoutesFromImpresoras(restaurantId, impresoras) {
   const byArea = new Map();
   for (const p of impresoras) {
     const area = normalizePrinterStation(p);
+    if (!KNOWN_PRINT_AREAS.includes(area)) continue;
     byArea.set(area, p);
   }
   runSql('DELETE FROM printer_routes WHERE restaurant_id = ?', [rid]);

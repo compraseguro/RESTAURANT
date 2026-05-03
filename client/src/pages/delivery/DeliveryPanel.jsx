@@ -169,7 +169,7 @@ export default function DeliveryPanel() {
       return;
     }
     toast.error(
-      'No hay impresión térmica para delivery. Configure IP o USB en Configuración → Impresoras y el print-agent.'
+      'No hay impresión térmica para delivery. Configure IP o USB desde el panel de impresión correspondiente y el print-agent.'
     );
   }, [completadosHoy, user?.full_name]);
 

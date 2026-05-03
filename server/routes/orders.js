@@ -404,6 +404,49 @@ router.get('/kitchen', authenticateToken, (req, res) => {
   res.json(filtered);
 });
 
+/**
+ * URL del print-agent, token y QZ Tray (mismo valor en todo el local).
+ * Editable desde cada panel (caja / cocina / bar), no solo desde Configuración.
+ */
+router.put(
+  '/local-print-connection',
+  authenticateToken,
+  requireRole('admin', 'master_admin', 'cajero', 'cocina', 'bar'),
+  (req, res) => {
+    try {
+      const b = req.body || {};
+      const settings = readAppSettingsBundle();
+      const pa = settings.print_agent && typeof settings.print_agent === 'object' ? settings.print_agent : {};
+      const qzBody = b.qz_tray && typeof b.qz_tray === 'object' ? b.qz_tray : {};
+      const qzOn = Number(qzBody.enabled) === 1 || qzBody.enabled === true;
+      const merged = {
+        ...pa,
+        enabled: 1,
+        base_url:
+          b.base_url !== undefined && b.base_url !== null
+            ? String(b.base_url).trim() || 'http://127.0.0.1:3001'
+            : String(pa.base_url || 'http://127.0.0.1:3001').trim() || 'http://127.0.0.1:3001',
+        agent_token: b.agent_token !== undefined && b.agent_token !== null ? String(b.agent_token) : String(pa.agent_token || ''),
+        qz_tray: {
+          enabled:
+            b.qz_tray !== undefined && b.qz_tray !== null && typeof b.qz_tray === 'object'
+              ? qzOn
+                ? 1
+                : 0
+              : Number(pa.qz_tray?.enabled) === 1 || pa.qz_tray?.enabled === true
+                ? 1
+                : 0,
+        },
+      };
+      settings.print_agent = merged;
+      writeAppSettingsBundle(settings);
+      return res.json({ success: true, print_agent: readPrintAgentFromSettings() });
+    } catch (err) {
+      return res.status(400).json({ error: err.message || 'No se pudo guardar' });
+    }
+  }
+);
+
 router.get('/print-config', authenticateToken, requireRole('admin', 'cajero', 'mozo', 'cocina', 'bar'), (req, res) => {
   const restaurant = queryOne('SELECT name, address, phone, logo FROM restaurants LIMIT 1') || {};
   const restaurantId = resolveRestaurantId(req.user);

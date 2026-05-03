@@ -43,6 +43,8 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
   const [detecting, setDetecting] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [agentHint, setAgentHint] = useState(null);
+  const [agentConn, setAgentConn] = useState({ base_url: '', agent_token: '', qz_enabled: 0 });
+  const [savingAgent, setSavingAgent] = useState(false);
   const [form, setForm] = useState({
     ip_address: '',
     port: 9100,
@@ -55,6 +57,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
 
   const canEdit =
     userRole === 'admin' ||
+    userRole === 'master_admin' ||
     (userRole === 'cocina' && station === 'cocina') ||
     (userRole === 'bar' && station === 'bar') ||
     (userRole === 'cajero' && station === 'caja');
@@ -65,6 +68,12 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
       .get('/orders/print-config')
       .then((c) => {
         setPrintCfg(c);
+        const pa = c?.print_agent || {};
+        setAgentConn({
+          base_url: String(pa.base_url || '').trim(),
+          agent_token: String(pa.agent_token || ''),
+          qz_enabled: Number(pa.qz_tray?.enabled) === 1 || pa.qz_tray?.enabled === true ? 1 : 0,
+        });
         const p = c?.printers?.[station];
         if (p) {
           const pt = String(p.printer_type || 'lan').toLowerCase();
@@ -86,6 +95,24 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
   useEffect(() => {
     load();
   }, [load]);
+
+  const saveLocalConnection = async () => {
+    if (!canEdit) return;
+    setSavingAgent(true);
+    try {
+      await api.put('/orders/local-print-connection', {
+        base_url: String(agentConn.base_url || '').trim() || 'http://127.0.0.1:3001',
+        agent_token: agentConn.agent_token,
+        qz_tray: { enabled: Number(agentConn.qz_enabled) === 1 },
+      });
+      toast.success('Conexión local guardada');
+      await load();
+    } catch (e) {
+      toast.error(e?.message || 'No se pudo guardar la conexión');
+    } finally {
+      setSavingAgent(false);
+    }
+  };
 
   const save = async () => {
     if (!canEdit) return;
@@ -130,7 +157,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
         ip_address: form.ip_address,
         port: form.port,
         copies: form.copies,
-        auto_print: form.auto_print,
+        auto_print: station === 'caja' ? 0 : form.auto_print,
         printer_type: form.printer_type,
         width_mm: form.width_mm,
         local_printer_name: form.local_printer_name,
@@ -145,7 +172,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
   const detectPrinters = async () => {
     const pa = printCfg?.print_agent;
     if (!isLocalPrintAgentConfigured(pa)) {
-      toast.error('Configure primero la URL del print-agent en Configuración → Impresoras');
+      toast.error('Configure primero la URL del print-agent abajo (Guardar conexión local).');
       return;
     }
     setDetecting(true);
@@ -203,13 +230,13 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
       }
       return;
     }
-    toast.error('Indique IP (red RAW) o nombre de impresora USB, y la URL del print-agent en Configuración.');
+    toast.error('Indique IP (red RAW) o nombre de impresora USB, y guarde la URL del print-agent en este panel.');
   };
 
   const reconnectAgent = async () => {
     const pa = printCfg?.print_agent;
     if (!isLocalPrintAgentConfigured(pa)) {
-      toast.error('Configure la URL del print-agent en Configuración → Impresoras.');
+      toast.error('Configure la URL del print-agent en este panel (Guardar conexión local).');
       return;
     }
     setStatusLoading(true);
@@ -286,6 +313,9 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
     ? 'rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 text-sm'
     : 'rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 mb-4 text-sm';
 
+  /** Caja no recibe comandas al crear pedidos; solo cocina/bar usan auto-impresión al recibir pedido. */
+  const showAutoPrintToggle = station !== 'caja';
+
   return (
     <div className={shellClass}>
       {!hideHeading ? (
@@ -293,8 +323,13 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
       ) : null}
       {!canEdit ? (
         <p className="text-xs text-[var(--ui-muted)]">
-          IP: {form.ip_address || '—'} · USB: {form.local_printer_name || '—'} · Puerto {form.port} · Auto{' '}
-          {Number(form.auto_print) === 1 ? 'sí' : 'no'}
+          IP: {form.ip_address || '—'} · USB: {form.local_printer_name || '—'} · Puerto {form.port}
+          {showAutoPrintToggle ? (
+            <>
+              {' '}
+              · Auto {Number(form.auto_print) === 1 ? 'sí' : 'no'}
+            </>
+          ) : null}
         </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -370,15 +405,71 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
               <option value={80}>80</option>
             </select>
           </div>
-          <div className="flex items-end">
-            <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
+          {showAutoPrintToggle ? (
+            <div className="flex items-end">
+              <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={Number(form.auto_print) === 1}
+                  onChange={(e) => setForm((f) => ({ ...f, auto_print: e.target.checked ? 1 : 0 }))}
+                />
+                Impresión automática al recibir pedido
+              </label>
+            </div>
+          ) : null}
+          <div className="sm:col-span-2 mt-1 pt-3 border-t border-[color:var(--ui-border)] space-y-2">
+            <p className="text-[11px] font-semibold text-[var(--ui-body-text)]">Print-agent y QZ Tray (este equipo)</p>
+            <p className="text-[10px] text-[var(--ui-muted)] leading-snug">
+              La misma URL y opciones aplican a caja, cocina y bar. Instale la carpeta{' '}
+              <code className="rounded bg-[var(--ui-surface)] px-1 border border-[color:var(--ui-border)]">local-print-agent</code> en
+              este PC. Con HTTPS en desarrollo suele usarse el proxy{' '}
+              <code className="rounded bg-[var(--ui-surface)] px-1 border border-[color:var(--ui-border)]">/print-agent</code>.
+            </p>
+            <label className="flex items-start gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={Number(form.auto_print) === 1}
-                onChange={(e) => setForm((f) => ({ ...f, auto_print: e.target.checked ? 1 : 0 }))}
+                className="mt-0.5 rounded border-[color:var(--ui-border)]"
+                checked={Number(agentConn.qz_enabled) === 1}
+                onChange={(e) => setAgentConn((a) => ({ ...a, qz_enabled: e.target.checked ? 1 : 0 }))}
               />
-              Impresión automática al recibir pedido
+              <span className="text-xs text-[var(--ui-body-text)]">
+                Usar QZ Tray (impresión silenciosa). Si falla, se usa print-agent o el servidor.{' '}
+                <a href="https://qz.io/download/" target="_blank" rel="noreferrer" className="text-sky-600 underline">
+                  Descargar QZ
+                </a>
+              </span>
             </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">URL del print-agent</label>
+                <input
+                  type="url"
+                  className="input-field text-sm py-1.5"
+                  value={agentConn.base_url}
+                  onChange={(e) => setAgentConn((a) => ({ ...a, base_url: e.target.value.trim() }))}
+                  placeholder="http://127.0.0.1:3001"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">Token del agente (opcional)</label>
+                <input
+                  type="password"
+                  className="input-field text-sm py-1.5"
+                  autoComplete="off"
+                  value={agentConn.agent_token}
+                  onChange={(e) => setAgentConn((a) => ({ ...a, agent_token: e.target.value }))}
+                  placeholder="PRINT_AGENT_TOKEN"
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void saveLocalConnection()}
+              disabled={savingAgent}
+              className="btn-secondary text-xs py-1.5 px-3 inline-flex items-center gap-1 disabled:opacity-50"
+            >
+              <MdSave className="text-base" /> {savingAgent ? 'Guardando…' : 'Guardar conexión local'}
+            </button>
           </div>
           {agentHint ? (
             <div className="sm:col-span-2 text-[10px] text-[var(--ui-muted)] rounded border border-[color:var(--ui-border)] px-2 py-1.5 bg-[var(--ui-surface)]">
@@ -390,7 +481,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
           ) : null}
           <div className="sm:col-span-2 flex flex-wrap gap-2 pt-1">
             <button type="button" onClick={() => void save()} className="btn-primary text-xs py-1.5 px-3 inline-flex items-center gap-1">
-              <MdSave className="text-base" /> Guardar
+              <MdSave className="text-base" /> Guardar impresora
             </button>
             <button
               type="button"

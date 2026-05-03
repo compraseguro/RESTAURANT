@@ -15,7 +15,12 @@ function normalizePrinterStation(p) {
   if (n.includes('cocina')) return 'cocina';
   /** Solo la palabra «bar» (no «barra», «barbacoa», etc.). */
   if (/\bbar\b/.test(n)) return 'bar';
-  return 'cocina';
+  /**
+   * Antes se devolvía «cocina» por defecto: cualquier fila sin estación ni nombre reconocible
+   * se confundía con cocina y era la primera en `find` / `findIndex`, mostrando datos ajenos
+   * (p. ej. nombre USB de caja) en el modal de cocina.
+   */
+  return '';
 }
 
 module.exports = { normalizePrinterStation, KNOWN_PRINT_AREAS };

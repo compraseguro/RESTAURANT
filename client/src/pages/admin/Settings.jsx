@@ -1,9 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { api, formatDateTime } from '../../utils/api';
-import { shouldSendToNetworkPrinter, shouldTryServerNetworkPrint, hasThermalDestination } from '../../utils/networkPrinter';
-import { isLocalPrintAgentConfigured } from '../../utils/localPrintAgent';
-import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
-import { isQzTrayEnabled, printEscPosWithQz } from '../../services/printing/qzService';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -14,7 +10,7 @@ import {
   MdVisibility, MdVisibilityOff, MdSettings, MdStore,
   MdSave, MdSchedule, MdAttachMoney, MdLanguage,
   MdStorefront, MdWarehouse, MdTableRestaurant,
-  MdReceipt, MdPrint, MdPercent, MdCreditCard,
+  MdReceipt, MdPercent, MdCreditCard,
   MdAccessTime, MdMonetizationOn, MdAccountBalanceWallet,
   MdBrandingWatermark, MdImage, MdBlockFlipped, MdPayment,
   MdChevronRight, MdArrowBack, MdInventory, MdSwapHoriz,
@@ -22,7 +18,6 @@ import {
   MdSecurity, MdDashboard, MdEventSeat, MdDeliveryDining, MdPhotoCamera,
   MdAssessment, MdInsights, MdLocalOffer, MdDiscount,
   MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette,
-  MdPlayArrow,
 } from 'react-icons/md';
 import { UI_THEME_OPTIONS, applyUiTheme, getValidUiThemeId } from '../../theme/uiTheme';
 
@@ -69,7 +64,6 @@ const MENU_ITEMS = [
   { id: 'salones', label: 'Salones y Mesas', icon: MdTableRestaurant },
   { id: 'cajas', label: 'Cajas', icon: MdPointOfSale },
   { id: 'comprobantes', label: 'Comprobantes', icon: MdReceipt },
-  { id: 'impresoras', label: 'Impresoras', icon: MdPrint },
   { id: 'impuestos', label: 'Impuestos', icon: MdPercent },
   { id: 'tarjetas', label: 'Tarjetas', icon: MdCreditCard },
   { id: 'turnos', label: 'Turnos', icon: MdAccessTime },
@@ -84,7 +78,7 @@ const MENU_ITEMS = [
   { id: 'config_historial', label: 'Historial de configuración', icon: MdHistory },
 ];
 const PARTIAL_SECTIONS = new Set([
-  'regional', 'locales', 'almacenes', 'cajas', 'comprobantes', 'impresoras',
+  'regional', 'locales', 'almacenes', 'cajas', 'comprobantes',
   'tarjetas', 'monedas', 'cuentas_transferencia', 'marcas',
   'categoria_anular', 'formas_pago', 'apariencia',
 ]);
@@ -192,52 +186,6 @@ const SETTINGS_SECTION_FORMS = {
     fields: [
       { key: 'name', label: 'Nombre', required: true },
       { key: 'series', label: 'Serie', required: true },
-    ],
-  },
-  impresoras: {
-    title: 'Impresora',
-    fields: [
-      { key: 'name', label: 'Nombre', required: true },
-      {
-        key: 'station',
-        label: 'Área / estación',
-        required: true,
-        type: 'select',
-        options: [
-          { value: 'cocina', label: 'Cocina' },
-          { value: 'bar', label: 'Bar' },
-          { value: 'caja', label: 'Caja (POS / comprobantes)' },
-          { value: 'delivery', label: 'Delivery' },
-          { value: 'parrilla', label: 'Parrilla' },
-        ],
-      },
-      { key: 'area', label: 'Texto en ticket (área)', required: true },
-      {
-        key: 'printer_type',
-        label: 'Tipo de conexión',
-        required: true,
-        type: 'select',
-        options: [
-          { value: 'lan', label: 'Red local (IP RAW, puerto 9100)' },
-          { value: 'usb', label: 'USB / cola del sistema (print-agent)' },
-          { value: 'bluetooth', label: 'Bluetooth (experimental, print-agent)' },
-        ],
-      },
-      {
-        key: 'auto_print',
-        label: 'Auto-impresión',
-        required: true,
-        type: 'select',
-        options: [
-          { value: '1', label: 'Sí (cocina/bar al recibir pedido)' },
-          { value: '0', label: 'No' },
-        ],
-      },
-      { key: 'local_printer_name', label: 'Nombre en Windows (solo si usa USB)' },
-      { key: 'ip_address', label: 'IP de la impresora (solo modo red)' },
-      { key: 'port', label: 'Puerto TCP', type: 'number' },
-      { key: 'width_mm', label: 'Ancho ticket (mm)', type: 'number' },
-      { key: 'copies', label: 'Copias', type: 'number' },
     ],
   },
   tarjetas: {
@@ -580,77 +528,6 @@ export default function Settings() {
     }
   };
 
-  const testPrinterFromSettings = async (pr) => {
-    const name = String(pr?.name || 'Impresora').trim() || 'Impresora';
-    const ip = String(pr?.ip_address || '').trim();
-    const nowPe = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
-    const plainTestBody = [
-      '*** PRUEBA DE IMPRESION ***',
-      name,
-      nowPe,
-      'Si lee esto, la conexion',
-      'TCP/RAW a la impresora OK.',
-      '',
-    ].join('\n');
-
-    const station = String(pr?.station || 'caja').toLowerCase();
-    const allowedStation = ['cocina', 'bar', 'caja', 'delivery', 'parrilla'].includes(station);
-    const copies = Math.min(5, Math.max(1, Number(pr.copies || 1)));
-
-    if (isQzTrayEnabled(appSettings.print_agent) && hasThermalDestination(pr) && allowedStation) {
-      try {
-        await printEscPosWithQz({ stationConfig: pr, text: plainTestBody, copies });
-        toast.success(`Prueba enviada por QZ Tray a «${name}»`);
-        return;
-      } catch (err) {
-        console.warn('[impresión] Prueba QZ falló:', err?.message || err);
-      }
-    }
-
-    if (shouldTryServerNetworkPrint(pr)) {
-      try {
-        await api.post('/orders/print-test', {
-          ip_address: ip,
-          port: Number(pr.port || 9100),
-          copies,
-          name,
-        });
-        toast.success(`Prueba enviada a «${name}» (servidor → IP de esta fila)`);
-      } catch (err) {
-        toast.error(err.message || 'No se pudo enviar la prueba');
-      }
-      return;
-    }
-
-    if (hasThermalDestination(pr) && isLocalPrintAgentConfigured(appSettings.print_agent) && allowedStation) {
-      try {
-        const r = await sendEscPosToStation({
-          api,
-          station,
-          stationConfig: pr,
-          printAgent: appSettings.print_agent,
-          text: plainTestBody,
-          copies,
-          skipQz: true,
-        });
-        if (r.ok) {
-          toast.success(`Prueba enviada por el print-agent a «${name}»`);
-          return;
-        }
-        toast.error(
-          'El print-agent no pudo imprimir. Revise IP/puerto o nombre USB, y que el servicio esté en ejecución.'
-        );
-      } catch (err) {
-        toast.error(err?.message || 'No se pudo enviar la prueba al print-agent.');
-      }
-      return;
-    }
-
-    toast.error(
-      'Configure la IP de la térmica (red) o el nombre exacto de impresora USB, la estación (cocina/bar/caja) y la URL del print-agent o QZ Tray en esta pantalla.'
-    );
-  };
-
   const saveAppSettings = async ({ silent = false, nextSettings = null } = {}) => {
     if (isSavingAppSettings) return;
     const payloadSettings = normalizeConfigPayload({ settings: nextSettings || appSettings });
@@ -738,29 +615,6 @@ export default function Settings() {
       } else if (f.type === 'number') nextForm[f.key] = source[f.key] ?? 0;
       else nextForm[f.key] = source[f.key] ?? '';
     });
-    if (section === 'impresoras') {
-      if (index === null) {
-        if (!nextForm.area) nextForm.area = 'Comandas';
-        if (!nextForm.width_mm) nextForm.width_mm = 80;
-        if (!nextForm.copies) nextForm.copies = 1;
-        if (!nextForm.port) nextForm.port = 9100;
-        if (!nextForm.station) nextForm.station = 'cocina';
-      } else {
-        if (!nextForm.width_mm) nextForm.width_mm = Number(source.width_mm || 80);
-        if (!nextForm.copies) nextForm.copies = Number(source.copies || 1);
-        if (!nextForm.port) nextForm.port = Number(source.port || 9100);
-        if (!nextForm.station) nextForm.station = String(source.station || 'cocina');
-      }
-      if (!nextForm.printer_type) {
-        const legacyConn = String(source.connection || '').toLowerCase();
-        nextForm.printer_type = legacyConn === 'wifi' ? 'lan' : 'browser';
-      }
-      if (index !== null) {
-        nextForm.auto_print = String(Number(source.auto_print ?? 1) === 0 ? 0 : 1);
-      } else if (nextForm.auto_print === undefined || nextForm.auto_print === '') {
-        nextForm.auto_print = '1';
-      }
-    }
     setSettingsCrudForm(nextForm);
     setSettingsCrudModal({ isOpen: true, section, index });
   };
@@ -794,21 +648,6 @@ export default function Settings() {
       const duplicated = (appSettings.comprobantes || []).some((c, idx) => idx !== index && String(c.series || '').toUpperCase() === series);
       if (duplicated) return toast.error('La serie ya existe en otro comprobante');
     }
-    if (section === 'impresoras') {
-      const width = Number(settingsCrudForm.width_mm || 80);
-      const copies = Number(settingsCrudForm.copies || 1);
-      const port = Number(settingsCrudForm.port || 9100);
-      const pt = String(settingsCrudForm.printer_type || '').toLowerCase();
-      const ip = String(settingsCrudForm.ip_address || '').trim();
-      if (![58, 80].includes(width)) return toast.error('El ancho debe ser 58 u 80 mm');
-      if (copies < 1 || copies > 5) return toast.error('Las copias deben estar entre 1 y 5');
-      if (port < 1 || port > 65535) return toast.error('Puerto TCP inválido');
-      if (pt === 'lan') {
-        if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
-          return toast.error('Indica una IP válida (ej. 192.168.1.50) para impresora en red');
-        }
-      }
-    }
     if (section === 'monedas') {
       const nextCode = String(settingsCrudForm.code || '').trim().toUpperCase();
       const duplicated = (appSettings.monedas || []).some((m, idx) => idx !== index && String(m.code || '').toUpperCase() === nextCode);
@@ -834,11 +673,6 @@ export default function Settings() {
         const existingId = String(existing.id || '').trim();
         payload.id = existingId || newLocalCajaId();
       }
-    }
-    if (section === 'impresoras') {
-      const pt = String(payload.printer_type || 'browser').toLowerCase();
-      payload.connection = pt === 'lan' ? 'wifi' : 'browser';
-      payload.auto_print = String(payload.auto_print) === '0' ? 0 : 1;
     }
     setAppSettings(prev => {
       const list = Array.isArray(prev[section]) ? [...prev[section]] : [];
@@ -1354,136 +1188,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* IMPRESORAS */}
-        {activeSection === 'impresoras' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Impresoras configuradas en el sistema</p>
-              <button className="btn-primary flex items-center gap-2 text-sm" onClick={() => openSettingsCrudModal('impresoras')}><MdAdd /> Nueva Impresora</button>
-            </div>
-            <div className="card">
-              {(appSettings.impresoras || []).map((pr, i) => (
-                <div key={`${pr.name}-${i}`} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0"><MdPrint className="text-slate-600" /></div>
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{pr.name}</p>
-                      <p className="text-sm text-slate-500">
-                        Estación <span className="font-medium text-slate-700">{pr.station || '—'}</span>
-                        {' · '}{pr.area || 'Sin área'} · {Number(pr.width_mm || 80)}mm · {Number(pr.copies || 1)} copia(s)
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {String(pr.connection || 'browser').toLowerCase() === 'wifi' && pr.ip_address
-                          ? <>Red <code className="bg-slate-100 px-1 rounded text-slate-800">{pr.ip_address}:{Number(pr.port || 9100)}</code></>
-                          : <>Navegador (diálogo en el PC)</>}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button type="button" onClick={() => toggleAppSection('impresoras', i)} className={`px-2 py-1 text-xs rounded-full ${pr.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{pr.active ? 'Activa' : 'Inactiva'}</button>
-                    <button
-                      type="button"
-                      className="p-2 hover:bg-sky-50 rounded-lg text-sky-600"
-                      title={
-                        shouldTryServerNetworkPrint(pr)
-                          ? 'Probar impresión (red TCP vía servidor)'
-                          : shouldSendToNetworkPrinter(pr) && isLocalPrintAgentConfigured(appSettings.print_agent)
-                            ? 'Probar impresión (programa local → impresora)'
-                            : 'Probar impresión (cuadro del sistema / navegador)'
-                      }
-                      onClick={() => testPrinterFromSettings(pr)}
-                    >
-                      <MdPlayArrow className="text-xl" />
-                    </button>
-                    <button type="button" className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('impresoras', i)}><MdEdit /></button>
-                    <button type="button" className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('impresoras', i, `la impresora "${pr.name}"`)}><MdDelete /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end">
-              <button type="button" onClick={saveAppSettings} className="btn-primary flex items-center gap-2"><MdSave /> Guardar</button>
-            </div>
-
-            <div className="card space-y-3 mt-4">
-              <h3 className="font-semibold text-slate-800">Print-agent en el PC del local</h3>
-              <p className="text-xs text-slate-500">
-                Instale y ejecute la carpeta <code className="bg-slate-100 px-1 rounded">local-print-agent</code> en cada equipo que imprime.
-                Con <strong>npm run dev</strong> el front usa el proxy <code className="bg-slate-100 px-1 rounded">/print-agent</code> (evita «Failed to fetch»
-                por HTTPS). Si la API ocupa el puerto 3001, arranque el agente en otro (p. ej. <code className="bg-slate-100 px-1 rounded">PORT=3002</code>) y en{' '}
-                <code className="bg-slate-100 px-1 rounded">client/.env</code> defina <code className="bg-slate-100 px-1 rounded">VITE_PRINT_AGENT_TARGET=http://127.0.0.1:3002</code>.
-                En la web pública HTTPS, use la app por <strong>http://</strong> en la red del local o un proxy nginx hacia el agente. Opcional: mismo token que{' '}
-                <code className="bg-slate-100 px-1 rounded">PRINT_AGENT_TOKEN</code> del agente.
-              </p>
-              <label className="flex items-start gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  className="mt-1 rounded border-slate-300"
-                  checked={Number(appSettings.print_agent?.qz_tray?.enabled) === 1}
-                  onChange={(e) =>
-                    setAppSettings((s) => ({
-                      ...s,
-                      print_agent: {
-                        ...(s.print_agent || {}),
-                        qz_tray: { ...(s.print_agent?.qz_tray || {}), enabled: e.target.checked ? 1 : 0 },
-                      },
-                    }))
-                  }
-                />
-                <span>
-                  <span className="text-sm font-medium text-slate-800">Usar QZ Tray en este equipo</span>
-                  <span className="block text-xs text-slate-500 mt-0.5">
-                    Impresión térmica silenciosa (sin cuadro del navegador). Instale{' '}
-                    <a href="https://qz.io/download/" target="_blank" rel="noreferrer" className="text-sky-600 underline">
-                      QZ Tray
-                    </a>
-                    , configure IP o nombre USB en cada impresora y guarde. Si QZ falla, se usa print-agent o servidor
-                    como respaldo.
-                  </span>
-                </span>
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">URL del agente</label>
-                  <input
-                    type="url"
-                    className="input-field w-full"
-                    value={appSettings.print_agent?.base_url || ''}
-                    onChange={(e) =>
-                      setAppSettings((s) => ({
-                        ...s,
-                        print_agent: { ...(s.print_agent || {}), base_url: e.target.value.trim() },
-                      }))
-                    }
-                    placeholder="http://127.0.0.1:3001"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Token del agente (opcional)</label>
-                  <input
-                    type="password"
-                    className="input-field w-full"
-                    autoComplete="off"
-                    value={appSettings.print_agent?.agent_token || ''}
-                    onChange={(e) =>
-                      setAppSettings((s) => ({
-                        ...s,
-                        print_agent: { ...(s.print_agent || {}), agent_token: e.target.value },
-                      }))
-                    }
-                    placeholder="Si configuró PRINT_AGENT_TOKEN en el agente"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-slate-500">
-                Inicio automático en Windows: cree un acceso directo a <code className="bg-slate-100 px-1 rounded">npm start</code> en la carpeta
-                del agente dentro de <strong>Inicio</strong> de Windows, o use <code className="bg-slate-100 px-1 rounded">npm run desktop</code> si
-                usa el envoltorio Electron.
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* IMPUESTOS */}
         {activeSection === 'impuestos' && restaurant && (
           <div className="space-y-4">
@@ -1918,13 +1622,7 @@ export default function Settings() {
           isOpen={settingsCrudModal.isOpen}
           onClose={closeSettingsCrudModal}
           title={`${settingsCrudModal.index === null ? 'Nuevo' : 'Editar'} ${SETTINGS_SECTION_FORMS[settingsCrudModal.section]?.title || 'registro'}`}
-          size={
-            settingsCrudModal.section === 'locales' && settingsCrudModal.index === null
-              ? 'xl'
-              : settingsCrudModal.section === 'impresoras'
-                ? 'md'
-                : 'sm'
-          }
+          size={settingsCrudModal.section === 'locales' && settingsCrudModal.index === null ? 'xl' : 'sm'}
         >
           {settingsCrudModal.section === 'locales' && settingsCrudModal.index === null ? (
             <div className="space-y-4">
