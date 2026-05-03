@@ -1,6 +1,7 @@
 /**
  * Print-agent local: ESC/POS sin cuadro del navegador.
  * Requiere servicio en carpeta local-print-agent y URL en configuración.
+ * Token opcional (misma clave en PRINT_AGENT_TOKEN del agente y en Configuración).
  */
 
 export function normalizeLocalAgentBase(url) {
@@ -11,22 +12,20 @@ export function isLocalPrintAgentConfigured(printAgent) {
   return Boolean(String(printAgent?.base_url || '').trim());
 }
 
+function agentHeaders(printAgent, json = true) {
+  const h = {};
+  if (json) h['Content-Type'] = 'application/json';
+  const t = String(printAgent?.agent_token || '').trim();
+  if (t) h['X-Print-Agent-Token'] = t;
+  return h;
+}
+
 /**
  * @param {string} baseUrl
- * @param {{
- *   area?: string,
- *   ticket?: string,
- *   text?: string,
- *   printer?: string,
- *   local_printer_name?: string,
- *   ip_address?: string,
- *   port?: number,
- *   copies?: number,
- *   mode?: 'lan'|'usb',
- *   paper_width_mm?: 58|80
- * }} payload
+ * @param {object} payload
+ * @param {object} [printAgent] para cabecera de token
  */
-export async function postLocalAgentPrint(baseUrl, payload) {
+export async function postLocalAgentPrint(baseUrl, payload, printAgent = null) {
   const base = normalizeLocalAgentBase(baseUrl);
   const ticket = String(payload?.ticket ?? payload?.text ?? '');
   const ip = String(payload?.ip_address || '').trim();
@@ -46,11 +45,14 @@ export async function postLocalAgentPrint(baseUrl, payload) {
     copies: Math.min(5, Math.max(1, Number(payload?.copies || 1) || 1)),
     mode,
     paper_width_mm: [58, 80].includes(pwm) ? pwm : undefined,
+    qr_text: payload?.qr_text || undefined,
+    open_cash_drawer: payload?.open_cash_drawer || undefined,
+    escpos_header_lines: payload?.escpos_header_lines,
   };
   Object.keys(body).forEach((k) => body[k] === undefined && delete body[k]);
   const res = await fetch(`${base}/print`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: agentHeaders(printAgent, true),
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -60,9 +62,9 @@ export async function postLocalAgentPrint(baseUrl, payload) {
   return data;
 }
 
-export async function fetchAgentPrinters(baseUrl) {
+export async function fetchAgentPrinters(baseUrl, printAgent = null) {
   const base = normalizeLocalAgentBase(baseUrl);
-  const res = await fetch(`${base}/printers`, { method: 'GET' });
+  const res = await fetch(`${base}/printers`, { method: 'GET', headers: agentHeaders(printAgent, false) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data?.error || `No se listaron impresoras (${res.status})`);
@@ -70,8 +72,35 @@ export async function fetchAgentPrinters(baseUrl) {
   return Array.isArray(data.printers) ? data.printers : [];
 }
 
-export async function probeLocalAgent(baseUrl) {
+export async function fetchAgentStatus(baseUrl, printAgent = null) {
   const base = normalizeLocalAgentBase(baseUrl);
-  const res = await fetch(`${base}/health`, { method: 'GET' });
+  const res = await fetch(`${base}/status`, { method: 'GET', headers: agentHeaders(printAgent, false) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error || `Estado del agente (${res.status})`);
+  }
+  return data;
+}
+
+export async function probeAgentTcp(baseUrl, printAgent, ip, port = 9100) {
+  const base = normalizeLocalAgentBase(baseUrl);
+  const res = await fetch(`${base}/probe`, {
+    method: 'POST',
+    headers: agentHeaders(printAgent, true),
+    body: JSON.stringify({
+      ip_address: String(ip || '').trim(),
+      port: Math.min(65535, Math.max(1, Number(port) || 9100)),
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error || `Sondeo TCP (${res.status})`);
+  }
+  return data;
+}
+
+export async function probeLocalAgent(baseUrl, printAgent = null) {
+  const base = normalizeLocalAgentBase(baseUrl);
+  const res = await fetch(`${base}/health`, { method: 'GET', headers: agentHeaders(printAgent, false) });
   return res.ok;
 }

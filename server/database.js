@@ -1465,6 +1465,67 @@ async function initDatabase() {
       db.run('INSERT OR IGNORE INTO schema_migrations (migration_key) VALUES (?)', ['2026-04-printer-routes-v1']);
     }
 
+    const migPrinterSettings = queryOne(
+      'SELECT 1 as ok FROM schema_migrations WHERE migration_key = ?',
+      ['2026-04-printer-settings-v1']
+    );
+    if (!migPrinterSettings?.ok) {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS printer_settings (
+          id TEXT PRIMARY KEY,
+          restaurant_id TEXT NOT NULL,
+          sucursal_id TEXT NOT NULL DEFAULT '',
+          area TEXT NOT NULL,
+          connection_type TEXT NOT NULL DEFAULT 'browser',
+          printer_name TEXT DEFAULT '',
+          ip TEXT DEFAULT '',
+          port INTEGER NOT NULL DEFAULT 9100,
+          paper_width INTEGER NOT NULL DEFAULT 80,
+          copies INTEGER NOT NULL DEFAULT 1,
+          auto_print INTEGER NOT NULL DEFAULT 1,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          local_printer_name TEXT DEFAULT '',
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(restaurant_id, sucursal_id, area)
+        )
+      `);
+      db.run(
+        'CREATE INDEX IF NOT EXISTS idx_printer_settings_restaurant ON printer_settings(restaurant_id)'
+      );
+      try {
+        const routes = queryAll('SELECT * FROM printer_routes', []);
+        for (const row of routes) {
+          db.run(
+            `INSERT OR REPLACE INTO printer_settings (
+              id, restaurant_id, sucursal_id, area, connection_type, printer_name, ip, port,
+              paper_width, copies, auto_print, enabled, local_printer_name, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+            [
+              row.id,
+              row.restaurant_id,
+              '',
+              row.area,
+              String(row.printer_type || 'browser'),
+              String(row.printer_name || ''),
+              String(row.ip_address || ''),
+              Number(row.port || 9100),
+              Number(row.paper_width || 80),
+              Number(row.copies || 1),
+              Number(row.auto_print ?? 1),
+              Number(row.enabled ?? 1),
+              String(row.local_printer_name || ''),
+            ]
+          );
+        }
+      } catch (e) {
+        console.error('[migration] printer_settings seed:', e.message || e);
+      }
+      db.run('INSERT OR IGNORE INTO schema_migrations (migration_key) VALUES (?)', [
+        '2026-04-printer-settings-v1',
+      ]);
+    }
+
     db.run('CREATE INDEX IF NOT EXISTS idx_customers_doc_number ON customers(doc_number)');
     db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_doc_number_unique ON customers(doc_number) WHERE COALESCE(doc_number, '') != ''");
     db.run('CREATE INDEX IF NOT EXISTS idx_app_settings_history_created_at ON app_settings_history(created_at)');

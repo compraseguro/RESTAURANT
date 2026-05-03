@@ -165,13 +165,19 @@ function readPrintAgentFromSettings() {
     const o = settingsRow?.value ? JSON.parse(settingsRow.value) : {};
     const pa = o.print_agent && typeof o.print_agent === 'object' ? o.print_agent : {};
     const defUrl = String(process.env.LOCAL_PRINT_AGENT_URL || 'http://127.0.0.1:3001').replace(/\/$/, '');
+    const envTok = String(process.env.PRINT_AGENT_TOKEN || '').trim();
     return {
       enabled: true,
       base_url: String(pa.base_url || defUrl).replace(/\/$/, ''),
+      agent_token: String(pa.agent_token || envTok || '').trim(),
     };
   } catch (_) {
     const defUrl = String(process.env.LOCAL_PRINT_AGENT_URL || 'http://127.0.0.1:3001').replace(/\/$/, '');
-    return { enabled: true, base_url: defUrl };
+    return {
+      enabled: true,
+      base_url: defUrl,
+      agent_token: String(process.env.PRINT_AGENT_TOKEN || '').trim(),
+    };
   }
 }
 

@@ -41,6 +41,57 @@ function rowToApi(row) {
   };
 }
 
+/** Fila de `printer_settings` (sucursal_id vacío = local principal). */
+function settingsRowToApi(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    restaurant_id: row.restaurant_id,
+    sucursal_id: row.sucursal_id || '',
+    area: row.area,
+    printer_name: row.printer_name || '',
+    printer_type: String(row.connection_type || 'browser'),
+    ip_address: row.ip || '',
+    port: Number(row.port || 9100),
+    paper_width: Number(row.paper_width || 80),
+    auto_print: Number(row.auto_print ?? 1),
+    copies: Number(row.copies || 1),
+    enabled: Number(row.enabled ?? 1),
+    local_printer_name: row.local_printer_name || '',
+    updated_at: row.updated_at || '',
+  };
+}
+
+function syncPrinterSettingsMirror(restaurantId) {
+  const rid = String(restaurantId || '').trim();
+  if (!rid) return;
+  runSql('DELETE FROM printer_settings WHERE restaurant_id = ? AND sucursal_id = ?', [rid, '']);
+  const rows = queryAll('SELECT * FROM printer_routes WHERE restaurant_id = ?', [rid]);
+  for (const row of rows) {
+    runSql(
+      `INSERT INTO printer_settings (
+        id, restaurant_id, sucursal_id, area, connection_type, printer_name, ip, port,
+        paper_width, copies, auto_print, enabled, local_printer_name, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      [
+        row.id,
+        rid,
+        '',
+        row.area,
+        String(row.printer_type || 'browser'),
+        String(row.printer_name || ''),
+        String(row.ip_address || ''),
+        Number(row.port || 9100),
+        Number(row.paper_width || 80),
+        Number(row.copies || 1),
+        Number(row.auto_print ?? 1),
+        Number(row.enabled ?? 1),
+        String(row.local_printer_name || ''),
+      ]
+    );
+  }
+}
+
 /**
  * Sincroniza `printer_routes` desde el arreglo legacy `settings.impresoras`.
  * Una fila por área (última impresora del listado gana si hay varias con la misma área).
@@ -84,12 +135,20 @@ function syncPrinterRoutesFromImpresoras(restaurantId, impresoras) {
       ]
     );
   }
+  syncPrinterSettingsMirror(rid);
   return { ok: true, count: byArea.size };
 }
 
 function listPrinterRoutes(restaurantId) {
   const rid = String(restaurantId || '').trim();
   if (!rid) return [];
+  const settingsRows = queryAll(
+    `SELECT * FROM printer_settings WHERE restaurant_id = ? AND sucursal_id = ? ORDER BY area ASC`,
+    [rid, '']
+  );
+  if (settingsRows.length > 0) {
+    return settingsRows.map(settingsRowToApi);
+  }
   return queryAll(
     `SELECT * FROM printer_routes WHERE restaurant_id = ? ORDER BY area ASC`,
     [rid]
@@ -100,6 +159,11 @@ function getPrinterRoute(restaurantId, area) {
   const rid = String(restaurantId || '').trim();
   const a = String(area || '').toLowerCase().trim();
   if (!rid || !a) return null;
+  const sRow = queryOne(
+    `SELECT * FROM printer_settings WHERE restaurant_id = ? AND sucursal_id = ? AND lower(area) = ? AND enabled = 1`,
+    [rid, '', a]
+  );
+  if (sRow) return settingsRowToApi(sRow);
   const row = queryOne(
     `SELECT * FROM printer_routes WHERE restaurant_id = ? AND lower(area) = ? AND enabled = 1`,
     [rid, a]
@@ -142,6 +206,7 @@ module.exports = {
   getPrimaryRestaurantId,
   resolveRestaurantId,
   syncPrinterRoutesFromImpresoras,
+  syncPrinterSettingsMirror,
   listPrinterRoutes,
   getPrinterRoute,
   routeToPrinterConfig,

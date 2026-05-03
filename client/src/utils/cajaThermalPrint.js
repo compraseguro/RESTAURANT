@@ -39,16 +39,20 @@ export async function sendEscPosToStation({ api, station, stationConfig, printAg
         mode = 'usb';
       }
       const widthMm = [58, 80].includes(Number(c.width_mm)) ? Number(c.width_mm) : undefined;
-      await postLocalAgentPrint(printAgent.base_url, {
-        area: station,
-        ticket: plain,
-        printer: localName || undefined,
-        ip_address: ipForAgent,
-        port: c.port || 9100,
-        copies: n,
-        mode,
-        paper_width_mm: widthMm,
-      });
+      await postLocalAgentPrint(
+        printAgent.base_url,
+        {
+          area: station,
+          ticket: plain,
+          printer: localName || undefined,
+          ip_address: ipForAgent,
+          port: c.port || 9100,
+          copies: n,
+          mode,
+          paper_width_mm: widthMm,
+        },
+        printAgent
+      );
       return { ok: true, via: 'agent' };
     } catch {
       /* */

@@ -11,9 +11,12 @@ const os = require('os');
 const { execFile, execFileSync } = require('child_process');
 const express = require('express');
 const cors = require('cors');
+const { buildEscPosBuffer } = require('./escposBuffer');
 
 const PORT = Number(process.env.PORT || 3001);
 const BIND_HOST = String(process.env.BIND_HOST || '127.0.0.1').trim() || '127.0.0.1';
+/** Mismo valor que en Configuración → Impresoras → token del agente (cabecera X-Print-Agent-Token). */
+const PRINT_AGENT_TOKEN = String(process.env.PRINT_AGENT_TOKEN || '').trim();
 
 const app = express();
 app.use(cors({ origin: true }));
@@ -21,6 +24,26 @@ app.use(express.json({ limit: '512kb' }));
 
 const printQueue = [];
 let queueBusy = false;
+
+const agentState = {
+  startedAt: new Date().toISOString(),
+  lastJobId: null,
+  lastJobAt: null,
+  lastOkAt: null,
+  lastError: null,
+  lastErrorAt: null,
+  jobsOk: 0,
+  jobsFail: 0,
+};
+
+function requireAgentToken(req, res, next) {
+  if (!PRINT_AGENT_TOKEN) return next();
+  const h = String(req.headers['x-print-agent-token'] || req.query.token || '');
+  if (h !== PRINT_AGENT_TOKEN) {
+    return res.status(401).json({ ok: false, error: 'Token de agente inválido o ausente' });
+  }
+  return next();
+}
 
 function log(level, ...args) {
   const ts = new Date().toISOString();
@@ -38,24 +61,6 @@ function isAllowedPrinterHost(ip) {
   if (a === 192 && b === 168) return true;
   if (a === 172 && b >= 16 && b <= 31) return true;
   return false;
-}
-
-function buildEscPosBuffer(text, copies, paperWidthMm) {
-  const init = Buffer.from([0x1b, 0x40]);
-  const doubleHeightOn = Buffer.from([0x1b, 0x21, 0x10]);
-  const normalSize = Buffer.from([0x1b, 0x21, 0x00]);
-  const cut = Buffer.from([0x1d, 0x56, 0x00]);
-  const textBuf = Buffer.from(`${String(text || '')}\n\n`, 'utf8');
-  /** 58 mm: altura normal para que el texto preparado en cliente quepa; 80 mm: doble altura legible. */
-  const narrow = Number(paperWidthMm) === 58;
-  const lead = narrow ? normalSize : doubleHeightOn;
-  const body = Buffer.concat([lead, textBuf, normalSize]);
-  const n = Math.min(5, Math.max(1, Number(copies || 1)));
-  const chunks = [];
-  for (let i = 0; i < n; i += 1) {
-    chunks.push(init, body, cut);
-  }
-  return Buffer.concat(chunks);
 }
 
 function sendRawOnce(host, port, payload) {
@@ -288,8 +293,15 @@ async function executePrintBody(body) {
   const area = String(body.area || '').trim();
   const pwm = Number(body.paper_width_mm);
   const paperW = pwm === 58 || pwm === 80 ? pwm : 80;
+  const qrText = String(body.qr_text || body.qr_sunat || '').trim();
+  const openDrawer = Boolean(body.open_cash_drawer);
+  const headerLines = Math.min(12, Math.max(0, Number(body.escpos_header_lines ?? 0) || 0));
 
-  const buffer = buildEscPosBuffer(ticket, copies, paperW);
+  const buffer = buildEscPosBuffer(ticket, copies, paperW, {
+    qr_text: qrText,
+    open_cash_drawer: openDrawer,
+    center_header_lines: headerLines,
+  });
   const jobId = `j-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   const run = async () => {
@@ -316,9 +328,22 @@ async function executePrintBody(body) {
       throw new Error('Indique ip_address (térmica en red, puerto RAW típico 9100) o printer (USB / cola local)');
     }
     log('info', 'Impreso', { jobId, area: area || '-', via });
+    agentState.lastJobId = jobId;
+    agentState.lastJobAt = new Date().toISOString();
+    agentState.lastOkAt = agentState.lastJobAt;
+    agentState.jobsOk += 1;
+    agentState.lastError = null;
+    agentState.lastErrorAt = null;
   };
 
-  await enqueuePrint(run, jobId);
+  try {
+    await enqueuePrint(run, jobId);
+  } catch (e) {
+    agentState.lastError = String(e?.message || e);
+    agentState.lastErrorAt = new Date().toISOString();
+    agentState.jobsFail += 1;
+    throw e;
+  }
   return { success: true, jobId, queued: true };
 }
 
@@ -329,20 +354,56 @@ app.get('/health', (req, res) => {
     port: PORT,
     bind: BIND_HOST,
     queueLength: printQueue.length,
+    queueBusy,
     usb: usbSupportedHint(),
+    authConfigured: Boolean(PRINT_AGENT_TOKEN),
   });
 });
 
-app.get('/printers', (req, res) => {
+app.get('/status', requireAgentToken, (req, res) => {
+  res.json({
+    ok: true,
+    ...agentState,
+    queueLength: printQueue.length,
+    queueBusy,
+    bind: BIND_HOST,
+    port: PORT,
+  });
+});
+
+app.post('/probe', requireAgentToken, async (req, res) => {
   try {
-    const printers = listPrintersOs();
-    res.json({ ok: true, printers });
+    const ip = String(req.body?.ip_address || '').trim();
+    const port = Math.min(65535, Math.max(1, Number(req.body?.port || 9100) || 9100));
+    if (!ip) {
+      return res.status(400).json({ ok: false, error: 'ip_address requerida' });
+    }
+    if (!isAllowedPrinterHost(ip)) {
+      return res.status(400).json({ ok: false, error: 'Solo IPs de red local' });
+    }
+    const ping = Buffer.from([0x1b, 0x40]);
+    await sendRawToHost(ip, port, ping);
+    res.json({ ok: true, reachable: true, ip, port });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message || 'list error', printers: [] });
+    res.status(500).json({ ok: false, reachable: false, error: err?.message || String(err) });
   }
 });
 
-app.post('/print', async (req, res) => {
+app.get('/printers', requireAgentToken, (req, res) => {
+  try {
+    const printers = listPrintersOs();
+    const detailed = printers.map((name) => ({
+      name,
+      connection: 'system_queue',
+      status: 'unknown',
+    }));
+    res.json({ ok: true, printers, detailed });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message || 'list error', printers: [], detailed: [] });
+  }
+});
+
+app.post('/print', requireAgentToken, async (req, res) => {
   try {
     const out = await executePrintBody(req.body || {});
     res.json(out);
@@ -353,7 +414,7 @@ app.post('/print', async (req, res) => {
 });
 
 app.listen(PORT, BIND_HOST, () => {
-  log('info', `Escuchando http://${BIND_HOST}:${PORT} (POST /print, GET /printers, GET /health)`);
+  log('info', `Escuchando http://${BIND_HOST}:${PORT} (token: ${PRINT_AGENT_TOKEN ? 'sí' : 'no'})`);
   if (BIND_HOST === '127.0.0.1') {
     log('info', 'Tablets/Android en la misma WiFi: defina BIND_HOST=0.0.0.0 y abra el puerto en el firewall');
   }

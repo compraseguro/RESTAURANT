@@ -115,6 +115,7 @@ const DEFAULT_APP_SETTINGS = {
   print_agent: {
     enabled: 1,
     base_url: 'http://127.0.0.1:3001',
+    agent_token: '',
   },
   tarjetas: [
     { name: 'Visa', fee_percent: 2.5, active: 1 },
@@ -347,6 +348,7 @@ export default function Settings() {
       enabled: 1,
       base_url: String(pa.base_url || DEFAULT_APP_SETTINGS.print_agent.base_url || 'http://127.0.0.1:3001').trim()
         || DEFAULT_APP_SETTINGS.print_agent.base_url,
+      agent_token: String(pa.agent_token ?? DEFAULT_APP_SETTINGS.print_agent.agent_token ?? ''),
     };
     return merged;
   };
@@ -1384,6 +1386,53 @@ export default function Settings() {
             </div>
             <div className="flex justify-end">
               <button type="button" onClick={saveAppSettings} className="btn-primary flex items-center gap-2"><MdSave /> Guardar</button>
+            </div>
+
+            <div className="card space-y-3 mt-4">
+              <h3 className="font-semibold text-slate-800">Print-agent en el PC del local</h3>
+              <p className="text-xs text-slate-500">
+                Instale y ejecute la carpeta <code className="bg-slate-100 px-1 rounded">local-print-agent</code> en cada equipo que imprime.
+                El navegador envía trabajos a esta URL (localhost). Opcional: mismo token que la variable{' '}
+                <code className="bg-slate-100 px-1 rounded">PRINT_AGENT_TOKEN</code> del agente.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">URL del agente</label>
+                  <input
+                    type="url"
+                    className="input-field w-full"
+                    value={appSettings.print_agent?.base_url || ''}
+                    onChange={(e) =>
+                      setAppSettings((s) => ({
+                        ...s,
+                        print_agent: { ...(s.print_agent || {}), base_url: e.target.value.trim() },
+                      }))
+                    }
+                    placeholder="http://127.0.0.1:3001"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Token del agente (opcional)</label>
+                  <input
+                    type="password"
+                    className="input-field w-full"
+                    autoComplete="off"
+                    value={appSettings.print_agent?.agent_token || ''}
+                    onChange={(e) =>
+                      setAppSettings((s) => ({
+                        ...s,
+                        print_agent: { ...(s.print_agent || {}), agent_token: e.target.value },
+                      }))
+                    }
+                    placeholder="Si configuró PRINT_AGENT_TOKEN en el agente"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                Inicio automático en Windows: cree un acceso directo a <code className="bg-slate-100 px-1 rounded">npm start</code> en la carpeta
+                del agente dentro de <strong>Inicio</strong> de Windows, o use <code className="bg-slate-100 px-1 rounded">npm run desktop</code> si
+                usa el envoltorio Electron.
+              </p>
             </div>
           </div>
         )}

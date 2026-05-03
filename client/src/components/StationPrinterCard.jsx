@@ -1,9 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
-import { MdSave, MdPlayArrow, MdRefresh } from 'react-icons/md';
-import { shouldTryServerNetworkPrint, hasThermalDestination } from '../utils/networkPrinter';
-import { isLocalPrintAgentConfigured, fetchAgentPrinters } from '../utils/localPrintAgent';
+import { MdSave, MdPlayArrow, MdRefresh, MdWifiTethering, MdInfo, MdCable } from 'react-icons/md';
+import { shouldTryServerNetworkPrint, hasThermalDestination, isThermalLanIp } from '../utils/networkPrinter';
+import {
+  isLocalPrintAgentConfigured,
+  fetchAgentPrinters,
+  fetchAgentStatus,
+  probeAgentTcp,
+  probeLocalAgent,
+} from '../utils/localPrintAgent';
 import { sendEscPosToStation } from '../utils/cajaThermalPrint';
 
 const TITLES = {
@@ -35,6 +41,8 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
   const [loading, setLoading] = useState(true);
   const [printCfg, setPrintCfg] = useState(null);
   const [detecting, setDetecting] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [agentHint, setAgentHint] = useState(null);
   const [form, setForm] = useState({
     ip_address: '',
     port: 9100,
@@ -81,6 +89,42 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
 
   const save = async () => {
     if (!canEdit) return;
+    if (![58, 80].includes(Number(form.width_mm))) {
+      toast.error('Ancho de papel debe ser 58 u 80 mm');
+      return;
+    }
+    const pa = printCfg?.print_agent;
+    if (form.printer_type === 'lan') {
+      const ip = String(form.ip_address || '').trim();
+      if (!isThermalLanIp(ip)) {
+        toast.error('Indique una IP de red local válida (no use plantillas tipo 192.168.x.x).');
+        return;
+      }
+      if (isLocalPrintAgentConfigured(pa)) {
+        try {
+          await probeAgentTcp(pa.base_url, pa, ip, form.port);
+        } catch (e) {
+          toast.error(
+            `No se pudo validar la conexión TCP: ${e?.message || 'error'}. Revise IP, puerto 9100 y que la térmica esté encendida.`
+          );
+          return;
+        }
+      }
+    }
+    if (form.printer_type === 'usb' && String(form.local_printer_name || '').trim() && isLocalPrintAgentConfigured(pa)) {
+      try {
+        const list = await fetchAgentPrinters(pa.base_url, pa);
+        const want = String(form.local_printer_name || '').trim();
+        const found = list.some((n) => String(n).trim() === want);
+        if (!found) {
+          toast.error(`El nombre «${want}» no aparece entre las impresoras del sistema. Use «Detectar impresoras» y copie el nombre exacto.`);
+          return;
+        }
+      } catch (e) {
+        toast.error(e?.message || 'No se pudo validar el nombre USB contra el agente.');
+        return;
+      }
+    }
     try {
       await api.put(`/orders/printer-station/${station}`, {
         ip_address: form.ip_address,
@@ -106,7 +150,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
     }
     setDetecting(true);
     try {
-      const list = await fetchAgentPrinters(pa.base_url);
+      const list = await fetchAgentPrinters(pa.base_url, pa);
       if (!list.length) {
         toast.error('No se detectaron impresoras en este equipo (o el agente no tiene permisos).');
         return;
@@ -158,6 +202,72 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
       return;
     }
     toast.error('Indique IP (red RAW) o nombre de impresora USB, y la URL del print-agent en Configuración.');
+  };
+
+  const reconnectAgent = async () => {
+    const pa = printCfg?.print_agent;
+    if (!isLocalPrintAgentConfigured(pa)) {
+      toast.error('Configure la URL del print-agent en Configuración → Impresoras.');
+      return;
+    }
+    setStatusLoading(true);
+    setAgentHint(null);
+    try {
+      const ok = await probeLocalAgent(pa.base_url, pa);
+      if (!ok) {
+        toast.error('El agente no responde en la URL configurada.');
+        return;
+      }
+      toast.success('Agente en línea (health OK)');
+    } catch (e) {
+      toast.error(e?.message || 'Sin conexión al agente');
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  const showAgentStatus = async () => {
+    const pa = printCfg?.print_agent;
+    if (!isLocalPrintAgentConfigured(pa)) {
+      toast.error('Configure la URL del print-agent.');
+      return;
+    }
+    setStatusLoading(true);
+    try {
+      const st = await fetchAgentStatus(pa.base_url, pa);
+      const q = Number(st.queueLength ?? 0);
+      const last = st.lastOkAt || st.lastJobAt || '—';
+      const err = st.lastError ? ` · Último error: ${String(st.lastError).slice(0, 120)}` : '';
+      setAgentHint(`Cola: ${q} · Último OK: ${last} · Trabajos OK: ${st.jobsOk ?? 0}${err}`);
+      toast.success('Estado del agente actualizado');
+    } catch (e) {
+      setAgentHint(null);
+      toast.error(e?.message || 'No se pudo leer /status (¿token incorrecto?)');
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  const validateIpOnly = async () => {
+    const pa = printCfg?.print_agent;
+    if (!isLocalPrintAgentConfigured(pa)) {
+      toast.error('Configure el print-agent para validar TCP desde este PC.');
+      return;
+    }
+    const ip = String(form.ip_address || '').trim();
+    if (!isThermalLanIp(ip)) {
+      toast.error('IP no válida para térmica en red.');
+      return;
+    }
+    setStatusLoading(true);
+    try {
+      await probeAgentTcp(pa.base_url, pa, ip, form.port);
+      toast.success('Puerto RAW responde (conexión TCP OK)');
+    } catch (e) {
+      toast.error(e?.message || 'No se alcanzó la impresora');
+    } finally {
+      setStatusLoading(false);
+    }
   };
 
   if (loading) {
@@ -268,6 +378,14 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
               Impresión automática al recibir pedido
             </label>
           </div>
+          {agentHint ? (
+            <div className="sm:col-span-2 text-[10px] text-[var(--ui-muted)] rounded border border-[color:var(--ui-border)] px-2 py-1.5 bg-[var(--ui-surface)]">
+              <span className="inline-flex items-center gap-1 font-medium text-[var(--ui-body-text)]">
+                <MdInfo className="text-sm" /> Agente
+              </span>
+              <span className="block mt-0.5">{agentHint}</span>
+            </div>
+          ) : null}
           <div className="sm:col-span-2 flex flex-wrap gap-2 pt-1">
             <button type="button" onClick={() => void save()} className="btn-primary text-xs py-1.5 px-3 inline-flex items-center gap-1">
               <MdSave className="text-base" /> Guardar
@@ -287,6 +405,32 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
             >
               <MdRefresh className="text-base" /> {detecting ? 'Detectando…' : 'Detectar impresoras'}
             </button>
+            <button
+              type="button"
+              onClick={() => void reconnectAgent()}
+              disabled={statusLoading}
+              className="btn-secondary text-xs py-1.5 px-3 inline-flex items-center gap-1 disabled:opacity-50"
+            >
+              <MdWifiTethering className="text-base" /> Reconectar
+            </button>
+            <button
+              type="button"
+              onClick={() => void showAgentStatus()}
+              disabled={statusLoading}
+              className="btn-secondary text-xs py-1.5 px-3 inline-flex items-center gap-1 disabled:opacity-50"
+            >
+              <MdInfo className="text-base" /> Ver estado
+            </button>
+            {form.printer_type === 'lan' ? (
+              <button
+                type="button"
+                onClick={() => void validateIpOnly()}
+                disabled={statusLoading}
+                className="btn-secondary text-xs py-1.5 px-3 inline-flex items-center gap-1 disabled:opacity-50"
+              >
+                <MdCable className="text-base" /> Validar IP
+              </button>
+            ) : null}
           </div>
         </div>
       )}

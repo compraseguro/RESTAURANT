@@ -5,7 +5,8 @@
   "description": "Agente ESC/POS local (LAN RAW + USB): cola, reintentos, sin window.print().",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "desktop": "electron electron.cjs"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -13,5 +14,8 @@
   },
   "optionalDependencies": {
     "printer": "^0.4.0"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3"
   }
 }
