@@ -126,26 +126,62 @@ function sendEscPosToUsb(printerName, buffer) {
   });
 }
 
+function parsePrinterNameLines(out) {
+  const names = [];
+  for (const line of String(out || '').split(/\r?\n/)) {
+    const s = line.trim();
+    if (!s || /^name\s*$/i.test(s) || /^-+$/.test(s)) continue;
+    names.push(s);
+  }
+  return names;
+}
+
+function listPrintersWindows() {
+  const cmds = [
+    'Get-CimInstance Win32_Printer | Select-Object -ExpandProperty Name',
+    /** Windows 8+ / cmdlet más cercano a «Impresoras y escáneres» */
+    'Get-Printer -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name',
+  ];
+  const seen = new Set();
+  for (const cmd of cmds) {
+    try {
+      const out = execFileSync('powershell', ['-NoProfile', '-Command', cmd], {
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+        timeout: 25000,
+      });
+      for (const n of parsePrinterNameLines(out)) {
+        if (n) seen.add(n);
+      }
+      if (seen.size > 0) return [...seen];
+    } catch (e) {
+      log('warn', 'Listar impresoras (PowerShell):', cmd.slice(0, 50), e.message);
+    }
+  }
+  try {
+    const out = execFileSync('wmic', ['printer', 'get', 'name'], {
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024,
+      timeout: 20000,
+    });
+    const fromWmic = parsePrinterNameLines(out).filter((n) => !/^Name$/i.test(n));
+    for (const n of fromWmic) seen.add(n);
+  } catch (e) {
+    log('warn', 'wmic printer:', e.message);
+  }
+  return [...seen];
+}
+
 function listPrintersOs() {
   if (process.platform === 'win32') {
-    try {
-      const out = execFileSync(
-        'powershell',
-        [
-          '-NoProfile',
-          '-Command',
-          'Get-CimInstance Win32_Printer | Select-Object -ExpandProperty Name',
-        ],
-        { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 20000 }
+    const list = listPrintersWindows();
+    if (!list.length) {
+      log(
+        'warn',
+        'Lista de impresoras vacía: ¿driver instalado en Windows? (Conexión USB sola no basta hasta que aparezca en «Impresoras»).'
       );
-      return out
-        .split(/\r?\n/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-    } catch (e) {
-      log('warn', 'No se pudieron listar impresoras (PowerShell):', e.message);
-      return [];
     }
+    return list;
   }
   try {
     const out = execFileSync('lpstat', ['-p'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 15000 });
