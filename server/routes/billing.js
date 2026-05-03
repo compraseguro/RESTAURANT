@@ -753,7 +753,6 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
         '',
         '',
         '',
-        '',
         '{}',
         '{}',
       ]
