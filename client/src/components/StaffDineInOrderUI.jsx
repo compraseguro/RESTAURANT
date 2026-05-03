@@ -30,10 +30,10 @@ function CartLineItems({
       const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
       return (
         <div key={item.line_key} className="border-b border-[color:var(--ui-border)] py-2">
-          <div className="flex items-start gap-2 text-sm">
-            <span className="min-w-0 flex-1 break-words font-medium leading-snug text-[var(--ui-body-text)]">
-              {item.name}
-            </span>
+          <p className="mb-2 w-full text-sm font-medium leading-snug text-[var(--ui-body-text)] break-words">
+            {item.name}
+          </p>
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm">
             <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
@@ -63,22 +63,24 @@ function CartLineItems({
                 <MdAdd className="text-xs" />
               </button>
             </div>
-            <span className="w-[5.5rem] shrink-0 text-right font-semibold tabular-nums text-[var(--ui-body-text)]">
-              {formatCurrency(lineTotal)}
-            </span>
-            <button
-              type="button"
-              onClick={() => removeFromCart(item.line_key)}
-              className={
-                showLineDeleteLabel
-                  ? 'shrink-0 inline-flex items-center gap-1 rounded-md border border-red-500/45 bg-red-950/40 px-2 py-1 text-xs font-semibold text-red-200 hover:bg-red-900/55'
-                  : 'shrink-0 p-0.5 text-[var(--ui-accent)] hover:text-[var(--ui-body-text)]'
-              }
-              aria-label={showLineDeleteLabel ? 'Eliminar producto' : 'Quitar'}
-            >
-              <MdDelete className="text-sm" />
-              {showLineDeleteLabel ? <span>Eliminar</span> : null}
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="min-w-[4.5rem] shrink-0 text-right font-semibold tabular-nums text-[var(--ui-body-text)]">
+                {formatCurrency(lineTotal)}
+              </span>
+              <button
+                type="button"
+                onClick={() => removeFromCart(item.line_key)}
+                className={
+                  showLineDeleteLabel
+                    ? 'shrink-0 inline-flex items-center gap-1 rounded-md border border-red-500/45 bg-red-950/40 px-2 py-1 text-xs font-semibold text-red-200 hover:bg-red-900/55'
+                    : 'shrink-0 p-0.5 text-[var(--ui-accent)] hover:text-[var(--ui-body-text)]'
+                }
+                aria-label={showLineDeleteLabel ? 'Eliminar producto' : 'Quitar'}
+              >
+                <MdDelete className="text-sm" />
+                {showLineDeleteLabel ? <span>Eliminar</span> : null}
+              </button>
+            </div>
           </div>
           {Number(item.note_required || 0) === 1 && (
             <p className="mt-0.5 text-[11px] font-semibold text-[#FCA5A5]">Nota obligatoria</p>
