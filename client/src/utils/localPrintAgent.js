@@ -185,22 +185,35 @@ export async function fetchAgentStatus(printAgent) {
 
 export async function probeAgentTcp(printAgent, ip, port = 9100) {
   const attemptedBase = resolvePrintAgentFetchBase(printAgent);
-  const res = await agentFetch(
-    `${attemptedBase}/probe`,
-    {
-      method: 'POST',
-      headers: agentHeaders(printAgent, true),
-      body: JSON.stringify({
-        ip_address: String(ip || '').trim(),
-        port: Math.min(65535, Math.max(1, Number(port) || 9100)),
-      }),
-    },
+  const p = Math.min(65535, Math.max(1, Number(port) || 9100));
+  const ipS = String(ip || '').trim();
+  const qs = new URLSearchParams({ ip_address: ipS, port: String(p) }).toString();
+  /** GET evita 405 en algunos proxies que no reenvían POST correctamente bajo /print-agent. */
+  let res = await agentFetch(
+    `${attemptedBase}/probe?${qs}`,
+    { method: 'GET', headers: agentHeaders(printAgent, false) },
     printAgent,
     attemptedBase
   );
+  if (res.status === 405 || res.status === 404) {
+    res = await agentFetch(
+      `${attemptedBase}/probe`,
+      {
+        method: 'POST',
+        headers: agentHeaders(printAgent, true),
+        body: JSON.stringify({ ip_address: ipS, port: p }),
+      },
+      printAgent,
+      attemptedBase
+    );
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data?.error || `Sondeo TCP (${res.status})`);
+    const hint =
+      res.status === 405
+        ? ' (405: el navegador o el hosting no acepta esta ruta; use npm run dev con proxy /print-agent o abra la app por http:// en la red del local.)'
+        : '';
+    throw new Error((data?.error || `Sondeo TCP (${res.status})`) + hint);
   }
   return data;
 }

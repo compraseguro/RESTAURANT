@@ -376,10 +376,11 @@ app.get('/status', requireAgentToken, (req, res) => {
   });
 });
 
-app.post('/probe', requireAgentToken, async (req, res) => {
+async function handleProbeRequest(req, res) {
   try {
-    const ip = String(req.body?.ip_address || '').trim();
-    const port = Math.min(65535, Math.max(1, Number(req.body?.port || 9100) || 9100));
+    const src = req.method === 'GET' ? req.query || {} : req.body || {};
+    const ip = String(src.ip_address || '').trim();
+    const port = Math.min(65535, Math.max(1, Number(src.port || 9100) || 9100));
     if (!ip) {
       return res.status(400).json({ ok: false, error: 'ip_address requerida' });
     }
@@ -388,11 +389,15 @@ app.post('/probe', requireAgentToken, async (req, res) => {
     }
     const ping = Buffer.from([0x1b, 0x40]);
     await sendRawToHost(ip, port, ping);
-    res.json({ ok: true, reachable: true, ip, port });
+    return res.json({ ok: true, reachable: true, ip, port });
   } catch (err) {
-    res.status(500).json({ ok: false, reachable: false, error: err?.message || String(err) });
+    return res.status(500).json({ ok: false, reachable: false, error: err?.message || String(err) });
   }
-});
+}
+
+/** GET y POST: algunos proxies / hosting devuelven 405 solo a POST en rutas bajo /print-agent. */
+app.get('/probe', requireAgentToken, handleProbeRequest);
+app.post('/probe', requireAgentToken, handleProbeRequest);
 
 app.get('/printers', requireAgentToken, (req, res) => {
   try {

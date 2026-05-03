@@ -69,7 +69,7 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
         if (p) {
           const pt = String(p.printer_type || 'lan').toLowerCase();
           setForm({
-            ip_address: String(p.ip_address || ''),
+            ip_address: pt === 'usb' ? '' : String(p.ip_address || ''),
             port: Number(p.port || 9100),
             copies: Math.min(5, Math.max(1, Number(p.copies || 1))),
             auto_print: Number(p.auto_print ?? 1) === 0 ? 0 : 1,
@@ -152,7 +152,9 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
     try {
       const list = await fetchAgentPrinters(pa);
       if (!list.length) {
-        toast.error('No se detectaron impresoras en este equipo (o el agente no tiene permisos).');
+        toast.error(
+          'No hay impresoras en Windows (Impresoras y escáneres). Instale el driver y asegúrese de que aparezca una cola. Ejecute el print-agent «Como administrador» si sigue vacío. En USB instale opcional: npm install printer en la carpeta local-print-agent.'
+        );
         return;
       }
       const preview = list.slice(0, 6).join(', ') + (list.length > 6 ? '…' : '');
