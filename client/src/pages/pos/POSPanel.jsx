@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
-import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
+import { shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
+import { printHtmlDocument } from '../../utils/printHtml';
 import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
@@ -748,7 +749,7 @@ export default function POSPanel() {
     const content = printRef.current;
     if (!content) return;
     const caja = cajaPrintCfg;
-    if (shouldSendToNetworkPrinter(caja)) {
+    if (shouldTryServerNetworkPrint(caja)) {
       const text = String(content.innerText || content.textContent || '')
         .replace(/\r\n/g, '\n')
         .trim()
@@ -760,14 +761,13 @@ export default function POSPanel() {
           toast.success('Enviado a impresora de caja (red)');
           return;
         } catch (err) {
-          toast.error(err.message || 'No se pudo imprimir por red; se abrirá el navegador');
+          toast.error(err.message || 'No se pudo imprimir por red; se abrirá el cuadro de impresión');
         }
       }
     }
     const printedAt = formatPeDateTimeParts(new Date());
-    const printWin = window.open('', '_blank', 'width=400,height=700');
-    printWin.document.write(`
-      <html><head><title>Arqueo de Caja</title>
+    const html = `
+      <html><head><meta charset="utf-8"/><title>Arqueo de Caja</title>
       <style>
         body { font-family: 'Courier New', monospace; font-size: 12px; padding: 10px; max-width: 380px; margin: 0 auto; }
         h2 { text-align: center; margin: 5px 0; font-size: 16px; }
@@ -783,10 +783,11 @@ export default function POSPanel() {
       ${content.innerHTML}
       <div class="sep"></div>
       <p class="center" style="font-size:10px;color:#999">Impreso: ${printedAt.date} · ${printedAt.time}</p>
-      <script>window.print();window.onafterprint=()=>window.close();</script>
       </body></html>
-    `);
-    printWin.document.close();
+    `;
+    if (!printHtmlDocument(html, 'Arqueo de Caja')) {
+      toast.error('No se pudo abrir la impresión del arqueo');
+    }
   };
 
   const resetBillingForm = () => {
@@ -1599,11 +1600,9 @@ export default function POSPanel() {
       address: billingForm.customer_address,
       phone: billingForm.customer_phone,
     });
-    const w = window.open('', '_blank', 'width=420,height=720');
-    if (!w) return toast.error('No se pudo abrir la precuenta');
     const precuentaParaLlevar = payableOrders.some((o) => orderHasTakeoutNote(o));
-    w.document.write(`
-      <html><head><title>Precuenta ${selectedTable.name}</title>
+    const precuentaHtml = `
+      <html><head><meta charset="utf-8"/><title>Precuenta ${selectedTable.name}</title>
       <style>
         body{font-family:Arial,sans-serif;font-size:12px;padding:16px}
         .muted{color:#64748b}.sep{border-top:1px dashed #cbd5e1;margin:8px 0}
@@ -1621,10 +1620,11 @@ export default function POSPanel() {
       <p><strong>Subtotal:</strong> ${formatCurrency(selectionBaseTotal)}</p>
       <p><strong>Descuento:</strong> ${formatCurrency(discountPreview)}</p>
       <p style="font-size:16px"><strong>Total a pagar:</strong> ${formatCurrency(payableTotal)}</p>
-      <script>window.print(); window.onafterprint = () => window.close();</script>
       </body></html>
-    `);
-    w.document.close();
+    `;
+    if (!printHtmlDocument(precuentaHtml, `Precuenta ${selectedTable.name}`)) {
+      toast.error('No se pudo abrir la precuenta para imprimir');
+    }
   };
 
   const printNotaVenta = ({ tableName, orders, docs, customer }) => {
@@ -1643,10 +1643,8 @@ export default function POSPanel() {
     const groupedNota = groupItemsByProductNameForBill((orders || []).flatMap((o) => o.items || []));
     const itemsTableHtml = buildPrintBillTableHtml(groupedNota, formatCurrency);
     const total = (orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
-    const w = window.open('', '_blank', 'width=420,height=720');
-    if (!w) return toast.error('No se pudo abrir la nota de venta');
-    w.document.write(`
-      <html><head><title>Nota de venta ${tableName || ''}</title>
+    const notaHtml = `
+      <html><head><meta charset="utf-8"/><title>Nota de venta ${tableName || ''}</title>
       <style>
         body{font-family:Arial,sans-serif;font-size:12px;padding:16px}
         .muted{color:#64748b}.sep{border-top:1px dashed #cbd5e1;margin:8px 0}
@@ -1662,10 +1660,11 @@ export default function POSPanel() {
       ${itemsTableHtml}
       <div class="sep"></div>
       <p style="font-size:16px"><strong>Total:</strong> ${formatCurrency(total)}</p>
-      <script>window.print(); window.onafterprint = () => window.close();</script>
       </body></html>
-    `);
-    w.document.close();
+    `;
+    if (!printHtmlDocument(notaHtml, 'Nota de venta')) {
+      toast.error('No se pudo abrir la nota de venta para imprimir');
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
@@ -1825,11 +1824,9 @@ export default function POSPanel() {
       address: billingForm.customer_address,
       phone: billingForm.customer_phone,
     });
-    const w = window.open('', '_blank', 'width=420,height=700');
-    if (!w) return toast.error('No se pudo abrir la impresión de precuenta');
     const precuentaParaLlevar = (table.orders || []).some((o) => orderHasTakeoutNote(o));
-    w.document.write(`
-      <html><head><title>Precuenta ${table.name}</title>
+    const mesaPrecuentaHtml = `
+      <html><head><meta charset="utf-8"/><title>Precuenta ${table.name}</title>
       <style>
         body{font-family:Arial,sans-serif;font-size:12px;padding:16px}
         .muted{color:#64748b}.sep{border-top:1px dashed #cbd5e1;margin:8px 0}
@@ -1845,10 +1842,11 @@ export default function POSPanel() {
       ${itemsTableHtml}
       <div class="sep"></div>
       <p style="font-size:16px"><strong>Total a pagar:</strong> ${formatCurrency((table.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}</p>
-      <script>window.print(); window.onafterprint = () => window.close();</script>
       </body></html>
-    `);
-    w.document.close();
+    `;
+    if (!printHtmlDocument(mesaPrecuentaHtml, `Precuenta ${table.name}`)) {
+      toast.error('No se pudo abrir la impresión de precuenta');
+    }
   };
   const chargeReservation = async (entry) => {
     const orders = entry?.linkedOrders || [];

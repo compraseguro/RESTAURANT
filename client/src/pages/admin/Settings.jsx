@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { api, formatDateTime } from '../../utils/api';
-import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
+import { shouldSendToNetworkPrinter, shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
+import { printHtmlDocument } from '../../utils/printHtml';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -547,7 +548,7 @@ export default function Settings() {
 
   const testPrinterFromSettings = async (pr) => {
     const name = String(pr?.name || 'Impresora').trim() || 'Impresora';
-    if (shouldSendToNetworkPrinter(pr)) {
+    if (shouldTryServerNetworkPrint(pr)) {
       try {
         await api.post('/orders/print-test', {
           ip_address: String(pr.ip_address || '').trim(),
@@ -561,25 +562,26 @@ export default function Settings() {
       }
       return;
     }
-    const w = window.open('', '_blank', 'width=380,height=520');
-    if (!w) {
-      toast.error('Permita ventanas emergentes para la prueba en navegador');
-      return;
-    }
     const esc = (s) => String(s ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
     const t = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Prueba ${esc(name)}</title>
+    const hint =
+      shouldSendToNetworkPrinter(pr) && !shouldTryServerNetworkPrint(pr)
+        ? '<p style="margin:12px 0 0;color:#b45309">La API está en internet: no puede enviar a la IP local. Use el cuadro de impresión y elija su térmica.</p>'
+        : '';
+    const testHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Prueba ${esc(name)}</title>
       <style>body{font-family:system-ui,sans-serif;padding:16px;font-size:14px}</style></head><body>
       <h2 style="margin:0 0 8px">Prueba de impresión</h2>
       <p style="margin:0 0 4px"><strong>${esc(name)}</strong></p>
       <p style="margin:0 0 12px;color:#64748b">${esc(t)}</p>
       <p>Modo <strong>navegador</strong>: use el cuadro de impresión (Ctrl+P) y elija su impresora térmica.</p>
-      <script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script>
-      </body></html>`);
-    w.document.close();
+      ${hint}
+      </body></html>`;
+    if (!printHtmlDocument(testHtml, `Prueba ${name}`)) {
+      toast.error('No se pudo abrir la prueba de impresión');
+    }
   };
 
   const saveAppSettings = async ({ silent = false, nextSettings = null } = {}) => {
@@ -1311,7 +1313,11 @@ export default function Settings() {
                     <button
                       type="button"
                       className="p-2 hover:bg-sky-50 rounded-lg text-sky-600"
-                      title={shouldSendToNetworkPrinter(pr) ? 'Probar impresión (red TCP)' : 'Probar impresión (ventana del navegador)'}
+                      title={
+                        shouldTryServerNetworkPrint(pr)
+                          ? 'Probar impresión (red TCP)'
+                          : 'Probar impresión (cuadro del sistema)'
+                      }
                       onClick={() => testPrinterFromSettings(pr)}
                     >
                       <MdPlayArrow className="text-xl" />

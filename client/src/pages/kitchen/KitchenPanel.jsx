@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
 import { buildKitchenTicketPlainText, buildSimpleComandaPlainText, orderHasTakeoutNote } from '../../utils/ticketPlainText';
-import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
+import { shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
+import { printHtmlDocument } from '../../utils/printHtml';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -56,7 +57,6 @@ export default function KitchenPanel({ station = 'cocina' }) {
   };
   const [autoPrint, setAutoPrint] = useState(() => readAutoPrintPreference());
   const autoPrintRef = useRef(false);
-  const warnedSilentNoNetworkRef = useRef(false);
   useEffect(() => {
     autoPrintRef.current = autoPrint;
   }, [autoPrint]);
@@ -129,7 +129,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
     const ticketWidth = width === 58 ? '54mm' : '76mm';
     const stationKey = isBar ? 'bar' : 'cocina';
-    if (shouldSendToNetworkPrinter(stationConfig)) {
+    if (shouldTryServerNetworkPrint(stationConfig)) {
       const plain = buildKitchenTicketPlainText({
         restaurant: cfgRestaurant,
         title,
@@ -143,20 +143,11 @@ export default function KitchenPanel({ station = 'cocina' }) {
       } catch (err) {
         const msg = err.message || 'No se pudo imprimir por red';
         if (silent) {
-          toast.error(`Impresión automática: ${msg}`, { duration: 7000 });
-          return;
+          toast.error(`Impresión automática (red): ${msg}. Se abre impresión del navegador.`, { duration: 6000 });
+        } else {
+          toast.error(`${msg}; se usará el cuadro de impresión del sistema`);
         }
-        toast.error(`${msg}; se abrirá el navegador`);
       }
-    } else if (silent) {
-      if (!warnedSilentNoNetworkRef.current) {
-        warnedSilentNoNetworkRef.current = true;
-        toast.error(
-          'Impresión automática: no hay IP de impresora para esta estación. Configuración → Impresoras (activa, estación cocina o bar). El servidor Node debe estar en la misma red que la impresora.',
-          { duration: 10000 }
-        );
-      }
-      return;
     }
     const htmlRows = list.map((order) => {
       const orderTypeLabel = order.type === 'delivery' ? 'Delivery' : order.type === 'pickup' ? 'Recojo' : 'Mesa/Salón';
@@ -263,27 +254,23 @@ export default function KitchenPanel({ station = 'cocina' }) {
     const stationKey = isBar ? 'bar' : 'cocina';
     const plain = buildSimpleComandaPlainText(order);
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
-    if (shouldSendToNetworkPrinter(stationConfig)) {
+    if (shouldTryServerNetworkPrint(stationConfig)) {
       try {
         await api.post('/orders/print-network', { station: stationKey, text: plain, copies });
         toast.success('Enviado a impresora');
         return;
       } catch (err) {
-        toast.error(err.message || 'No se pudo imprimir por red');
+        toast.error(err.message || 'No se pudo imprimir por red; use el cuadro de impresión');
       }
     }
     const safe = plain.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const printWin = window.open('', '_blank', 'width=380,height=560');
-    if (!printWin) {
-      toast.error('Permita ventanas emergentes para imprimir');
-      return;
-    }
-    printWin.document.write(`<!DOCTYPE html><html><head><title>Comanda #${order.order_number}</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Comanda #${order.order_number}</title>
       <style>body{font-family:'Courier New',Courier,monospace;padding:16px;font-size:14px;line-height:1.35;margin:0;color:#111}</style></head><body>
       <pre style="white-space:pre-wrap;margin:0">${safe}</pre>
-      <script>window.print();window.onafterprint=function(){window.close()};</script>
-      </body></html>`);
-    printWin.document.close();
+      </body></html>`;
+    if (!printHtmlDocument(html, `Comanda #${order.order_number}`)) {
+      toast.error('No se pudo abrir el documento de impresión');
+    }
   };
 
   const loadOrders = async () => {

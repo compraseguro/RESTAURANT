@@ -18,6 +18,7 @@ import {
   MdMap,
 } from 'react-icons/md';
 import { buildGoogleMapsSearchUrl } from '../../utils/googleMaps';
+import { printHtmlDocument } from '../../utils/printHtml';
 
 function escHtml(s) {
   return String(s || '')
@@ -175,15 +176,10 @@ export default function DeliveryPanel() {
           <tbody>${rows || '<tr><td colspan="4" style="padding:12px;color:#94a3b8">Sin entregas completadas hoy</td></tr>'}</tbody>
         </table>
         <p class="tot">Total: ${formatCurrency(sum)}</p>
-        <script>window.print();window.onafterprint=function(){window.close()};</script>
       </body></html>`;
-    const w = window.open('', '_blank', 'width=420,height=720');
-    if (!w) {
-      toast.error('Permita ventanas emergentes para imprimir');
-      return;
+    if (!printHtmlDocument(html, 'Reporte delivery')) {
+      toast.error('No se pudo abrir la impresión del reporte');
     }
-    w.document.write(html);
-    w.document.close();
   }, [completadosHoy, user?.full_name]);
 
   const openEndShiftFlow = () => {
