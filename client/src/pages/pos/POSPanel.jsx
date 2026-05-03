@@ -1548,6 +1548,14 @@ export default function POSPanel() {
       billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
       billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
     ].filter(Boolean);
+    let printCfg = null;
+    try {
+      printCfg = await api.get('/orders/print-config');
+    } catch (_) {
+      /* noop */
+    }
+    const caja = printCfg?.printers?.caja;
+    const widthMm = [58, 80].includes(Number(caja?.width_mm)) ? Number(caja.width_mm) : 80;
     const plain = buildPrecuentaPlainText({
       restaurantName,
       tableName: selectedTable.name,
@@ -1559,14 +1567,8 @@ export default function POSPanel() {
       subtotal: selectionBaseTotal,
       discount: discountPreview,
       payableTotal,
+      widthMm,
     });
-    let printCfg = null;
-    try {
-      printCfg = await api.get('/orders/print-config');
-    } catch (_) {
-      /* noop */
-    }
-    const caja = printCfg?.printers?.caja;
     const copies = Math.min(5, Math.max(1, Number(caja?.copies || 1)));
     const thermal = await sendEscPosToCaja({
       api,
@@ -1595,6 +1597,14 @@ export default function POSPanel() {
       customer?.phone && `Tel: ${customer.phone}`,
       customer?.address && `Dir: ${customer.address}`,
     ].filter(Boolean);
+    let printCfg = null;
+    try {
+      printCfg = await api.get('/orders/print-config');
+    } catch (_) {
+      /* noop */
+    }
+    const caja = printCfg?.printers?.caja;
+    const widthMm = [58, 80].includes(Number(caja?.width_mm)) ? Number(caja.width_mm) : 80;
     const plain = buildNotaVentaPlainText({
       restaurantName,
       docLine: docText,
@@ -1604,14 +1614,8 @@ export default function POSPanel() {
       groupedRows: groupedNota,
       formatCurrencyFn: formatCurrency,
       total,
+      widthMm,
     });
-    let printCfg = null;
-    try {
-      printCfg = await api.get('/orders/print-config');
-    } catch (_) {
-      /* noop */
-    }
-    const caja = printCfg?.printers?.caja;
     const copies = Math.min(5, Math.max(1, Number(caja?.copies || 1)));
     const thermal = await sendEscPosToCaja({
       api,
@@ -1783,6 +1787,14 @@ export default function POSPanel() {
       billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
       billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
     ].filter(Boolean);
+    let printCfg = null;
+    try {
+      printCfg = await api.get('/orders/print-config');
+    } catch (_) {
+      /* noop */
+    }
+    const caja = printCfg?.printers?.caja;
+    const widthMm = [58, 80].includes(Number(caja?.width_mm)) ? Number(caja.width_mm) : 80;
     const plain = buildPrecuentaPlainText({
       restaurantName,
       tableName: table.name,
@@ -1794,14 +1806,8 @@ export default function POSPanel() {
       subtotal: tableTotal,
       discount: 0,
       payableTotal: tableTotal,
+      widthMm,
     });
-    let printCfg = null;
-    try {
-      printCfg = await api.get('/orders/print-config');
-    } catch (_) {
-      /* noop */
-    }
-    const caja = printCfg?.printers?.caja;
     const copies = Math.min(5, Math.max(1, Number(caja?.copies || 1)));
     const thermal = await sendEscPosToCaja({
       api,

@@ -40,13 +40,16 @@ function isAllowedPrinterHost(ip) {
   return false;
 }
 
-function buildEscPosBuffer(text, copies) {
+function buildEscPosBuffer(text, copies, paperWidthMm) {
   const init = Buffer.from([0x1b, 0x40]);
   const doubleHeightOn = Buffer.from([0x1b, 0x21, 0x10]);
   const normalSize = Buffer.from([0x1b, 0x21, 0x00]);
   const cut = Buffer.from([0x1d, 0x56, 0x00]);
   const textBuf = Buffer.from(`${String(text || '')}\n\n`, 'utf8');
-  const body = Buffer.concat([doubleHeightOn, textBuf, normalSize]);
+  /** 58 mm: altura normal para que el texto preparado en cliente quepa; 80 mm: doble altura legible. */
+  const narrow = Number(paperWidthMm) === 58;
+  const lead = narrow ? normalSize : doubleHeightOn;
+  const body = Buffer.concat([lead, textBuf, normalSize]);
   const n = Math.min(5, Math.max(1, Number(copies || 1)));
   const chunks = [];
   for (let i = 0; i < n; i += 1) {
@@ -55,7 +58,7 @@ function buildEscPosBuffer(text, copies) {
   return Buffer.concat(chunks);
 }
 
-function sendRawToHost(host, port, payload) {
+function sendRawOnce(host, port, payload) {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection({ host, port });
     let settled = false;
@@ -68,6 +71,9 @@ function sendRawToHost(host, port, payload) {
       if (err) reject(err);
       else resolve();
     };
+    try {
+      socket.setKeepAlive(true, 4000);
+    } catch (_) {}
     socket.setTimeout(15000);
     socket.once('error', (e) => finish(e));
     socket.once('timeout', () => finish(new Error('Tiempo de espera al contactar la impresora')));
@@ -79,6 +85,21 @@ function sendRawToHost(host, port, payload) {
     });
     socket.once('close', () => finish());
   });
+}
+
+async function sendRawToHost(host, port, payload) {
+  const delays = [0, 350, 900, 2000, 4000];
+  let lastErr;
+  for (let i = 0; i < delays.length; i += 1) {
+    if (delays[i]) await new Promise((r) => setTimeout(r, delays[i]));
+    try {
+      await sendRawOnce(host, port, payload);
+      return;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
 }
 
 function tryRequirePrinter() {
@@ -211,14 +232,18 @@ function usbSupportedHint() {
 
 async function runWithRetries(fn, jobLabel) {
   let lastErr;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  const max = 5;
+  for (let attempt = 1; attempt <= max; attempt += 1) {
     try {
       await fn();
       return;
     } catch (e) {
       lastErr = e;
-      log('warn', `${jobLabel} intento ${attempt}/3:`, e?.message || e);
-      if (attempt < 3) await new Promise((r) => setTimeout(r, 2000));
+      log('warn', `${jobLabel} intento ${attempt}/${max}:`, e?.message || e);
+      if (attempt < max) {
+        const ms = Math.min(10000, 800 * 2 ** (attempt - 1));
+        await new Promise((r) => setTimeout(r, ms));
+      }
     }
   }
   throw lastErr;
@@ -261,8 +286,10 @@ async function executePrintBody(body) {
   const printer = String(body.printer ?? body.local_printer_name ?? '').trim();
   const mode = String(body.mode || '').toLowerCase();
   const area = String(body.area || '').trim();
+  const pwm = Number(body.paper_width_mm);
+  const paperW = pwm === 58 || pwm === 80 ? pwm : 80;
 
-  const buffer = buildEscPosBuffer(ticket, copies);
+  const buffer = buildEscPosBuffer(ticket, copies, paperW);
   const jobId = `j-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   const run = async () => {

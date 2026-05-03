@@ -22,7 +22,8 @@ export function isLocalPrintAgentConfigured(printAgent) {
  *   ip_address?: string,
  *   port?: number,
  *   copies?: number,
- *   mode?: 'lan'|'usb'
+ *   mode?: 'lan'|'usb',
+ *   paper_width_mm?: 58|80
  * }} payload
  */
 export async function postLocalAgentPrint(baseUrl, payload) {
@@ -34,6 +35,7 @@ export async function postLocalAgentPrint(baseUrl, payload) {
     throw new Error('Para el agente local indique IP de térmica en red o nombre de impresora USB');
   }
   const mode = payload?.mode;
+  const pwm = Number(payload?.paper_width_mm);
   const body = {
     area: payload?.area,
     ticket,
@@ -43,6 +45,7 @@ export async function postLocalAgentPrint(baseUrl, payload) {
     port: Math.min(65535, Math.max(1, Number(payload?.port || 9100) || 9100)),
     copies: Math.min(5, Math.max(1, Number(payload?.copies || 1) || 1)),
     mode,
+    paper_width_mm: [58, 80].includes(pwm) ? pwm : undefined,
   };
   Object.keys(body).forEach((k) => body[k] === undefined && delete body[k]);
   const res = await fetch(`${base}/print`, {

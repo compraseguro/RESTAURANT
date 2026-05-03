@@ -6,6 +6,7 @@ import {
 } from '../../utils/ticketPlainText';
 import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
 import { orderAppliesToStation } from '../../utils/stationKitchenPrint';
+import { dedupeThermalAutoPrintJob } from '../../utils/thermalPrintDedupe';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -92,26 +93,34 @@ export default function KitchenPanel({ station = 'cocina' }) {
     } catch (_) {
       /* usar estado previo */
     }
+    const stationKey = isBar ? 'bar' : 'cocina';
     const stationConfig = station === 'bar' ? cfgPrinters?.bar : cfgPrinters?.cocina;
     if (silent && Number(stationConfig?.auto_print ?? 1) === 0) {
       return;
     }
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
-    const stationKey = isBar ? 'bar' : 'cocina';
-    const plain = buildKitchenTicketPlainText({
-      restaurant: cfgRestaurant,
-      title,
-      orders: list,
-      copies: 1,
-    });
-    const thermal = await sendEscPosToStation({
-      api,
-      station: stationKey,
-      stationConfig,
-      printAgent: printAgentCfg,
-      text: plain,
-      copies,
-    });
+    const widthMm = [58, 80].includes(Number(stationConfig?.width_mm)) ? Number(stationConfig.width_mm) : 80;
+    const runPrint = async () => {
+      const plain = buildKitchenTicketPlainText({
+        restaurant: cfgRestaurant,
+        title,
+        orders: list,
+        copies: 1,
+        widthMm,
+      });
+      return sendEscPosToStation({
+        api,
+        station: stationKey,
+        stationConfig,
+        printAgent: printAgentCfg,
+        text: plain,
+        copies,
+      });
+    };
+    const thermal =
+      silent && list.length === 1 && list[0]
+        ? await dedupeThermalAutoPrintJob(stationKey, list[0], runPrint)
+        : await runPrint();
     if (thermal.ok) {
       if (!silent) toast.success('Enviado a impresora térmica');
       return;
@@ -139,7 +148,8 @@ export default function KitchenPanel({ station = 'cocina' }) {
     }
     const stationConfig = station === 'bar' ? cfgPrinters?.bar : cfgPrinters?.cocina;
     const stationKey = isBar ? 'bar' : 'cocina';
-    const plain = buildSimpleComandaPlainText(order);
+    const widthMm = [58, 80].includes(Number(stationConfig?.width_mm)) ? Number(stationConfig.width_mm) : 80;
+    const plain = buildSimpleComandaPlainText(order, new Date(), widthMm);
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
     const thermal = await sendEscPosToStation({
       api,

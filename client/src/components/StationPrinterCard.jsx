@@ -15,12 +15,14 @@ const TITLES = {
 function formToPrinterStub(form) {
   const ip = String(form.ip_address || '').trim();
   const pt = String(form.printer_type || 'lan').toLowerCase();
+  const wm = Number(form.width_mm);
   return {
     ip_address: ip,
     port: form.port,
     copies: form.copies,
     printer_type: pt,
     local_printer_name: String(form.local_printer_name || '').trim(),
+    width_mm: [58, 80].includes(wm) ? wm : 80,
     connection: pt === 'lan' || ip ? 'wifi' : pt === 'usb' ? 'usb' : 'browser',
   };
 }

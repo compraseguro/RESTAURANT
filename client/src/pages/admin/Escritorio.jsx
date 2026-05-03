@@ -333,6 +333,7 @@ export default function Escritorio() {
         title,
         orders: source,
         copies: 1,
+        widthMm: width,
       });
       try {
         await api.post('/orders/print-network', { station: stationKey, text: plain, copies });

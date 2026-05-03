@@ -1,5 +1,6 @@
 import { buildKitchenTicketPlainText } from './ticketPlainText';
 import { sendEscPosToStation } from './cajaThermalPrint';
+import { dedupeThermalAutoPrintJob } from './thermalPrintDedupe';
 
 /** Misma lógica que el servidor / panel cocina para repartir ítems entre bar y cocina. */
 export function isBarItemForStation(item) {
@@ -44,21 +45,25 @@ export async function silentPrintOrderToStations({ api, order, labelPrefix = 'Pe
     if (!orderAppliesToStation(order, station)) continue;
     const stationConfig = printers[station];
     if (Number(stationConfig?.auto_print ?? 1) === 0) continue;
+    const widthMm = [58, 80].includes(Number(stationConfig?.width_mm)) ? Number(stationConfig.width_mm) : 80;
     const title = `${station === 'bar' ? 'Comandas de Bar' : 'Comandas de Cocina'} · ${labelPrefix} · #${order.order_number}`;
-    const plain = buildKitchenTicketPlainText({
-      restaurant,
-      title,
-      orders: [order],
-      copies: 1,
-    });
     const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
-    await sendEscPosToStation({
-      api,
-      station,
-      stationConfig,
-      printAgent,
-      text: plain,
-      copies,
+    await dedupeThermalAutoPrintJob(station, order, async () => {
+      const plain = buildKitchenTicketPlainText({
+        restaurant,
+        title,
+        orders: [order],
+        copies: 1,
+        widthMm,
+      });
+      return sendEscPosToStation({
+        api,
+        station,
+        stationConfig,
+        printAgent,
+        text: plain,
+        copies,
+      });
     });
   }
 }

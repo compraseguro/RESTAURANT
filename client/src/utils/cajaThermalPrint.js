@@ -38,6 +38,7 @@ export async function sendEscPosToStation({ api, station, stationConfig, printAg
       } else if (localName) {
         mode = 'usb';
       }
+      const widthMm = [58, 80].includes(Number(c.width_mm)) ? Number(c.width_mm) : undefined;
       await postLocalAgentPrint(printAgent.base_url, {
         area: station,
         ticket: plain,
@@ -46,6 +47,7 @@ export async function sendEscPosToStation({ api, station, stationConfig, printAg
         port: c.port || 9100,
         copies: n,
         mode,
+        paper_width_mm: widthMm,
       });
       return { ok: true, via: 'agent' };
     } catch {
@@ -59,5 +61,10 @@ export async function sendEscPosToStation({ api, station, stationConfig, printAg
  * @returns {Promise<{ ok: boolean, via?: string }>}
  */
 export async function sendEscPosToCaja(opts) {
-  return sendEscPosToStation({ ...opts, station: 'caja' });
+  const { cajaConfig, stationConfig, ...rest } = opts;
+  return sendEscPosToStation({
+    ...rest,
+    station: 'caja',
+    stationConfig: stationConfig ?? cajaConfig,
+  });
 }

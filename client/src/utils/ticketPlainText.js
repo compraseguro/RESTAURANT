@@ -9,6 +9,44 @@ export function orderHasTakeoutNote(order) {
   return String(order?.notes || '').toUpperCase().includes(KITCHEN_TAKEOUT_NOTE);
 }
 
+/** Anchos de carácter típicos para papel 58 mm vs 80 mm (fuente estándar ESC/POS). */
+export function thermalPaperMetrics(widthMm) {
+  const narrow = Number(widthMm) <= 58;
+  return {
+    clip: narrow ? 32 : 42,
+    itemLine: narrow ? 32 : 48,
+    nameInQtyRow: narrow ? 24 : 34,
+    phoneClip: narrow ? 24 : 32,
+  };
+}
+
+function wrapThermalLine(text, maxLen) {
+  const t = String(text || '').trim();
+  if (!t) return [];
+  if (t.length <= maxLen) return [t];
+  const words = t.split(/\s+/);
+  const out = [];
+  let cur = '';
+  for (const w of words) {
+    const piece = cur ? `${cur} ${w}` : w;
+    if (piece.length <= maxLen) {
+      cur = piece;
+      continue;
+    }
+    if (cur) out.push(cur);
+    if (w.length <= maxLen) {
+      cur = w;
+      continue;
+    }
+    for (let i = 0; i < w.length; i += maxLen) {
+      out.push(w.slice(i, i + maxLen));
+    }
+    cur = '';
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
 function isCuentaClienteSelfOrder(order) {
   return String(order?.table_number || '') === 'Cliente' && String(order?.customer_id || '').trim() !== '';
 }
@@ -24,11 +62,14 @@ function escHtml(s) {
     .replace(/>/g, '&gt;');
 }
 
-export function buildSimpleComandaPlainText(order, printedAt = new Date()) {
+export function buildSimpleComandaPlainText(order, printedAt = new Date(), widthMm = 80) {
+  const { clip, itemLine } = thermalPaperMetrics(widthMm);
   const lines = [];
   const when = printedAt.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
   if (isCuentaClienteSelfOrder(order)) {
-    lines.push(`CLIENTE: ${String(order.customer_name || 'Cliente').trim().toUpperCase()}`);
+    for (const seg of wrapThermalLine(`CLIENTE: ${String(order.customer_name || 'Cliente').trim().toUpperCase()}`, clip)) {
+      lines.push(seg);
+    }
   } else if (order.type === 'delivery') {
     lines.push('DELIVERY');
   } else if (order.type === 'pickup') {
@@ -46,7 +87,10 @@ export function buildSimpleComandaPlainText(order, printedAt = new Date()) {
     const q = Number(it.quantity || 0);
     const nm = String(it.product_name || '').trim() || '—';
     const v = String(it.variant_name || '').trim();
-    lines.push(`${q}x ${nm}${v ? ` (${v})` : ''}`);
+    const raw = `${q}x ${nm}${v ? ` (${v})` : ''}`;
+    for (const seg of wrapThermalLine(raw, itemLine)) {
+      lines.push(seg);
+    }
   }
   return lines.join('\n');
 }
@@ -92,13 +136,15 @@ export function buildKitchenTicketPlainText({
   title = '',
   orders = [],
   copies = 1,
+  widthMm = 80,
 }) {
+  const { clip: clipMax, itemLine, phoneClip } = thermalPaperMetrics(widthMm);
+  const clip = (s, n) => String(s || '').slice(0, n ?? clipMax);
   const lines = [];
-  const clip = (s, n = 42) => String(s || '').slice(0, n);
   lines.push('================================');
   lines.push(clip(restaurant.name || 'Restaurante'));
   if (restaurant.address) lines.push(clip(restaurant.address));
-  if (restaurant.phone) lines.push(`Tel: ${clip(restaurant.phone, 32)}`);
+  if (restaurant.phone) lines.push(`Tel: ${clip(restaurant.phone, phoneClip)}`);
   lines.push('--------------------------------');
   lines.push(clip(title));
   lines.push(new Date().toLocaleString('es-PE'));
@@ -108,7 +154,7 @@ export function buildKitchenTicketPlainText({
     const orderTypeLabel =
       order.type === 'delivery' ? 'Delivery' : order.type === 'pickup' ? 'Recojo' : 'Mesa/Salon';
     if (isCuentaClienteSelfOrder(order)) {
-      lines.push(clip(order.customer_name || 'Cliente', 42));
+      lines.push(clip(order.customer_name || 'Cliente', clipMax));
       lines.push(`#${order.order_number} ${orderTypeLabel}`);
     } else if (order.type === 'delivery') {
       lines.push('Delivery');
@@ -127,7 +173,9 @@ export function buildKitchenTicketPlainText({
       let line = ` ${item.quantity}x ${item.product_name || ''}`;
       if (item.variant_name) line += ` (${item.variant_name})`;
       if (item.notes) line += ` - ${item.notes}`;
-      lines.push(line.slice(0, 48));
+      for (const seg of wrapThermalLine(line.trim(), itemLine)) {
+        lines.push(seg);
+      }
     });
     lines.push('');
     lines.push('--------------------------------');
@@ -155,22 +203,25 @@ export function buildPrecuentaPlainText({
   subtotal = 0,
   discount = 0,
   payableTotal = 0,
+  widthMm = 80,
 }) {
-  const clip = (s, n = 42) => String(s || '').slice(0, n);
+  const { clip: clipDef, nameInQtyRow } = thermalPaperMetrics(widthMm);
+  const clip = (s, n) => String(s || '').slice(0, n ?? clipDef);
+  const titleTable = Math.max(12, clipDef - 6);
   const lines = [];
   lines.push('================================');
   lines.push(clip(restaurantName));
-  lines.push(`PRECUENTA - ${clip(tableName, 36)}`);
-  lines.push(clip(userLine, 42));
+  lines.push(`PRECUENTA - ${clip(tableName, titleTable)}`);
+  lines.push(clip(userLine));
   if (takeoutLine) lines.push(takeoutLine);
   for (const l of customerLines) {
-    if (l) lines.push(clip(l, 42));
+    if (l) lines.push(clip(l));
   }
   lines.push('--------------------------------');
   for (const g of groupedRows) {
     const qty = Number(g.qty || 0);
     const name = String(g.name || '').trim() || '—';
-    lines.push(`${qty}x ${clip(name, 34)}`);
+    lines.push(`${qty}x ${clip(name, nameInQtyRow)}`);
     lines.push(`  ${formatCurrencyFn(g.unitPrice != null ? g.unitPrice : 0)}  ${formatCurrencyFn(g.subtotal != null ? g.subtotal : 0)}`);
   }
   lines.push('--------------------------------');
@@ -191,23 +242,25 @@ export function buildNotaVentaPlainText({
   groupedRows = [],
   formatCurrencyFn = (n) => String(n),
   total = 0,
+  widthMm = 80,
 }) {
-  const clip = (s, n = 42) => String(s || '').slice(0, n);
+  const { clip: clipDef, nameInQtyRow } = thermalPaperMetrics(widthMm);
+  const clip = (s, n) => String(s || '').slice(0, n ?? clipDef);
   const lines = [];
   lines.push('================================');
   lines.push(clip(restaurantName));
   lines.push('NOTA DE VENTA');
-  if (docLine) lines.push(clip(docLine, 42));
-  if (tableName) lines.push(clip(tableName, 42));
-  lines.push(clip(dateLine, 42));
+  if (docLine) lines.push(clip(docLine));
+  if (tableName) lines.push(clip(tableName));
+  lines.push(clip(dateLine));
   for (const l of customerLines) {
-    if (l) lines.push(clip(l, 42));
+    if (l) lines.push(clip(l));
   }
   lines.push('--------------------------------');
   for (const g of groupedRows) {
     const qty = Number(g.qty || 0);
     const name = String(g.name || '').trim() || '—';
-    lines.push(`${qty}x ${clip(name, 34)}`);
+    lines.push(`${qty}x ${clip(name, nameInQtyRow)}`);
     lines.push(`  ${formatCurrencyFn(g.unitPrice != null ? g.unitPrice : 0)}  ${formatCurrencyFn(g.subtotal != null ? g.subtotal : 0)}`);
   }
   lines.push('--------------------------------');
