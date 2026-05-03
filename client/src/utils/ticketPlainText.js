@@ -17,17 +17,25 @@ function isCuentaClienteSelfOrder(order) {
  * Comanda mínima (reimpresión desde cocina/bar): ubicación, fecha/hora de impresión,
  * «PARA LLEVAR» si aplica (debajo de esa fecha), ítems. Sin nombre del restaurante ni totales.
  */
+function escHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 export function buildSimpleComandaPlainText(order, printedAt = new Date()) {
   const lines = [];
   const when = printedAt.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
   if (isCuentaClienteSelfOrder(order)) {
-    lines.push(`Cliente: ${String(order.customer_name || 'Cliente').trim()}`);
+    lines.push(`CLIENTE: ${String(order.customer_name || 'Cliente').trim().toUpperCase()}`);
   } else if (order.type === 'delivery') {
-    lines.push('Delivery');
+    lines.push('DELIVERY');
   } else if (order.type === 'pickup') {
-    lines.push('Recojo');
+    lines.push('RECOJO');
   } else {
-    lines.push(order.table_number ? `Mesa ${order.table_number}` : 'Mesa —');
+    const m = order.table_number ? String(order.table_number).trim().toUpperCase() : '';
+    lines.push(m ? `MESA ${m}` : 'MESA —');
   }
   lines.push(when);
   if (orderHasTakeoutNote(order)) {
@@ -41,6 +49,42 @@ export function buildSimpleComandaPlainText(order, printedAt = new Date()) {
     lines.push(`${q}x ${nm}${v ? ` (${v})` : ''}`);
   }
   return lines.join('\n');
+}
+
+/**
+ * Misma comanda mínima que {@link buildSimpleComandaPlainText}, en HTML para impresión por navegador:
+ * cabecera (mesa / delivery / …) centrada y en mayúsculas, cuerpo con tipografía más grande.
+ */
+export function buildSimpleComandaPrintHtml(order, printedAt = new Date()) {
+  const when = printedAt.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
+  const itemsHtml = (order.items || [])
+    .map((it) => {
+      const q = Number(it.quantity || 0);
+      const nm = escHtml(String(it.product_name || '').trim() || '—');
+      const v = String(it.variant_name || '').trim();
+      const vpart = v ? ` (${escHtml(v)})` : '';
+      return `<div class="comanda-item">${q}x ${nm}${vpart}</div>`;
+    })
+    .join('');
+  let top = '';
+  if (isCuentaClienteSelfOrder(order)) {
+    top = `<div class="comanda-top">CLIENTE: ${escHtml(String(order.customer_name || 'Cliente').trim())}</div>`;
+  } else if (order.type === 'delivery') {
+    top = '<div class="comanda-top">DELIVERY</div>';
+  } else if (order.type === 'pickup') {
+    top = '<div class="comanda-top">RECOJO</div>';
+  } else {
+    const m = order.table_number ? String(order.table_number).trim() : '';
+    top = `<div class="comanda-top">${m ? `MESA ${escHtml(m.toUpperCase())}` : 'MESA —'}</div>`;
+  }
+  const paraLlevar = orderHasTakeoutNote(order)
+    ? `<div class="comanda-pl">${KITCHEN_TAKEOUT_NOTE}</div>`
+    : '';
+  return `${top}
+    <div class="comanda-fecha">${escHtml(when)}</div>
+    ${paraLlevar}
+    <div class="comanda-sep">--------------------------------</div>
+    ${itemsHtml}`;
 }
 
 export function buildKitchenTicketPlainText({
@@ -69,7 +113,9 @@ export function buildKitchenTicketPlainText({
     } else if (order.type === 'delivery') {
       lines.push('Delivery');
     } else {
-      const tbl = order.table_number ? ` Mesa ${order.table_number}` : '';
+      const tbl = order.table_number
+        ? ` MESA ${String(order.table_number).trim().toUpperCase()}`
+        : '';
       lines.push(`#${order.order_number} ${orderTypeLabel}${tbl}`);
     }
     const fechaPedido = formatDateTime(order.updated_at || order.created_at);

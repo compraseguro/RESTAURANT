@@ -342,18 +342,31 @@ export default function Escritorio() {
         toast.error(err.message || 'No se pudo imprimir por red; se abrirá el navegador');
       }
     }
-    const content = source.map(order => {
-      const items = (order.items || []).map(item => `<li>${item.quantity}x ${item.product_name}${item.notes ? ` - ${item.notes}` : ''}</li>`).join('');
+    const content = source.map((order) => {
+      const items = (order.items || [])
+        .map((item) => `<li>${item.quantity}x ${item.product_name}${item.notes ? ` - ${item.notes}` : ''}</li>`)
+        .join('');
       const fechaLine = formatDateTime(order.updated_at || order.created_at);
       const paraLlevarBlock = orderHasTakeoutNote(order)
-        ? `<div style="text-align:center;font-weight:bold;font-size:15px;letter-spacing:0.06em;margin-top:6px;">PARA LLEVAR</div>`
+        ? `<div style="text-align:center;font-weight:800;font-size:21px;letter-spacing:0.06em;margin-top:8px;">PARA LLEVAR</div>`
         : '';
+      const rawMesa = order.table_number ? String(order.table_number).trim() : '';
+      const salon = order.type === 'dine_in' || order.type === 'pickup';
+      const mesaTop =
+        rawMesa && salon
+          ? `<div class="desk-ticket-mesa">MESA ${rawMesa.toUpperCase()}</div>`
+          : '';
+      const headInner =
+        rawMesa && salon
+          ? `<strong>#${order.order_number}</strong> · ${order.type}`
+          : `<strong>#${order.order_number}</strong> - ${order.type}${rawMesa ? ` - Mesa ${order.table_number}` : ''}`;
       return `
-        <div style="border:1px solid #d9d9d9;border-radius:8px;padding:10px;margin-bottom:8px;">
-          <strong>#${order.order_number}</strong> - ${order.type}${order.table_number ? ` - Mesa ${order.table_number}` : ''}
-          ${fechaLine ? `<div style="font-size:13px;font-weight:700;margin-top:4px;">${fechaLine}</div>` : ''}
+        <div class="desk-ticket-card">
+          ${mesaTop}
+          <div class="desk-ticket-head">${headInner}</div>
+          ${fechaLine ? `<div class="desk-ticket-fecha">${fechaLine}</div>` : ''}
           ${paraLlevarBlock}
-          <ul style="margin:8px 0 0 16px;padding:0;">${items}</ul>
+          <ul class="desk-ticket-ul">${items}</ul>
         </div>
       `;
     }).join('');
@@ -373,7 +386,7 @@ export default function Escritorio() {
     }
     doc.open();
     const repeated = Array.from({ length: copies }).map((_, idx) => (
-      `${copies > 1 ? `<p style="margin:0 0 4px 0;font-size:10px;">Copia ${idx + 1} de ${copies}</p>` : ''}${content}`
+      `${copies > 1 ? `<p class="desk-copy-label">Copia ${idx + 1} de ${copies}</p>` : ''}${content}`
     )).join('<div style="height:6px;"></div>');
     doc.write(`
       <html>
@@ -381,14 +394,21 @@ export default function Escritorio() {
         <title>${title}</title>
         <style>
           @page { size: ${width}mm auto; margin: 2mm; }
-          body { font-family: 'Courier New', Courier, monospace; width: ${ticketWidth}; max-width: 100%; margin: 0; font-size: 15px; line-height: 1.45; font-weight: 600; }
-          h2 { font-size: 19px; font-weight: 800; }
+          body { font-family: 'Courier New', Courier, monospace; width: ${ticketWidth}; max-width: 100%; margin: 0; font-size: 19px; line-height: 1.45; font-weight: 600; }
+          h2 { font-size: 24px; font-weight: 800; }
+          .desk-ticket-card { border: 1px solid #d9d9d9; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+          .desk-ticket-mesa { text-align: center; text-transform: uppercase; font-size: 24px; font-weight: 800; letter-spacing: 0.05em; margin: 0 0 8px 0; line-height: 1.15; }
+          .desk-ticket-head { font-size: 18px; }
+          .desk-ticket-fecha { font-size: 17px; font-weight: 700; margin-top: 6px; }
+          .desk-ticket-ul { margin: 10px 0 0 14px; padding: 0; }
+          .desk-ticket-ul li { margin-bottom: 4px; font-size: 19px; }
+          .desk-copy-label { margin: 0 0 6px 0; font-size: 14px; font-weight: 700; }
         </style>
       </head>
       <body>
         <h2 style="margin:0 0 6px 0;">${restaurantInfo?.name || 'Resto-FADEY'}</h2>
-        <p style="margin:0;font-size:12px;">${restaurantInfo?.address || ''}</p>
-        <p style="margin:0 0 8px 0;font-size:12px;">${restaurantInfo?.phone || ''}</p>
+        <p style="margin:0;font-size:14px;">${restaurantInfo?.address || ''}</p>
+        <p style="margin:0 0 8px 0;font-size:14px;">${restaurantInfo?.phone || ''}</p>
         <h2 style="margin:0 0 8px 0;">${title}</h2>
         ${repeated}
       </body>

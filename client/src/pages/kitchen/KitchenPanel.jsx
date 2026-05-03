@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
-import { buildKitchenTicketPlainText, buildSimpleComandaPlainText, orderHasTakeoutNote } from '../../utils/ticketPlainText';
+import {
+  buildKitchenTicketPlainText,
+  buildSimpleComandaPlainText,
+  buildSimpleComandaPrintHtml,
+  orderHasTakeoutNote,
+} from '../../utils/ticketPlainText';
 import { shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
 import { printHtmlDocument } from '../../utils/printHtml';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
@@ -159,18 +164,21 @@ export default function KitchenPanel({ station = 'cocina' }) {
         .join('');
       const cliente = isCuentaClienteSelfOrder(order);
       const esc = (s) => String(s || '').replace(/</g, '');
-      const timeSmall = `<span style="font-size:13px;font-weight:700">${formatTime(order.created_at)}</span>`;
+      const timeSmall = `<span class="ticket-time">${formatTime(order.created_at)}</span>`;
       let header;
       if (cliente) {
         header = `<strong>${esc(order.customer_name)}</strong><br/><strong>#${order.order_number}</strong> - ${orderTypeLabel}<br/>${timeSmall}`;
       } else if (order.type === 'delivery') {
         header = `<strong>Delivery</strong><br/>${timeSmall}`;
       } else {
-        const mesa = order.table_number ? ` - Mesa ${esc(order.table_number)}` : '';
-        header = `<strong>#${order.order_number}</strong> - ${orderTypeLabel}${mesa}<br/>${timeSmall}`;
+        const rawMesa = order.table_number ? String(order.table_number).trim() : '';
+        const mesaTop = rawMesa
+          ? `<div class="ticket-mesa">MESA ${esc(rawMesa.toUpperCase())}</div>`
+          : '';
+        header = `${mesaTop}<div class="ticket-meta"><strong>#${order.order_number}</strong> · ${orderTypeLabel}<br/>${timeSmall}</div>`;
       }
       const paraLlevarBlock = orderHasTakeoutNote(order)
-        ? `<div style="text-align:center;font-weight:800;font-size:17px;letter-spacing:0.08em;margin-top:6px;color:inherit;">PARA LLEVAR</div>`
+        ? `<div style="text-align:center;font-weight:800;font-size:21px;letter-spacing:0.08em;margin-top:8px;color:inherit;">PARA LLEVAR</div>`
         : '';
       return `
         <div class="ticket">
@@ -199,7 +207,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     doc.open();
     const repeatedRows = Array.from({ length: copies }).map((_, idx) => `
       <div style="margin-bottom:8px;">
-        ${copies > 1 ? `<p style="margin:0 0 6px 0;font-size:12px;font-weight:700;">Copia ${idx + 1} de ${copies}</p>` : ''}
+        ${copies > 1 ? `<p class="ticket-copy-label">Copia ${idx + 1} de ${copies}</p>` : ''}
         ${htmlRows}
       </div>
     `).join('');
@@ -210,17 +218,21 @@ export default function KitchenPanel({ station = 'cocina' }) {
         <title>${title}</title>
         <style>
           @page { size: ${width}mm auto; margin: 2mm; }
-          body { font-family: 'Courier New', Courier, monospace; width: ${ticketWidth}; max-width: 100%; margin: 0; font-size: 15px; line-height: 1.45; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .ticket { border-bottom: 1px dashed #999; padding-bottom: 8px; margin-bottom: 8px; }
-          h2 { font-size: 19px; font-weight: 800; margin: 0 0 6px 0; letter-spacing: 0.02em; }
-          ul { margin: 6px 0 0 12px; padding: 0; }
-          li { margin-bottom: 2px; }
+          body { font-family: 'Courier New', Courier, monospace; width: ${ticketWidth}; max-width: 100%; margin: 0; font-size: 19px; line-height: 1.45; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .ticket { border-bottom: 1px dashed #999; padding-bottom: 10px; margin-bottom: 10px; }
+          .ticket-mesa { text-align: center; text-transform: uppercase; font-size: 24px; font-weight: 800; letter-spacing: 0.06em; margin: 0 0 8px 0; line-height: 1.15; }
+          .ticket-meta { font-size: 18px; }
+          .ticket-time { font-size: 17px; font-weight: 700; }
+          .ticket-copy-label { margin: 0 0 8px 0; font-size: 15px; font-weight: 700; }
+          h2 { font-size: 24px; font-weight: 800; margin: 0 0 6px 0; letter-spacing: 0.02em; }
+          ul { margin: 8px 0 0 14px; padding: 0; }
+          li { margin-bottom: 4px; font-size: 19px; }
         </style>
       </head>
       <body>
         <h2>${cfgRestaurant?.name || 'Resto-FADEY'}</h2>
-        <p style="margin:0;font-size:12px;">${cfgRestaurant?.address || ''}</p>
-        <p style="margin:0 0 8px 0;font-size:12px;">${cfgRestaurant?.phone || ''}</p>
+        <p style="margin:0;font-size:14px;">${cfgRestaurant?.address || ''}</p>
+        <p style="margin:0 0 8px 0;font-size:14px;">${cfgRestaurant?.phone || ''}</p>
         <h2>${title}</h2>
         <p style="margin:0 0 8px 0;">${new Date().toLocaleString()}</p>
         ${repeatedRows}
@@ -263,10 +275,17 @@ export default function KitchenPanel({ station = 'cocina' }) {
         toast.error(err.message || 'No se pudo imprimir por red; use el cuadro de impresión');
       }
     }
-    const safe = plain.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const inner = buildSimpleComandaPrintHtml(order);
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Comanda #${order.order_number}</title>
-      <style>body{font-family:'Courier New',Courier,monospace;padding:16px;font-size:14px;line-height:1.35;margin:0;color:#111}</style></head><body>
-      <pre style="white-space:pre-wrap;margin:0">${safe}</pre>
+      <style>
+        body { font-family: 'Courier New', Courier, monospace; padding: 14px 12px; margin: 0; color: #111; }
+        .comanda-top { text-align: center; text-transform: uppercase; font-size: 26px; font-weight: 800; letter-spacing: 0.06em; margin: 0 0 10px 0; line-height: 1.15; }
+        .comanda-fecha { text-align: center; font-size: 20px; font-weight: 600; margin: 0 0 10px 0; }
+        .comanda-pl { text-align: center; font-size: 22px; font-weight: 800; letter-spacing: 0.06em; margin: 10px 0; }
+        .comanda-sep { font-size: 18px; margin: 12px 0; text-align: center; font-weight: 600; }
+        .comanda-item { font-size: 21px; font-weight: 600; line-height: 1.45; margin: 6px 0; }
+      </style></head><body>
+      ${inner}
       </body></html>`;
     if (!printHtmlDocument(html, `Comanda #${order.order_number}`)) {
       toast.error('No se pudo abrir el documento de impresión');
