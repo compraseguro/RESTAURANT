@@ -846,6 +846,7 @@ export default function Reports() {
               onChange={e => setBillingStatusFilter(e.target.value)}
             >
               <option value="all">Todos los estados</option>
+              <option value="local">Notas locales</option>
               <option value="accepted">Aceptados</option>
               <option value="sent">Enviados</option>
               <option value="pending">Pendientes</option>
@@ -856,7 +857,8 @@ export default function Reports() {
               value={billingTypeFilter}
               onChange={e => setBillingTypeFilter(e.target.value)}
             >
-              <option value="all">Boletas y facturas</option>
+              <option value="all">Todos (boletas, facturas y notas)</option>
+              <option value="nota_venta">Notas de venta</option>
               <option value="boleta">Boletas</option>
               <option value="factura">Facturas</option>
             </select>
@@ -907,13 +909,17 @@ export default function Reports() {
                           ? 'bg-emerald-100 text-emerald-700'
                           : doc.provider_status === 'error'
                             ? 'bg-red-100 text-red-700'
-                            : 'bg-amber-100 text-amber-700'
+                            : doc.provider_status === 'local'
+                              ? 'bg-slate-100 text-slate-700'
+                              : 'bg-amber-100 text-amber-700'
                       }`}>
-                        {doc.provider_status}
+                        {doc.provider_status === 'local' ? 'local (nota)' : doc.provider_status}
                       </span>
                     </td>
                     <td className="py-2 px-3 text-right">
-                      {['error', 'pending', 'sent'].includes(doc.provider_status) ? (
+                      {doc.provider_status === 'local' ? (
+                        <span className="text-xs text-slate-500">Nota local</span>
+                      ) : ['error', 'pending', 'sent'].includes(doc.provider_status) ? (
                         <button
                           type="button"
                           onClick={() => retryDocument(doc.id)}
@@ -928,18 +934,29 @@ export default function Reports() {
                     </td>
                     <td className="py-2 px-3 text-right align-middle">
                       {doc.pdf_url ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setBillingPdfPreview({
-                              url: doc.pdf_url,
-                              title: doc.full_number ? `PDF — ${doc.full_number}` : 'Vista previa del comprobante',
-                            })
-                          }
-                          className="inline-block h-3 w-3 rounded-full bg-white border border-slate-300 shadow-sm hover:ring-2 hover:ring-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
-                          title="Ver PDF"
-                          aria-label="Ver PDF del comprobante"
-                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setBillingPdfPreview({
+                                url: doc.pdf_url,
+                                title: doc.full_number ? `PDF — ${doc.full_number}` : 'Vista previa del comprobante',
+                              })
+                            }
+                            className="inline-block h-3 w-3 rounded-full bg-white border border-slate-300 shadow-sm hover:ring-2 hover:ring-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                            title="Ver PDF"
+                            aria-label="Ver PDF del comprobante"
+                          />
+                          <a
+                            href={resolveMediaUrl(doc.pdf_url)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-[#3B82F6] hover:underline whitespace-nowrap"
+                            title="Abrir en otra pestaña para imprimir"
+                          >
+                            Abrir / imprimir
+                          </a>
+                        </div>
                       ) : (
                         <span className="text-xs text-slate-400">—</span>
                       )}
@@ -991,11 +1008,23 @@ export default function Reports() {
         variant="light"
       >
         {billingPdfPreview?.url && (
-          <iframe
-            title="PDF del comprobante"
-            src={resolveMediaUrl(billingPdfPreview.url)}
-            className="w-full h-[min(80vh,720px)] rounded-lg border border-slate-200 bg-slate-100"
-          />
+          <div className="space-y-2">
+            <div className="flex justify-end">
+              <a
+                href={resolveMediaUrl(billingPdfPreview.url)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-[#3B82F6] hover:underline"
+              >
+                Abrir en nueva pestaña / imprimir
+              </a>
+            </div>
+            <iframe
+              title="PDF del comprobante"
+              src={resolveMediaUrl(billingPdfPreview.url)}
+              className="w-full h-[min(80vh,720px)] rounded-lg border border-slate-200 bg-slate-100"
+            />
+          </div>
         )}
       </Modal>
 

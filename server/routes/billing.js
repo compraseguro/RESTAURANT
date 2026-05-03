@@ -591,7 +591,7 @@ router.put('/config', authenticateToken, requireRole('admin', 'master_admin'), (
   }
 });
 
-router.get('/documents', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
+router.get('/documents', authenticateToken, requireRole('admin', 'cajero'), async (req, res) => {
   try {
     const limit = Math.max(1, Math.min(200, Number(req.query.limit || 50)));
     const status = String(req.query.status || '').trim();
@@ -624,7 +624,19 @@ router.get('/documents', authenticateToken, requireRole('admin', 'cajero'), (req
 
     sql += ' ORDER BY d.created_at DESC LIMIT ?';
     params.push(limit);
-    const rows = queryAll(sql, params);
+    let rows = queryAll(sql, params);
+    const restaurant = queryOne('SELECT * FROM restaurants LIMIT 1');
+    if (restaurant && rows.length) {
+      rows = await Promise.all(
+        rows.map(async (row) => {
+          if (String(row.doc_type) === 'nota_venta' && !String(row.pdf_url || '').trim()) {
+            const r = await refreshDocWithLocalPdfIfNeeded(row.id, restaurant);
+            return r || row;
+          }
+          return row;
+        })
+      );
+    }
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo listar comprobantes' });
@@ -664,22 +676,91 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
   const order = queryOne('SELECT * FROM orders WHERE id = ?', [orderId]);
   if (!order) throw new Error('Pedido no encontrado');
   if (docType === 'nota_venta') {
-    const noteNumber = order.sale_document_number || `001-${String(order.order_number || 0).padStart(8, '0')}`;
-    runSql(
-      "UPDATE orders SET sale_document_type = 'nota_venta', sale_document_number = ?, updated_at = datetime('now') WHERE id = ?",
-      [noteNumber, orderId]
-    );
-    runSql('DELETE FROM electronic_documents WHERE order_id = ?', [orderId]);
-    return {
-      id: `nota-${orderId}`,
-      order_id: orderId,
-      order_number: order.order_number || null,
-      doc_type: 'nota_venta',
-      full_number: noteNumber,
-      provider_status: 'local',
-      provider_message: 'Nota de venta local',
-      payment_method: order.payment_method || 'efectivo',
+    const restaurant = queryOne('SELECT * FROM restaurants LIMIT 1');
+    if (!restaurant) throw new Error('No hay restaurante configurado');
+
+    const noteNumber =
+      String(order.sale_document_number || '').trim() ||
+      `001-${String(order.order_number || 0).padStart(8, '0')}`;
+
+    const sourceCustomer = {
+      doc_type: customer?.doc_type || existingDoc?.customer_doc_type || '',
+      doc_number: customer?.doc_number || existingDoc?.customer_doc_number || '',
+      name: customer?.name || existingDoc?.customer_name || order.customer_name || 'CLIENTE VARIOS',
+      address: customer?.address || existingDoc?.customer_address || 'LIMA',
     };
+    const customerPhone = String(customer?.phone ?? existingDoc?.customer_phone ?? '').trim();
+    const normalizedCustomer = normalizeCustomerForDoc('boleta', sourceCustomer);
+
+    runSql(
+      `UPDATE orders SET
+        sale_document_type = 'nota_venta',
+        sale_document_number = ?,
+        customer_name = ?,
+        updated_at = datetime('now')
+      WHERE id = ?`,
+      [noteNumber, normalizedCustomer.customerName, orderId]
+    );
+
+    runSql('DELETE FROM electronic_documents WHERE order_id = ?', [orderId]);
+
+    const items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
+    if (items.length === 0) throw new Error('El pedido no tiene items');
+
+    const dash = noteNumber.indexOf('-');
+    const series = dash >= 0 ? noteNumber.slice(0, dash).trim() || '001' : '001';
+    let correlative = 0;
+    if (dash >= 0) {
+      const tail = noteNumber.slice(dash + 1).replace(/\D/g, '');
+      correlative = parseInt(tail, 10) || 0;
+    }
+    if (!correlative) correlative = Number(order.order_number) || 0;
+
+    const docId = uuidv4();
+    runSql(
+      `INSERT INTO electronic_documents (
+        id, order_id, order_number, doc_type, series, correlative, full_number,
+        customer_doc_type, customer_doc_number, customer_name, customer_address, customer_phone,
+        subtotal, tax, total, currency, payment_method,
+        provider, provider_status, provider_message, hash_code, sunat_description,
+        xml_url, cdr_url, pdf_url, provider_payload, provider_response,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      [
+        docId,
+        order.id,
+        order.order_number || null,
+        'nota_venta',
+        series,
+        correlative,
+        noteNumber,
+        normalizedCustomer.customerDocType,
+        normalizedCustomer.customerDocNumber,
+        normalizedCustomer.customerName,
+        normalizedCustomer.customerAddress,
+        customerPhone,
+        round2(order.subtotal),
+        round2(order.tax),
+        round2(order.total),
+        restaurant.currency || 'PEN',
+        order.payment_method || '',
+        'local',
+        'local',
+        'Nota de venta local',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '{}',
+        '{}',
+      ]
+    );
+
+    const finalDoc = await refreshDocWithLocalPdfIfNeeded(docId, restaurant);
+    scheduleWhatsappPdfSend(finalDoc, restaurant);
+    return finalDoc;
   }
   const items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
   if (items.length === 0) throw new Error('El pedido no tiene items');
@@ -766,6 +847,7 @@ async function issueDocumentForOrder({ orderId, docType, customer = {}, replaceE
         customerDocType: normalizedCustomer.customerDocType,
         customerDocNumber: normalizedCustomer.customerDocNumber,
         customerPhone,
+        customerAddress: normalizedCustomer.customerAddress,
       });
     } catch (e) {
       console.warn('[billing-local-pdf]', e.message || e);
@@ -865,6 +947,9 @@ router.post('/:id/retry', authenticateToken, requireRole('admin', 'cajero'), asy
   try {
     const doc = queryOne('SELECT * FROM electronic_documents WHERE id = ?', [req.params.id]);
     if (!doc) return res.status(404).json({ error: 'Comprobante no encontrado' });
+    if (String(doc.provider_status || '').toLowerCase() === 'local') {
+      return res.status(400).json({ error: 'Las notas de venta locales no se envían al proveedor electrónico' });
+    }
     if (!['error', 'pending', 'sent'].includes(String(doc.provider_status || '').toLowerCase())) {
       return res.status(400).json({ error: 'El comprobante no requiere reintento' });
     }

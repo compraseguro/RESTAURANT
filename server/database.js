@@ -806,7 +806,7 @@ async function initDatabase() {
         id TEXT PRIMARY KEY,
         order_id TEXT NOT NULL UNIQUE,
         order_number INTEGER,
-        doc_type TEXT NOT NULL CHECK(doc_type IN ('boleta','factura')),
+        doc_type TEXT NOT NULL CHECK(doc_type IN ('boleta','factura','nota_venta')),
         series TEXT NOT NULL,
         correlative INTEGER NOT NULL,
         full_number TEXT NOT NULL,
@@ -1270,6 +1270,121 @@ async function initDatabase() {
     if (!electronicDocColNames.has('customer_phone')) {
       db.run("ALTER TABLE electronic_documents ADD COLUMN customer_phone TEXT DEFAULT ''");
     }
+
+    const migNotaTableDone = queryOne(
+      'SELECT 1 as ok FROM schema_migrations WHERE migration_key = ?',
+      ['2026-04-electronic-doc-nota-venta-table']
+    );
+    if (!migNotaTableDone?.ok) {
+      try {
+        withTransaction((tx) => {
+          tx.run(`CREATE TABLE electronic_documents_mig (
+            id TEXT PRIMARY KEY,
+            order_id TEXT NOT NULL UNIQUE,
+            order_number INTEGER,
+            doc_type TEXT NOT NULL CHECK(doc_type IN ('boleta','factura','nota_venta')),
+            series TEXT NOT NULL,
+            correlative INTEGER NOT NULL,
+            full_number TEXT NOT NULL,
+            customer_doc_type TEXT DEFAULT '',
+            customer_doc_number TEXT DEFAULT '',
+            customer_name TEXT DEFAULT '',
+            customer_address TEXT DEFAULT '',
+            customer_phone TEXT DEFAULT '',
+            subtotal REAL DEFAULT 0,
+            tax REAL DEFAULT 0,
+            total REAL DEFAULT 0,
+            currency TEXT DEFAULT 'PEN',
+            payment_method TEXT DEFAULT '',
+            provider TEXT DEFAULT 'nubefact',
+            provider_status TEXT DEFAULT 'pending',
+            provider_message TEXT DEFAULT '',
+            hash_code TEXT DEFAULT '',
+            sunat_description TEXT DEFAULT '',
+            xml_url TEXT DEFAULT '',
+            cdr_url TEXT DEFAULT '',
+            pdf_url TEXT DEFAULT '',
+            provider_payload TEXT DEFAULT '{}',
+            provider_response TEXT DEFAULT '{}',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+          )`);
+          tx.run('INSERT INTO electronic_documents_mig SELECT * FROM electronic_documents');
+          tx.run('DROP TABLE electronic_documents');
+          tx.run('ALTER TABLE electronic_documents_mig RENAME TO electronic_documents');
+          tx.run('CREATE INDEX IF NOT EXISTS idx_documents_order ON electronic_documents(order_id)');
+        });
+        runSql('INSERT OR IGNORE INTO schema_migrations (migration_key) VALUES (?)', [
+          '2026-04-electronic-doc-nota-venta-table',
+        ]);
+      } catch (e) {
+        console.error('[migration] electronic_documents nota_venta:', e.message || e);
+      }
+    }
+
+    const migNotaBackfillDone = queryOne(
+      'SELECT 1 as ok FROM schema_migrations WHERE migration_key = ?',
+      ['2026-04-nota-venta-backfill']
+    );
+    if (!migNotaBackfillDone?.ok) {
+      try {
+        const restaurant = queryOne('SELECT * FROM restaurants LIMIT 1');
+        const currency = restaurant?.currency || 'PEN';
+        const orphans = queryAll(`
+          SELECT o.* FROM orders o
+          WHERE lower(coalesce(o.sale_document_type, '')) = 'nota_venta'
+          AND coalesce(o.payment_status, '') = 'paid'
+          AND lower(coalesce(o.status, '')) != 'cancelled'
+          AND NOT EXISTS (SELECT 1 FROM electronic_documents d WHERE d.order_id = o.id)
+        `);
+        for (const o of orphans) {
+          const noteNumber =
+            String(o.sale_document_number || '').trim() ||
+            `001-${String(o.order_number || 0).padStart(8, '0')}`;
+          const dash = noteNumber.indexOf('-');
+          const series = dash >= 0 ? noteNumber.slice(0, dash).trim() || '001' : '001';
+          let correlative = 0;
+          if (dash >= 0) {
+            const tail = noteNumber.slice(dash + 1).replace(/\D/g, '');
+            correlative = parseInt(tail, 10) || 0;
+          }
+          if (!correlative) correlative = Number(o.order_number) || 0;
+          const docId = uuidv4();
+          const custName = String(o.customer_name || '').trim() || 'CLIENTE VARIOS';
+          runSql(
+            `INSERT INTO electronic_documents (
+              id, order_id, order_number, doc_type, series, correlative, full_number,
+              customer_doc_type, customer_doc_number, customer_name, customer_address, customer_phone,
+              subtotal, tax, total, currency, payment_method,
+              provider, provider_status, provider_message, hash_code, sunat_description,
+              xml_url, cdr_url, pdf_url, provider_payload, provider_response,
+              created_at, updated_at
+            ) VALUES (?, ?, ?, 'nota_venta', ?, ?, ?, '', '', ?, '', '', ?, ?, ?, ?, ?, 'local', 'local', 'Nota de venta (histórico)', '', '', '', '', '', '', '{}', '{}', COALESCE(?, datetime('now')), datetime('now'))`,
+            [
+              docId,
+              o.id,
+              o.order_number,
+              series,
+              correlative,
+              noteNumber,
+              custName,
+              o.subtotal,
+              o.tax,
+              o.total,
+              currency,
+              o.payment_method || 'efectivo',
+              o.created_at,
+            ]
+          );
+        }
+        runSql('INSERT OR IGNORE INTO schema_migrations (migration_key) VALUES (?)', [
+          '2026-04-nota-venta-backfill',
+        ]);
+      } catch (e) {
+        console.error('[migration] nota_venta backfill:', e.message || e);
+      }
+    }
+
     db.run('CREATE INDEX IF NOT EXISTS idx_customers_doc_number ON customers(doc_number)');
     db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_doc_number_unique ON customers(doc_number) WHERE COALESCE(doc_number, '') != ''");
     db.run('CREATE INDEX IF NOT EXISTS idx_app_settings_history_created_at ON app_settings_history(created_at)');

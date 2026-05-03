@@ -30,6 +30,7 @@ function saveLocalFallbackReceiptPdf(docId, {
   customerDocType,
   customerDocNumber,
   customerPhone,
+  customerAddress,
 }) {
   if (!fs.existsSync(BILLING_DIR)) fs.mkdirSync(BILLING_DIR, { recursive: true });
   const safeId = String(docId || '').replace(/[^a-f0-9-]/gi, '');
@@ -54,7 +55,12 @@ function saveLocalFallbackReceiptPdf(docId, {
 
     const rname = String(restaurant?.name || 'Restaurante').trim() || 'Restaurante';
     const ruc = String(restaurant?.company_ruc || '').trim();
-    const label = docType === 'factura' ? 'FACTURA' : 'BOLETA DE VENTA';
+    const label =
+      docType === 'factura'
+        ? 'FACTURA'
+        : docType === 'nota_venta'
+          ? 'NOTA DE VENTA'
+          : 'BOLETA DE VENTA';
 
     doc.fontSize(16).text(rname, { align: 'center' });
     if (ruc) doc.fontSize(10).text(`RUC ${ruc}`, { align: 'center' });
@@ -75,6 +81,7 @@ function saveLocalFallbackReceiptPdf(docId, {
     const docLine = [customerDocType, customerDocNumber].filter(Boolean).join(' ');
     if (docLine) doc.text(`Doc.: ${docLine}`);
     if (customerPhone) doc.text(`Cel.: ${customerPhone}`);
+    if (customerAddress) doc.text(`Dir.: ${String(customerAddress).slice(0, 120)}`);
     doc.moveDown(0.5);
 
     doc.fontSize(10).text('Detalle', { underline: true });
@@ -116,6 +123,7 @@ async function ensureLocalFallbackPdfForDocumentRow(docRow, restaurant) {
       customerDocType: docRow.customer_doc_type,
       customerDocNumber: docRow.customer_doc_number,
       customerPhone: docRow.customer_phone,
+      customerAddress: docRow.customer_address,
     });
   } catch (e) {
     console.warn('[billing-local-pdf]', e.message || e);

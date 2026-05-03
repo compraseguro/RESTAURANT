@@ -909,6 +909,9 @@ export default function POSPanel() {
     if (st === 'pending') {
       return `${num || 'Comprobante'} — guardado; pendiente de sincronizar con SUNAT`;
     }
+    if (st === 'local') {
+      return num ? `${num} — nota de venta (registro local)` : 'Nota de venta (registro local)';
+    }
     return num || 'Comprobante registrado';
   };
 
