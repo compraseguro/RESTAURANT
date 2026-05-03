@@ -211,6 +211,7 @@ function parseProviderPayload(rawPayload) {
 
 async function refreshDocWithLocalPdfIfNeeded(docId, restaurant) {
   let row = queryOne('SELECT * FROM electronic_documents WHERE id = ?', [docId]);
+  if (!row) return null;
   const local = await ensureLocalFallbackPdfForDocumentRow(row, restaurant);
   if (local && !String(row.pdf_url || '').trim()) {
     runSql('UPDATE electronic_documents SET pdf_url = ? WHERE id = ?', [local, docId]);
