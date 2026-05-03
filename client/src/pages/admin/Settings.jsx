@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { api, formatDateTime } from '../../utils/api';
+import { shouldSendToNetworkPrinter } from '../../utils/networkPrinter';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -18,6 +19,7 @@ import {
   MdSecurity, MdDashboard, MdEventSeat, MdDeliveryDining, MdPhotoCamera,
   MdAssessment, MdInsights, MdLocalOffer, MdDiscount,
   MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette,
+  MdPlayArrow,
 } from 'react-icons/md';
 import { UI_THEME_OPTIONS, applyUiTheme, getValidUiThemeId } from '../../theme/uiTheme';
 
@@ -541,6 +543,43 @@ export default function Settings() {
     } catch (err) {
       toast.error(err.message);
     }
+  };
+
+  const testPrinterFromSettings = async (pr) => {
+    const name = String(pr?.name || 'Impresora').trim() || 'Impresora';
+    if (shouldSendToNetworkPrinter(pr)) {
+      try {
+        await api.post('/orders/print-test', {
+          ip_address: String(pr.ip_address || '').trim(),
+          port: Number(pr.port || 9100),
+          copies: Math.min(5, Math.max(1, Number(pr.copies || 1))),
+          name,
+        });
+        toast.success(`Prueba enviada a «${name}»`);
+      } catch (err) {
+        toast.error(err.message || 'No se pudo enviar la prueba');
+      }
+      return;
+    }
+    const w = window.open('', '_blank', 'width=380,height=520');
+    if (!w) {
+      toast.error('Permita ventanas emergentes para la prueba en navegador');
+      return;
+    }
+    const esc = (s) => String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    const t = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Prueba ${esc(name)}</title>
+      <style>body{font-family:system-ui,sans-serif;padding:16px;font-size:14px}</style></head><body>
+      <h2 style="margin:0 0 8px">Prueba de impresión</h2>
+      <p style="margin:0 0 4px"><strong>${esc(name)}</strong></p>
+      <p style="margin:0 0 12px;color:#64748b">${esc(t)}</p>
+      <p>Modo <strong>navegador</strong>: use el cuadro de impresión (Ctrl+P) y elija su impresora térmica.</p>
+      <script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script>
+      </body></html>`);
+    w.document.close();
   };
 
   const saveAppSettings = async ({ silent = false, nextSettings = null } = {}) => {
@@ -1269,6 +1308,14 @@ export default function Settings() {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button type="button" onClick={() => toggleAppSection('impresoras', i)} className={`px-2 py-1 text-xs rounded-full ${pr.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{pr.active ? 'Activa' : 'Inactiva'}</button>
+                    <button
+                      type="button"
+                      className="p-2 hover:bg-sky-50 rounded-lg text-sky-600"
+                      title={shouldSendToNetworkPrinter(pr) ? 'Probar impresión (red TCP)' : 'Probar impresión (ventana del navegador)'}
+                      onClick={() => testPrinterFromSettings(pr)}
+                    >
+                      <MdPlayArrow className="text-xl" />
+                    </button>
                     <button type="button" className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('impresoras', i)}><MdEdit /></button>
                     <button type="button" className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('impresoras', i, `la impresora "${pr.name}"`)}><MdDelete /></button>
                   </div>

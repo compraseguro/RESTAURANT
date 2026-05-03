@@ -321,6 +321,38 @@ router.post('/print-network', authenticateToken, requireRole('admin', 'cajero', 
   }
 });
 
+/**
+ * Prueba directa desde Configuración → Impresoras (IP explícita de la fila).
+ * No usa pickPrinterConfig: permite probar cada impresora listada.
+ */
+router.post('/print-test', authenticateToken, requireRole('admin', 'cajero'), async (req, res) => {
+  try {
+    const ip = String(req.body?.ip_address || '').trim();
+    const port = Math.min(65535, Math.max(1, Number(req.body?.port || 9100) || 9100));
+    const copies = Math.min(5, Math.max(1, Number(req.body?.copies || 1) || 1));
+    const label = String(req.body?.name || 'Impresora').trim().slice(0, 80);
+    if (!ip) {
+      return res.status(400).json({ error: 'Configure una IP para probar la impresión por red, o use el modo navegador en el PC.' });
+    }
+    if (!isAllowedPrinterHost(ip)) {
+      return res.status(400).json({ error: 'Solo se permiten IPs de red local (10.x, 192.168.x, 172.16-31.x o 127.0.0.1)' });
+    }
+    const now = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
+    const text = [
+      '*** PRUEBA DE IMPRESION ***',
+      label,
+      now,
+      'Si lee esto, la conexion',
+      'TCP/RAW a la impresora OK.',
+      '',
+    ].join('\n');
+    await sendEscPosToHost(ip, port, text, copies);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: formatPrinterNetworkError(err) });
+  }
+});
+
 router.post('/:id/delivery-driver-action', authenticateToken, requireRole('delivery'), (req, res) => {
   const action = String(req.body?.action || '').trim().toLowerCase();
   if (!['start', 'complete'].includes(action)) {
