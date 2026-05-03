@@ -83,6 +83,17 @@ function readSettingsPrinters() {
   return Array.isArray(settings?.impresoras) ? settings.impresoras : [];
 }
 
+/** Misma regla que en database.js (inferPrinterStation): la estación explícita manda sobre el nombre. */
+function normalizePrinterStation(p) {
+  const s = String(p?.station || '').toLowerCase().trim();
+  if (['cocina', 'bar', 'caja'].includes(s)) return s;
+  const n = String(p?.name || '').toLowerCase();
+  if (n.includes('caja')) return 'caja';
+  if (n.includes('bar')) return 'bar';
+  if (n.includes('cocina')) return 'cocina';
+  return 'cocina';
+}
+
 function buildPrinterOut(selected, kind, defaults) {
   const ip = String(selected?.ip_address || '').trim();
   const explicitWifi = String(selected?.connection || 'browser').toLowerCase() === 'wifi';
@@ -104,12 +115,13 @@ function buildPrinterOut(selected, kind, defaults) {
 function pickPrinterConfig(kind) {
   const printers = readSettingsPrinters();
   const k = String(kind || '').toLowerCase();
-  const byStation = printers.find(
-    (p) => String(p?.station || '').toLowerCase() === k && Number(p?.active ?? 1) === 1
-  );
-  const byName = printers.find((p) => String(p?.name || '').toLowerCase().includes(k));
-  const byArea = printers.find((p) => String(p?.area || '').toLowerCase().includes(k));
-  const selected = byStation || byName || byArea || null;
+  /**
+   * Solo impresoras activas cuya estación efectiva coincide (campo `station` o inferido del nombre
+   * si el campo falta). Evita el bug anterior: `byName` con `.includes('caja')` tomaba «Impresora Caja»
+   * aunque `station` fuera «cocina» (valor por defecto al crear), y mandaba el tique de caja a la IP de cocina.
+   */
+  const selected =
+    printers.find((p) => Number(p?.active ?? 1) === 1 && normalizePrinterStation(p) === k) || null;
   const defaults = {
     cocina: { name: 'Impresora Cocina', area: 'Comandas' },
     bar: { name: 'Impresora Bar', area: 'Comandas Bar' },
