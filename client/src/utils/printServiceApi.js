@@ -39,6 +39,14 @@ export async function postWatchdogProbeNow(baseUrl) {
   return data;
 }
 
+export async function fetchWindowsPrintersList(baseUrl) {
+  const b = normBase(baseUrl);
+  const res = await fetch(`${b}/printers`, { ...fetchOpts, method: 'GET' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
 export async function postProbeLan(baseUrl, { ip, port = 9100 } = {}) {
   const b = normBase(baseUrl);
   const res = await fetch(`${b}/probe`, {

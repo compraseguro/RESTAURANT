@@ -198,13 +198,14 @@ export function setStationPrinterConfig(station, cfg) {
   }
 }
 
-/** Hay destino térmico configurado (red, microservicio USB o Web Serial emparejado). */
-export function hasPrinterConfigured(station) {
-  const c = getStationPrinterConfig(station);
-  if (c.connection === 'lan') return isThermalLanIp(c.ip);
-  if (c.connection === 'usb_serial') return isUsbComPort(c.com_port) || isUsbUnixDevice(c.com_port);
-  if (c.connection === 'usb_windows') return Boolean(c.windows_printer);
-  if (c.connection === 'usb_browser') {
+/** Valida un objeto de configuración ya resuelto (p. ej. formulario + valores guardados). */
+export function isDestinationReady(c) {
+  if (!c || typeof c !== 'object') return false;
+  const connection = String(c.connection || 'lan').toLowerCase();
+  if (connection === 'lan') return isThermalLanIp(c.ip);
+  if (connection === 'usb_serial') return isUsbComPort(c.com_port) || isUsbUnixDevice(c.com_port);
+  if (connection === 'usb_windows') return Boolean(String(c.windows_printer || '').trim());
+  if (connection === 'usb_browser') {
     try {
       if (typeof navigator !== 'undefined' && navigator.serial) return true;
     } catch {
@@ -213,6 +214,11 @@ export function hasPrinterConfigured(station) {
     return false;
   }
   return false;
+}
+
+/** Hay destino térmico configurado (red, microservicio USB o Web Serial emparejado). */
+export function hasPrinterConfigured(station) {
+  return isDestinationReady(getStationPrinterConfig(station));
 }
 
 /** Para impresión automática silenciosa vía Web Serial debe estar emparejado. */

@@ -5,8 +5,8 @@ export function isWebUsbSerialSupported() {
   return typeof navigator !== 'undefined' && !!navigator.serial;
 }
 
-async function pickGrantedPort(station) {
-  const cfg = getStationPrinterConfig(station);
+async function pickGrantedPort(station, cfgOpt) {
+  const cfg = cfgOpt && typeof cfgOpt === 'object' ? cfgOpt : getStationPrinterConfig(station);
   const ports = await navigator.serial.getPorts();
   if (!ports.length) return null;
   const v = cfg.browser_usb_vendor_id;
@@ -60,19 +60,26 @@ export async function pairBrowserUsbPrinter(station) {
 /**
  * Impresión directa por Web Serial (sin microservicio). Tras vincular, no pide puerto en cada ticket.
  */
-export async function sendEscPosViaBrowserUsb({ station, text, copies, open_cash_drawer = false }) {
+export async function sendEscPosViaBrowserUsb({
+  station,
+  text,
+  copies,
+  open_cash_drawer = false,
+  /** Config ya fusionada (p. ej. mergeRuntimePrinterCfg) para imprimir sin guardar antes */
+  effectiveConfig,
+}) {
   if (!isWebUsbSerialSupported()) {
     return { ok: false, error: 'Web Serial no disponible en este navegador' };
   }
   const plain = String(text || '').trim();
   if (!plain) return { ok: false, error: 'Vacío' };
 
-  const cfg = getStationPrinterConfig(station);
+  const cfg = effectiveConfig && typeof effectiveConfig === 'object' ? effectiveConfig : getStationPrinterConfig(station);
   const n = Math.min(5, Math.max(1, Number(copies ?? cfg.copies ?? 1) || 1));
   const payload = buildEscPosUint8Array(plain, n, cfg.width_mm, { open_cash_drawer: Boolean(open_cash_drawer) });
   const baud = Math.min(921600, Math.max(1200, Number(cfg.baud_rate || 9600) || 9600));
 
-  let port = await pickGrantedPort(station);
+  let port = await pickGrantedPort(station, cfg);
   if (!port) {
     try {
       port = await navigator.serial.requestPort({ filters: [] });
