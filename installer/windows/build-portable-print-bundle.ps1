@@ -28,7 +28,7 @@ if (Test-Path $bundle) {
 }
 New-Item -ItemType Directory -Path $bundle -Force | Out-Null
 
-$files = @('server.js', 'escpos.js', 'sendOutput.js', 'raw-windows-print.ps1', 'package.json', 'package-lock.json')
+$files = @('server.js', 'discoverLan.js', 'escpos.js', 'sendOutput.js', 'raw-windows-print.ps1', 'package.json', 'package-lock.json')
 foreach ($f in $files) {
   $p = Join-Path $srcMicro $f
   if (Test-Path $p) {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { MdSave, MdPlayArrow, MdInfo, MdRefresh } from 'react-icons/md';
+import { MdSave, MdPlayArrow, MdInfo, MdRefresh, MdRadar } from 'react-icons/md';
 import {
   getPrintServiceBaseUrl,
   setPrintServiceBaseUrl,
@@ -33,6 +33,8 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
   const [serviceUrl, setServiceUrl] = useState('http://127.0.0.1:3049');
   const [windowsPrinters, setWindowsPrinters] = useState([]);
   const [loadingPrinters, setLoadingPrinters] = useState(false);
+  const [discoveringLan, setDiscoveringLan] = useState(false);
+  const [lanCandidates, setLanCandidates] = useState([]);
   const [form, setForm] = useState({
     connection: 'lan',
     ip: '',
@@ -83,6 +85,10 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (form.connection !== 'lan') setLanCandidates([]);
+  }, [form.connection]);
+
   const refreshWindowsPrinters = async () => {
     const base = serviceUrl.replace(/\/$/, '');
     setLoadingPrinters(true);
@@ -99,6 +105,50 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
       setWindowsPrinters([]);
     } finally {
       setLoadingPrinters(false);
+    }
+  };
+
+  const discoverLanPrinters = async () => {
+    const base = serviceUrl.replace(/\/$/, '');
+    setDiscoveringLan(true);
+    try {
+      const res = await fetch(`${base}/discover-lan`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      const candidates = Array.isArray(data.candidates) ? data.candidates : [];
+      const subnets = Array.isArray(data.subnets) ? data.subnets : [];
+      const hint = data.hint ? String(data.hint) : '';
+      if (hint && !candidates.length) {
+        toast.error(hint, { duration: 7000 });
+        return;
+      }
+      if (!candidates.length) {
+        toast.error(
+          subnets.length
+            ? `No se encontró ningún puerto abierto en las subredes ${subnets.join(', ')}. Si la térmica va por USB a este PC, use «USB desde el navegador» o «Impresora Windows».`
+            : 'No hay interfaz de red para escanear.',
+          { duration: 9000 }
+        );
+        return;
+      }
+      const first = candidates[0];
+      setLanCandidates(candidates);
+      setForm((f) => ({
+        ...f,
+        connection: 'lan',
+        ip: first.ip,
+        port: first.port,
+      }));
+      toast.success(
+        candidates.length === 1
+          ? `Detectado ${first.ip}:${first.port} — guardá para aplicar.`
+          : `Detectados ${candidates.length} equipos; revisá la lista y guardá.`,
+        { duration: 6000 }
+      );
+    } catch (e) {
+      toast.error(e?.message || 'No se pudo escanear la red (¿microservicio en ejecución?)');
+    } finally {
+      setDiscoveringLan(false);
     }
   };
 
@@ -253,26 +303,63 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
           </div>
 
           {form.connection === 'lan' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">IP de la térmica</label>
-                <input
-                  className="input-field text-sm py-1.5"
-                  value={form.ip}
-                  onChange={(e) => setForm((f) => ({ ...f, ip: e.target.value.trim() }))}
-                  placeholder="192.168.1.50"
-                />
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={() => void discoverLanPrinters()}
+                  disabled={discoveringLan}
+                  className="btn-secondary text-xs py-1.5 px-2 inline-flex items-center gap-1"
+                >
+                  <MdRadar className="text-base" /> {discoveringLan ? 'Buscando…' : 'Buscar en esta red (Wi‑Fi / cable)'}
+                </button>
+                <span className="text-[10px] text-[var(--ui-muted)] leading-snug max-w-md">
+                  Escanea la misma subred que esta PC (puertos típicos 9100, 9101…). La térmica debe tener IP en la red; si va solo por USB a
+                  este equipo, use otro modo arriba.
+                </span>
               </div>
-              <div>
-                <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">Puerto TCP</label>
-                <input
-                  type="number"
-                  className="input-field text-sm py-1.5"
-                  min={1}
-                  max={65535}
-                  value={form.port}
-                  onChange={(e) => setForm((f) => ({ ...f, port: Number(e.target.value) || 9100 }))}
-                />
+              {lanCandidates.length > 1 ? (
+                <div>
+                  <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">Elegir entre detectados</label>
+                  <select
+                    className="input-field text-sm py-1.5 w-full"
+                    value={`${form.ip}:${form.port}`}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const [ip, portStr] = v.split(':');
+                      const port = Number(portStr) || 9100;
+                      setForm((f) => ({ ...f, ip: ip || f.ip, port }));
+                    }}
+                  >
+                    {lanCandidates.map((c) => (
+                      <option key={`${c.ip}:${c.port}`} value={`${c.ip}:${c.port}`}>
+                        {c.ip} — puerto {c.port}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">IP de la térmica</label>
+                  <input
+                    className="input-field text-sm py-1.5"
+                    value={form.ip}
+                    onChange={(e) => setForm((f) => ({ ...f, ip: e.target.value.trim() }))}
+                    placeholder="192.168.1.50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">Puerto TCP</label>
+                  <input
+                    type="number"
+                    className="input-field text-sm py-1.5"
+                    min={1}
+                    max={65535}
+                    value={form.port}
+                    onChange={(e) => setForm((f) => ({ ...f, port: Number(e.target.value) || 9100 }))}
+                  />
+                </div>
               </div>
             </div>
           ) : null}

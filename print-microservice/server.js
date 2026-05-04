@@ -12,6 +12,7 @@ const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 const { buildEscPosBuffer } = require('./escpos');
 const { sendRawTcp, sendUsbSerial, sendWindowsRawPrinter } = require('./sendOutput');
+const { scanLan, DEFAULT_PORTS } = require('./discoverLan');
 
 const PORT = Number(process.env.PORT || process.env.PRINT_SERVICE_PORT || 3049);
 const BIND_HOST = String(process.env.BIND_HOST || '127.0.0.1').trim() || '127.0.0.1';
@@ -58,6 +59,27 @@ app.use(express.json({ limit: '512kb' }));
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'resto-fadey-print', port: PORT, platform: process.platform });
+});
+
+app.get('/discover-lan', async (req, res) => {
+  try {
+    const timeout = req.query.timeout;
+    const portsParam = req.query.ports;
+    let ports;
+    if (portsParam) {
+      ports = String(portsParam)
+        .split(/[,;]/)
+        .map((s) => Number(String(s).trim()))
+        .filter((n) => n > 0 && n <= 65535);
+    }
+    const result = await scanLan({
+      timeout: timeout != null && timeout !== '' ? Number(timeout) : undefined,
+      ports: ports && ports.length ? ports : undefined,
+    });
+    res.json({ ok: true, ...result, default_ports: DEFAULT_PORTS });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || 'Error en escaneo de red' });
+  }
 });
 
 app.get('/printers', async (_req, res) => {
@@ -151,5 +173,7 @@ app.post('/print', async (req, res) => {
 });
 
 app.listen(PORT, BIND_HOST, () => {
-  console.log(`[print-microservice] http://${BIND_HOST}:${PORT}  POST /print  GET /health  GET /printers`);
+  console.log(
+    `[print-microservice] http://${BIND_HOST}:${PORT}  POST /print  GET /health  GET /printers  GET /discover-lan`
+  );
 });
