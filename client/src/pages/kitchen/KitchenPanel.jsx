@@ -115,7 +115,8 @@ export default function KitchenPanel({ station = 'cocina' }) {
       return;
     }
     const hint =
-      thermal.error || 'Configure la IP en el panel Impresora y ejecute el microservicio local (npm run print-service).';
+      thermal.error ||
+        'Configure la impresora (red, COM o Windows) en el panel Impresora y ejecute npm run print-service.';
     if (silent) toast.error(`Impresión automática: sin ruta térmica. ${hint}`, { duration: 8000 });
     else toast.error(hint);
   };
@@ -138,7 +139,8 @@ export default function KitchenPanel({ station = 'cocina' }) {
       return;
     }
     toast.error(
-      thermal.error || 'Configure la IP en el panel Impresora y el microservicio local en este equipo.'
+      thermal.error ||
+        'Configure la impresora (red, COM o Windows) en el panel y el microservicio local en este equipo.'
     );
   };
 

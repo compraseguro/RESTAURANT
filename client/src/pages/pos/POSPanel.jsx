@@ -713,7 +713,8 @@ export default function POSPanel() {
       return;
     }
     toast.error(
-      thermal.error || 'Configure la IP de caja en el panel Impresora y ejecute el microservicio local (npm run print-service).'
+      thermal.error ||
+        'Configure la impresora de caja (red, COM o Windows) en el panel Impresora y ejecute npm run print-service.'
     );
   };
 
@@ -1567,7 +1568,8 @@ export default function POSPanel() {
       return;
     }
     toast.error(
-      thermal.error || 'Configure la IP de caja en el panel Impresora y el microservicio local (npm run print-service).'
+      thermal.error ||
+        'Configure la impresora de caja (red, COM o Windows) en el panel Impresora y ejecute npm run print-service.'
     );
   };
 
@@ -1605,7 +1607,8 @@ export default function POSPanel() {
       return;
     }
     toast.error(
-      thermal.error || 'Configure la IP de caja en el panel Impresora y el microservicio local (npm run print-service).'
+      thermal.error ||
+        'Configure la impresora de caja (red, COM o Windows) en el panel Impresora y ejecute npm run print-service.'
     );
   };
 
@@ -1788,7 +1791,8 @@ export default function POSPanel() {
       return;
     }
     toast.error(
-      thermal.error || 'Configure la IP de caja en el panel Impresora y el microservicio local (npm run print-service).'
+      thermal.error ||
+        'Configure la impresora de caja (red, COM o Windows) en el panel Impresora y ejecute npm run print-service.'
     );
   };
   const chargeReservation = async (entry) => {

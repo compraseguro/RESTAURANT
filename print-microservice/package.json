@@ -2,7 +2,7 @@
   "name": "resto-fadey-print-microservice",
   "version": "1.0.0",
   "private": true,
-  "description": "Servicio local: recibe tickets JSON, genera ESC/POS y envía RAW TCP a la impresora por IP.",
+  "description": "Servicio local: ESC/POS por IP (LAN), puerto COM/USB-serial o impresora Windows RAW.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.0"
+    "express": "^4.21.0",
+    "serialport": "^10.5.0"
   }
 }

@@ -1,7 +1,7 @@
 import { buildKitchenTicketPlainText } from './ticketPlainText';
 import { sendEscPosToStation } from './cajaThermalPrint';
 import { dedupeThermalAutoPrintJob } from './thermalPrintDedupe';
-import { getStationPrinterConfig, hasPrinterIp } from './localPrinterStorage';
+import { getStationPrinterConfig, hasPrinterConfigured, isBrowserUsbPaired } from './localPrinterStorage';
 
 /** Misma lógica que el servidor / panel cocina para repartir ítems entre bar y cocina. */
 export function isBarItemForStation(item) {
@@ -43,7 +43,8 @@ export async function silentPrintOrderToStations({ api, order, labelPrefix = 'Pe
     if (!orderAppliesToStation(order, station)) continue;
     const local = getStationPrinterConfig(station);
     if (Number(local.auto_print) === 0) continue;
-    if (!hasPrinterIp(station)) continue;
+    if (!hasPrinterConfigured(station)) continue;
+    if (local.connection === 'usb_browser' && !isBrowserUsbPaired(station)) continue;
 
     const widthMm = [58, 80].includes(Number(local.width_mm)) ? Number(local.width_mm) : 80;
     const title = `${station === 'bar' ? 'Comandas de Bar' : 'Comandas de Cocina'} · ${labelPrefix} · #${order.order_number}`;

@@ -162,7 +162,7 @@ export default function DeliveryPanel() {
     }
     toast.error(
       thermal.error ||
-        'Configure la IP en Impresora de delivery y ejecute el microservicio local (npm run print-service).'
+        'Configure la impresora de delivery (red, COM o Windows) y ejecute npm run print-service.'
     );
   }, [completadosHoy, user?.full_name]);
 

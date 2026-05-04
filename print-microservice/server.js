@@ -1,15 +1,17 @@
 'use strict';
 
 /**
- * Microservicio local: POST /print recibe texto + IP:puerto de la térmica, envía ESC/POS RAW (9100).
- * Puerto por defecto 3049 para no chocar con la API del restaurante en 3001.
- *
- * Variables: PORT (default 3049), BIND_HOST (127.0.0.1)
+ * Microservicio local: POST /print — LAN (TCP), USB serial (COM) o impresora Windows (RAW, sin diálogo).
+ * GET /printers — lista nombres de impresoras (solo Windows).
+ * Puerto por defecto 3049.
  */
-const net = require('net');
 const express = require('express');
 const cors = require('cors');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileAsync = promisify(execFile);
 const { buildEscPosBuffer } = require('./escpos');
+const { sendRawTcp, sendUsbSerial, sendWindowsRawPrinter } = require('./sendOutput');
 
 const PORT = Number(process.env.PORT || process.env.PRINT_SERVICE_PORT || 3049);
 const BIND_HOST = String(process.env.BIND_HOST || '127.0.0.1').trim() || '127.0.0.1';
@@ -26,30 +28,16 @@ function isAllowedPrinterHost(ip) {
   return false;
 }
 
-function sendRawOnce(host, port, payload) {
-  return new Promise((resolve, reject) => {
-    const socket = net.createConnection({ host, port });
-    let settled = false;
-    const finish = (err) => {
-      if (settled) return;
-      settled = true;
-      try {
-        socket.destroy();
-      } catch (_) {}
-      if (err) reject(err);
-      else resolve();
-    };
-    socket.setTimeout(15000);
-    socket.once('error', (e) => finish(e));
-    socket.once('timeout', () => finish(new Error('Tiempo de espera al contactar la impresora')));
-    socket.once('connect', () => {
-      socket.write(payload, (err) => {
-        if (err) return finish(err);
-        socket.end();
-      });
-    });
-    socket.once('close', () => finish());
-  });
+function isValidComPort(s) {
+  const t = String(s || '').trim();
+  if (!/^COM\d+$/i.test(t)) return false;
+  const n = Number(/^COM(\d+)$/i.exec(t)[1]);
+  return n >= 1 && n <= 256;
+}
+
+function isValidUnixSerial(s) {
+  const t = String(s || '').trim();
+  return /^\/dev\/(ttyUSB|ttyACM|tty\.usb|cu\.)\w+/i.test(t) && t.length < 200;
 }
 
 const app = express();
@@ -61,13 +49,41 @@ app.use(cors({ origin: true }));
 app.use(express.json({ limit: '512kb' }));
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'resto-fadey-print', port: PORT });
+  res.json({ ok: true, service: 'resto-fadey-print', port: PORT, platform: process.platform });
+});
+
+app.get('/printers', async (_req, res) => {
+  if (process.platform !== 'win32') {
+    return res.json({ ok: true, printers: [], hint: 'Listado solo en Windows' });
+  }
+  try {
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        '$n = @(Get-Printer -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name); if ($n.Count -eq 0) { "[]" } else { $n | ConvertTo-Json -Compress }',
+      ],
+      { timeout: 20000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }
+    );
+    const t = String(stdout || '').trim();
+    let names = [];
+    try {
+      const parsed = JSON.parse(t || '[]');
+      names = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
+    } catch {
+      names = t ? [t] : [];
+    }
+    names = names.map((x) => String(x || '').trim()).filter(Boolean);
+    return res.json({ ok: true, printers: names });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || 'No se pudo listar impresoras' });
+  }
 });
 
 app.post('/print', async (req, res) => {
   try {
-    const ip = String(req.body?.ip || '').trim();
-    const port = Math.min(65535, Math.max(1, Number(req.body?.port || 9100) || 9100));
     const text = String(req.body?.text || '').trim();
     const copies = Math.min(5, Math.max(1, Number(req.body?.copies || 1) || 1));
     const paper = [58, 80].includes(Number(req.body?.paper_width_mm)) ? Number(req.body.paper_width_mm) : 80;
@@ -76,18 +92,56 @@ app.post('/print', async (req, res) => {
     if (!text || text.length > 24000) {
       return res.status(400).json({ ok: false, error: 'Texto de ticket vacío o demasiado largo' });
     }
-    if (!isAllowedPrinterHost(ip)) {
-      return res.status(400).json({ ok: false, error: 'IP no permitida (use red local 10.x, 192.168.x, 172.16-31.x o 127.0.0.1)' });
+
+    let connection = String(req.body?.connection || '').toLowerCase().trim();
+    const ip = String(req.body?.ip || '').trim();
+    const tcpPort = Math.min(65535, Math.max(1, Number(req.body?.port || 9100) || 9100));
+    const comPort = String(req.body?.com_port || req.body?.comPort || '').trim();
+    const baudRate = Math.min(921600, Math.max(1200, Number(req.body?.baud_rate || req.body?.baudRate || 9600) || 9600));
+    const windowsPrinter = String(req.body?.windows_printer || req.body?.windowsPrinter || '').trim();
+
+    if (!connection) {
+      if (isAllowedPrinterHost(ip)) connection = 'lan';
+      else if (isValidComPort(comPort) || isValidUnixSerial(comPort)) connection = 'usb_serial';
+      else if (windowsPrinter) connection = 'usb_windows';
+      else connection = 'lan';
     }
 
     const payload = buildEscPosBuffer(text, copies, paper, { open_cash_drawer: openDrawer });
-    await sendRawOnce(ip, port, payload);
-    return res.json({ ok: true });
+
+    if (connection === 'lan') {
+      if (!isAllowedPrinterHost(ip)) {
+        return res.status(400).json({ ok: false, error: 'IP no permitida o vacía (use red local o 127.0.0.1)' });
+      }
+      await sendRawTcp(ip, tcpPort, payload);
+      return res.json({ ok: true, via: 'tcp' });
+    }
+
+    if (connection === 'usb_serial') {
+      if (!isValidComPort(comPort) && !isValidUnixSerial(comPort)) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Puerto serie inválido. Use COM1…COM256 (Windows) o /dev/ttyUSB0 (Linux)',
+        });
+      }
+      await sendUsbSerial(comPort, baudRate, payload);
+      return res.json({ ok: true, via: 'usb_serial' });
+    }
+
+    if (connection === 'usb_windows') {
+      if (!windowsPrinter) {
+        return res.status(400).json({ ok: false, error: 'Indique el nombre exacto de la impresora en Windows' });
+      }
+      await sendWindowsRawPrinter(windowsPrinter, payload);
+      return res.json({ ok: true, via: 'usb_windows' });
+    }
+
+    return res.status(400).json({ ok: false, error: 'connection debe ser lan, usb_serial o usb_windows' });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err?.message || 'Error de impresión' });
   }
 });
 
 app.listen(PORT, BIND_HOST, () => {
-  console.log(`[print-microservice] http://${BIND_HOST}:${PORT}  POST /print  GET /health`);
+  console.log(`[print-microservice] http://${BIND_HOST}:${PORT}  POST /print  GET /health  GET /printers`);
 });

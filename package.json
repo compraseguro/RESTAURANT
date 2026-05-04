@@ -8,6 +8,8 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "install-all": "npm install && cd client && npm install && cd ../print-microservice && npm install",
     "print-service": "node print-microservice/server.js",
+    "build:print-bundle": "powershell -NoProfile -ExecutionPolicy Bypass -File installer/windows/build-portable-print-bundle.ps1",
+    "build:print-bundle-zip": "powershell -NoProfile -ExecutionPolicy Bypass -File installer/windows/build-portable-print-bundle.ps1 -Zip",
     "build": "cd client && npm install --include=dev && npm run build",
     "start": "node server/index.js",
     "start:render": "bash scripts/render-start.sh",
