@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { api, formatCurrency, formatDateTime, parseApiDate, toLocalDateKey, PAYMENT_METHODS } from '../../utils/api';
 import { buildKitchenTicketPlainText, orderHasTakeoutNote } from '../../utils/ticketPlainText';
-import { shouldTryServerNetworkPrint } from '../../utils/networkPrinter';
+import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
+import { getStationPrinterConfig } from '../../utils/localPrinterStorage';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useNavigate } from 'react-router-dom';
@@ -43,7 +44,6 @@ function ventaMesaKey(order) {
 export default function Escritorio() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [printConfig, setPrintConfig] = useState({ cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
   const [datePreset, setDatePreset] = useState('month');
   const [startDate, setStartDate] = useState(getCurrentMonthRange().start);
@@ -78,9 +78,9 @@ export default function Escritorio() {
     setEndDate(monthRange.end);
   }, [datePreset]);
   useEffect(() => {
-    api.get('/orders/print-config')
+    api
+      .get('/orders/print-config')
       .then((cfg) => {
-        setPrintConfig(cfg?.printers || { cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
         setRestaurantInfo(cfg?.restaurant || { name: 'Resto-FADEY', address: '', phone: '' });
       })
       .catch(() => {});
@@ -321,27 +321,26 @@ export default function Escritorio() {
       return true;
     });
     if (!source.length) return;
-    const stationCfg = station === 'bar' ? printConfig?.bar : printConfig?.cocina;
-    const width = [58, 80].includes(Number(stationCfg?.width_mm)) ? Number(stationCfg.width_mm) : 80;
-    const copies = Math.min(5, Math.max(1, Number(stationCfg?.copies || 1)));
+    const stationKey = station === 'bar' ? 'bar' : 'cocina';
+    const localCfg = getStationPrinterConfig(stationKey);
+    const width = [58, 80].includes(Number(localCfg?.width_mm)) ? Number(localCfg.width_mm) : 80;
+    const copies = Math.min(5, Math.max(1, Number(localCfg?.copies || 1)));
     const ticketWidth = width === 58 ? '54mm' : '76mm';
     const title = `${station === 'bar' ? 'Comandas pendientes - Bar' : 'Comandas pendientes - Cocina'} · ${scope === 'delivery' ? 'Delivery' : scope === 'salon' ? 'Mesas/Salón' : 'Todas'}`;
-    const stationKey = station === 'bar' ? 'bar' : 'cocina';
-    if (shouldTryServerNetworkPrint(stationCfg)) {
-      const plain = buildKitchenTicketPlainText({
-        restaurant: restaurantInfo,
-        title,
-        orders: source,
-        copies: 1,
-        widthMm: width,
-      });
-      try {
-        await api.post('/orders/print-network', { station: stationKey, text: plain, copies });
-        toast.success('Enviado a impresora de red');
-        return;
-      } catch (err) {
-        toast.error(err.message || 'No se pudo imprimir por red; se abrirá el navegador');
-      }
+    const plain = buildKitchenTicketPlainText({
+      restaurant: restaurantInfo,
+      title,
+      orders: source,
+      copies: 1,
+      widthMm: width,
+    });
+    const thermal = await sendEscPosToStation({ station: stationKey, text: plain, copies });
+    if (thermal.ok) {
+      toast.success('Enviado a impresora térmica');
+      return;
+    }
+    if (thermal.error) {
+      toast.error(`${thermal.error} Abriendo impresión del navegador…`, { duration: 5000 });
     }
     const content = source.map((order) => {
       const items = (order.items || [])

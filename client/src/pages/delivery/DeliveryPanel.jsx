@@ -20,6 +20,8 @@ import {
 import { buildGoogleMapsSearchUrl } from '../../utils/googleMaps';
 import { buildDeliveryReportPlainText } from '../../utils/ticketPlainText';
 import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
+import { getStationPrinterConfig } from '../../utils/localPrinterStorage';
+import StationPrinterCard from '../../components/StationPrinterCard';
 
 function parseApiDateLike(value) {
   if (!value) return null;
@@ -147,20 +149,10 @@ export default function DeliveryPanel() {
       orders: completadosHoy,
       formatCurrencyFn: formatCurrency,
     });
-    let cfg = null;
-    try {
-      cfg = await api.get('/orders/print-config');
-    } catch {
-      toast.error('No se pudo cargar la configuración de impresión');
-      return;
-    }
-    const deliveryCfg = cfg?.printers?.delivery;
-    const copies = Math.min(5, Math.max(1, Number(deliveryCfg?.copies || 1)));
+    const localCfg = getStationPrinterConfig('delivery');
+    const copies = Math.min(5, Math.max(1, Number(localCfg?.copies || 1)));
     const thermal = await sendEscPosToStation({
-      api,
       station: 'delivery',
-      stationConfig: deliveryCfg,
-      printAgent: cfg?.print_agent,
       text: plain,
       copies,
     });
@@ -169,7 +161,8 @@ export default function DeliveryPanel() {
       return;
     }
     toast.error(
-      'No hay impresión térmica para delivery. Configure IP o USB desde el panel de impresión correspondiente y el print-agent.'
+      thermal.error ||
+        'Configure la IP en Impresora de delivery y ejecute el microservicio local (npm run print-service).'
     );
   }, [completadosHoy, user?.full_name]);
 
@@ -372,6 +365,10 @@ export default function DeliveryPanel() {
           </div>
         )}
       </main>
+
+      <div className="px-3 sm:px-4 pb-6 max-w-lg mx-auto w-full">
+        <StationPrinterCard station="delivery" userRole={user?.role} embedded />
+      </div>
 
       <Modal
         isOpen={reportGateOpen}

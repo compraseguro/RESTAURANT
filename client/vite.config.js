@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const printAgentTarget = String(env.VITE_PRINT_AGENT_TARGET || 'http://127.0.0.1:3001').replace(/\/$/, '');
+  const printServiceTarget = String(env.VITE_PRINT_SERVICE_DEV_PROXY || 'http://127.0.0.1:3049').replace(/\/$/, '');
 
   return {
     plugins: [react()],
@@ -13,11 +13,11 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': 'http://localhost:3001',
         '/uploads': 'http://localhost:3001',
-        /** Misma origen que Vite: evita «Failed to fetch» al llamar al print-agent en HTTP desde el front. */
-        '/print-agent': {
-          target: printAgentTarget,
+        /** Opcional: mismo origen que Vite para POST al microservicio local (CORS/PNA en algunos navegadores). */
+        '/local-print-service': {
+          target: printServiceTarget,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/print-agent/, '') || '/',
+          rewrite: (path) => path.replace(/^\/local-print-service/, '') || '/',
         },
         '/socket.io': {
           target: 'http://localhost:3001',

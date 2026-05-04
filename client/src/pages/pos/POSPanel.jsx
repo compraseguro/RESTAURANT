@@ -4,6 +4,7 @@ import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, fo
 import { silentPrintOrderToStations } from '../../utils/stationKitchenPrint';
 import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote, buildPrecuentaPlainText, buildNotaVentaPlainText } from '../../utils/ticketPlainText';
 import { sendEscPosToCaja } from '../../utils/cajaThermalPrint';
+import { getStationPrinterConfig } from '../../utils/localPrinterStorage';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -274,8 +275,6 @@ export default function POSPanel() {
   const [priceQuery, setPriceQuery] = useState('');
   const [priceResults, setPriceResults] = useState([]);
   const printRef = useRef(null);
-  const [cajaPrintCfg, setCajaPrintCfg] = useState(null);
-  const [printAgentCfg, setPrintAgentCfg] = useState(null);
   const [printRestaurantInfo, setPrintRestaurantInfo] = useState({ name: 'Resto-FADEY', logo: '' });
   const { user } = useAuth();
   const [cajaStations, setCajaStations] = useState([]);
@@ -340,8 +339,6 @@ export default function POSPanel() {
         }
         setAdminRegisterId('');
       }
-      setCajaPrintCfg(printCfgRes?.printers?.caja || null);
-      setPrintAgentCfg(printCfgRes?.print_agent || null);
       setPrintRestaurantInfo({
         name: String(printCfgRes?.restaurant?.name || 'Resto-FADEY').trim() || 'Resto-FADEY',
         logo: resolveMediaUrl(printCfgRes?.restaurant?.logo || ''),
@@ -697,7 +694,7 @@ export default function POSPanel() {
   const handlePrint = async () => {
     const content = printRef.current;
     if (!content) return;
-    const caja = cajaPrintCfg;
+    const cajaLocal = getStationPrinterConfig('caja');
     const textForPrint = String(content.innerText || content.textContent || '')
       .replace(/\r\n/g, '\n')
       .trim()
@@ -706,11 +703,8 @@ export default function POSPanel() {
       toast.error('No hay contenido para imprimir');
       return;
     }
-    const copies = Math.min(5, Math.max(1, Number(caja?.copies || 1)));
+    const copies = Math.min(5, Math.max(1, Number(cajaLocal?.copies || 1)));
     const thermal = await sendEscPosToCaja({
-      api,
-      cajaConfig: caja,
-      printAgent: printAgentCfg,
       text: textForPrint,
       copies,
     });
@@ -719,7 +713,7 @@ export default function POSPanel() {
       return;
     }
     toast.error(
-      'No se pudo imprimir el arqueo por térmica. Configure la caja (IP en red o nombre USB) y ejecute el print-agent.'
+      thermal.error || 'Configure la IP de caja en el panel Impresora y ejecute el microservicio local (npm run print-service).'
     );
   };
 
@@ -1548,14 +1542,8 @@ export default function POSPanel() {
       billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
       billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
     ].filter(Boolean);
-    let printCfg = null;
-    try {
-      printCfg = await api.get('/orders/print-config');
-    } catch (_) {
-      /* noop */
-    }
-    const caja = printCfg?.printers?.caja;
-    const widthMm = [58, 80].includes(Number(caja?.width_mm)) ? Number(caja.width_mm) : 80;
+    const cajaLocal = getStationPrinterConfig('caja');
+    const widthMm = [58, 80].includes(Number(cajaLocal?.width_mm)) ? Number(cajaLocal.width_mm) : 80;
     const plain = buildPrecuentaPlainText({
       restaurantName,
       tableName: selectedTable.name,
@@ -1569,11 +1557,8 @@ export default function POSPanel() {
       payableTotal,
       widthMm,
     });
-    const copies = Math.min(5, Math.max(1, Number(caja?.copies || 1)));
+    const copies = Math.min(5, Math.max(1, Number(cajaLocal?.copies || 1)));
     const thermal = await sendEscPosToCaja({
-      api,
-      cajaConfig: caja,
-      printAgent: printCfg?.print_agent,
       text: plain,
       copies,
     });
@@ -1582,7 +1567,7 @@ export default function POSPanel() {
       return;
     }
     toast.error(
-      'No se pudo imprimir la precuenta por térmica. Configure la caja (IP o USB) y el print-agent en Configuración.'
+      thermal.error || 'Configure la IP de caja en el panel Impresora y el microservicio local (npm run print-service).'
     );
   };
 
@@ -1597,14 +1582,8 @@ export default function POSPanel() {
       customer?.phone && `Tel: ${customer.phone}`,
       customer?.address && `Dir: ${customer.address}`,
     ].filter(Boolean);
-    let printCfg = null;
-    try {
-      printCfg = await api.get('/orders/print-config');
-    } catch (_) {
-      /* noop */
-    }
-    const caja = printCfg?.printers?.caja;
-    const widthMm = [58, 80].includes(Number(caja?.width_mm)) ? Number(caja.width_mm) : 80;
+    const cajaLocal = getStationPrinterConfig('caja');
+    const widthMm = [58, 80].includes(Number(cajaLocal?.width_mm)) ? Number(cajaLocal.width_mm) : 80;
     const plain = buildNotaVentaPlainText({
       restaurantName,
       docLine: docText,
@@ -1616,11 +1595,8 @@ export default function POSPanel() {
       total,
       widthMm,
     });
-    const copies = Math.min(5, Math.max(1, Number(caja?.copies || 1)));
+    const copies = Math.min(5, Math.max(1, Number(cajaLocal?.copies || 1)));
     const thermal = await sendEscPosToCaja({
-      api,
-      cajaConfig: caja,
-      printAgent: printCfg?.print_agent,
       text: plain,
       copies,
     });
@@ -1629,7 +1605,7 @@ export default function POSPanel() {
       return;
     }
     toast.error(
-      'No se pudo imprimir la nota por térmica. Configure la caja (IP o USB) y el print-agent en Configuración.'
+      thermal.error || 'Configure la IP de caja en el panel Impresora y el microservicio local (npm run print-service).'
     );
   };
 
@@ -1787,14 +1763,8 @@ export default function POSPanel() {
       billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
       billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
     ].filter(Boolean);
-    let printCfg = null;
-    try {
-      printCfg = await api.get('/orders/print-config');
-    } catch (_) {
-      /* noop */
-    }
-    const caja = printCfg?.printers?.caja;
-    const widthMm = [58, 80].includes(Number(caja?.width_mm)) ? Number(caja.width_mm) : 80;
+    const cajaLocal = getStationPrinterConfig('caja');
+    const widthMm = [58, 80].includes(Number(cajaLocal?.width_mm)) ? Number(cajaLocal.width_mm) : 80;
     const plain = buildPrecuentaPlainText({
       restaurantName,
       tableName: table.name,
@@ -1808,11 +1778,8 @@ export default function POSPanel() {
       payableTotal: tableTotal,
       widthMm,
     });
-    const copies = Math.min(5, Math.max(1, Number(caja?.copies || 1)));
+    const copies = Math.min(5, Math.max(1, Number(cajaLocal?.copies || 1)));
     const thermal = await sendEscPosToCaja({
-      api,
-      cajaConfig: caja,
-      printAgent: printCfg?.print_agent,
       text: plain,
       copies,
     });
@@ -1821,7 +1788,7 @@ export default function POSPanel() {
       return;
     }
     toast.error(
-      'No se pudo imprimir la precuenta por térmica. Configure la caja (IP o USB) y el print-agent en Configuración.'
+      thermal.error || 'Configure la IP de caja en el panel Impresora y el microservicio local (npm run print-service).'
     );
   };
   const chargeReservation = async (entry) => {

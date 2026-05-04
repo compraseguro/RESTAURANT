@@ -5,6 +5,7 @@ import {
   buildSimpleComandaPlainText,
 } from '../../utils/ticketPlainText';
 import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
+import { getStationPrinterConfig } from '../../utils/localPrinterStorage';
 import { orderAppliesToStation } from '../../utils/stationKitchenPrint';
 import { dedupeThermalAutoPrintJob } from '../../utils/thermalPrintDedupe';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
@@ -27,7 +28,6 @@ function isCuentaClienteSelfOrder(order) {
 export default function KitchenPanel({ station = 'cocina' }) {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
-  const [printConfig, setPrintConfig] = useState({ cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
   const { user } = useAuth();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
@@ -75,17 +75,9 @@ export default function KitchenPanel({ station = 'cocina' }) {
       if (!silent) toast.error('No hay pedidos para imprimir');
       return;
     }
-    /** Siempre refrescar: al llegar un pedido por socket a veces aún no cargó print-config y se caía al navegador. */
-    let cfgPrinters = printConfig;
     let cfgRestaurant = restaurantInfo;
-    let printAgentCfg = null;
     try {
       const cfg = await api.get('/orders/print-config');
-      printAgentCfg = cfg?.print_agent || null;
-      if (cfg?.printers) {
-        cfgPrinters = cfg.printers;
-        setPrintConfig(cfg.printers);
-      }
       if (cfg?.restaurant) {
         cfgRestaurant = cfg.restaurant;
         setRestaurantInfo(cfg.restaurant);
@@ -94,12 +86,12 @@ export default function KitchenPanel({ station = 'cocina' }) {
       /* usar estado previo */
     }
     const stationKey = isBar ? 'bar' : 'cocina';
-    const stationConfig = station === 'bar' ? cfgPrinters?.bar : cfgPrinters?.cocina;
-    if (silent && Number(stationConfig?.auto_print ?? 1) === 0) {
+    const localCfg = getStationPrinterConfig(stationKey);
+    if (silent && Number(localCfg.auto_print ?? 1) === 0) {
       return;
     }
-    const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
-    const widthMm = [58, 80].includes(Number(stationConfig?.width_mm)) ? Number(stationConfig.width_mm) : 80;
+    const copies = Math.min(5, Math.max(1, Number(localCfg?.copies || 1)));
+    const widthMm = [58, 80].includes(Number(localCfg?.width_mm)) ? Number(localCfg.width_mm) : 80;
     const runPrint = async () => {
       const plain = buildKitchenTicketPlainText({
         restaurant: cfgRestaurant,
@@ -109,10 +101,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
         widthMm,
       });
       return sendEscPosToStation({
-        api,
         station: stationKey,
-        stationConfig,
-        printAgent: printAgentCfg,
         text: plain,
         copies,
       });
@@ -126,7 +115,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
       return;
     }
     const hint =
-      'Configure IP de la térmica (red) o nombre USB, active el print-agent en este equipo y la URL en Configuración.';
+      thermal.error || 'Configure la IP en el panel Impresora y ejecute el microservicio local (npm run print-service).';
     if (silent) toast.error(`Impresión automática: sin ruta térmica. ${hint}`, { duration: 8000 });
     else toast.error(hint);
   };
@@ -134,28 +123,13 @@ export default function KitchenPanel({ station = 'cocina' }) {
   /** Solo mesa (o delivery/cliente), ítems y fecha/hora — misma impresora de estación que la comanda completa. */
   const printSimpleComanda = async (order) => {
     if (!order?.id) return;
-    let cfgPrinters = printConfig;
-    let agentCfg = null;
-    try {
-      const cfg = await api.get('/orders/print-config');
-      agentCfg = cfg?.print_agent || null;
-      if (cfg?.printers) {
-        cfgPrinters = cfg.printers;
-        setPrintConfig(cfg.printers);
-      }
-    } catch (_) {
-      /* estado previo */
-    }
-    const stationConfig = station === 'bar' ? cfgPrinters?.bar : cfgPrinters?.cocina;
     const stationKey = isBar ? 'bar' : 'cocina';
-    const widthMm = [58, 80].includes(Number(stationConfig?.width_mm)) ? Number(stationConfig.width_mm) : 80;
+    const localCfg = getStationPrinterConfig(stationKey);
+    const widthMm = [58, 80].includes(Number(localCfg?.width_mm)) ? Number(localCfg.width_mm) : 80;
     const plain = buildSimpleComandaPlainText(order, new Date(), widthMm);
-    const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
+    const copies = Math.min(5, Math.max(1, Number(localCfg?.copies || 1)));
     const thermal = await sendEscPosToStation({
-      api,
       station: stationKey,
-      stationConfig,
-      printAgent: agentCfg,
       text: plain,
       copies,
     });
@@ -164,7 +138,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
       return;
     }
     toast.error(
-      'No hay impresión térmica configurada (IP red o USB + print-agent). Revise el panel de impresora de esta estación.'
+      thermal.error || 'Configure la IP en el panel Impresora y el microservicio local en este equipo.'
     );
   };
 
@@ -184,9 +158,9 @@ export default function KitchenPanel({ station = 'cocina' }) {
   useActiveInterval(loadOrders, 10000);
 
   useEffect(() => {
-    api.get('/orders/print-config')
+    api
+      .get('/orders/print-config')
       .then((cfg) => {
-        setPrintConfig(cfg?.printers || { cocina: { width_mm: 80, copies: 1 }, bar: { width_mm: 80, copies: 1 } });
         setRestaurantInfo(cfg?.restaurant || { name: 'Resto-FADEY', address: '', phone: '' });
       })
       .catch(() => {});

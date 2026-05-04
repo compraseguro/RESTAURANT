@@ -106,7 +106,7 @@ const DEFAULT_APP_SETTINGS = {
     { name: 'Impresora Bar', area: 'Comandas Bar', station: 'bar', connection: 'browser', printer_type: 'lan', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
     { name: 'Impresora Caja', area: 'Comprobantes', station: 'caja', connection: 'browser', printer_type: 'lan', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
   ],
-  /** Agente ESC/POS en el PC del local (ver carpeta local-print-agent). qz_tray: impresión vía QZ Tray en el mismo PC. */
+  /** Legacy en settings JSON; la impresión térmica por IP se configura en cada panel (localStorage + microservicio local). */
   print_agent: {
     enabled: 1,
     base_url: 'http://127.0.0.1:3001',

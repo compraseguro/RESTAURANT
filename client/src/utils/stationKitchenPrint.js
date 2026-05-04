@@ -1,6 +1,7 @@
 import { buildKitchenTicketPlainText } from './ticketPlainText';
 import { sendEscPosToStation } from './cajaThermalPrint';
 import { dedupeThermalAutoPrintJob } from './thermalPrintDedupe';
+import { getStationPrinterConfig, hasPrinterIp } from './localPrinterStorage';
 
 /** Misma lógica que el servidor / panel cocina para repartir ítems entre bar y cocina. */
 export function isBarItemForStation(item) {
@@ -26,28 +27,27 @@ export function orderAppliesToStation(order, station) {
 }
 
 /**
- * Tras crear o actualizar pedido desde POS: imprime en cocina y/o bar según ítems y `auto_print` de cada estación.
- * Silencioso (sin diálogo del navegador): solo red vía API o agente local.
+ * Tras crear o actualizar pedido desde POS: imprime en cocina y/o bar según ítems y opción local auto_print.
  */
 export async function silentPrintOrderToStations({ api, order, labelPrefix = 'Pedido' }) {
   if (!order?.items?.length) return;
-  let cfg;
+  let restaurant = { name: 'Resto-FADEY', address: '', phone: '' };
   try {
-    cfg = await api.get('/orders/print-config');
+    const cfg = await api.get('/orders/print-config');
+    restaurant = cfg?.restaurant || restaurant;
   } catch {
     return;
   }
-  const printers = cfg?.printers || {};
-  const restaurant = cfg?.restaurant || { name: 'Resto-FADEY', address: '', phone: '' };
-  const printAgent = cfg?.print_agent || {};
 
   for (const station of ['cocina', 'bar']) {
     if (!orderAppliesToStation(order, station)) continue;
-    const stationConfig = printers[station];
-    if (Number(stationConfig?.auto_print ?? 1) === 0) continue;
-    const widthMm = [58, 80].includes(Number(stationConfig?.width_mm)) ? Number(stationConfig.width_mm) : 80;
+    const local = getStationPrinterConfig(station);
+    if (Number(local.auto_print) === 0) continue;
+    if (!hasPrinterIp(station)) continue;
+
+    const widthMm = [58, 80].includes(Number(local.width_mm)) ? Number(local.width_mm) : 80;
     const title = `${station === 'bar' ? 'Comandas de Bar' : 'Comandas de Cocina'} · ${labelPrefix} · #${order.order_number}`;
-    const copies = Math.min(5, Math.max(1, Number(stationConfig?.copies || 1)));
+    const copies = Math.min(5, Math.max(1, Number(local.copies || 1)));
     await dedupeThermalAutoPrintJob(station, order, async () => {
       const plain = buildKitchenTicketPlainText({
         restaurant,
@@ -56,14 +56,7 @@ export async function silentPrintOrderToStations({ api, order, labelPrefix = 'Pe
         copies: 1,
         widthMm,
       });
-      return sendEscPosToStation({
-        api,
-        station,
-        stationConfig,
-        printAgent,
-        text: plain,
-        copies,
-      });
+      return sendEscPosToStation({ station, text: plain, copies });
     });
   }
 }
