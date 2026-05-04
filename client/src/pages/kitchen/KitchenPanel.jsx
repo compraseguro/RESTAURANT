@@ -140,7 +140,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     }
     toast.error(
       thermal.error ||
-        'Configure la impresora (red, COM o Windows) en el panel y el microservicio local en este equipo.'
+        'Configure la impresora en Menú → Impresora e instale el complemento Windows en este PC si imprime por red o cola Windows.'
     );
   };
 

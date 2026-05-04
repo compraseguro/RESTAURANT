@@ -78,8 +78,13 @@ $userReadme = @'
 Si instaló con «RestoFadey-Print-Setup.exe» (recomendado), no tiene que hacer nada de esta carpeta:
 el programa ya queda en marcha y se abre solo al encender el equipo.
 
+Importante: ejecute el instalador iniciado sesión en Windows con el MISMO usuario que usará Chrome o Edge
+para la aplicación. Si hay varios usuarios en el equipo, cada uno puede necesitar instalar en su sesión.
+
 Si solo recibió esta carpeta (sin .exe): ejecute como administrador «Install-Autostart.ps1» una vez,
 o pida a su proveedor el instalador .exe.
+
+Prueba rápida en el navegador: http://127.0.0.1:3049/health (debe mostrar "ok").
 
 En la aplicación web: Menú → Impresora → configure cada máquina. La dirección del servicio suele ser:
 http://127.0.0.1:3049

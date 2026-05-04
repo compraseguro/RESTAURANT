@@ -1,6 +1,17 @@
 import { getPrintServiceBaseUrl, getStationPrinterConfig, hasPrinterConfigured } from './localPrinterStorage';
 import { sendEscPosViaBrowserUsb } from './browserUsbPrint';
 
+function explainLocalPrintFetchFailure(baseUrl) {
+  const u = String(baseUrl || '').replace(/\/$/, '') || 'http://127.0.0.1:3049';
+  return [
+    'El navegador no pudo hablar con el complemento de impresión en ESTE equipo',
+    `(${u}).`,
+    'Instale el .exe de impresión, reinicie sesión en Windows y pruebe en Chrome/Edge abriendo',
+    `${u}/health (debe verse "ok": true).`,
+    'La impresión por red/COM/Windows solo funciona en el PC donde corre ese programa, no desde el móvil u otra máquina sin instalarlo.',
+  ].join(' ');
+}
+
 /**
  * Envía ticket: Web Serial (USB en navegador / PWA) o microservicio local (LAN, COM, Windows).
  * @param {{ station: string, text: string, copies?: number, open_cash_drawer?: boolean }} opts
@@ -45,7 +56,11 @@ export async function sendEscPosToStation({ station, text, copies, open_cash_dra
     }
     return { ok: true, via: data.via || 'local-print-service' };
   } catch (e) {
-    return { ok: false, error: e?.message || 'No se alcanzó el servicio local (¿está en ejecución?)' };
+    const msg = String(e?.message || '');
+    if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) {
+      return { ok: false, error: explainLocalPrintFetchFailure(base) };
+    }
+    return { ok: false, error: msg || 'No se alcanzó el servicio local (¿está en ejecución?)' };
   }
 }
 

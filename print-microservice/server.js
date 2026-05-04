@@ -41,11 +41,19 @@ function isValidUnixSerial(s) {
 }
 
 const app = express();
+// Sitio HTTPS (p. ej. Vercel) → localhost: Chrome exige Private Network Access en el preflight OPTIONS.
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Private-Network', 'true');
   next();
 });
-app.use(cors({ origin: true }));
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Request-Private-Network'],
+  })
+);
 app.use(express.json({ limit: '512kb' }));
 
 app.get('/health', (_req, res) => {

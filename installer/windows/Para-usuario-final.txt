@@ -7,4 +7,8 @@ Qué hacer ahora:
 2. Vaya al menú lateral → Impresora (caja, cocina o bar según corresponda).
 3. Elija cómo está conectada cada impresora (red, USB desde el navegador, o Windows) y guarde.
 
-Si una estación no imprime, compruebe que este instalador se ejecutó hasta el final y que no cerró la ventana antes de tiempo.
+Si una estación no imprime:
+— Compruebe que este instalador terminó por completo (no cerró la ventana antes de tiempo).
+— Abra en este mismo PC: http://127.0.0.1:3049/health (debe verse texto con "ok").
+— Si no abre, reinicie sesión en Windows o use «Resto-FADEY impresión (inicio manual)» en el menú Inicio (carpeta Resto-FADEY).
+— Instale con el mismo usuario de Windows que usará Chrome o Edge (si el equipo tiene varios usuarios, cada uno puede necesitar instalar con su sesión).
