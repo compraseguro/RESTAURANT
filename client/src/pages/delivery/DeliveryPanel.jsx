@@ -162,7 +162,7 @@ export default function DeliveryPanel() {
     }
     toast.error(
       thermal.error ||
-        'Configure la impresora de delivery (red, COM o Windows) y ejecute npm run print-service.'
+        'Configure la impresora de delivery en Menú → Impresora. En Windows, instale el complemento en este PC si imprime por red o cola Windows (enlace en ese panel).'
     );
   }, [completadosHoy, user?.full_name]);
 

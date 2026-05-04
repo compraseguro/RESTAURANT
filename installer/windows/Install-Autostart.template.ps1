@@ -20,4 +20,9 @@ $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interac
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Resto-FADEY: microservicio de impresion ESC/POS (puerto 3049).' | Out-Null
-Write-Host "Listo. El servicio se iniciara al iniciar sesion. Prueba: schtasks /Run /TN `"$taskName`""
+try {
+  Start-ScheduledTask -TaskName $taskName
+} catch {
+  Write-Host "Aviso: no se pudo iniciar el servicio ahora; se iniciara al iniciar sesion."
+}
+Write-Host "Listo. El servicio queda activo y se repetira al iniciar sesion en Windows."

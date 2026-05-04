@@ -12,15 +12,25 @@
 const KEY_STATION = (station) => `resto_fadey_printer_${String(station || '').toLowerCase()}`;
 const KEY_SERVICE = 'resto_fadey_print_service_url';
 
-/** URL pública del instalador/ZIP del servicio de impresión Windows (sin código fuente del repo). */
+/** Instalador Windows incluido en public/downloads/ (mismo sitio que la PWA). */
+export const DEFAULT_PRINT_INSTALLER_PATH = '/downloads/RestoFadey-Print-Setup.exe';
+
+/**
+ * Enlace al instalador del complemento de impresión (Windows).
+ * - Por defecto: `/downloads/RestoFadey-Print-Setup.exe` junto al front en Vercel.
+ * - Opcional: `VITE_PRINT_INSTALLER_URL` = URL absoluta (https://...) o ruta que empiece por `/`.
+ */
 export function getPrintInstallerDownloadUrl() {
   try {
     const u = String(import.meta.env?.VITE_PRINT_INSTALLER_URL || '').trim();
-    if (u && /^https?:\/\//i.test(u)) return u;
+    if (u) {
+      if (/^https?:\/\//i.test(u)) return u;
+      if (u.startsWith('/')) return u;
+    }
   } catch {
     /* */
   }
-  return '';
+  return DEFAULT_PRINT_INSTALLER_PATH;
 }
 
 /** Misma validación que antes para RAW LAN (no placeholders). */

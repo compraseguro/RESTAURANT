@@ -714,7 +714,7 @@ export default function POSPanel() {
     }
     toast.error(
       thermal.error ||
-        'Configure la impresora de caja (red, COM o Windows) en el panel Impresora y ejecute npm run print-service.'
+        'Configure la impresora de caja en Menú → Impresora. En Windows, instale el complemento en este PC si imprime por red o cola Windows (enlace en ese panel).'
     );
   };
 
@@ -1569,7 +1569,7 @@ export default function POSPanel() {
     }
     toast.error(
       thermal.error ||
-        'Configure la impresora de caja (red, COM o Windows) en el panel Impresora y ejecute npm run print-service.'
+        'Configure la impresora de caja en Menú → Impresora. En Windows, instale el complemento en este PC si imprime por red o cola Windows (enlace en ese panel).'
     );
   };
 
@@ -1608,7 +1608,7 @@ export default function POSPanel() {
     }
     toast.error(
       thermal.error ||
-        'Configure la impresora de caja (red, COM o Windows) en el panel Impresora y ejecute npm run print-service.'
+        'Configure la impresora de caja en Menú → Impresora. En Windows, instale el complemento en este PC si imprime por red o cola Windows (enlace en ese panel).'
     );
   };
 
@@ -1792,7 +1792,7 @@ export default function POSPanel() {
     }
     toast.error(
       thermal.error ||
-        'Configure la impresora de caja (red, COM o Windows) en el panel Impresora y ejecute npm run print-service.'
+        'Configure la impresora de caja en Menú → Impresora. En Windows, instale el complemento en este PC si imprime por red o cola Windows (enlace en ese panel).'
     );
   };
   const chargeReservation = async (entry) => {

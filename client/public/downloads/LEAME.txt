@@ -1,0 +1,13 @@
+PARA QUIEN VENDE / DESPLIEGA LA APP (no para el cliente final)
+
+1) En una PC Windows con Node.js e Inno Setup 6:
+   powershell -ExecutionPolicy Bypass -File installer\windows\build-installer.ps1
+
+2) Copie el archivo generado aquí con este nombre exacto:
+   RestoFadey-Print-Setup.exe
+   (ruta típica del generado: installer\windows\out\RestoFadey-Print-Setup.exe)
+
+3) Haga commit y despliegue en Vercel. El cliente descargará el .exe desde la propia app.
+
+El cliente solo hace doble clic en el instalador, Siguiente, acepta el aviso de Windows,
+y luego configura impresoras en la web. No ejecuta comandos ni consolas.

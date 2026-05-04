@@ -1,7 +1,7 @@
-; Inno Setup 6 — compilar en Windows con ISCC.exe
-; Descarga: https://jrsoftware.org/isinfo.php
-; Comando: ISCC.exe installer\windows\RestoFadey-PrintSetup.iss
-; Antes: ejecutar build-portable-print-bundle.ps1 para generar out\RestoFadeyPrint\
+; Inno Setup 6 — instalador para el cliente final (doble clic, sin comandos).
+; Requiere Inno Setup 6: https://jrsoftware.org/isinfo.php
+; Desde la raíz del repo (recomendado): powershell -File installer\windows\build-installer.ps1
+; (genera la carpeta portable y ejecuta ISCC). O: bundle + ISCC manualmente.
 
 #define MyAppName "Resto-FADEY — Servicio de impresión"
 #define MyAppVersion "1.0.0"
@@ -22,13 +22,16 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64
+InfoAfterFile=Para-usuario-final.txt
 
 [Files]
 Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\Iniciar servicio de impresión"; Filename: "{app}\Iniciar-servicio.bat"
-Name: "{group}\Instalación — LEAME"; Filename: "{app}\LEAME.txt"
+Name: "{group}\Resto-FADEY impresión (inicio manual)"; Filename: "{app}\Iniciar-servicio-oculto.bat"
+Name: "{group}\Leer instrucciones"; Filename: "{app}\LEAME.txt"
 
 [Run]
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Install-Autostart.ps1"""; Description: "Registrar servicio al iniciar sesión (recomendado)"; Flags: postinstall waituntilterminated
+; Sin «postinstall»: se ejecuta siempre al final de copiar archivos, sin casilla que el cliente pueda desmarcar.
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\Install-Autostart.ps1"""; StatusMsg: "Configurando impresión automática…"; Flags: runhidden waituntilterminated
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""try {{ Start-ScheduledTask -TaskName 'RestoFadeyPrintService' -ErrorAction SilentlyContinue }} catch {{ } }"""; StatusMsg: "Iniciando servicio de impresión…"; Flags: runhidden waituntilterminated

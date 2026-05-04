@@ -73,18 +73,16 @@ pause
 '@ | Set-Content -Path (Join-Path $bundle 'Iniciar-servicio.bat') -Encoding ASCII
 
 $userReadme = @'
-=== Resto-FADEY — Servicio de impresion en este PC ===
+=== Resto-FADEY — Servicio de impresión en este PC ===
 
-1) Doble clic en "Iniciar-servicio.bat" (o el .bat oculto) la primera vez, O ejecute como administrador:
-   Install-Autostart.ps1
-   para que el servicio arranque solo al iniciar sesion en Windows.
+Si instaló con «RestoFadey-Print-Setup.exe» (recomendado), no tiene que hacer nada de esta carpeta:
+el programa ya queda en marcha y se abre solo al encender el equipo.
 
-2) En la aplicacion web (Chrome/Edge), abra el panel de impresora y deje la URL:
-   http://127.0.0.1:3049
+Si solo recibió esta carpeta (sin .exe): ejecute como administrador «Install-Autostart.ps1» una vez,
+o pida a su proveedor el instalador .exe.
 
-3) Configure IP, COM o impresora Windows en el panel.
-
-Este paquete no incluye el codigo fuente del restaurante: solo el servicio local de impresion.
+En la aplicación web: Menú → Impresora → configure cada máquina. La dirección del servicio suele ser:
+http://127.0.0.1:3049
 '@
 Set-Content -Path (Join-Path $bundle 'LEAME.txt') -Value $userReadme -Encoding UTF8
 

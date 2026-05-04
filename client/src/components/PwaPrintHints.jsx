@@ -71,7 +71,7 @@ export default function PwaPrintHints() {
               </p>
             ) : !healthOk ? (
               <p className="text-xs text-amber-900 leading-snug">
-                Si usa impresora por IP, ejecute en este PC el servicio en el puerto 3049 o el instalador que le proporcione su proveedor.
+                Si usa impresora por red o cola Windows, instale en este PC el complemento que le envíe su proveedor (doble clic, sin consola).
               </p>
             ) : null}
           </div>

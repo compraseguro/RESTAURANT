@@ -203,8 +203,8 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
               una sola vez: no hace falta instalar el programa local ni ver código fuente.
             </p>
             <p className="mt-1 leading-snug">
-              Para impresora por <strong>IP en red</strong> o <strong>cola Windows</strong>, use el programa local (puerto 3049):{' '}
-              <code className="rounded bg-[var(--ui-surface-2)] px-1">npm run print-service</code> o el instalador descargable.
+              Para impresora por <strong>IP en red</strong> o <strong>cola Windows</strong>, instale una sola vez el complemento de impresión
+              para Windows (enlace abajo). Se ejecuta solo al encender el PC; no hace falta abrir consola ni comandos.
             </p>
             <p className="mt-1 leading-snug text-[10px]">
               USB vía microservicio: <strong>COM</strong> o <strong>Windows RAW</strong> como antes.

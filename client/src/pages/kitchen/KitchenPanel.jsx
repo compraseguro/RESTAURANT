@@ -116,7 +116,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     }
     const hint =
       thermal.error ||
-        'Configure la impresora (red, COM o Windows) en el panel Impresora y ejecute npm run print-service.';
+        'Configure la impresora (red, COM o Windows) en Menú → Impresora. En Windows, instale el complemento de impresión en este PC si aún no lo hizo (enlace en ese panel).';
     if (silent) toast.error(`Impresión automática: sin ruta térmica. ${hint}`, { duration: 8000 });
     else toast.error(hint);
   };
