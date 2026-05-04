@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { MdSave, MdPlayArrow, MdInfo, MdRefresh, MdRadar } from 'react-icons/md';
+import { MdSave, MdPlayArrow, MdInfo, MdRefresh, MdRadar, MdSearch } from 'react-icons/md';
 import {
   getPrintServiceBaseUrl,
   setPrintServiceBaseUrl,
@@ -10,10 +10,20 @@ import {
   isThermalLanIp,
   isUsbComPort,
   isUsbUnixDevice,
+  localPrintServiceUnreachableHelp,
+  setPrinterStorageScope,
 } from '../utils/localPrinterStorage';
 import { sendEscPosToStation } from '../utils/cajaThermalPrint';
 import { pairBrowserUsbPrinter, isWebUsbSerialSupported } from '../utils/browserUsbPrint';
 import { isStandaloneDisplayMode } from '../utils/pwaDetect';
+import { usePrintServiceWebSocket } from '../hooks/usePrintServiceWebSocket';
+import {
+  fetchDiscoverAll,
+  postWatchdogTargets,
+  postWatchdogProbeNow,
+  postProbeLan,
+} from '../utils/printServiceApi';
+import { useAuth } from '../context/AuthContext';
 
 const TITLES = {
   cocina: 'Impresora de cocina',
@@ -28,13 +38,33 @@ const BAUD_RATES = [9600, 19200, 38400, 57600, 115200];
  * Configuración local (navegador) por estación + URL del microservicio de impresión en este PC.
  * Red + microservicio, USB por COM/Windows con microservicio, o USB directo con Web Serial (app instalada).
  */
+function buildWatchdogTarget(stationId, form) {
+  const conn = form.connection || 'lan';
+  const sid = String(stationId || '').toLowerCase();
+  if (conn === 'lan' && String(form.ip || '').trim()) {
+    return { id: sid, kind: 'lan', ip: String(form.ip).trim(), port: Number(form.port) || 9100 };
+  }
+  if (conn === 'usb_serial' && String(form.com_port || '').trim()) {
+    return { id: sid, kind: 'usb_serial', com_port: String(form.com_port).trim() };
+  }
+  if (conn === 'usb_windows' && String(form.windows_printer || '').trim()) {
+    return { id: sid, kind: 'usb_windows', name: String(form.windows_printer).trim() };
+  }
+  return null;
+}
+
 export default function StationPrinterCard({ station, userRole, hideHeading = false, embedded = false }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [serviceUrl, setServiceUrl] = useState('http://127.0.0.1:3049');
   const [windowsPrinters, setWindowsPrinters] = useState([]);
   const [loadingPrinters, setLoadingPrinters] = useState(false);
   const [discoveringLan, setDiscoveringLan] = useState(false);
   const [lanCandidates, setLanCandidates] = useState([]);
+  const [serialPortsList, setSerialPortsList] = useState([]);
+  const [scanningSerialPorts, setScanningSerialPorts] = useState(false);
+  const [proMergedList, setProMergedList] = useState([]);
+  const [proDiscoverAllLoading, setProDiscoverAllLoading] = useState(false);
   const [form, setForm] = useState({
     connection: 'lan',
     ip: '',
@@ -86,14 +116,41 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
   }, [load]);
 
   useEffect(() => {
+    const rid = user?.restaurant_id;
+    if (rid) setPrinterStorageScope(String(rid));
+  }, [user?.restaurant_id]);
+
+  const { connected: wsConnected, lastEvent: wsLastEvent } = usePrintServiceWebSocket(serviceUrl);
+
+  const proActivityLabel = useMemo(() => {
+    const t = wsLastEvent?.type;
+    if (t === 'job:printing') return 'Imprimiendo…';
+    if (t === 'job:queued') return 'En cola…';
+    if (t === 'job:retry') return `Reintento ${wsLastEvent?.attempt ?? ''}…`;
+    if (t === 'job:done') return 'Impresión enviada';
+    if (t === 'job:failed') return 'Falló (revisar térmica)';
+    if (t === 'job:deduped') return 'Duplicado omitido';
+    if (t === 'watchdog:status') return 'Estado red';
+    return wsConnected ? 'Servicio en vivo' : 'Pulse Buscar o compruebe el complemento';
+  }, [wsLastEvent, wsConnected]);
+
+  useEffect(() => {
     if (form.connection !== 'lan') setLanCandidates([]);
+  }, [form.connection]);
+
+  useEffect(() => {
+    if (form.connection !== 'usb_serial') setSerialPortsList([]);
   }, [form.connection]);
 
   const refreshWindowsPrinters = async () => {
     const base = serviceUrl.replace(/\/$/, '');
     setLoadingPrinters(true);
     try {
-      const res = await fetch(`${base}/printers`);
+      const res = await fetch(`${base}/printers`, {
+        mode: 'cors',
+        cache: 'no-store',
+        credentials: 'omit',
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || res.statusText);
       const list = Array.isArray(data.printers) ? data.printers : [];
@@ -108,11 +165,66 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
     }
   };
 
+  const discoverSerialPorts = async () => {
+    const base = String(serviceUrl || '')
+      .trim()
+      .replace(/\/$/, '') || 'http://127.0.0.1:3049';
+    setScanningSerialPorts(true);
+    try {
+      const res = await fetch(`${base}/serial-ports`, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-store',
+        credentials: 'omit',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      const ports = Array.isArray(data.ports) ? data.ports : [];
+      if (data.hint && !ports.length) {
+        toast.error(String(data.hint), { duration: 10000 });
+        setSerialPortsList([]);
+        return;
+      }
+      if (!ports.length) {
+        toast.error(
+          'No se detectó ningún puerto COM. Revise el cable USB, el driver en Administrador de dispositivos, o use «Impresora Windows» si la térmica solo aparece como impresora instalada.',
+          { duration: 11000 }
+        );
+        setSerialPortsList([]);
+        return;
+      }
+      setSerialPortsList(ports);
+      const pick = ports.includes(form.com_port) ? form.com_port : ports[0];
+      setForm((f) => ({ ...f, connection: 'usb_serial', com_port: pick }));
+      toast.success(
+        ports.length === 1 ? `Detectado ${ports[0]} — guardá para aplicar.` : `${ports.length} puertos COM; elegí uno si hay varios.`,
+        { duration: 6000 }
+      );
+    } catch (e) {
+      const msg = String(e?.message || '');
+      if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) {
+        toast.error(localPrintServiceUnreachableHelp(base), { duration: 12000 });
+      } else {
+        toast.error(msg || 'No se pudieron listar puertos COM.');
+      }
+      setSerialPortsList([]);
+    } finally {
+      setScanningSerialPorts(false);
+    }
+  };
+
   const discoverLanPrinters = async () => {
-    const base = serviceUrl.replace(/\/$/, '');
+    const base = String(serviceUrl || '')
+      .trim()
+      .replace(/\/$/, '') || 'http://127.0.0.1:3049';
     setDiscoveringLan(true);
     try {
-      const res = await fetch(`${base}/discover-lan`);
+      const res = await fetch(`${base}/discover-lan`, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-store',
+        credentials: 'omit',
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || res.statusText);
       const candidates = Array.isArray(data.candidates) ? data.candidates : [];
@@ -146,9 +258,80 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
         { duration: 6000 }
       );
     } catch (e) {
-      toast.error(e?.message || 'No se pudo escanear la red (¿microservicio en ejecución?)');
+      const msg = String(e?.message || '');
+      if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) {
+        toast.error(localPrintServiceUnreachableHelp(base), { duration: 12000 });
+      } else {
+        toast.error(msg || 'No se pudo escanear la red.');
+      }
     } finally {
       setDiscoveringLan(false);
+    }
+  };
+
+  const applyProMergedItem = (item) => {
+    if (!item?.kind) return;
+    if (item.kind === 'lan') {
+      setForm((f) => ({ ...f, connection: 'lan', ip: item.ip || f.ip, port: item.port || 9100 }));
+    } else if (item.kind === 'usb_serial') {
+      setForm((f) => ({ ...f, connection: 'usb_serial', com_port: item.com_port || f.com_port }));
+    } else if (item.kind === 'usb_windows') {
+      setForm((f) => ({ ...f, connection: 'usb_windows', windows_printer: item.windows_printer || f.windows_printer }));
+    }
+  };
+
+  const discoverAllUnified = async () => {
+    setProDiscoverAllLoading(true);
+    try {
+      const data = await fetchDiscoverAll(serviceUrl);
+      const merged = Array.isArray(data.merged) ? data.merged : [];
+      setProMergedList(merged);
+      if (merged.length === 0) {
+        toast.error(
+          'Nada detectado en esta pasada. USB con driver: «Impresora Windows»; USB-COM: «USB serie»; red: misma Wi‑Fi que esta PC.',
+          { duration: 10000 }
+        );
+        return;
+      }
+      applyProMergedItem(merged[0]);
+      toast.success(
+        merged.length === 1
+          ? '1 dispositivo detectado — revisá modo/IP/COM y guardá.'
+          : `${merged.length} dispositivos — elegí en la lista y guardá.`,
+        { duration: 7000 }
+      );
+    } catch (e) {
+      const msg = String(e?.message || '');
+      if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) {
+        toast.error(localPrintServiceUnreachableHelp(String(serviceUrl || '').replace(/\/$/, '')), {
+          duration: 12000,
+        });
+      } else toast.error(msg || 'No se pudo buscar impresoras.');
+    } finally {
+      setProDiscoverAllLoading(false);
+    }
+  };
+
+  const reconnectProfessional = async () => {
+    const base = String(serviceUrl || '')
+      .trim()
+      .replace(/\/$/, '') || 'http://127.0.0.1:3049';
+    try {
+      const t = buildWatchdogTarget(station, form);
+      if (t) await postWatchdogTargets(base, [t]);
+      await postWatchdogProbeNow(base);
+      if ((form.connection || '') === 'lan' && String(form.ip || '').trim()) {
+        const r = await postProbeLan(base, { ip: form.ip, port: form.port || 9100 });
+        if (r.tcp || r.ok) toast.success('Red: respuesta TCP OK.', { duration: 4000 });
+        else toast.error('Red: sin TCP en esa IP/puerto.', { duration: 6000 });
+      } else {
+        toast.success('Seguimiento actualizado. Use Probar impresión.', { duration: 4000 });
+      }
+    } catch (e) {
+      const msg = String(e?.message || '');
+      if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) {
+        toast.error(localPrintServiceUnreachableHelp(base), { duration: 12000 });
+      } else toast.error(msg);
     }
   };
 
@@ -198,6 +381,8 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
       width_mm: form.width_mm,
     });
     setPrintServiceBaseUrl(serviceUrl);
+    const wt = buildWatchdogTarget(station, form);
+    if (wt) void postWatchdogTargets(String(serviceUrl || '').replace(/\/$/, ''), [wt]).catch(() => {});
     toast.success('Configuración guardada en este equipo');
     load();
   };
@@ -244,6 +429,73 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
         </p>
       ) : (
         <div className="space-y-3">
+          <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2.5 text-[10px] shadow-sm">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full shrink-0 ${wsConnected ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                title={wsConnected ? 'WebSocket en vivo' : 'Sin WebSocket (el servicio puede estar activo)'}
+              />
+              <span className="font-semibold text-[var(--ui-body-text)]">Detección POS</span>
+              <span className="text-[var(--ui-muted)] truncate max-w-[10rem] sm:max-w-[20rem]">{proActivityLabel}</span>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <button
+                type="button"
+                onClick={() => void discoverAllUnified()}
+                disabled={proDiscoverAllLoading}
+                className="btn-secondary text-xs py-1.5 px-2 inline-flex items-center gap-1"
+              >
+                <MdSearch className="text-base" /> {proDiscoverAllLoading ? 'Buscando…' : 'Buscar impresoras'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void reconnectProfessional()}
+                className="btn-secondary text-xs py-1.5 px-2"
+              >
+                Reconectar
+              </button>
+              <button
+                type="button"
+                onClick={() => void testPrint()}
+                className="btn-secondary text-xs py-1.5 px-2 inline-flex items-center gap-1"
+              >
+                <MdPlayArrow className="text-base" /> Probar impresión
+              </button>
+            </div>
+            {proMergedList.length > 0 ? (
+              <div className="mt-2">
+                <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">
+                  Resultados (elegí y guardá)
+                </label>
+                <select
+                  key={proMergedList.map((m) => m.id).join('|')}
+                  className="input-field text-sm py-1.5 w-full"
+                  defaultValue={0}
+                  onChange={(e) => {
+                    const i = Number(e.target.value);
+                    const it = proMergedList[i];
+                    if (it) applyProMergedItem(it);
+                  }}
+                >
+                  {proMergedList.map((m, i) => (
+                    <option key={m.id || i} value={i}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <p className="mt-2 text-[9px] text-[var(--ui-muted)] leading-snug">
+              Cola en memoria y en <strong>disco</strong> (reintentos automáticos tras fallos o reinicio del servicio), anti-duplicados, más
+              watchdog de red. ESC/POS RAW (HPRT O-Series, Epson, XPrinter, Rongta, Star, etc.; puerto típ. 9100).
+            </p>
+            <p className="mt-2 text-[9px] text-sky-800/90 dark:text-sky-200/90 leading-snug border-t border-sky-500/25 pt-2">
+              <strong>Recomendado en restaurante:</strong> si la térmica tiene <strong>Ethernet o Wi‑Fi con IP en red</strong>, usala antes que
+              USB: es más estable con <strong>varias cajas o tablets</strong>. Fijá <strong>IP estática</strong> en la impresora o <strong>reserva
+              DHCP</strong> en el router para que no «desaparezca» al reiniciar. El buscador prioriza <strong>red (LAN)</strong> sobre USB en la
+              lista.
+            </p>
+          </div>
           <div className="rounded border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-2 py-2 text-[10px] text-[var(--ui-muted)]">
             <span className="inline-flex items-center gap-1 font-medium text-[var(--ui-body-text)]">
               <MdInfo className="text-sm" /> Microservicio local
@@ -365,35 +617,72 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
           ) : null}
 
           {form.connection === 'usb_serial' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">Puerto COM o dispositivo</label>
-                <input
-                  className="input-field text-sm py-1.5"
-                  value={form.com_port}
-                  onChange={(e) => setForm((f) => ({ ...f, com_port: e.target.value.trim() }))}
-                  placeholder="COM3 o /dev/ttyUSB0"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">Velocidad (baudios)</label>
-                <select
-                  className="input-field text-sm py-1.5"
-                  value={form.baud_rate}
-                  onChange={(e) => setForm((f) => ({ ...f, baud_rate: Number(e.target.value) }))}
+            <div className="space-y-2">
+              <p className="text-[10px] text-[var(--ui-muted)] leading-snug">
+                USB por cable suele crear un <strong>puerto COM</strong> en Windows. Pulse <strong>Buscar puertos COM</strong>. Si la térmica
+                solo aparece como impresora instalada (driver tipo CBX) y <strong>no</strong> genera COM, use abajo{' '}
+                <strong>Impresora Windows</strong> y «Listar impresoras».
+              </p>
+              <div className="flex flex-wrap gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={() => void discoverSerialPorts()}
+                  disabled={scanningSerialPorts}
+                  className="btn-secondary text-xs py-1.5 px-2 inline-flex items-center gap-1"
                 >
-                  {BAUD_RATES.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
+                  <MdSearch className="text-base" /> {scanningSerialPorts ? 'Buscando…' : 'Buscar puertos COM (USB serie)'}
+                </button>
+              </div>
+              {serialPortsList.length > 1 ? (
+                <div>
+                  <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">Elegir puerto detectado</label>
+                  <select
+                    className="input-field text-sm py-1.5 w-full"
+                    value={serialPortsList.includes(form.com_port) ? form.com_port : serialPortsList[0]}
+                    onChange={(e) => setForm((f) => ({ ...f, com_port: e.target.value }))}
+                  >
+                    {serialPortsList.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">Puerto COM o dispositivo</label>
+                  <input
+                    className="input-field text-sm py-1.5"
+                    value={form.com_port}
+                    onChange={(e) => setForm((f) => ({ ...f, com_port: e.target.value.trim() }))}
+                    placeholder="COM3 o /dev/ttyUSB0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-[var(--ui-muted)] mb-0.5">Velocidad (baudios)</label>
+                  <select
+                    className="input-field text-sm py-1.5"
+                    value={form.baud_rate}
+                    onChange={(e) => setForm((f) => ({ ...f, baud_rate: Number(e.target.value) }))}
+                  >
+                    {BAUD_RATES.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           ) : null}
 
           {form.connection === 'usb_windows' ? (
             <div className="space-y-2">
+              <p className="text-[10px] text-[var(--ui-muted)] leading-snug">
+                Ideal cuando la térmica está por <strong>USB</strong> y ya tiene <strong>driver en Windows</strong> (cola de impresión con
+                nombre propio). Pulse Listar y elija la misma que en Configuración → Impresoras. No usa «buscar en red» ni COM.
+              </p>
               <div className="flex flex-wrap gap-2 items-end">
                 <button
                   type="button"
@@ -442,8 +731,8 @@ export default function StationPrinterCard({ station, userRole, hideHeading = fa
                 </p>
               ) : (
                 <p className="text-[10px] text-[var(--ui-muted)] leading-snug">
-                  Pulse <strong>Vincular USB</strong> una vez con la térmica encendida y conectada; después los tickets salen solos (sin elegir
-                  impresora).
+                  No aparece en «buscar en red» ni en COM: aquí el navegador habla por USB directo. Pulse <strong>Vincular USB</strong> una vez
+                  con la térmica encendida; después los tickets salen solos.
                 </p>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

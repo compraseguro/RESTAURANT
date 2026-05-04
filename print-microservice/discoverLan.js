@@ -7,6 +7,7 @@
 const net = require('net');
 const os = require('os');
 
+/** RAW TCP típico ESC/POS (9100). Incluye puertos usados por XPrinter/Rongta/HPRT O-Series/Epson TM en modo Ethernet. */
 const DEFAULT_PORTS = [9100, 9101, 9102, 4000, 5000];
 
 function isPrivateLanIp(ip) {

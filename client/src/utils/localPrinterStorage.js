@@ -9,7 +9,31 @@
  * - usb_browser: USB térmica directa desde Chrome/Edge (Web Serial), ideal con app instalada
  */
 
-const KEY_STATION = (station) => `resto_fadey_printer_${String(station || '').toLowerCase()}`;
+const KEY_SCOPE = 'resto_fadey_printer_scope';
+
+/** Ámbito opcional (p. ej. restaurant_id) para separar impresoras por sucursal en el mismo navegador. */
+export function getPrinterStorageScope() {
+  try {
+    return localStorage.getItem(KEY_SCOPE) || 'default';
+  } catch {
+    return 'default';
+  }
+}
+
+export function setPrinterStorageScope(scope) {
+  try {
+    localStorage.setItem(KEY_SCOPE, String(scope || 'default'));
+  } catch {
+    /* */
+  }
+}
+
+function keyForStation(station) {
+  const st = String(station || '').toLowerCase();
+  const sc = getPrinterStorageScope();
+  if (!sc || sc === 'default') return `resto_fadey_printer_${st}`;
+  return `resto_fadey_printer_${sc}_${st}`;
+}
 const KEY_SERVICE = 'resto_fadey_print_service_url';
 
 /** Instalador Windows incluido en public/downloads/ (mismo sitio que la PWA). */
@@ -87,6 +111,19 @@ export function setPrintServiceBaseUrl(url) {
   }
 }
 
+/** Mensaje cuando fetch a 127.0.0.1:3049 falla (complemento parado, URL mal en panel, o navegador bloqueando). */
+export function localPrintServiceUnreachableHelp(baseUrl) {
+  const u = String(baseUrl || '').replace(/\/$/, '') || 'http://127.0.0.1:3049';
+  return [
+    'El navegador no pudo hablar con el complemento de impresión en ESTE equipo',
+    `(${u}).`,
+    'Instale el .exe, reinicie sesión en Windows y abra en Chrome/Edge',
+    `${u}/health (debe verse "ok": true).`,
+    'La URL del servicio debe ser http://127.0.0.1:3049 (http, no https).',
+    'Si imprime desde otro equipo o el móvil, instale el complemento en ese mismo equipo.',
+  ].join(' ');
+}
+
 const defaultStation = () => ({
   connection: 'lan',
   ip: '',
@@ -112,7 +149,8 @@ function normalizeConnection(raw) {
 export function getStationPrinterConfig(station) {
   const st = String(station || '').toLowerCase();
   try {
-    const row = localStorage.getItem(KEY_STATION(st));
+    let row = localStorage.getItem(keyForStation(st));
+    if (!row) row = localStorage.getItem(`resto_fadey_printer_${st}`);
     if (!row) return { ...defaultStation() };
     const o = JSON.parse(row);
     const wm = [58, 80].includes(Number(o.width_mm)) ? Number(o.width_mm) : 80;
@@ -154,7 +192,7 @@ export function setStationPrinterConfig(station, cfg) {
     auto_print: Number(cfg?.auto_print) === 0 || cfg?.auto_print === false ? 0 : 1,
   };
   try {
-    localStorage.setItem(KEY_STATION(st), JSON.stringify(next));
+    localStorage.setItem(keyForStation(st), JSON.stringify(next));
   } catch {
     /* */
   }
