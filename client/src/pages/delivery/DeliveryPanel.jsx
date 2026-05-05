@@ -20,7 +20,7 @@ import {
 import { buildGoogleMapsSearchUrl } from '../../utils/googleMaps';
 import { buildDeliveryReportPlainText } from '../../utils/ticketPlainText';
 import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
-import { getStationPrinterConfig } from '../../utils/localPrinterStorage';
+import { getStationPrintPrefs } from '../../services/printBridge';
 import StationPrinterCard from '../../components/StationPrinterCard';
 
 function parseApiDateLike(value) {
@@ -149,12 +149,12 @@ export default function DeliveryPanel() {
       orders: completadosHoy,
       formatCurrencyFn: formatCurrency,
     });
-    const localCfg = getStationPrinterConfig('delivery');
-    const copies = Math.min(5, Math.max(1, Number(localCfg?.copies || 1)));
+    const { copies, widthMm } = await getStationPrintPrefs('delivery');
     const thermal = await sendEscPosToStation({
       station: 'delivery',
       text: plain,
       copies,
+      width_mm: widthMm,
     });
     if (thermal.ok) {
       toast.success('Reporte enviado a la impresora');

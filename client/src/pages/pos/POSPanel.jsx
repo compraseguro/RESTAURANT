@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
-import { silentPrintOrderToStations } from '../../utils/stationKitchenPrint';
 import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote, buildPrecuentaPlainText, buildNotaVentaPlainText } from '../../utils/ticketPlainText';
 import { sendEscPosToCaja } from '../../utils/cajaThermalPrint';
-import { getStationPrinterConfig } from '../../utils/localPrinterStorage';
+import { getStationPrintPrefs } from '../../services/printBridge';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -694,7 +693,7 @@ export default function POSPanel() {
   const handlePrint = async () => {
     const content = printRef.current;
     if (!content) return;
-    const cajaLocal = getStationPrinterConfig('caja');
+    const { copies } = await getStationPrintPrefs('caja');
     const textForPrint = String(content.innerText || content.textContent || '')
       .replace(/\r\n/g, '\n')
       .trim()
@@ -703,7 +702,6 @@ export default function POSPanel() {
       toast.error('No hay contenido para imprimir');
       return;
     }
-    const copies = Math.min(5, Math.max(1, Number(cajaLocal?.copies || 1)));
     const thermal = await sendEscPosToCaja({
       text: textForPrint,
       copies,
@@ -1269,16 +1267,6 @@ export default function POSPanel() {
             updatedOrderIds.push(oid);
           }
         }
-        for (const oid of updatedOrderIds) {
-          try {
-            const updated = await api.get(`/orders/${oid}`);
-            if (updated?.items?.length) {
-              void silentPrintOrderToStations({ api, order: updated, labelPrefix: 'Comanda actualizada' });
-            }
-          } catch (_) {
-            /* noop */
-          }
-        }
         toast.success(sessionIds.length > 1 ? 'Pedidos actualizados' : 'Pedido actualizado', { id: tid });
         setShowMenu(false);
         setEditingOrderId('');
@@ -1301,13 +1289,6 @@ export default function POSPanel() {
         payment_method: paymentMethod,
         notes: !quickSaleMode && paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
       });
-      if (createdOrder?.items?.length) {
-        void silentPrintOrderToStations({
-          api,
-          order: createdOrder,
-          labelPrefix: quickSaleMode ? 'Venta rápida' : 'Nuevo pedido',
-        });
-      }
       if (quickSaleMode) {
         let doc = null;
         if (billingForm.enabled) {
@@ -1543,8 +1524,7 @@ export default function POSPanel() {
       billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
       billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
     ].filter(Boolean);
-    const cajaLocal = getStationPrinterConfig('caja');
-    const widthMm = [58, 80].includes(Number(cajaLocal?.width_mm)) ? Number(cajaLocal.width_mm) : 80;
+    const { widthMm, copies } = await getStationPrintPrefs('caja');
     const plain = buildPrecuentaPlainText({
       restaurantName,
       tableName: selectedTable.name,
@@ -1558,10 +1538,10 @@ export default function POSPanel() {
       payableTotal,
       widthMm,
     });
-    const copies = Math.min(5, Math.max(1, Number(cajaLocal?.copies || 1)));
     const thermal = await sendEscPosToCaja({
       text: plain,
       copies,
+      width_mm: widthMm,
     });
     if (thermal.ok) {
       toast.success('Precuenta enviada a la impresora de caja');
@@ -1584,8 +1564,7 @@ export default function POSPanel() {
       customer?.phone && `Tel: ${customer.phone}`,
       customer?.address && `Dir: ${customer.address}`,
     ].filter(Boolean);
-    const cajaLocal = getStationPrinterConfig('caja');
-    const widthMm = [58, 80].includes(Number(cajaLocal?.width_mm)) ? Number(cajaLocal.width_mm) : 80;
+    const { widthMm, copies } = await getStationPrintPrefs('caja');
     const plain = buildNotaVentaPlainText({
       restaurantName,
       docLine: docText,
@@ -1597,10 +1576,10 @@ export default function POSPanel() {
       total,
       widthMm,
     });
-    const copies = Math.min(5, Math.max(1, Number(cajaLocal?.copies || 1)));
     const thermal = await sendEscPosToCaja({
       text: plain,
       copies,
+      width_mm: widthMm,
     });
     if (thermal.ok) {
       toast.success('Nota de venta enviada a la impresora de caja');
@@ -1766,8 +1745,7 @@ export default function POSPanel() {
       billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
       billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
     ].filter(Boolean);
-    const cajaLocal = getStationPrinterConfig('caja');
-    const widthMm = [58, 80].includes(Number(cajaLocal?.width_mm)) ? Number(cajaLocal.width_mm) : 80;
+    const { widthMm, copies } = await getStationPrintPrefs('caja');
     const plain = buildPrecuentaPlainText({
       restaurantName,
       tableName: table.name,
@@ -1781,10 +1759,10 @@ export default function POSPanel() {
       payableTotal: tableTotal,
       widthMm,
     });
-    const copies = Math.min(5, Math.max(1, Number(cajaLocal?.copies || 1)));
     const thermal = await sendEscPosToCaja({
       text: plain,
       copies,
+      width_mm: widthMm,
     });
     if (thermal.ok) {
       toast.success('Precuenta enviada a la impresora de caja');

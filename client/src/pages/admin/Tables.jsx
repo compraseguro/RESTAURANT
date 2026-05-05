@@ -11,7 +11,6 @@ import StaffModifierPromptModal from '../../components/StaffModifierPromptModal'
 import toast from 'react-hot-toast';
 import { MdTableRestaurant, MdReceipt, MdClose } from 'react-icons/md';
 import { KITCHEN_TAKEOUT_NOTE } from '../../utils/ticketPlainText';
-import { silentPrintOrderToStations } from '../../utils/stationKitchenPrint';
 
 export default function Tables() {
   const { user } = useAuth();
@@ -156,9 +155,6 @@ export default function Tables() {
         payment_method: 'efectivo',
         notes: paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
       });
-      if (created?.items?.length) {
-        void silentPrintOrderToStations({ api, order: created, labelPrefix: 'Nuevo pedido' });
-      }
       toast.success(`Pedido enviado a Mesa ${selectedTable.number}`, { id: tid });
       closeMenuPanel();
       loadTables();

@@ -1,15 +1,13 @@
 'use strict';
 
+/**
+ * Generación de buffers ESC/POS (inicialización, texto UTF-8, avance, corte).
+ * Misma semántica que el antiguo microservicio portable.
+ */
 const { Buffer } = require('buffer');
 
 function escInit() {
   return Buffer.from([0x1b, 0x40]);
-}
-function escAlign(n) {
-  return Buffer.from([0x1b, 0x61, n & 3]);
-}
-function escBold(on) {
-  return Buffer.from([0x1b, 0x45, on ? 1 : 0]);
 }
 function escSizeNormal() {
   return Buffer.from([0x1b, 0x21, 0x00]);
@@ -32,7 +30,7 @@ function escFeed(n = 3) {
  * @param {string} text
  * @param {number} copies
  * @param {58|80} paperWidthMm
- * @param {{ open_cash_drawer?: boolean }} opts
+ * @param {{ openCashDrawer?: boolean }} opts
  */
 function buildEscPosBuffer(text, copies, paperWidthMm, opts = {}) {
   const narrow = Number(paperWidthMm) === 58;
@@ -42,7 +40,7 @@ function buildEscPosBuffer(text, copies, paperWidthMm, opts = {}) {
     Buffer.from(String(text || ''), 'utf8'),
     Buffer.from('\n\n', 'utf8'),
     escSizeNormal(),
-    opts.open_cash_drawer ? escOpenCashDrawer() : Buffer.alloc(0),
+    opts.openCashDrawer ? escOpenCashDrawer() : Buffer.alloc(0),
   ]);
   const n = Math.min(5, Math.max(1, Number(copies || 1)));
   for (let c = 0; c < n; c += 1) {

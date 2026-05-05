@@ -1,13 +1,7 @@
-PARA QUIEN VENDE / DESPLIEGA LA APP (no para el cliente final)
+Carpeta reservada para descargas del sitio.
 
-1) En una PC Windows con Node.js e Inno Setup 6:
-   powershell -ExecutionPolicy Bypass -File installer\windows\build-installer.ps1
+La impresión ESC/POS está integrada en el servidor Node (módulo server/printing y rutas /api/printing).
+Ya no se distribuye aquí un .exe de microservicio separado.
 
-2) Copie el archivo generado aquí con este nombre exacto:
-   RestoFadey-Print-Setup.exe
-   (ruta típica del generado: installer\windows\out\RestoFadey-Print-Setup.exe)
-
-3) Haga commit y despliegue en Vercel. El cliente descargará el .exe desde la propia app.
-
-El cliente solo hace doble clic en el instalador, Siguiente, acepta el aviso de Windows,
-y luego configura impresoras en la web. No ejecuta comandos ni consolas.
+Para producción en el local: ejecute la API en el mismo PC Windows que las térmicas y configure
+las impresoras en la aplicación (menú Impresora).

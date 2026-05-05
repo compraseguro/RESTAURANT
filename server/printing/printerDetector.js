@@ -1,13 +1,16 @@
 'use strict';
 
 /**
- * Descubre hosts en la misma subred que abren puertos típicos de térmicas ESC/POS (RAW TCP).
- * Solo RFC1918; el navegador no puede hacer esto — se ejecuta en el PC con el microservicio.
+ * Detección de impresoras: colas Windows (equivalente a listar instaladas) y escaneo LAN puerto RAW.
+ * No usa paquete nativo `printer` para evitar compilación en deploy; lista vía PowerShell (Get-Printer).
  */
 const net = require('net');
 const os = require('os');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 
-/** RAW TCP típico ESC/POS (9100). Incluye puertos usados por XPrinter/Rongta/HPRT O-Series/Epson TM en modo Ethernet. */
+const execFileAsync = promisify(execFile);
+
 const DEFAULT_PORTS = [9100, 9101, 9102, 4000, 5000];
 
 function isPrivateLanIp(ip) {
@@ -18,6 +21,7 @@ function isPrivateLanIp(ip) {
   if (a === 10) return true;
   if (a === 192 && b === 168) return true;
   if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 127) return true;
   return false;
 }
 
@@ -65,9 +69,43 @@ function tryTcpPort(host, port, timeoutMs) {
 }
 
 /**
+ * Impresoras USB / colas instaladas en Windows (nombres para RAW).
+ */
+async function getUSBPrinters() {
+  if (process.platform !== 'win32') {
+    return { ok: true, printers: [], hint: 'En Linux use CUPS o solo modo red.' };
+  }
+  try {
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        '$n = @(Get-Printer -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name); if ($n.Count -eq 0) { "[]" } else { $n | ConvertTo-Json -Compress }',
+      ],
+      { timeout: 20000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }
+    );
+    const t = String(stdout || '').trim();
+    let names = [];
+    try {
+      const parsed = JSON.parse(t || '[]');
+      names = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
+    } catch {
+      names = t ? [t] : [];
+    }
+    names = names.map((x) => String(x || '').trim()).filter(Boolean);
+    return { ok: true, printers: names };
+  } catch (e) {
+    return { ok: false, printers: [], error: e?.message || String(e) };
+  }
+}
+
+/**
+ * Escaneo de hosts en LAN con puertos térmicos abiertos.
  * @param {{ timeout?: number, ports?: number[] }} opts
  */
-async function scanLan(opts = {}) {
+async function scanNetworkPrinters(opts = {}) {
   const timeoutMs = Math.min(2500, Math.max(120, Number(opts.timeout) || 400));
   const ports =
     Array.isArray(opts.ports) && opts.ports.length > 0
@@ -77,11 +115,12 @@ async function scanLan(opts = {}) {
   const { prefixes, localIps } = getSubnetsToScan();
   if (!prefixes.length) {
     return {
+      ok: true,
       subnets: [],
-      scanned_ports: ports,
       candidates: [],
       timeout_ms: timeoutMs,
-      hint: 'No hay interfaz IPv4 en red privada. Conecte Wi‑Fi o cable Ethernet.',
+      hint: 'Sin interfaz IPv4 privada; conecte red o use IP manual.',
+      local_ips: localIps,
     };
   }
 
@@ -126,6 +165,7 @@ async function scanLan(opts = {}) {
   }
 
   return {
+    ok: true,
     subnets: prefixes.map((p) => `${p}.0/24`),
     scanned_ports: ports,
     candidates: dedup,
@@ -134,4 +174,4 @@ async function scanLan(opts = {}) {
   };
 }
 
-module.exports = { scanLan, getSubnetsToScan, DEFAULT_PORTS };
+module.exports = { getUSBPrinters, scanNetworkPrinters, DEFAULT_PORTS };

@@ -7,7 +7,7 @@ client/dist/
 dist/
 
 # Runtime and local data
-print-microservice/data/
+server/data/printing-config.json
 uploads/
 tmp_xlsx/
 *.db

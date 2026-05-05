@@ -1,13 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
-import {
-  buildKitchenTicketPlainText,
-  buildSimpleComandaPlainText,
-} from '../../utils/ticketPlainText';
+import { buildSimpleComandaPlainText } from '../../utils/ticketPlainText';
 import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
-import { getStationPrinterConfig } from '../../utils/localPrinterStorage';
 import { orderAppliesToStation } from '../../utils/stationKitchenPrint';
-import { dedupeThermalAutoPrintJob } from '../../utils/thermalPrintDedupe';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -64,84 +59,34 @@ export default function KitchenPanel({ station = 'cocina' }) {
     }
   };
 
-  /**
-   * @param {object[]} list
-   * @param {string} title
-   * @param {{ silent?: boolean }} opts silent: impresión automática (sin diálogo del navegador salvo fallback manual)
-   */
-  const printOrdersList = async (list, title, opts = {}) => {
-    const { silent = false } = opts;
-    if (!list?.length) {
-      if (!silent) toast.error('No hay pedidos para imprimir');
-      return;
-    }
-    let cfgRestaurant = restaurantInfo;
-    try {
-      const cfg = await api.get('/orders/print-config');
-      if (cfg?.restaurant) {
-        cfgRestaurant = cfg.restaurant;
-        setRestaurantInfo(cfg.restaurant);
-      }
-    } catch (_) {
-      /* usar estado previo */
-    }
-    const stationKey = isBar ? 'bar' : 'cocina';
-    const localCfg = getStationPrinterConfig(stationKey);
-    if (silent && Number(localCfg.auto_print ?? 1) === 0) {
-      return;
-    }
-    const copies = Math.min(5, Math.max(1, Number(localCfg?.copies || 1)));
-    const widthMm = [58, 80].includes(Number(localCfg?.width_mm)) ? Number(localCfg.width_mm) : 80;
-    const runPrint = async () => {
-      const plain = buildKitchenTicketPlainText({
-        restaurant: cfgRestaurant,
-        title,
-        orders: list,
-        copies: 1,
-        widthMm,
-      });
-      return sendEscPosToStation({
-        station: stationKey,
-        text: plain,
-        copies,
-      });
-    };
-    const thermal =
-      silent && list.length === 1 && list[0]
-        ? await dedupeThermalAutoPrintJob(stationKey, list[0], runPrint)
-        : await runPrint();
-    if (thermal.ok) {
-      if (!silent) toast.success('Enviado a impresora térmica');
-      return;
-    }
-    const hint =
-      thermal.error ||
-        'Configure la impresora (red, COM o Windows) en Menú → Impresora. En Windows, instale el complemento de impresión en este PC si aún no lo hizo (enlace en ese panel).';
-    if (silent) toast.error(`Impresión automática: sin ruta térmica. ${hint}`, { duration: 8000 });
-    else toast.error(hint);
-  };
-
-  /** Solo mesa (o delivery/cliente), ítems y fecha/hora — misma impresora de estación que la comanda completa. */
+  /** Reimpresión manual de comanda (auto la hace el servidor al crear/actualizar líneas). */
   const printSimpleComanda = async (order) => {
     if (!order?.id) return;
     const stationKey = isBar ? 'bar' : 'cocina';
-    const localCfg = getStationPrinterConfig(stationKey);
-    const widthMm = [58, 80].includes(Number(localCfg?.width_mm)) ? Number(localCfg.width_mm) : 80;
+    let widthMm = 80;
+    let copies = 1;
+    try {
+      const pc = await api.get('/printing/config');
+      const s = pc[stationKey];
+      if (s) {
+        widthMm = [58, 80].includes(Number(s.widthMm)) ? Number(s.widthMm) : 80;
+        copies = Math.min(5, Math.max(1, Number(s.copies || 1)));
+      }
+    } catch (_) {
+      /* default */
+    }
     const plain = buildSimpleComandaPlainText(order, new Date(), widthMm);
-    const copies = Math.min(5, Math.max(1, Number(localCfg?.copies || 1)));
     const thermal = await sendEscPosToStation({
       station: stationKey,
       text: plain,
       copies,
+      width_mm: widthMm,
     });
     if (thermal.ok) {
       toast.success('Enviado a impresora térmica');
       return;
     }
-    toast.error(
-      thermal.error ||
-        'Configure la impresora en Menú → Impresora e instale el complemento Windows en este PC si imprime por red o cola Windows.'
-    );
+    toast.error(thermal.error || 'Revise Impresora en el menú y la configuración en el servidor (Windows + térmica).');
   };
 
   const loadOrders = async () => {
@@ -176,9 +121,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     if (!orderAppliesToStation(order, station)) return;
     const items = order.items || [];
     if (!items.length) return;
-    const titleBase = isBar ? 'Comandas de Bar' : 'Comandas de Cocina';
-    const title = `${titleBase} · Automático · #${order.order_number}`;
-    void printOrdersList([order], title, { silent: true });
+    /* Impresión automática: servidor (Print Bridge) en orderPrintHooks */
   };
 
   useSocket('new-order', (order) => handleKitchenIncomingOrder(order, 'Nuevo pedido'));
