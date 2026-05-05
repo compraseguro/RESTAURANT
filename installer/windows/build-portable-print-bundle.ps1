@@ -74,6 +74,17 @@ Copy-Item -LiteralPath $nodeExe -Destination (Join-Path $bundle 'node.exe') -For
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-Autostart.template.ps1') -Destination (Join-Path $bundle 'Install-Autostart.ps1') -Force
 
 @'
+# Lanzador para la Tarea programada (evita rutas con espacio en node.exe bajo Program Files).
+$ErrorActionPreference = "Stop"
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location -LiteralPath $here
+$node = Join-Path $here "node.exe"
+if (-not (Test-Path $node)) { throw "No se encontro node.exe en $here" }
+if (-not (Test-Path (Join-Path $here "server.js"))) { throw "No se encontro server.js en $here" }
+& $node @("server.js")
+'@ | Set-Content -Path (Join-Path $bundle 'Run-PrintService.ps1') -Encoding UTF8
+
+@'
 @echo off
 title Resto-FADEY impresion
 cd /d "%~dp0"
@@ -99,6 +110,9 @@ para la aplicación. Si hay varios usuarios en el equipo, cada uno puede necesit
 
 Si solo recibió esta carpeta (sin .exe): ejecute como administrador «Install-Autostart.ps1» una vez,
 o pida a su proveedor el instalador .exe.
+
+Si /health falla tras instalar: use «Iniciar-servicio-oculto.bat» o el acceso directo del menú Inicio;
+compruebe la tarea «RestoFadeyPrintService» en Programador de tareas.
 
 Prueba rápida en el navegador: http://127.0.0.1:3049/health (debe mostrar "ok").
 

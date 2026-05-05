@@ -17,7 +17,16 @@ Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction Silent
 # "EQUIPO\usuario" o "DOMINIO\usuario". Solo $env:USERNAME falla en PCs con dominio o cuentas Microsoft.
 $taskUserId = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
-$action = New-ScheduledTaskAction -Execute $node -Argument "`"$server`"" -WorkingDirectory $root
+# Importante: con instalación en "C:\Program Files\..." la ruta de node.exe lleva espacio.
+# Tarea programada con -Execute node.exe a veces queda rota (solo ejecuta "C:\Program").
+# Lanzamos vía PowerShell + Run-PrintService.ps1 (ruta entre comillas en -File).
+$psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$launcher = Join-Path $root 'Run-PrintService.ps1'
+if (-not (Test-Path $launcher)) {
+  Write-Error "No se encontro Run-PrintService.ps1 en $root. Reinstale el paquete de impresion."
+}
+$taskArgs = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcher`""
+$action = New-ScheduledTaskAction -Execute $psExe -Argument $taskArgs -WorkingDirectory $root
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 $principal = New-ScheduledTaskPrincipal -UserId $taskUserId -LogonType Interactive -RunLevel LeastPrivilege
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable

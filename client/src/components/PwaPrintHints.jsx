@@ -43,10 +43,7 @@ export default function PwaPrintHints() {
 
   useEffect(() => {
     const onInstalled = () => {
-      toast.success(
-        'Aplicación instalada. Abra Menú → Impresora, elija «USB desde el navegador / app» y pulse Vincular una vez con la térmica conectada.',
-        { duration: 10000 }
-      );
+      toast.success('App lista. Menú → Impresora → USB app → Vincular (una vez).', { duration: 7000 });
     };
     window.addEventListener('appinstalled', onInstalled);
     return () => window.removeEventListener('appinstalled', onInstalled);
@@ -83,51 +80,66 @@ export default function PwaPrintHints() {
 
       toast(
         (t) => (
-          <div className="text-sm text-gray-800 max-w-sm">
-            <p className="font-semibold text-gray-900 mb-1">App instalada en este equipo</p>
-            <p className="mb-2 leading-snug">
-              <strong>Solo USB directo:</strong> Menú → Impresora → «USB desde el navegador / app» → <strong>Vincular</strong> (una vez). No
-              hace falta el complemento Windows.
-            </p>
-            {!healthOk && installer ? (
-              <p className="mb-2 leading-snug">
-                <strong>Red / IP / cola Windows:</strong> hace falta el complemento en <strong>este mismo PC</strong>.{' '}
-                <a
-                  href={installer}
-                  className="text-sky-600 font-medium underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => toast.dismiss(t.id)}
-                >
-                  Descargar complemento
-                </a>
-                . Si ya lo instaló y sigue fallando, el servicio no está activo: abra{' '}
+          <div className="text-sm text-gray-800 max-w-xs">
+            <p className="font-semibold text-gray-900 mb-1.5">Impresión en esta PC</p>
+            <ul className="mb-2 list-disc pl-4 space-y-1 text-xs leading-snug">
+              <li>
+                <strong>USB app:</strong> Menú → Impresora → USB directo → Vincular. Sin .exe.
+              </li>
+              <li>
+                <strong>Red / COM / cola Windows:</strong> complemento en este PC (
+                <code className="text-[11px]">http://127.0.0.1:3049</code>
+                ).
+              </li>
+            </ul>
+            {!healthOk ? (
+              <p className="mb-2 text-xs text-amber-900 leading-snug rounded bg-amber-50 px-2 py-1.5 border border-amber-200">
+                El servicio en 3049 no responde (cerrado o no instalado).
+                {installer ? (
+                  <>
+                    {' '}
+                    <a
+                      href={installer}
+                      className="text-sky-700 font-medium underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => toast.dismiss(t.id)}
+                    >
+                      Descargar complemento
+                    </a>
+                    {' · '}
+                  </>
+                ) : null}
                 <a
                   href={`${base}/health`}
-                  className="text-sky-600 font-medium underline"
+                  className="text-sky-700 font-medium underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  comprobar servicio (3049)
-                </a>
-                .
-              </p>
-            ) : !healthOk ? (
-              <p className="mb-2 text-xs text-amber-900 leading-snug">
-                Red o Windows: instale el complemento en este PC. Si ya lo hizo y no imprime, revise firewall o reinicie sesión en Windows.
+                  Probar /health
+                </a>{' '}
+                (debe verse <code className="text-[10px]">ok: true</code>).
               </p>
             ) : null}
-            <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-gray-200">
+            <details className="text-[11px] text-gray-600 mb-2">
+              <summary className="cursor-pointer">Más ayuda</summary>
+              <p className="mt-1 pl-1 space-y-1">
+                Instaló el .exe pero sigue «rechazado»? En Windows: menú Inicio → carpeta Resto-FADEY → «impresión (inicio manual)»; luego
+                vuelva a probar /health. Si no arranca: Programador de tareas → tarea «RestoFadeyPrintService» → Ejecutar. Vuelva a instalar
+                con el .exe más reciente del sitio (corrige el arranque bajo Program Files).
+              </p>
+            </details>
+            <div className="flex flex-wrap gap-2 mt-1 pt-2 border-t border-gray-200">
               <button
                 type="button"
                 className="text-xs font-medium px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-800"
                 onClick={() => {
                   setSnoozeDays(30);
                   toast.dismiss(t.id);
-                  toast.success('Listo. Este aviso no volverá durante 30 días.', { duration: 4000 });
+                  toast.success('Aviso silenciado 30 días.', { duration: 4000 });
                 }}
               >
-                Entendido — no volver a mostrar 30 días
+                No mostrar 30 días
               </button>
               <button
                 type="button"
@@ -139,7 +151,7 @@ export default function PwaPrintHints() {
             </div>
           </div>
         ),
-        { duration: 25000, id: 'pwa-print-hints-main' }
+        { duration: 22000, id: 'pwa-print-hints-main' }
       );
     })();
 
