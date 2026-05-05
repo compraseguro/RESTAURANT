@@ -17,7 +17,8 @@ function legacyConnectionToPrinterType(p) {
   const ip = String(p?.ip_address || '').trim();
   const conn = String(p?.connection || 'browser').toLowerCase();
   const explicit = String(p?.printer_type || '').toLowerCase().trim();
-  if (['lan', 'usb', 'bluetooth', 'browser'].includes(explicit)) return explicit;
+  if (conn === 'agent' || explicit === 'agent') return 'agent';
+  if (['lan', 'usb', 'bluetooth', 'browser', 'agent'].includes(explicit)) return explicit;
   if (ip || conn === 'wifi') return 'lan';
   return 'browser';
 }

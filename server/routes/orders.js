@@ -6,6 +6,7 @@ const { assertPaymentMethodAllowed } = require('../businessRules');
 const { getOrderWithItems, createOrderInTransaction, replaceOrderLinesInTransaction, actorFromRequest } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
 const { resolveRestaurantId, listPrinterRoutes } = require('../printerRoutesService');
+const { dispatchPrintAgentKitchenJobs } = require('../printAgentDispatch');
 
 const router = express.Router();
 const ORDER_TRANSITIONS = {
@@ -254,6 +255,7 @@ router.put('/:id/lines', authenticateToken, requireRole('admin', 'cajero', 'mozo
       /** Cocina/bar: mismo efecto que pedido nuevo para impresión automática (ítems añadidos a mesa existente). */
       io.emit('order-lines-updated', order);
     }
+    dispatchPrintAgentKitchenJobs(req.app, order, 'Comanda actualizada');
     res.json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo actualizar el pedido' });
@@ -311,6 +313,7 @@ router.post('/', authenticateToken, (req, res) => {
     const order = getOrderWithItems(result.orderId);
     const io = req.app.get('io');
     if (io) { io.emit('new-order', order); io.emit('order-update', order); }
+    dispatchPrintAgentKitchenJobs(req.app, order, 'Nuevo pedido');
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo crear el pedido' });

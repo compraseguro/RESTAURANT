@@ -17,9 +17,10 @@ import {
   MdLabel, MdDoNotDisturb, MdCategory, MdHistory,
   MdSecurity, MdDashboard, MdEventSeat, MdDeliveryDining, MdPhotoCamera,
   MdAssessment, MdInsights, MdLocalOffer, MdDiscount,
-  MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette,
+  MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette, MdPrint,
 } from 'react-icons/md';
 import { UI_THEME_OPTIONS, applyUiTheme, getValidUiThemeId } from '../../theme/uiTheme';
+import PrintAgentSettingsSection from '../../components/PrintAgentSettingsSection';
 
 const ALL_MODULES = [
   { id: 'escritorio', label: 'Escritorio', icon: MdDashboard, defaultRoles: ['admin', 'cajero'] },
@@ -75,6 +76,7 @@ const MENU_ITEMS = [
   { id: 'categoria_anular', label: 'Categoría Anular Venta', icon: MdDoNotDisturb },
   { id: 'formas_pago', label: 'Formas de pago', icon: MdPayment },
   { id: 'apariencia', label: 'Apariencia', icon: MdPalette },
+  { id: 'print_agent', label: 'Print Agent', icon: MdPrint },
   { id: 'config_historial', label: 'Historial de configuración', icon: MdHistory },
 ];
 const PARTIAL_SECTIONS = new Set([
@@ -820,6 +822,8 @@ export default function Settings() {
             </span>
           )}
         </div>
+        {activeSection === 'print_agent' && <PrintAgentSettingsSection />}
+
         {activeSection === 'apariencia' && (
           <div className="max-w-3xl space-y-4">
             <div className="card">

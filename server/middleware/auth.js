@@ -118,4 +118,35 @@ function optionalAuth(req, res, next) {
   next();
 }
 
-module.exports = { authenticateToken, requireRole, optionalAuth, JWT_SECRET };
+function signPrintAgentToken({ restaurantId, deviceId, deviceLabel }, expiresIn = '365d') {
+  return jwt.sign(
+    {
+      type: 'print_agent',
+      restaurant_id: String(restaurantId || '').trim(),
+      device_id: String(deviceId || '').trim(),
+      device_label: String(deviceLabel || 'Equipo').trim().slice(0, 120),
+    },
+    JWT_SECRET,
+    { expiresIn }
+  );
+}
+
+function verifyPrintAgentToken(token) {
+  const d = jwt.verify(String(token || ''), JWT_SECRET);
+  if (d.type !== 'print_agent') {
+    throw new Error('Token no es de Print Agent');
+  }
+  if (!String(d.restaurant_id || '').trim() || !String(d.device_id || '').trim()) {
+    throw new Error('Token de agente incompleto');
+  }
+  return d;
+}
+
+module.exports = {
+  authenticateToken,
+  requireRole,
+  optionalAuth,
+  JWT_SECRET,
+  signPrintAgentToken,
+  verifyPrintAgentToken,
+};
