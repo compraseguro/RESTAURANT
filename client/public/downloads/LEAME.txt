@@ -1,7 +1,1 @@
 Carpeta reservada para descargas del sitio.
-
-La impresión ESC/POS está integrada en el servidor Node (módulo server/printing y rutas /api/printing).
-Ya no se distribuye aquí un .exe de microservicio separado.
-
-Para producción en el local: ejecute la API en el mismo PC Windows que las térmicas y configure
-las impresoras en la aplicación (menú Impresora).

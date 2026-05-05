@@ -1,4 +1,4 @@
-/** Texto plano para impresoras térmicas por red (ESC/POS vía TCP). */
+/** Texto plano monoespaciado para tickets (ancho tipo rollo 58/80 mm). */
 
 import { formatDateTime, labelDeliveryPaymentModality } from './api';
 
@@ -9,7 +9,7 @@ export function orderHasTakeoutNote(order) {
   return String(order?.notes || '').toUpperCase().includes(KITCHEN_TAKEOUT_NOTE);
 }
 
-/** Anchos de carácter típicos para papel 58 mm vs 80 mm (fuente estándar ESC/POS). */
+/** Anchos de carácter típicos para papel 58 mm vs 80 mm. */
 export function thermalPaperMetrics(widthMm) {
   const narrow = Number(widthMm) <= 58;
   return {
@@ -191,7 +191,7 @@ export function buildKitchenTicketPlainText({
   return blocks.join('\n');
 }
 
-/** Texto plano para precuenta en impresora térmica de caja (ESC/POS). */
+/** Texto plano para precuenta de caja. */
 export function buildPrecuentaPlainText({
   restaurantName = '',
   tableName = '',
@@ -232,7 +232,7 @@ export function buildPrecuentaPlainText({
   return lines.join('\n');
 }
 
-/** Texto plano para nota de venta en térmica. */
+/** Texto plano para nota de venta. */
 export function buildNotaVentaPlainText({
   restaurantName = '',
   docLine = '',

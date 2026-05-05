@@ -2,8 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
 import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote, buildPrecuentaPlainText, buildNotaVentaPlainText } from '../../utils/ticketPlainText';
-import { sendEscPosToCaja } from '../../utils/cajaThermalPrint';
-import { getStationPrintPrefs } from '../../services/printBridge';
+import { printPlainTextInBrowser } from '../../utils/browserPlainTextPrint';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -693,7 +692,6 @@ export default function POSPanel() {
   const handlePrint = async () => {
     const content = printRef.current;
     if (!content) return;
-    const { copies } = await getStationPrintPrefs('caja');
     const textForPrint = String(content.innerText || content.textContent || '')
       .replace(/\r\n/g, '\n')
       .trim()
@@ -702,18 +700,9 @@ export default function POSPanel() {
       toast.error('No hay contenido para imprimir');
       return;
     }
-    const thermal = await sendEscPosToCaja({
-      text: textForPrint,
-      copies,
-    });
-    if (thermal.ok) {
-      toast.success('Arqueo enviado a la impresora de caja');
-      return;
-    }
-    toast.error(
-      thermal.error ||
-        'Configure la impresora de caja en Menú → Impresora. En Windows, instale el complemento en este PC si imprime por red o cola Windows (enlace en ese panel).'
-    );
+    const r = printPlainTextInBrowser(textForPrint, 'Arqueo de caja', { widthMm: 80, copies: 1 });
+    if (r.ok) toast.success('Abriendo ventana de impresión');
+    else toast.error(r.error || 'No se pudo imprimir');
   };
 
   const resetBillingForm = () => {
@@ -1524,7 +1513,8 @@ export default function POSPanel() {
       billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
       billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
     ].filter(Boolean);
-    const { widthMm, copies } = await getStationPrintPrefs('caja');
+    const widthMm = 80;
+    const copies = 1;
     const plain = buildPrecuentaPlainText({
       restaurantName,
       tableName: selectedTable.name,
@@ -1538,19 +1528,9 @@ export default function POSPanel() {
       payableTotal,
       widthMm,
     });
-    const thermal = await sendEscPosToCaja({
-      text: plain,
-      copies,
-      width_mm: widthMm,
-    });
-    if (thermal.ok) {
-      toast.success('Precuenta enviada a la impresora de caja');
-      return;
-    }
-    toast.error(
-      thermal.error ||
-        'Configure la impresora de caja en Menú → Impresora. En Windows, instale el complemento en este PC si imprime por red o cola Windows (enlace en ese panel).'
-    );
+    const r = printPlainTextInBrowser(plain, 'Precuenta', { widthMm, copies });
+    if (r.ok) toast.success('Abriendo ventana de impresión');
+    else toast.error(r.error || 'No se pudo imprimir');
   };
 
   const printNotaVenta = async ({ tableName, orders, docs, customer }) => {
@@ -1564,7 +1544,8 @@ export default function POSPanel() {
       customer?.phone && `Tel: ${customer.phone}`,
       customer?.address && `Dir: ${customer.address}`,
     ].filter(Boolean);
-    const { widthMm, copies } = await getStationPrintPrefs('caja');
+    const widthMm = 80;
+    const copies = 1;
     const plain = buildNotaVentaPlainText({
       restaurantName,
       docLine: docText,
@@ -1576,19 +1557,9 @@ export default function POSPanel() {
       total,
       widthMm,
     });
-    const thermal = await sendEscPosToCaja({
-      text: plain,
-      copies,
-      width_mm: widthMm,
-    });
-    if (thermal.ok) {
-      toast.success('Nota de venta enviada a la impresora de caja');
-      return;
-    }
-    toast.error(
-      thermal.error ||
-        'Configure la impresora de caja en Menú → Impresora. En Windows, instale el complemento en este PC si imprime por red o cola Windows (enlace en ese panel).'
-    );
+    const r = printPlainTextInBrowser(plain, 'Nota de venta', { widthMm, copies });
+    if (r.ok) toast.success('Abriendo ventana de impresión');
+    else toast.error(r.error || 'No se pudo imprimir');
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
@@ -1745,7 +1716,8 @@ export default function POSPanel() {
       billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
       billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
     ].filter(Boolean);
-    const { widthMm, copies } = await getStationPrintPrefs('caja');
+    const widthMm = 80;
+    const copies = 1;
     const plain = buildPrecuentaPlainText({
       restaurantName,
       tableName: table.name,
@@ -1759,19 +1731,9 @@ export default function POSPanel() {
       payableTotal: tableTotal,
       widthMm,
     });
-    const thermal = await sendEscPosToCaja({
-      text: plain,
-      copies,
-      width_mm: widthMm,
-    });
-    if (thermal.ok) {
-      toast.success('Precuenta enviada a la impresora de caja');
-      return;
-    }
-    toast.error(
-      thermal.error ||
-        'Configure la impresora de caja en Menú → Impresora. En Windows, instale el complemento en este PC si imprime por red o cola Windows (enlace en ese panel).'
-    );
+    const r = printPlainTextInBrowser(plain, 'Precuenta', { widthMm, copies });
+    if (r.ok) toast.success('Abriendo ventana de impresión');
+    else toast.error(r.error || 'No se pudo imprimir');
   };
   const chargeReservation = async (entry) => {
     const orders = entry?.linkedOrders || [];

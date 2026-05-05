@@ -1,17 +1,12 @@
 import { useState, useEffect } from 'react';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
-import { buildSimpleComandaPlainText } from '../../utils/ticketPlainText';
-import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
-import { orderAppliesToStation } from '../../utils/stationKitchenPrint';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
 import EndShiftModal from '../../components/EndShiftModal';
 import NotificationCenter from '../../components/NotificationCenter';
-import Modal from '../../components/Modal';
-import StationPrinterCard from '../../components/StationPrinterCard';
-import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime, MdPrint } from 'react-icons/md';
+import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -26,7 +21,6 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
   const { user } = useAuth();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
-  const [printerModalOpen, setPrinterModalOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const emit = useSocketEmit();
@@ -59,36 +53,6 @@ export default function KitchenPanel({ station = 'cocina' }) {
     }
   };
 
-  /** Reimpresión manual de comanda (auto la hace el servidor al crear/actualizar líneas). */
-  const printSimpleComanda = async (order) => {
-    if (!order?.id) return;
-    const stationKey = isBar ? 'bar' : 'cocina';
-    let widthMm = 80;
-    let copies = 1;
-    try {
-      const pc = await api.get('/printing/config');
-      const s = pc[stationKey];
-      if (s) {
-        widthMm = [58, 80].includes(Number(s.widthMm)) ? Number(s.widthMm) : 80;
-        copies = Math.min(5, Math.max(1, Number(s.copies || 1)));
-      }
-    } catch (_) {
-      /* default */
-    }
-    const plain = buildSimpleComandaPlainText(order, new Date(), widthMm);
-    const thermal = await sendEscPosToStation({
-      station: stationKey,
-      text: plain,
-      copies,
-      width_mm: widthMm,
-    });
-    if (thermal.ok) {
-      toast.success('Enviado a impresora térmica');
-      return;
-    }
-    toast.error(thermal.error || 'Revise Impresora en el menú y la configuración en el servidor (Windows + térmica).');
-  };
-
   const loadOrders = async () => {
     try {
       const qs = new URLSearchParams();
@@ -116,12 +80,11 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const handleKitchenIncomingOrder = (order, toastLabel) => {
     loadOrders();
     playStationAlert();
-    toast.success(`${toastLabel} #${order.order_number} (${isBar ? 'bar' : 'cocina'})`, { icon: '🔔', duration: 5000 });
-    if (!order) return;
-    if (!orderAppliesToStation(order, station)) return;
-    const items = order.items || [];
-    if (!items.length) return;
-    /* Impresión automática: servidor (Print Bridge) en orderPrintHooks */
+    const num = order?.order_number;
+    toast.success(
+      num != null ? `${toastLabel} #${num} (${isBar ? 'bar' : 'cocina'})` : toastLabel,
+      { icon: '🔔', duration: 5000 }
+    );
   };
 
   useSocket('new-order', (order) => handleKitchenIncomingOrder(order, 'Nuevo pedido'));
@@ -180,14 +143,6 @@ export default function KitchenPanel({ station = 'cocina' }) {
                 {f.l}
               </button>
             ))}
-            <button
-              type="button"
-              onClick={() => setPrinterModalOpen(true)}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] border border-[color:var(--ui-border)] inline-flex items-center justify-center gap-1.5"
-            >
-              <MdPrint className="text-base shrink-0" />
-              Impresora
-            </button>
           </div>
           {canReturnToAdmin && (
             <button onClick={() => navigate('/admin')} className="px-3 py-2 bg-[var(--ui-accent)] hover:bg-[var(--ui-accent-hover)] rounded-lg text-white border border-[color:var(--ui-border)] text-sm font-medium">
@@ -201,15 +156,6 @@ export default function KitchenPanel({ station = 'cocina' }) {
         </div>
       </header>
       <EndShiftModal isOpen={endShiftOpen} onClose={() => setEndShiftOpen(false)} />
-
-      <Modal
-        isOpen={printerModalOpen}
-        onClose={() => setPrinterModalOpen(false)}
-        title={isBar ? 'Impresora de bar' : 'Impresora de cocina'}
-        size="lg"
-      >
-        <StationPrinterCard station={isBar ? 'bar' : 'cocina'} userRole={user?.role} hideHeading embedded />
-      </Modal>
 
       <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {orders.map(order => {
@@ -293,34 +239,23 @@ export default function KitchenPanel({ station = 'cocina' }) {
               </div>
 
               <div className="px-4 py-3 border-t border-[color:var(--ui-border)]">
-                <div className="flex gap-2 items-center">
+                {order.status === 'pending' ? (
                   <button
                     type="button"
-                    title="Imprimir comanda"
-                    aria-label="Imprimir comanda"
-                    onClick={() => void printSimpleComanda(order)}
-                    className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] transition-colors"
+                    onClick={() => updateStatus(order.id, 'preparing')}
+                    className="w-full py-2.5 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
                   >
-                    <MdPrint className="text-xl text-[var(--ui-accent-muted)]" />
+                    <StationIcon /> PREPARAR
                   </button>
-                  {order.status === 'pending' ? (
-                    <button
-                      type="button"
-                      onClick={() => updateStatus(order.id, 'preparing')}
-                      className="flex-1 min-w-0 py-2.5 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
-                    >
-                      <StationIcon /> PREPARAR
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => updateStatus(order.id, 'ready')}
-                      className="flex-1 min-w-0 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
-                    >
-                      <MdCheckCircle /> LISTO
-                    </button>
-                  )}
-                </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => updateStatus(order.id, 'ready')}
+                    className="w-full py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                  >
+                    <MdCheckCircle /> LISTO
+                  </button>
+                )}
               </div>
             </div>
           );

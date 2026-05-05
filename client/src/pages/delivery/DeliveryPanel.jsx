@@ -19,9 +19,7 @@ import {
 } from 'react-icons/md';
 import { buildGoogleMapsSearchUrl } from '../../utils/googleMaps';
 import { buildDeliveryReportPlainText } from '../../utils/ticketPlainText';
-import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
-import { getStationPrintPrefs } from '../../services/printBridge';
-import StationPrinterCard from '../../components/StationPrinterCard';
+import { printPlainTextInBrowser } from '../../utils/browserPlainTextPrint';
 
 function parseApiDateLike(value) {
   if (!value) return null;
@@ -149,21 +147,9 @@ export default function DeliveryPanel() {
       orders: completadosHoy,
       formatCurrencyFn: formatCurrency,
     });
-    const { copies, widthMm } = await getStationPrintPrefs('delivery');
-    const thermal = await sendEscPosToStation({
-      station: 'delivery',
-      text: plain,
-      copies,
-      width_mm: widthMm,
-    });
-    if (thermal.ok) {
-      toast.success('Reporte enviado a la impresora');
-      return;
-    }
-    toast.error(
-      thermal.error ||
-        'Configure la impresora de delivery en Menú → Impresora. En Windows, instale el complemento en este PC si imprime por red o cola Windows (enlace en ese panel).'
-    );
+    const r = printPlainTextInBrowser(plain, 'Reporte de reparto', { widthMm: 80, copies: 1 });
+    if (r.ok) toast.success('Abriendo ventana de impresión');
+    else toast.error(r.error || 'No se pudo imprimir');
   }, [completadosHoy, user?.full_name]);
 
   const openEndShiftFlow = () => {
@@ -365,10 +351,6 @@ export default function DeliveryPanel() {
           </div>
         )}
       </main>
-
-      <div className="px-3 sm:px-4 pb-6 max-w-lg mx-auto w-full">
-        <StationPrinterCard station="delivery" userRole={user?.role} embedded />
-      </div>
 
       <Modal
         isOpen={reportGateOpen}

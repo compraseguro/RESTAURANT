@@ -177,7 +177,6 @@ app.use('/api/restaurant', require('./routes/restaurant'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
-app.use('/api/printing', require('./routes/printing'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/staff-chat', require('./routes/staffChat'));

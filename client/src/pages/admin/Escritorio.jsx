@@ -1,9 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { api, formatCurrency, formatDateTime, parseApiDate, toLocalDateKey, PAYMENT_METHODS } from '../../utils/api';
-import { buildKitchenTicketPlainText, orderHasTakeoutNote } from '../../utils/ticketPlainText';
-import { sendEscPosToStation } from '../../utils/cajaThermalPrint';
-import { getStationPrintPrefs } from '../../services/printBridge';
+import { orderHasTakeoutNote } from '../../utils/ticketPlainText';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useNavigate } from 'react-router-dom';
@@ -321,25 +319,10 @@ export default function Escritorio() {
       return true;
     });
     if (!source.length) return;
-    const stationKey = station === 'bar' ? 'bar' : 'cocina';
-    const { widthMm: width, copies } = await getStationPrintPrefs(stationKey);
-    const ticketWidth = width === 58 ? '54mm' : '76mm';
+    const width = 80;
+    const copies = 1;
+    const ticketWidth = '76mm';
     const title = `${station === 'bar' ? 'Comandas pendientes - Bar' : 'Comandas pendientes - Cocina'} · ${scope === 'delivery' ? 'Delivery' : scope === 'salon' ? 'Mesas/Salón' : 'Todas'}`;
-    const plain = buildKitchenTicketPlainText({
-      restaurant: restaurantInfo,
-      title,
-      orders: source,
-      copies: 1,
-      widthMm: width,
-    });
-    const thermal = await sendEscPosToStation({ station: stationKey, text: plain, copies, width_mm: width });
-    if (thermal.ok) {
-      toast.success('Enviado a impresora térmica');
-      return;
-    }
-    if (thermal.error) {
-      toast.error(`${thermal.error} Abriendo impresión del navegador…`, { duration: 5000 });
-    }
     const content = source.map((order) => {
       const items = (order.items || [])
         .map((item) => `<li>${item.quantity}x ${item.product_name}${item.notes ? ` - ${item.notes}` : ''}</li>`)

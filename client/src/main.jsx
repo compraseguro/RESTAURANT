@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
-import PwaPrintHints from './components/PwaPrintHints';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
@@ -48,7 +47,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <CartProvider>
             <App />
             <PwaInstallPrompt />
-            <PwaPrintHints />
             <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
           </CartProvider>
         </AuthProvider>
