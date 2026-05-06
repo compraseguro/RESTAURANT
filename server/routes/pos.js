@@ -5,6 +5,7 @@ const kardexInventory = require('../services/kardexInventoryService');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { assertPaymentMethodAllowed, normalizePaymentMethod } = require('../businessRules');
 const { getActiveCajaById, listCajasWithIds } = require('../cajaSettings');
+const { print } = require('../printing/printerService');
 
 const router = express.Router();
 
@@ -521,6 +522,13 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
       resourceId: paidOrders.map(o => o.id).join(','),
       details: { order_count: paidOrders.length, payment_method: paymentMethod },
     });
+    const paidItems = paidOrders.flatMap((o) => (Array.isArray(o.items) ? o.items : []));
+    print('caja', {
+      title: 'VENTA CERRADA',
+      mesa: paidOrders[0]?.table_number || '',
+      items: paidItems,
+      text: `Pedidos cobrados: ${paidOrders.length}`,
+    }).catch((err) => console.error('[printing] caja cierre:', err.message || err));
     res.json({ success: true, orders: paidOrders });
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo cobrar la mesa' });

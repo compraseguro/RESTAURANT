@@ -51,8 +51,13 @@ const CAJA_OPTIONS = [
   { id: 'consulta_precios', label: 'Consulta de precios' },
 ];
 
-function disabledAction() {
-  return { ok: false, error: 'Función deshabilitada' };
+async function printCajaTicket(payload) {
+  try {
+    await api.post('/printing/print/caja', payload);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message || 'No se pudo imprimir' };
+  }
 }
 
 const WAREHOUSE_CATEGORY_NAMES = new Set(['PRODUCTOS ALMACEN', 'INSUMOS']);
@@ -703,7 +708,12 @@ export default function POSPanel() {
       toast.error('No hay contenido para imprimir');
       return;
     }
-    const r = disabledAction();
+    const r = await printCajaTicket({
+      title: 'PRE CUENTA',
+      mesa: selectedTable.name,
+      items: groupedPrecuenta.map((row) => ({ quantity: row.qty, name: row.name })),
+      text: plain,
+    });
     if (r.ok) toast.success('Acción completada');
     else toast.error(r.error || 'No se pudo imprimir');
   };
@@ -1531,7 +1541,12 @@ export default function POSPanel() {
       payableTotal,
       widthMm,
     });
-    const r = disabledAction();
+    const r = await printCajaTicket({
+      title: 'NOTA DE VENTA',
+      mesa: tableName || '',
+      items: groupedNota.map((row) => ({ quantity: row.qty, name: row.name })),
+      text: plain,
+    });
     if (r.ok) toast.success('Acción completada');
     else toast.error(r.error || 'No se pudo imprimir');
   };
@@ -1560,7 +1575,12 @@ export default function POSPanel() {
       total,
       widthMm,
     });
-    const r = disabledAction();
+    const r = await printCajaTicket({
+      title: 'PRE CUENTA',
+      mesa: table.name,
+      items: groupedTable.map((row) => ({ quantity: row.qty, name: row.name })),
+      text: plain,
+    });
     if (r.ok) toast.success('Acción completada');
     else toast.error(r.error || 'No se pudo imprimir');
   };
@@ -1734,7 +1754,12 @@ export default function POSPanel() {
       payableTotal: tableTotal,
       widthMm,
     });
-    const r = disabledAction();
+    const r = await printCajaTicket({
+      title: 'PRE CUENTA',
+      mesa: table.name,
+      items: groupedTable.map((row) => ({ quantity: row.qty, name: row.name })),
+      text: plain,
+    });
     if (r.ok) toast.success('Acción completada');
     else toast.error(r.error || 'No se pudo imprimir');
   };

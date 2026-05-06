@@ -5,6 +5,8 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { assertPaymentMethodAllowed } = require('../businessRules');
 const { getOrderWithItems, createOrderInTransaction, replaceOrderLinesInTransaction, actorFromRequest } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
+const { loadConfig } = require('../printing/printerConfig');
+const { print } = require('../printing/printerService');
 
 const router = express.Router();
 const ORDER_TRANSITIONS = {
@@ -49,6 +51,33 @@ function isBarItemRow(item) {
 function isBarOnlyOrder(items = []) {
   if (!Array.isArray(items) || items.length === 0) return false;
   return items.every(isBarItemRow);
+}
+
+async function autoPrintKitchenBar(order) {
+  try {
+    const cfg = loadConfig();
+    const items = Array.isArray(order?.items) ? order.items : [];
+    const barItems = items.filter(isBarItemRow);
+    const kitchenItems = items.filter((it) => !isBarItemRow(it));
+    if (cfg.cocina?.autoPrint && kitchenItems.length > 0) {
+      await print('cocina', {
+        title: 'COMANDA COCINA',
+        mesa: order?.table_number || '',
+        orderNumber: order?.order_number,
+        items: kitchenItems,
+      });
+    }
+    if (cfg.bar?.autoPrint && barItems.length > 0) {
+      await print('bar', {
+        title: 'COMANDA BAR',
+        mesa: order?.table_number || '',
+        orderNumber: order?.order_number,
+        items: barItems,
+      });
+    }
+  } catch (err) {
+    console.error('[printing] auto cocina/bar:', err.message || err);
+  }
 }
 
 /** Ítems con production_area (Escritorio, listados, etc.) */
@@ -220,6 +249,7 @@ router.put('/:id/lines', authenticateToken, requireRole('admin', 'cajero', 'mozo
       /** Cocina/bar: mismo efecto que pedido nuevo para impresión automática (ítems añadidos a mesa existente). */
       io.emit('order-lines-updated', order);
     }
+    autoPrintKitchenBar(order);
     res.json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo actualizar el pedido' });
@@ -277,6 +307,7 @@ router.post('/', authenticateToken, (req, res) => {
     const order = getOrderWithItems(result.orderId);
     const io = req.app.get('io');
     if (io) { io.emit('new-order', order); io.emit('order-update', order); }
+    autoPrintKitchenBar(order);
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo crear el pedido' });

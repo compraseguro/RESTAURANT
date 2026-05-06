@@ -186,6 +186,7 @@ app.use('/api/pos', require('./routes/pos'));
 app.use('/api/delivery', require('./routes/delivery'));
 app.use('/api/tables', require('./routes/tables'));
 app.use('/api/admin-modules', require('./routes/adminModules'));
+app.use('/api/printing', require('./routes/printing'));
 app.use('/api/master-admin', require('./routes/masterAdmin'));
 const billingRoutes = require('./routes/billing');
 app.use('/api/billing', billingRoutes);
