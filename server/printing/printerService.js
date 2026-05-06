@@ -1,6 +1,7 @@
 const net = require('net');
 const { loadConfig } = require('./printerConfig');
 const { buildTicket } = require('./escposBuilder');
+const { getPrinters } = require('./printerDetector');
 
 let printerLib = null;
 try {
@@ -41,19 +42,76 @@ function printRed(ip, port, buffer) {
   }
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
-    socket.setTimeout(5000);
+    socket.setTimeout(3000);
     socket.connect(safePort, host, () => {
       socket.write(buffer);
       socket.end();
     });
     socket.on('error', (err) => {
+      console.error('[printing] error red:', err.message || err);
       reject(new Error(`error de conexión: ${err.message}`));
     });
     socket.on('timeout', () => {
       socket.destroy();
+      console.error('[printing] error red: timeout');
       reject(new Error('error de conexión: timeout'));
     });
     socket.on('close', () => resolve({ ok: true }));
+  });
+}
+
+function checkRed(ip, port) {
+  const host = String(ip || '').trim();
+  const safePort = Number(port || 9100);
+  if (!isValidIp(host)) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      try { socket.destroy(); } catch (_) { /* noop */ }
+      resolve(ok);
+    };
+    socket.setTimeout(3000);
+    socket.connect(safePort, host, () => finish(true));
+    socket.on('error', () => finish(false));
+    socket.on('timeout', () => finish(false));
+  });
+}
+
+async function getPrinterStatus(moduleName) {
+  const moduleKey = String(moduleName || '').toLowerCase();
+  if (!['caja', 'cocina', 'bar'].includes(moduleKey)) {
+    throw new Error('módulo inválido para estado de impresora');
+  }
+  const cfg = loadConfig();
+  const moduleCfg = cfg[moduleKey];
+  if (moduleCfg.tipo === 'usb') {
+    const printers = getPrinters();
+    const connected = printers.some((p) => String(p.name || '').trim() === String(moduleCfg.nombre || '').trim());
+    return {
+      module: moduleKey,
+      tipo: 'usb',
+      connected,
+      status: connected ? 'Conectada' : 'No disponible',
+    };
+  }
+  const connected = await checkRed(moduleCfg.ip, moduleCfg.puerto);
+  return {
+    module: moduleKey,
+    tipo: 'red',
+    connected,
+    status: connected ? 'Conectada' : 'No disponible',
+  };
+}
+
+async function printTest(moduleName) {
+  const moduleKey = String(moduleName || '').toLowerCase();
+  const moduleLabel = moduleKey === 'caja' ? 'Caja' : moduleKey === 'cocina' ? 'Cocina' : 'Bar';
+  return print(moduleKey, {
+    title: 'TEST RESTO FADEY',
+    text: `Modulo: ${moduleLabel}\n${new Date().toLocaleString('es-PE')}`,
   });
 }
 
@@ -64,14 +122,28 @@ async function print(moduleName, data = {}) {
   }
   const cfg = loadConfig();
   const moduleCfg = cfg[moduleKey];
-  const ticket = buildTicket(moduleKey, data);
+  const ticket = buildTicket(moduleKey, data, { paperWidth: moduleCfg.anchoPapel || 80 });
+  const target = moduleCfg.tipo === 'usb'
+    ? moduleCfg.nombre
+    : `${moduleCfg.ip}:${moduleCfg.puerto}`;
+  console.log(`[printing] módulo=${moduleKey} tipo=${moduleCfg.tipo} impresora=${target}`);
 
   if (moduleCfg.tipo === 'usb') {
-    await printUsb(moduleCfg.nombre, ticket);
+    try {
+      await printUsb(moduleCfg.nombre, ticket);
+    } catch (err) {
+      console.error(`[printing] error módulo=${moduleKey} tipo=usb impresora=${moduleCfg.nombre}:`, err.message || err);
+      throw err;
+    }
     return { ok: true, via: 'usb', module: moduleKey };
   }
-  await printRed(moduleCfg.ip, moduleCfg.puerto, ticket);
+  try {
+    await printRed(moduleCfg.ip, moduleCfg.puerto, ticket);
+  } catch (err) {
+    console.error(`[printing] error módulo=${moduleKey} tipo=red impresora=${moduleCfg.ip}:${moduleCfg.puerto}:`, err.message || err);
+    throw err;
+  }
   return { ok: true, via: 'red', module: moduleKey };
 }
 
-module.exports = { print, isValidIp };
+module.exports = { print, printTest, getPrinterStatus, isValidIp };

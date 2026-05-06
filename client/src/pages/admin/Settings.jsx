@@ -280,12 +280,17 @@ export default function Settings() {
   const [attendanceGalleryDraft, setAttendanceGalleryDraft] = useState({});
   const [attendanceGallerySaving, setAttendanceGallerySaving] = useState(false);
   const [printingConfig, setPrintingConfig] = useState({
-    caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true },
-    cocina: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true },
-    bar: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true },
+    caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
+    cocina: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
+    bar: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
   });
   const [detectedPrinters, setDetectedPrinters] = useState([]);
   const [printingBusy, setPrintingBusy] = useState(false);
+  const [printerStatus, setPrinterStatus] = useState({
+    caja: { status: 'No disponible', connected: false },
+    cocina: { status: 'No disponible', connected: false },
+    bar: { status: 'No disponible', connected: false },
+  });
   const { user: currentUser } = useAuth();
   const autoSaveTimerRef = useRef(null);
   const historySearchTimerRef = useRef(null);
@@ -336,21 +341,63 @@ export default function Settings() {
         toast.error('No se pudo cargar configuración de impresoras');
       });
   };
+  const isValidIp = (value) => /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(String(value || '').trim());
+  const refreshPrinterStatus = () => {
+    ['caja', 'cocina', 'bar'].forEach((moduleKey) => {
+      api.get(`/printing/status/${moduleKey}`)
+        .then((data) => {
+          setPrinterStatus((prev) => ({
+            ...prev,
+            [moduleKey]: {
+              status: data?.status || 'No disponible',
+              connected: Boolean(data?.connected),
+            },
+          }));
+        })
+        .catch(() => {
+          setPrinterStatus((prev) => ({
+            ...prev,
+            [moduleKey]: { status: 'No disponible', connected: false },
+          }));
+        });
+    });
+  };
   const detectUsbPrinters = () => {
     setPrintingBusy(true);
     api.get('/printing/printers')
       .then((data) => {
         setDetectedPrinters(Array.isArray(data?.printers) ? data.printers : []);
+        refreshPrinterStatus();
       })
       .catch((err) => toast.error(err.message || 'No se pudo detectar impresoras'))
       .finally(() => setPrintingBusy(false));
   };
+  const printTestByModule = (moduleKey) => {
+    setPrintingBusy(true);
+    api.post(`/printing/test/${moduleKey}`, {})
+      .then(() => {
+        toast.success(`Prueba enviada a ${moduleKey}`);
+        refreshPrinterStatus();
+      })
+      .catch((err) => toast.error(err.message || 'No se pudo imprimir prueba'))
+      .finally(() => setPrintingBusy(false));
+  };
   const savePrintingConfig = () => {
+    const invalid = ['caja', 'cocina', 'bar'].find((moduleKey) => {
+      const cfg = printingConfig?.[moduleKey] || {};
+      if (String(cfg.tipo || 'usb') !== 'red') return false;
+      return !isValidIp(cfg.ip);
+    });
+    if (invalid) {
+      toast.error(`IP inválida en ${invalid}. No se guardó la configuración.`);
+      return;
+    }
     setPrintingBusy(true);
     api.put('/printing/config', printingConfig)
       .then((saved) => {
         if (saved && typeof saved === 'object') setPrintingConfig(saved);
         toast.success('Configuración de impresoras guardada');
+        refreshPrinterStatus();
       })
       .catch((err) => toast.error(err.message || 'No se pudo guardar'))
       .finally(() => setPrintingBusy(false));
@@ -377,7 +424,7 @@ export default function Settings() {
       .finally(() => setSettingsHistoryLoading(false));
   };
 
-  useEffect(() => { loadUsers(); loadRestaurant(); loadAppSettings(); loadPrintingConfig(); }, []);
+  useEffect(() => { loadUsers(); loadRestaurant(); loadAppSettings(); loadPrintingConfig(); refreshPrinterStatus(); }, []);
 
   useEffect(() => {
     if (!attendanceGalleryUserId) {
@@ -1243,9 +1290,23 @@ export default function Settings() {
                         <option value="red">Red</option>
                       </select>
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Ancho de papel</label>
+                      <select
+                        className="input-field"
+                        value={Number(cfg.anchoPapel || 80)}
+                        onChange={(e) => setPrintingConfig((prev) => ({
+                          ...prev,
+                          [moduleKey]: { ...(prev[moduleKey] || {}), anchoPapel: Number(e.target.value) === 58 ? 58 : 80 },
+                        }))}
+                      >
+                        <option value={58}>58 mm</option>
+                        <option value={80}>80 mm</option>
+                      </select>
+                    </div>
 
                     {(cfg.tipo || 'usb') === 'usb' ? (
-                      <div className="md:col-span-2">
+                      <div className="md:col-span-1">
                         <label className="block text-sm font-medium text-slate-700 mb-1">Impresora USB</label>
                         <select
                           className="input-field"
@@ -1292,6 +1353,21 @@ export default function Settings() {
                       </>
                     )}
                   </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn-secondary text-sm"
+                      onClick={() => printTestByModule(moduleKey)}
+                      disabled={printingBusy}
+                    >
+                      Imprimir prueba
+                    </button>
+                  </div>
+
+                  <p className={`text-sm ${printerStatus?.[moduleKey]?.connected ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    Estado de impresora: {printerStatus?.[moduleKey]?.status || 'No disponible'}
+                  </p>
 
                   {moduleKey !== 'caja' && (
                     <label className="inline-flex items-center gap-2 text-sm text-slate-700">
