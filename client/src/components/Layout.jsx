@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
 import { useAuth } from '../context/AuthContext';
@@ -12,8 +12,14 @@ export default function Layout() {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user } = useAuth();
+  const location = useLocation();
   const [cajaOpen, setCajaOpen] = useState(null);
   const [checkingCaja, setCheckingCaja] = useState(true);
+  const hideNotificationsInKitchenBar =
+    location.pathname.startsWith('/admin/cocina') ||
+    location.pathname.startsWith('/admin/bar') ||
+    user?.role === 'cocina' ||
+    user?.role === 'bar';
   const checkCaja = () => {
     api.get('/pos/register-status')
       .then(data => setCajaOpen(data.is_open))
@@ -81,7 +87,7 @@ export default function Layout() {
                 <MdLock className="text-sm" /> Caja cerrada
               </span>
             )}
-            <NotificationCenter />
+            {!hideNotificationsInKitchenBar && <NotificationCenter />}
             {!isMobile && <div className="h-8 w-px bg-[color:var(--ui-border)]" />}
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-[var(--ui-sidebar-active-bg)] rounded-full flex items-center justify-center border border-[color:var(--ui-border)]">

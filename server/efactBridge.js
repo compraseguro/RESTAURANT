@@ -115,7 +115,7 @@ function buildEfactSaleJson({
     hora_emision: formatIssueTime(),
     moneda: (restaurant.currency || 'PEN') === 'USD' ? 'USD' : 'PEN',
     porcentaje_igv: String(taxRate),
-    observaciones: String(order.notes || '').trim() || `Pedido #${order.order_number || order.id}`,
+    observaciones: String(order.notes || '').trim() || `Pedido #${order.order_number || order.id} - Gracias por preferir Resto Fadey.`,
     emisor: {
       ruc,
       razon_social: razon,
