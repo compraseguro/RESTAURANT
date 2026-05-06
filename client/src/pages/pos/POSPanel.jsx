@@ -20,7 +20,7 @@ import {
   MdRestaurantMenu,
   MdAccessTime, MdPersonAdd, MdEmail, MdSearch,
   MdDeliveryDining,
-  MdEdit, MdDelete, MdVisibility,
+  MdEdit, MdDelete, MdVisibility, MdPrint, MdSave,
 } from 'react-icons/md';
 
 /** Mesa sintética al cobrar cuenta desde Clientes (no existe fila en `tables`). */
@@ -49,6 +49,7 @@ const CAJA_OPTIONS = [
   { id: 'notas_credito', label: 'Notas de credito' },
   { id: 'notas_debito', label: 'Notas de debito' },
   { id: 'consulta_precios', label: 'Consulta de precios' },
+  { id: 'impresora', label: 'Impresora' },
 ];
 
 async function printCajaTicket(payload) {
@@ -247,6 +248,13 @@ export default function POSPanel() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [sendingCloseMail, setSendingCloseMail] = useState(false);
   const [activeCajaOption, setActiveCajaOption] = useState(searchParams.get('view') || 'cobrar');
+  const [printingConfig, setPrintingConfig] = useState({
+    caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true },
+    cocina: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true },
+    bar: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true },
+  });
+  const [detectedPrinters, setDetectedPrinters] = useState([]);
+  const [printingBusy, setPrintingBusy] = useState(false);
   const [closingData, setClosingData] = useState(null);
   /** Momento fijo al abrir el cierre (misma referencia que “Cierre” en el arqueo). */
   const [closingAtPreview, setClosingAtPreview] = useState(null);
@@ -408,8 +416,42 @@ export default function POSPanel() {
     finally { setLoading(false); }
   };
 
+  const loadPrinterConfig = async () => {
+    try {
+      setPrintingConfig(await api.get('/printing/config'));
+    } catch (err) {
+      toast.error(err.message || 'No se pudo cargar la impresora de caja');
+    }
+  };
+
+  const detectUsbPrinters = async () => {
+    try {
+      setPrintingBusy(true);
+      const data = await api.get('/printing/printers');
+      setDetectedPrinters(Array.isArray(data?.printers) ? data.printers : []);
+    } catch (err) {
+      toast.error(err.message || 'No se pudo detectar impresoras USB');
+    } finally {
+      setPrintingBusy(false);
+    }
+  };
+
+  const savePrinterConfig = async () => {
+    try {
+      setPrintingBusy(true);
+      const next = await api.put('/printing/config', printingConfig);
+      setPrintingConfig(next || printingConfig);
+      toast.success('Impresora de caja guardada');
+    } catch (err) {
+      toast.error(err.message || 'No se pudo guardar');
+    } finally {
+      setPrintingBusy(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadPrinterConfig();
   }, []);
   useActiveInterval(loadData, 10000);
   useSocket('order-update', loadData);
@@ -2160,6 +2202,88 @@ export default function POSPanel() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+      {activeCajaOption === 'impresora' && (
+        <div className="card max-w-3xl">
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><MdPrint /> Configuración de Impresora (Caja)</h3>
+          {(() => {
+            const cfg = printingConfig?.caja || { tipo: 'usb', nombre: '', ip: '', puerto: 9100 };
+            return (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                    <select
+                      className="input-field"
+                      value={cfg.tipo || 'usb'}
+                      onChange={(e) => setPrintingConfig((prev) => ({
+                        ...prev,
+                        caja: { ...(prev.caja || {}), tipo: e.target.value },
+                      }))}
+                    >
+                      <option value="usb">USB</option>
+                      <option value="red">Red</option>
+                    </select>
+                  </div>
+                  {(cfg.tipo || 'usb') === 'usb' ? (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Impresora USB</label>
+                      <select
+                        className="input-field"
+                        value={cfg.nombre || ''}
+                        onChange={(e) => setPrintingConfig((prev) => ({
+                          ...prev,
+                          caja: { ...(prev.caja || {}), nombre: e.target.value },
+                        }))}
+                      >
+                        <option value="">Seleccione una impresora</option>
+                        {detectedPrinters.map((p) => (
+                          <option key={p.name} value={p.name}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">IP</label>
+                        <input
+                          className="input-field"
+                          value={cfg.ip || ''}
+                          onChange={(e) => setPrintingConfig((prev) => ({
+                            ...prev,
+                            caja: { ...(prev.caja || {}), ip: e.target.value },
+                          }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Puerto</label>
+                        <input
+                          className="input-field"
+                          type="number"
+                          min="1"
+                          max="65535"
+                          value={Number(cfg.puerto || 9100)}
+                          onChange={(e) => setPrintingConfig((prev) => ({
+                            ...prev,
+                            caja: { ...(prev.caja || {}), puerto: Number(e.target.value || 9100) },
+                          }))}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="btn-secondary" onClick={detectUsbPrinters} disabled={printingBusy}>
+                    Detectar impresoras USB
+                  </button>
+                  <button type="button" className="btn-primary inline-flex items-center gap-2" onClick={savePrinterConfig} disabled={printingBusy}>
+                    <MdSave /> Guardar configuración
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
       </div>

@@ -64,7 +64,6 @@ const MENU_ITEMS = [
   { id: 'salones', label: 'Salones y Mesas', icon: MdTableRestaurant },
   { id: 'cajas', label: 'Cajas', icon: MdPointOfSale },
   { id: 'comprobantes', label: 'Comprobantes', icon: MdReceipt },
-  { id: 'impresoras', label: 'Configuración de Impresoras', icon: MdReceipt },
   { id: 'impuestos', label: 'Impuestos', icon: MdPercent },
   { id: 'tarjetas', label: 'Tarjetas', icon: MdCreditCard },
   { id: 'turnos', label: 'Turnos', icon: MdAccessTime },

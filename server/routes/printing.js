@@ -6,11 +6,11 @@ const { print } = require('../printing/printerService');
 
 router.use(authenticateToken, requireRole('admin', 'master_admin', 'cajero', 'mozo', 'cocina', 'bar'));
 
-router.get('/config', requireRole('admin', 'master_admin'), (req, res) => {
+router.get('/config', requireRole('admin', 'master_admin', 'cajero', 'cocina', 'bar'), (req, res) => {
   res.json(loadConfig());
 });
 
-router.put('/config', requireRole('admin', 'master_admin'), (req, res) => {
+router.put('/config', requireRole('admin', 'master_admin', 'cajero', 'cocina', 'bar'), (req, res) => {
   try {
     const next = saveConfig(req.body || {});
     res.json(next);
@@ -19,7 +19,7 @@ router.put('/config', requireRole('admin', 'master_admin'), (req, res) => {
   }
 });
 
-router.get('/printers', requireRole('admin', 'master_admin'), (req, res) => {
+router.get('/printers', requireRole('admin', 'master_admin', 'cajero', 'cocina', 'bar'), (req, res) => {
   res.json({ printers: getPrinters() });
 });
 
