@@ -564,15 +564,15 @@ function todayBeforeDue(st) {
 function releaseAutoLockIfComprobantePresent(urlTrimmed) {
   if (!String(urlTrimmed || '').trim()) return;
   clearNotificationsByTitle(PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE);
-  clearNotificationsByTitle('Gracias por preferir trabajar con Resto FADET.app');
+  clearNotificationsByTitle('GRACIAS POR TRABAJAR CON RESTO FADEY.PE');
   addNotification({
-    title: 'Gracias por preferir trabajar con Resto FADET.app',
-    message: 'Gracias por preferir trabajar con Resto FADET.app',
+    title: 'GRACIAS POR TRABAJAR CON RESTO FADEY.PE',
+    message: 'GRACIAS POR TRABAJAR CON RESTO FADEY.PE',
     created_by: 'Sistema automático',
     level: 'success',
   });
   const notifications = getNotifications();
-  if (notifications.length > 0 && notifications[0].title === 'Gracias por preferir trabajar con Resto FADET.app') {
+  if (notifications.length > 0 && notifications[0].title === 'GRACIAS POR TRABAJAR CON RESTO FADEY.PE') {
     notifications[0].expires_at = nextLocalMidnightIso();
     notifications[0].updated_at = new Date().toISOString();
     saveNotifications(notifications);
