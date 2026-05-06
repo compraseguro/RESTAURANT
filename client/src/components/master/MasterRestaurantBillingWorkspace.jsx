@@ -174,7 +174,7 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
       const uploaded = await api.upload(file);
       const url = uploaded?.url || '';
       updateAppCfg('pago_uso_sistema', 'comprobante_pago_url', url);
-      toast.success('Voucher/comprobante cargado correctamente. Pulsa Guardar para registrar el pago.');
+      toast.success('Comprobante cargado. Pulsa Guardar para conservarlo.');
     } catch (err) {
       toast.error(err.message || 'No se pudo subir el comprobante');
     } finally {
