@@ -5,8 +5,7 @@ import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
 import EndShiftModal from '../../components/EndShiftModal';
-import Modal from '../../components/Modal';
-import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime, MdPrint, MdSave } from 'react-icons/md';
+import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -20,14 +19,6 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const [filter, setFilter] = useState('all');
   const { user } = useAuth();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
-  const [showPrinterModal, setShowPrinterModal] = useState(false);
-  const [detectedPrinters, setDetectedPrinters] = useState([]);
-  const [printerBusy, setPrinterBusy] = useState(false);
-  const [printerConfig, setPrinterConfig] = useState({
-    caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true },
-    cocina: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true },
-    bar: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true },
-  });
   const navigate = useNavigate();
   const location = useLocation();
   const emit = useSocketEmit();
@@ -69,48 +60,10 @@ export default function KitchenPanel({ station = 'cocina' }) {
     } catch (err) { console.error(err); }
   };
 
-  const loadPrinterConfig = async () => {
-    try {
-      setPrinterConfig(await api.get('/printing/config'));
-    } catch (err) {
-      toast.error(err.message || 'No se pudo cargar la impresora');
-    }
-  };
-
-  const detectUsbPrinters = async () => {
-    try {
-      setPrinterBusy(true);
-      const data = await api.get('/printing/printers');
-      setDetectedPrinters(Array.isArray(data?.printers) ? data.printers : []);
-    } catch (err) {
-      toast.error(err.message || 'No se pudo detectar impresoras USB');
-    } finally {
-      setPrinterBusy(false);
-    }
-  };
-
-  const savePrinterConfig = async () => {
-    try {
-      setPrinterBusy(true);
-      const next = await api.put('/printing/config', printerConfig);
-      setPrinterConfig(next || printerConfig);
-      toast.success('Configuración de impresora guardada');
-      setShowPrinterModal(false);
-    } catch (err) {
-      toast.error(err.message || 'No se pudo guardar');
-    } finally {
-      setPrinterBusy(false);
-    }
-  };
-
   useEffect(() => {
     loadOrders();
     emit(isBar ? 'join-bar' : 'join-kitchen');
   }, [filter, station]);
-  useEffect(() => {
-    if (!showPrinterModal) return;
-    loadPrinterConfig();
-  }, [showPrinterModal]);
   useActiveInterval(loadOrders, 10000);
 
   const handleKitchenIncomingOrder = (order, toastLabel) => {
@@ -185,113 +138,12 @@ export default function KitchenPanel({ station = 'cocina' }) {
               Volver al Centro Operativo
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setShowPrinterModal(true)}
-            className="px-3 py-2 bg-[var(--ui-accent)] hover:bg-[var(--ui-accent-hover)] rounded-lg text-white border border-[color:var(--ui-border)] text-sm font-medium inline-flex items-center gap-2"
-          >
-            <MdPrint className="text-base" /> Impresora
-          </button>
           <button type="button" onClick={() => setEndShiftOpen(true)} className="px-3 py-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-body-text)] border border-[color:var(--ui-border)] text-sm font-medium inline-flex items-center gap-2">
             <MdLogout className="text-lg" /> Finalizar jornada
           </button>
         </div>
       </header>
       <EndShiftModal isOpen={endShiftOpen} onClose={() => setEndShiftOpen(false)} />
-      <Modal
-        isOpen={showPrinterModal}
-        onClose={() => setShowPrinterModal(false)}
-        title={`Impresora ${isBar ? 'Bar' : 'Cocina'}`}
-      >
-        {(() => {
-          const moduleKey = isBar ? 'bar' : 'cocina';
-          const cfg = printerConfig?.[moduleKey] || { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true };
-          return (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-1">Tipo</label>
-                <select
-                  className="input-field"
-                  value={cfg.tipo || 'usb'}
-                  onChange={(e) => setPrinterConfig((prev) => ({
-                    ...prev,
-                    [moduleKey]: { ...(prev[moduleKey] || {}), tipo: e.target.value },
-                  }))}
-                >
-                  <option value="usb">USB</option>
-                  <option value="red">Red</option>
-                </select>
-              </div>
-              {(cfg.tipo || 'usb') === 'usb' ? (
-                <>
-                  <button type="button" className="btn-secondary w-full" onClick={detectUsbPrinters} disabled={printerBusy}>
-                    Detectar impresoras USB
-                  </button>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Impresora USB</label>
-                    <select
-                      className="input-field"
-                      value={cfg.nombre || ''}
-                      onChange={(e) => setPrinterConfig((prev) => ({
-                        ...prev,
-                        [moduleKey]: { ...(prev[moduleKey] || {}), nombre: e.target.value },
-                      }))}
-                    >
-                      <option value="">Seleccione una impresora</option>
-                      {detectedPrinters.map((p) => (
-                        <option key={p.name} value={p.name}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">IP</label>
-                    <input
-                      className="input-field"
-                      value={cfg.ip || ''}
-                      onChange={(e) => setPrinterConfig((prev) => ({
-                        ...prev,
-                        [moduleKey]: { ...(prev[moduleKey] || {}), ip: e.target.value },
-                      }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Puerto</label>
-                    <input
-                      className="input-field"
-                      type="number"
-                      min="1"
-                      max="65535"
-                      value={Number(cfg.puerto || 9100)}
-                      onChange={(e) => setPrinterConfig((prev) => ({
-                        ...prev,
-                        [moduleKey]: { ...(prev[moduleKey] || {}), puerto: Number(e.target.value || 9100) },
-                      }))}
-                    />
-                  </div>
-                </div>
-              )}
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={Boolean(cfg.autoPrint)}
-                  onChange={(e) => setPrinterConfig((prev) => ({
-                    ...prev,
-                    [moduleKey]: { ...(prev[moduleKey] || {}), autoPrint: e.target.checked },
-                  }))}
-                />
-                Imprimir automáticamente
-              </label>
-              <button type="button" className="btn-primary w-full inline-flex items-center justify-center gap-2" onClick={savePrinterConfig} disabled={printerBusy}>
-                <MdSave /> Guardar
-              </button>
-            </div>
-          );
-        })()}
-      </Modal>
-
       <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {orders.map(order => {
           const TypeIcon = typeIcons[order.type] || MdRestaurant;
