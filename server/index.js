@@ -18,7 +18,6 @@ const { getUploadsRoot } = require('./uploadsPath');
 const jwt = require('jsonwebtoken');
 const { authenticateToken, requireRole, JWT_SECRET } = require('./middleware/auth');
 const { createRateLimiter } = require('./middleware/rateLimit');
-const { attachPrintAgentNamespace } = require('./printAgentNamespace');
 
 const app = express();
 const server = http.createServer(app);
@@ -55,9 +54,6 @@ const corsOptions = {
 const io = new Server(server, {
   cors: corsOptions,
 });
-
-const printIo = attachPrintAgentNamespace(io);
-app.set('printIo', printIo);
 
 app.set('io', io);
 app.use(cors(corsOptions));
@@ -181,7 +177,6 @@ app.use('/api/restaurant', require('./routes/restaurant'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
-app.use('/api/print-agent', require('./routes/printAgent'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/staff-chat', require('./routes/staffChat'));

@@ -17,10 +17,9 @@ import {
   MdLabel, MdDoNotDisturb, MdCategory, MdHistory,
   MdSecurity, MdDashboard, MdEventSeat, MdDeliveryDining, MdPhotoCamera,
   MdAssessment, MdInsights, MdLocalOffer, MdDiscount,
-  MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette, MdPrint,
+  MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette,
 } from 'react-icons/md';
 import { UI_THEME_OPTIONS, applyUiTheme, getValidUiThemeId } from '../../theme/uiTheme';
-import PrintAgentSettingsSection from '../../components/PrintAgentSettingsSection';
 
 const ALL_MODULES = [
   { id: 'escritorio', label: 'Escritorio', icon: MdDashboard, defaultRoles: ['admin', 'cajero'] },
@@ -76,7 +75,6 @@ const MENU_ITEMS = [
   { id: 'categoria_anular', label: 'Categoría Anular Venta', icon: MdDoNotDisturb },
   { id: 'formas_pago', label: 'Formas de pago', icon: MdPayment },
   { id: 'apariencia', label: 'Apariencia', icon: MdPalette },
-  { id: 'print_agent', label: 'Print Agent', icon: MdPrint },
   { id: 'config_historial', label: 'Historial de configuración', icon: MdHistory },
 ];
 const PARTIAL_SECTIONS = new Set([
@@ -108,13 +106,6 @@ const DEFAULT_APP_SETTINGS = {
     { name: 'Impresora Bar', area: 'Comandas Bar', station: 'bar', connection: 'browser', printer_type: 'lan', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
     { name: 'Impresora Caja', area: 'Comprobantes', station: 'caja', connection: 'browser', printer_type: 'lan', ip_address: '', port: 9100, width_mm: 80, copies: 1, active: 1, auto_print: 1, local_printer_name: '' },
   ],
-  /** Legacy en settings JSON; la impresión térmica por IP se configura en cada panel (localStorage + microservicio local). */
-  print_agent: {
-    enabled: 1,
-    base_url: 'http://127.0.0.1:3001',
-    agent_token: '',
-    qz_tray: { enabled: 0 },
-  },
   tarjetas: [
     { name: 'Visa', fee_percent: 2.5, active: 1 },
     { name: 'Mastercard', fee_percent: 3, active: 1 },
@@ -294,17 +285,6 @@ export default function Settings() {
   const normalizeConfigPayload = (payload) => {
     const merged = { ...DEFAULT_APP_SETTINGS, ...((payload && payload.settings) || payload || {}) };
     merged.cajas = ensureCajaIdsDeep(Array.isArray(merged.cajas) ? merged.cajas : []);
-    const pa = merged.print_agent && typeof merged.print_agent === 'object' ? merged.print_agent : {};
-    const qz = pa.qz_tray && typeof pa.qz_tray === 'object' ? pa.qz_tray : {};
-    const qzOn = Number(qz.enabled) === 1 || qz.enabled === true;
-    merged.print_agent = {
-      ...pa,
-      enabled: 1,
-      base_url: String(pa.base_url || DEFAULT_APP_SETTINGS.print_agent.base_url || 'http://127.0.0.1:3001').trim()
-        || DEFAULT_APP_SETTINGS.print_agent.base_url,
-      agent_token: String(pa.agent_token ?? DEFAULT_APP_SETTINGS.print_agent.agent_token ?? ''),
-      qz_tray: { enabled: qzOn ? 1 : 0 },
-    };
     return merged;
   };
   const hasUnsavedAppSettings = serializeAppSettings(appSettings) !== appSettingsSnapshot;
@@ -822,8 +802,6 @@ export default function Settings() {
             </span>
           )}
         </div>
-        {activeSection === 'print_agent' && <PrintAgentSettingsSection />}
-
         {activeSection === 'apariencia' && (
           <div className="max-w-3xl space-y-4">
             <div className="card">

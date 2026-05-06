@@ -18,7 +18,6 @@ function isCuentaClienteSelfOrder(order) {
 export default function KitchenPanel({ station = 'cocina' }) {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
-  const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
   const { user } = useAuth();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
   const navigate = useNavigate();
@@ -67,15 +66,6 @@ export default function KitchenPanel({ station = 'cocina' }) {
     emit(isBar ? 'join-bar' : 'join-kitchen');
   }, [filter, station]);
   useActiveInterval(loadOrders, 10000);
-
-  useEffect(() => {
-    api
-      .get('/orders/print-config')
-      .then((cfg) => {
-        setRestaurantInfo(cfg?.restaurant || { name: 'Resto-FADEY', address: '', phone: '' });
-      })
-      .catch(() => {});
-  }, [station]);
 
   const handleKitchenIncomingOrder = (order, toastLabel) => {
     loadOrders();

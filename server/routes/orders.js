@@ -5,8 +5,6 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { assertPaymentMethodAllowed } = require('../businessRules');
 const { getOrderWithItems, createOrderInTransaction, replaceOrderLinesInTransaction, actorFromRequest } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
-const { resolveRestaurantId, listPrinterRoutes } = require('../printerRoutesService');
-const { dispatchPrintAgentKitchenJobs } = require('../printAgentDispatch');
 
 const router = express.Router();
 const ORDER_TRANSITIONS = {
@@ -158,39 +156,6 @@ router.get('/kitchen', authenticateToken, (req, res) => {
   res.json(filtered);
 });
 
-/** Datos del restaurante para tickets y vistas de impresión del navegador. */
-router.get('/print-config', authenticateToken, requireRole('admin', 'cajero', 'mozo', 'cocina', 'bar', 'delivery'), (req, res) => {
-  const restaurant = queryOne('SELECT name, address, phone, logo FROM restaurants LIMIT 1') || {};
-  const restaurantId = resolveRestaurantId(req.user);
-  const printerStub = () => ({
-    connection: 'local',
-    ip_address: '',
-    port: 9100,
-    width_mm: 80,
-    copies: 1,
-    auto_print: 1,
-    active: 1,
-    printer_type: 'lan',
-  });
-  res.json({
-    restaurant,
-    printers: {
-      cocina: printerStub(),
-      bar: printerStub(),
-      caja: printerStub(),
-      delivery: printerStub(),
-      parrilla: printerStub(),
-    },
-    printer_routes: listPrinterRoutes(restaurantId),
-    print_agent: {
-      enabled: false,
-      base_url: '',
-      agent_token: '',
-      qz_tray: { enabled: false },
-    },
-  });
-});
-
 router.post('/:id/delivery-driver-action', authenticateToken, requireRole('delivery'), (req, res) => {
   const action = String(req.body?.action || '').trim().toLowerCase();
   if (!['start', 'complete'].includes(action)) {
@@ -255,7 +220,6 @@ router.put('/:id/lines', authenticateToken, requireRole('admin', 'cajero', 'mozo
       /** Cocina/bar: mismo efecto que pedido nuevo para impresión automática (ítems añadidos a mesa existente). */
       io.emit('order-lines-updated', order);
     }
-    dispatchPrintAgentKitchenJobs(req.app, order, 'Comanda actualizada');
     res.json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo actualizar el pedido' });
@@ -313,7 +277,6 @@ router.post('/', authenticateToken, (req, res) => {
     const order = getOrderWithItems(result.orderId);
     const io = req.app.get('io');
     if (io) { io.emit('new-order', order); io.emit('order-update', order); }
-    dispatchPrintAgentKitchenJobs(req.app, order, 'Nuevo pedido');
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo crear el pedido' });

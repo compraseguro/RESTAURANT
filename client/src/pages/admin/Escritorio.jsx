@@ -1,12 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { api, formatCurrency, formatDateTime, parseApiDate, toLocalDateKey, PAYMENT_METHODS } from '../../utils/api';
-import { orderHasTakeoutNote } from '../../utils/ticketPlainText';
+import { api, formatCurrency, parseApiDate, toLocalDateKey, PAYMENT_METHODS } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { MdDateRange, MdKeyboardArrowDown, MdKitchen, MdLocalBar, MdDeliveryDining, MdPointOfSale, MdPrint, MdTableBar } from 'react-icons/md';
+import { MdDateRange, MdKeyboardArrowDown, MdKitchen, MdLocalBar, MdDeliveryDining, MdPointOfSale, MdTableBar } from 'react-icons/md';
 
 const PAYMENT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#06b6d4', '#a855f7'];
 const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4'];
@@ -77,9 +76,9 @@ export default function Escritorio() {
   }, [datePreset]);
   useEffect(() => {
     api
-      .get('/orders/print-config')
+      .get('/restaurant')
       .then((cfg) => {
-        setRestaurantInfo(cfg?.restaurant || { name: 'Resto-FADEY', address: '', phone: '' });
+        setRestaurantInfo(cfg || { name: 'Resto-FADEY', address: '', phone: '' });
       })
       .catch(() => {});
   }, []);
@@ -311,99 +310,6 @@ export default function Escritorio() {
     if (value >= 5) return { label: 'Alto', pill: 'bg-amber-100 text-amber-700', card: 'border-amber-300 bg-amber-50' };
     return { label: 'Normal', pill: 'bg-emerald-100 text-emerald-700', card: 'border-emerald-200 bg-emerald-50' };
   };
-  const printStationOrders = async (station, scope = 'all') => {
-    const sourceBase = station === 'bar' ? activeBarOrders : activeKitchenOrders;
-    const source = sourceBase.filter((order) => {
-      if (scope === 'delivery') return order.type === 'delivery';
-      if (scope === 'salon') return order.type === 'dine_in' || order.type === 'pickup';
-      return true;
-    });
-    if (!source.length) return;
-    const width = 80;
-    const copies = 1;
-    const ticketWidth = '76mm';
-    const title = `${station === 'bar' ? 'Comandas pendientes - Bar' : 'Comandas pendientes - Cocina'} · ${scope === 'delivery' ? 'Delivery' : scope === 'salon' ? 'Mesas/Salón' : 'Todas'}`;
-    const content = source.map((order) => {
-      const items = (order.items || [])
-        .map((item) => `<li>${item.quantity}x ${item.product_name}${item.notes ? ` - ${item.notes}` : ''}</li>`)
-        .join('');
-      const fechaLine = formatDateTime(order.updated_at || order.created_at);
-      const paraLlevarBlock = orderHasTakeoutNote(order)
-        ? `<div style="text-align:center;font-weight:800;font-size:21px;letter-spacing:0.06em;margin-top:8px;">PARA LLEVAR</div>`
-        : '';
-      const rawMesa = order.table_number ? String(order.table_number).trim() : '';
-      const salon = order.type === 'dine_in' || order.type === 'pickup';
-      const mesaTop =
-        rawMesa && salon
-          ? `<div class="desk-ticket-mesa">MESA ${rawMesa.toUpperCase()}</div>`
-          : '';
-      const headInner =
-        rawMesa && salon
-          ? `<strong>#${order.order_number}</strong> · ${order.type}`
-          : `<strong>#${order.order_number}</strong> - ${order.type}${rawMesa ? ` - Mesa ${order.table_number}` : ''}`;
-      return `
-        <div class="desk-ticket-card">
-          ${mesaTop}
-          <div class="desk-ticket-head">${headInner}</div>
-          ${fechaLine ? `<div class="desk-ticket-fecha">${fechaLine}</div>` : ''}
-          ${paraLlevarBlock}
-          <ul class="desk-ticket-ul">${items}</ul>
-        </div>
-      `;
-    }).join('');
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    iframe.style.visibility = 'hidden';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentWindow?.document;
-    if (!doc || !iframe.contentWindow) {
-      if (document.body.contains(iframe)) document.body.removeChild(iframe);
-      return;
-    }
-    doc.open();
-    const repeated = Array.from({ length: copies }).map((_, idx) => (
-      `${copies > 1 ? `<p class="desk-copy-label">Copia ${idx + 1} de ${copies}</p>` : ''}${content}`
-    )).join('<div style="height:6px;"></div>');
-    doc.write(`
-      <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          @page { size: ${width}mm auto; margin: 2mm; }
-          body { font-family: 'Courier New', Courier, monospace; width: ${ticketWidth}; max-width: 100%; margin: 0; font-size: 19px; line-height: 1.45; font-weight: 600; }
-          h2 { font-size: 24px; font-weight: 800; }
-          .desk-ticket-card { border: 1px solid #d9d9d9; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-          .desk-ticket-mesa { text-align: center; text-transform: uppercase; font-size: 24px; font-weight: 800; letter-spacing: 0.05em; margin: 0 0 8px 0; line-height: 1.15; }
-          .desk-ticket-head { font-size: 18px; }
-          .desk-ticket-fecha { font-size: 17px; font-weight: 700; margin-top: 6px; }
-          .desk-ticket-ul { margin: 10px 0 0 14px; padding: 0; }
-          .desk-ticket-ul li { margin-bottom: 4px; font-size: 19px; }
-          .desk-copy-label { margin: 0 0 6px 0; font-size: 14px; font-weight: 700; }
-        </style>
-      </head>
-      <body>
-        <h2 style="margin:0 0 6px 0;">${restaurantInfo?.name || 'Resto-FADEY'}</h2>
-        <p style="margin:0;font-size:14px;">${restaurantInfo?.address || ''}</p>
-        <p style="margin:0 0 8px 0;font-size:14px;">${restaurantInfo?.phone || ''}</p>
-        <h2 style="margin:0 0 8px 0;">${title}</h2>
-        ${repeated}
-      </body>
-      </html>
-    `);
-    doc.close();
-    setTimeout(() => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-      setTimeout(() => {
-        if (document.body.contains(iframe)) document.body.removeChild(iframe);
-      }, 1000);
-    }, 120);
-  };
 
   const dateRangeLabel = datePreset === 'total'
     ? 'Total (desde inicio hasta hoy)'
@@ -455,10 +361,6 @@ export default function Escritorio() {
             <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full ${getQueueLevel(kitchenQueue).pill}`}>{getQueueLevel(kitchenQueue).label}</span>
             <p className="text-2xl font-bold text-amber-800 mt-1">{kitchenQueue}</p>
             <p className="text-xs text-amber-700">Pedidos en cola</p>
-            <div className="mt-2 flex items-center gap-3 text-xs text-amber-800">
-              <button onClick={(e) => { e.stopPropagation(); printStationOrders('cocina', 'salon'); }} className="underline flex items-center gap-1"><MdPrint /> Mesas</button>
-              <button onClick={(e) => { e.stopPropagation(); printStationOrders('cocina', 'delivery'); }} className="underline flex items-center gap-1"><MdPrint /> Delivery</button>
-            </div>
           </div>
           <div
             role="button"
@@ -471,10 +373,6 @@ export default function Escritorio() {
             <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full ${getQueueLevel(barQueue).pill}`}>{getQueueLevel(barQueue).label}</span>
             <p className="text-2xl font-bold text-indigo-800 mt-1">{barQueue}</p>
             <p className="text-xs text-indigo-700">Pedidos en cola</p>
-            <div className="mt-2 flex items-center gap-3 text-xs text-indigo-800">
-              <button onClick={(e) => { e.stopPropagation(); printStationOrders('bar', 'salon'); }} className="underline flex items-center gap-1"><MdPrint /> Mesas</button>
-              <button onClick={(e) => { e.stopPropagation(); printStationOrders('bar', 'delivery'); }} className="underline flex items-center gap-1"><MdPrint /> Delivery</button>
-            </div>
           </div>
           <button onClick={() => navigate('/admin/delivery')} className="text-left p-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors">
             <div className="flex items-center gap-2 text-emerald-700 font-semibold"><MdDeliveryDining /> Delivery</div>

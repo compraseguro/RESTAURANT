@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
 import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote, buildPrecuentaPlainText, buildNotaVentaPlainText } from '../../utils/ticketPlainText';
-import { printPlainTextInBrowser } from '../../utils/browserPlainTextPrint';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
@@ -15,7 +14,7 @@ import StaffDineInOrderUI from '../../components/StaffDineInOrderUI';
 import StaffMesaPedidoTabs from '../../components/StaffMesaPedidoTabs';
 import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
 import {
-  MdPointOfSale, MdTableRestaurant, MdReceipt, MdPrint,
+  MdPointOfSale, MdTableRestaurant, MdReceipt,
   MdCheckCircle, MdAttachMoney, MdPeople, MdClose,
   MdAccountBalanceWallet, MdTrendingUp, MdTrendingDown,
   MdRestaurantMenu,
@@ -51,6 +50,10 @@ const CAJA_OPTIONS = [
   { id: 'notas_debito', label: 'Notas de debito' },
   { id: 'consulta_precios', label: 'Consulta de precios' },
 ];
+
+function disabledAction() {
+  return { ok: false, error: 'Función deshabilitada' };
+}
 
 const WAREHOUSE_CATEGORY_NAMES = new Set(['PRODUCTOS ALMACEN', 'INSUMOS']);
 const DEFAULT_BILLING_FORM = {
@@ -314,7 +317,7 @@ export default function POSPanel() {
         String(user?.role || '').toLowerCase() === 'admin' && adminRid
           ? `/pos/current-register?register_id=${encodeURIComponent(adminRid)}`
           : '/pos/current-register';
-      const [tablesData, reg, status, stationsRes, prods, cats, modifiersData, cfg, daily, reservationsData, ordersData, printCfgRes] = await Promise.all([
+      const [tablesData, reg, status, stationsRes, prods, cats, modifiersData, cfg, daily, reservationsData, ordersData, restaurantRes] = await Promise.all([
         api.get('/tables'),
         api.get(currentRegPath),
         api.get('/pos/register-status'),
@@ -326,7 +329,7 @@ export default function POSPanel() {
         api.get('/reports/daily').catch(() => null),
         api.get('/admin-modules/reservations').catch(() => []),
         api.get('/orders?limit=600').catch(() => []),
-        api.get('/orders/print-config').catch(() => null),
+        api.get('/restaurant').catch(() => null),
       ]);
       setCajaStations(Array.isArray(stationsRes?.stations) ? stationsRes.stations : []);
       if (String(user?.role || '').toLowerCase() === 'admin' && adminRid && !reg) {
@@ -338,8 +341,8 @@ export default function POSPanel() {
         setAdminRegisterId('');
       }
       setPrintRestaurantInfo({
-        name: String(printCfgRes?.restaurant?.name || 'Resto-FADEY').trim() || 'Resto-FADEY',
-        logo: resolveMediaUrl(printCfgRes?.restaurant?.logo || ''),
+        name: String(restaurantRes?.name || 'Resto-FADEY').trim() || 'Resto-FADEY',
+        logo: resolveMediaUrl(restaurantRes?.logo || ''),
       });
       const visibleCategories = cats.filter(c => !WAREHOUSE_CATEGORY_NAMES.has((c.name || '').toUpperCase()));
       const visibleCategoryIds = new Set(visibleCategories.map(c => c.id));
@@ -700,8 +703,8 @@ export default function POSPanel() {
       toast.error('No hay contenido para imprimir');
       return;
     }
-    const r = printPlainTextInBrowser(textForPrint, 'Arqueo de caja', { widthMm: 80, copies: 1 });
-    if (r.ok) toast.success('Abriendo ventana de impresión');
+    const r = disabledAction();
+    if (r.ok) toast.success('Acción completada');
     else toast.error(r.error || 'No se pudo imprimir');
   };
 
@@ -1528,8 +1531,8 @@ export default function POSPanel() {
       payableTotal,
       widthMm,
     });
-    const r = printPlainTextInBrowser(plain, 'Precuenta', { widthMm, copies });
-    if (r.ok) toast.success('Abriendo ventana de impresión');
+    const r = disabledAction();
+    if (r.ok) toast.success('Acción completada');
     else toast.error(r.error || 'No se pudo imprimir');
   };
 
@@ -1557,8 +1560,8 @@ export default function POSPanel() {
       total,
       widthMm,
     });
-    const r = printPlainTextInBrowser(plain, 'Nota de venta', { widthMm, copies });
-    if (r.ok) toast.success('Abriendo ventana de impresión');
+    const r = disabledAction();
+    if (r.ok) toast.success('Acción completada');
     else toast.error(r.error || 'No se pudo imprimir');
   };
 
@@ -1731,8 +1734,8 @@ export default function POSPanel() {
       payableTotal: tableTotal,
       widthMm,
     });
-    const r = printPlainTextInBrowser(plain, 'Precuenta', { widthMm, copies });
-    if (r.ok) toast.success('Abriendo ventana de impresión');
+    const r = disabledAction();
+    if (r.ok) toast.success('Acción completada');
     else toast.error(r.error || 'No se pudo imprimir');
   };
   const chargeReservation = async (entry) => {
@@ -1905,14 +1908,6 @@ export default function POSPanel() {
                 <MdAttachMoney /> {isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar Mesa'}
               </button>
               <div className="flex flex-1 min-w-[200px] gap-2">
-                <button
-                  type="button"
-                  onClick={() => void printTableOrder(tableDetail)}
-                  disabled={!tableDetail.orders?.length}
-                  className="flex-1 py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
-                >
-                  <MdPrint /> Imprimir Precuenta
-                </button>
                 <button
                   type="button"
                   title="Ver pedido"
@@ -3213,9 +3208,6 @@ export default function POSPanel() {
 
             <div className="flex flex-wrap gap-3 pt-4 mt-4 border-t border-[color:var(--ui-border)]">
               <button onClick={() => setShowCloseModal(false)} className="btn-secondary flex-1 min-w-[120px]">Cancelar</button>
-              <button onClick={handlePrint} className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm btn-secondary min-w-[140px]">
-                <MdPrint /> Enviar a impresora
-              </button>
               <button
                 onClick={sendCloseByEmail}
                 disabled={sendingCloseMail}

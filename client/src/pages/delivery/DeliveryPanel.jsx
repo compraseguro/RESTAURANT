@@ -14,12 +14,9 @@ import {
   MdPhone,
   MdLocationOn,
   MdAccessTime,
-  MdPrint,
   MdMap,
 } from 'react-icons/md';
 import { buildGoogleMapsSearchUrl } from '../../utils/googleMaps';
-import { buildDeliveryReportPlainText } from '../../utils/ticketPlainText';
-import { printPlainTextInBrowser } from '../../utils/browserPlainTextPrint';
 
 function parseApiDateLike(value) {
   if (!value) return null;
@@ -66,7 +63,6 @@ export default function DeliveryPanel() {
   const { user } = useAuth();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
   const [reportGateOpen, setReportGateOpen] = useState(false);
-  const [reportPrintedConfirmed, setReportPrintedConfirmed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const canReturnToAdmin = user?.role === 'admin' && !location.pathname.startsWith('/admin');
@@ -135,33 +131,11 @@ export default function DeliveryPanel() {
     }
   };
 
-  const printCompletedReport = useCallback(async () => {
-    const todayLabel = formatDate(todayLocalYyyyMmDd()) || new Date().toLocaleDateString('es-PE');
-    if (!completadosHoy.length) {
-      toast.error('No hay entregas completadas hoy para imprimir');
-      return;
-    }
-    const plain = buildDeliveryReportPlainText({
-      dateLabel: todayLabel,
-      driverName: user?.full_name || '',
-      orders: completadosHoy,
-      formatCurrencyFn: formatCurrency,
-    });
-    const r = printPlainTextInBrowser(plain, 'Reporte de reparto', { widthMm: 80, copies: 1 });
-    if (r.ok) toast.success('Abriendo ventana de impresión');
-    else toast.error(r.error || 'No se pudo imprimir');
-  }, [completadosHoy, user?.full_name]);
-
   const openEndShiftFlow = () => {
-    setReportPrintedConfirmed(false);
     setReportGateOpen(true);
   };
 
   const continueToLogoutModal = () => {
-    if (!reportPrintedConfirmed) {
-      toast.error('Confirme que imprimió el reporte de pedidos completados');
-      return;
-    }
     setReportGateOpen(false);
     setEndShiftOpen(true);
   };
@@ -361,27 +335,11 @@ export default function DeliveryPanel() {
         titleClassName="text-[var(--ui-body-text)] font-bold"
       >
         <p className="text-sm text-[var(--ui-muted)] mb-3">
-          Imprima el reporte de los pedidos que completó hoy en ruta (cliente, pedido y costo). El cobro en caja es independiente de este registro.
+          Revise sus pedidos completados de hoy en ruta (cliente, pedido y costo). El cobro en caja es independiente de este registro.
         </p>
         <p className="text-xs text-[var(--ui-muted)] mb-2">
           Completados hoy: <span className="text-[var(--ui-body-text)] font-semibold">{completadosHoy.length}</span>
         </p>
-        <button
-          type="button"
-          onClick={() => printCompletedReport()}
-          className="w-full mb-4 py-2.5 rounded-lg font-medium text-sm bg-white text-slate-800 border border-slate-200 flex items-center justify-center gap-2 hover:bg-slate-50"
-        >
-          <MdPrint className="text-lg" /> Imprimir reporte
-        </button>
-        <label className="flex items-start gap-2 text-sm text-[var(--ui-body-text)] cursor-pointer mb-4">
-          <input
-            type="checkbox"
-            className="mt-1 rounded border-[color:var(--ui-border)]"
-            checked={reportPrintedConfirmed}
-            onChange={(e) => setReportPrintedConfirmed(e.target.checked)}
-          />
-          <span>Confirmo que imprimí el reporte de pedidos completados (o no hay entregas completadas hoy).</span>
-        </label>
         <div className="flex flex-col-reverse sm:flex-row gap-2 justify-end">
           <button
             type="button"

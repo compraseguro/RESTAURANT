@@ -1,14 +1,6 @@
 # Dependencies
 node_modules/
 client/node_modules/
-print-agent/node_modules/
-
-# Print Agent datos locales (no subir tokens)
-print-agent/data/config.json
-print-agent/data/queue.json
-print-agent/data/agent.log
-print-agent/data/agent.sqlite
-print-agent/data/*.migrated-*
 
 # Build output
 client/dist/

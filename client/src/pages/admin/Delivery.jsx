@@ -16,18 +16,10 @@ import Modal from '../../components/Modal';
 import {
   MdDeliveryDining, MdLocationOn, MdCheck, MdTimer, MdAdd,
   MdRemove, MdDelete, MdReceipt, MdSearch, MdShoppingCart,
-  MdPerson, MdPhone, MdHome, MdEditNote, MdPrint, MdMap,
+  MdPerson, MdPhone, MdHome, MdEditNote, MdMap,
 } from 'react-icons/md';
 import { buildGoogleMapsSearchUrl } from '../../utils/googleMaps';
 import toast from 'react-hot-toast';
-
-function escHtml(s) {
-  return String(s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 export default function Delivery() {
   const { user } = useAuth();
@@ -35,7 +27,6 @@ export default function Delivery() {
   const [orders, setOrders] = useState([]);
   const [tab, setTab] = useState('active');
   const [loading, setLoading] = useState(true);
-  const [printMeta, setPrintMeta] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
   /** Preparación/listo solo en cocina/bar; aquí solo cierre operativo por personal autorizado. */
   const canMarkDeliveredFromAdmin = ['admin', 'cajero', 'mozo'].includes(String(user?.role || ''));
 
@@ -74,15 +65,6 @@ export default function Delivery() {
       return;
     }
     load();
-    api.get('/orders/print-config')
-      .then((d) => {
-        setPrintMeta({
-          name: d?.restaurant?.name || 'Resto-FADEY',
-          address: d?.restaurant?.address || '',
-          phone: d?.restaurant?.phone || '',
-        });
-      })
-      .catch(() => {});
   }, [isMozo]);
   useActiveInterval(load, isMozo ? 0 : 10000);
   useSocket('order-update', isMozo ? () => {} : load);
@@ -112,78 +94,7 @@ export default function Delivery() {
     } catch (err) { toast.error(err.message); }
   };
 
-  const printDeliveryOrder = (o) => {
-    const modalityLabel = labelDeliveryPaymentModality(o.delivery_payment_modality) || '—';
-    const payLabel = PAYMENT_METHODS[o.payment_method] || o.payment_method || '—';
-    const subtotal = Number(o.subtotal || 0);
-    const discount = Number(o.discount || 0);
-    const fee = Number(o.delivery_fee || 0);
-    const total = Number(o.total || 0);
-    const itemsRows = (o.items || [])
-      .map(
-        (it) => `
-        <tr>
-          <td style="padding:4px 0;border-bottom:1px solid #e2e8f0;">${it.quantity}× ${escHtml(it.product_name)}${it.variant_name ? ` <span style="color:#64748b">(${escHtml(it.variant_name)})</span>` : ''}${it.notes ? `<br/><span style="font-size:11px;color:#64748b;font-style:italic">${escHtml(it.notes)}</span>` : ''}</td>
-          <td style="padding:4px 0;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${formatCurrency(it.subtotal)}</td>
-        </tr>`
-      )
-      .join('');
-
-    const html = `
-      <!DOCTYPE html>
-      <html><head><meta charset="utf-8"><title>Pedido delivery #${o.order_number}</title>
-      <style>
-        body { font-family: system-ui, Segoe UI, sans-serif; color: #0f172a; max-width: 520px; margin: 16px auto; padding: 0 12px; font-size: 14px; }
-        h1 { font-size: 18px; margin: 0 0 4px 0; }
-        .muted { color: #64748b; font-size: 12px; margin: 0 0 16px 0; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; font-size: 11px; text-transform: uppercase; color: #64748b; padding-bottom: 6px; }
-        .tot { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
-        .tot strong { font-size: 15px; }
-        hr { border: 0; border-top: 1px solid #e2e8f0; margin: 12px 0; }
-      </style></head><body>
-        <h1>${escHtml(printMeta.name)}</h1>
-        <p class="muted">Pedido delivery · #${o.order_number} · ${formatDateTime(o.created_at)}</p>
-        <p><strong>Estado:</strong> ${escHtml(statusNames[o.status] || o.status)}</p>
-        <hr/>
-        <p><strong>Cliente:</strong> ${escHtml(o.customer_name || '—')}</p>
-        <p><strong>Dirección:</strong> ${escHtml(o.delivery_address || '—')}</p>
-        ${o.notes ? `<p><strong>Contacto / notas:</strong> ${escHtml(o.notes)}</p>` : ''}
-        <p><strong>Modalidad de pago:</strong> ${escHtml(modalityLabel)}</p>
-        ${o.payment_status === 'paid' ? `<p><strong>Medio de pago (caja):</strong> ${escHtml(payLabel)}</p>` : ''}
-        <hr/>
-        <p style="font-size:12px;font-weight:600;color:#64748b;margin-bottom:8px;">Detalle de lo pedido</p>
-        <table>
-          <thead><tr><th>Producto</th><th style="text-align:right">Importe</th></tr></thead>
-          <tbody>${itemsRows || '<tr><td colspan="2" style="color:#94a3b8">Sin ítems</td></tr>'}</tbody>
-        </table>
-        <hr/>
-        <div class="tot"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
-        ${discount > 0 ? `<div class="tot"><span>Descuento</span><span>− ${formatCurrency(discount)}</span></div>` : ''}
-        ${fee > 0 ? `<div class="tot"><span>Delivery</span><span>${formatCurrency(fee)}</span></div>` : ''}
-        <div class="tot" style="margin-top:8px;padding-top:8px;border-top:2px solid #0f172a"><span>Total</span><strong>${formatCurrency(total)}</strong></div>
-      </body></html>`;
-
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentWindow?.document;
-    if (!doc) {
-      document.body.removeChild(iframe);
-      toast.error('No se pudo abrir la ventana de impresión');
-      return;
-    }
-    doc.open();
-    doc.write(html);
-    doc.close();
-    setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-      setTimeout(() => {
-        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-      }, 800);
-    }, 150);
-  };
+  
 
   const openNewOrder = () => {
     setShowNewOrder(true);
@@ -356,9 +267,6 @@ export default function Delivery() {
                     </div>
                     {tab === 'active' && ['pending', 'preparing', 'ready'].includes(o.status) && (
                       <div className="flex flex-wrap gap-2 justify-end items-center">
-                        <button type="button" onClick={() => printDeliveryOrder(o)} className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium inline-flex items-center gap-1">
-                          <MdPrint className="text-sm" /> Imprimir
-                        </button>
                         {o.status === 'ready' && canMarkDeliveredFromAdmin && (
                           <button type="button" onClick={() => updateStatus(o.id, 'delivered')} className="text-xs px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 font-medium">Entregado</button>
                         )}
