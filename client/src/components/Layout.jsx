@@ -18,6 +18,8 @@ export default function Layout() {
   const hideNotificationsInKitchenBar =
     location.pathname.startsWith('/admin/cocina') ||
     location.pathname.startsWith('/admin/bar') ||
+    location.pathname.startsWith('/kitchen') ||
+    location.pathname.startsWith('/bar') ||
     user?.role === 'cocina' ||
     user?.role === 'bar';
   const checkCaja = () => {
