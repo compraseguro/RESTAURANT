@@ -278,13 +278,6 @@ export default function Settings() {
   const [attendanceGalleryLoading, setAttendanceGalleryLoading] = useState(false);
   const [attendanceGalleryDraft, setAttendanceGalleryDraft] = useState({});
   const [attendanceGallerySaving, setAttendanceGallerySaving] = useState(false);
-  const [printingConfig, setPrintingConfig] = useState({
-    caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true },
-    cocina: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true },
-    bar: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true },
-  });
-  const [detectedPrinters, setDetectedPrinters] = useState([]);
-  const [printingBusy, setPrintingBusy] = useState(false);
   const { user: currentUser } = useAuth();
   const autoSaveTimerRef = useRef(null);
   const historySearchTimerRef = useRef(null);
@@ -326,34 +319,6 @@ export default function Settings() {
         applyUiTheme(DEFAULT_APP_SETTINGS.ui_theme);
       });
   };
-  const loadPrintingConfig = () => {
-    api.get('/printing/config')
-      .then((cfg) => {
-        setPrintingConfig(cfg || printingConfig);
-      })
-      .catch(() => {
-        toast.error('No se pudo cargar configuración de impresoras');
-      });
-  };
-  const detectUsbPrinters = () => {
-    setPrintingBusy(true);
-    api.get('/printing/printers')
-      .then((data) => {
-        setDetectedPrinters(Array.isArray(data?.printers) ? data.printers : []);
-      })
-      .catch((err) => toast.error(err.message || 'No se pudo detectar impresoras'))
-      .finally(() => setPrintingBusy(false));
-  };
-  const savePrintingConfig = () => {
-    setPrintingBusy(true);
-    api.put('/printing/config', printingConfig)
-      .then((saved) => {
-        setPrintingConfig(saved || printingConfig);
-        toast.success('Configuración de impresoras guardada');
-      })
-      .catch((err) => toast.error(err.message || 'No se pudo guardar'))
-      .finally(() => setPrintingBusy(false));
-  };
   const loadAppSettingsHistory = () => {
     setSettingsHistoryLoading(true);
     const params = [
@@ -376,7 +341,7 @@ export default function Settings() {
       .finally(() => setSettingsHistoryLoading(false));
   };
 
-  useEffect(() => { loadUsers(); loadRestaurant(); loadAppSettings(); loadPrintingConfig(); }, []);
+  useEffect(() => { loadUsers(); loadRestaurant(); loadAppSettings(); }, []);
 
   useEffect(() => {
     if (!attendanceGalleryUserId) {
@@ -1202,112 +1167,6 @@ export default function Settings() {
             <div className="flex justify-end">
               <button onClick={saveAppSettings} className="btn-primary flex items-center gap-2"><MdSave /> Guardar</button>
             </div>
-          </div>
-        )}
-
-        {activeSection === 'impresoras' && (
-          <div className="space-y-4">
-            <div className="card space-y-3">
-              <p className="text-sm text-slate-500">
-                Configure una impresora por módulo (Caja, Cocina y Bar). USB usa impresoras instaladas en Windows; Red usa IP + puerto.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" className="btn-secondary text-sm" onClick={detectUsbPrinters} disabled={printingBusy}>
-                  Detectar impresoras USB
-                </button>
-                <button type="button" className="btn-primary text-sm flex items-center gap-2" onClick={savePrintingConfig} disabled={printingBusy}>
-                  <MdSave /> Guardar configuración
-                </button>
-              </div>
-            </div>
-
-            {['caja', 'cocina', 'bar'].map((moduleKey) => {
-              const cfg = printingConfig?.[moduleKey] || {};
-              const moduleLabel = moduleKey === 'caja' ? 'Caja' : moduleKey === 'cocina' ? 'Cocina' : 'Bar';
-              return (
-                <div key={moduleKey} className="card space-y-3">
-                  <h3 className="font-semibold text-slate-800">{moduleLabel}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-                      <select
-                        className="input-field"
-                        value={cfg.tipo || 'usb'}
-                        onChange={(e) => setPrintingConfig((prev) => ({
-                          ...prev,
-                          [moduleKey]: { ...(prev[moduleKey] || {}), tipo: e.target.value },
-                        }))}
-                      >
-                        <option value="usb">USB</option>
-                        <option value="red">Red</option>
-                      </select>
-                    </div>
-
-                    {(cfg.tipo || 'usb') === 'usb' ? (
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Impresora USB</label>
-                        <select
-                          className="input-field"
-                          value={cfg.nombre || ''}
-                          onChange={(e) => setPrintingConfig((prev) => ({
-                            ...prev,
-                            [moduleKey]: { ...(prev[moduleKey] || {}), nombre: e.target.value },
-                          }))}
-                        >
-                          <option value="">Seleccione una impresora</option>
-                          {detectedPrinters.map((p) => (
-                            <option key={p.name} value={p.name}>{p.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : (
-                      <>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">IP</label>
-                          <input
-                            className="input-field"
-                            value={cfg.ip || ''}
-                            onChange={(e) => setPrintingConfig((prev) => ({
-                              ...prev,
-                              [moduleKey]: { ...(prev[moduleKey] || {}), ip: e.target.value },
-                            }))}
-                            placeholder="192.168.1.50"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Puerto</label>
-                          <input
-                            className="input-field"
-                            type="number"
-                            min="1"
-                            max="65535"
-                            value={Number(cfg.puerto || 9100)}
-                            onChange={(e) => setPrintingConfig((prev) => ({
-                              ...prev,
-                              [moduleKey]: { ...(prev[moduleKey] || {}), puerto: Number(e.target.value || 9100) },
-                            }))}
-                          />
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {moduleKey !== 'caja' && (
-                    <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(cfg.autoPrint)}
-                        onChange={(e) => setPrintingConfig((prev) => ({
-                          ...prev,
-                          [moduleKey]: { ...(prev[moduleKey] || {}), autoPrint: e.target.checked },
-                        }))}
-                      />
-                      Imprimir automáticamente
-                    </label>
-                  )}
-                </div>
-              );
-            })}
           </div>
         )}
 
