@@ -2,11 +2,16 @@ const fs = require('fs');
 const path = require('path');
 const net = require('net');
 const { execFile } = require('child_process');
-const { app, BrowserWindow, ipcMain } = require('electron');
+const express = require('express');
+const cors = require('cors');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
 const { buildTicket } = require('../server/printing/escposBuilder');
 
 const MODULE_KEYS = ['caja', 'cocina', 'bar'];
-let mainWindow = null;
+const LOCAL_ASSISTANT_PORT = Number(process.env.RESTO_ASSISTANT_PORT || 3001);
+let mainWindow = null; // Ventana oculta auxiliar para APIs de impresión del sistema.
+let tray = null;
+let localServer = null;
 let printerLib = null;
 try {
   // Fallback nativo RAW si el módulo está disponible en esa instalación.
@@ -295,13 +300,12 @@ async function printerStatus(moduleKey) {
 }
 
 function createWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
   const preloadPath = path.join(__dirname, 'preload.js');
-  const desktopWebUrl = process.env.RESTO_DESKTOP_WEB_URL || 'https://restaurant-ebon-psi.vercel.app';
-  console.log('[electron] preload path:', preloadPath);
-  console.log('[electron] app.isPackaged:', app.isPackaged);
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    width: 600,
+    height: 400,
+    show: false,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -309,33 +313,112 @@ function createWindow() {
       preload: preloadPath,
     },
   });
-  mainWindow.webContents.on('did-finish-load', () => {
-    console.log('[electron] renderer listo');
+  mainWindow.on('close', (e) => {
+    // Asistente en segundo plano: no cerrar al hacer "X".
+    if (app.isQuitting) return;
+    e.preventDefault();
+    mainWindow.hide();
   });
-  mainWindow.webContents.on('console-message', (_event, level, message) => {
-    if (String(message || '').includes('PRELOAD CARGADO')) {
-      console.log('[electron] confirmación preload desde renderer');
+  mainWindow.loadURL('about:blank');
+  return mainWindow;
+}
+
+function createTray() {
+  if (tray) return;
+  const iconPath = path.join(__dirname, '..', 'client', 'public', 'icon-192.png');
+  const icon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
+  tray = new Tray(icon);
+  tray.setToolTip('Resto FADEY - Asistente de impresión');
+  const menu = Menu.buildFromTemplate([
+    { label: 'Asistente activo (127.0.0.1:3001)', enabled: false },
+    { type: 'separator' },
+    {
+      label: 'Salir',
+      click: () => {
+        app.isQuitting = true;
+        try {
+          if (localServer) localServer.close();
+        } catch (_) {
+          // noop
+        }
+        app.quit();
+      },
+    },
+  ]);
+  tray.setContextMenu(menu);
+}
+
+function createLocalAssistantServer() {
+  const assistant = express();
+  assistant.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  }));
+  assistant.use(express.json({ limit: '2mb' }));
+
+  assistant.get('/health', (_req, res) => res.json({ status: 'ok', mode: 'assistant' }));
+  assistant.get('/api/health', (_req, res) => res.json({ status: 'ok', mode: 'assistant' }));
+  assistant.get('/api/printers', async (_req, res) => {
+    try {
+      const list = await getPrinters();
+      res.json(list);
+    } catch (err) {
+      res.status(500).json({ error: err?.message || 'No se pudo obtener impresoras' });
+    }
+  });
+  assistant.get('/api/printing/config', (_req, res) => {
+    try {
+      res.json(loadConfig());
+    } catch (err) {
+      res.status(500).json({ error: err?.message || 'No se pudo leer configuración' });
+    }
+  });
+  assistant.put('/api/printing/config', (req, res) => {
+    try {
+      res.json(saveConfig(req.body || {}));
+    } catch (err) {
+      res.status(400).json({ error: err?.message || 'No se pudo guardar configuración' });
+    }
+  });
+  assistant.get('/api/printing/status/:module', async (req, res) => {
+    try {
+      const status = await printerStatus(req.params.module);
+      res.json(status);
+    } catch (err) {
+      res.status(400).json({ error: err?.message || 'No se pudo obtener estado' });
+    }
+  });
+  assistant.post('/api/printing/test/:module', async (req, res) => {
+    try {
+      await printByModule(req.params.module, {
+        title: 'TEST RESTO FADEY',
+        text: `Módulo: ${String(req.params.module || '').toUpperCase()}\n${new Date().toLocaleString('es-PE')}`,
+      });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: err?.message || 'No se pudo imprimir prueba' });
+    }
+  });
+  assistant.post('/api/printing/print/:module', async (req, res) => {
+    try {
+      await printByModule(req.params.module, req.body || {});
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: err?.message || 'No se pudo imprimir' });
+    }
+  });
+
+  localServer = assistant.listen(LOCAL_ASSISTANT_PORT, '127.0.0.1', () => {
+    console.log(`[electron] asistente de impresión activo en http://127.0.0.1:${LOCAL_ASSISTANT_PORT}`);
+  });
+  localServer.on('error', (err) => {
+    if (err?.code === 'EADDRINUSE') {
+      console.error(`[electron] puerto ${LOCAL_ASSISTANT_PORT} en uso. Cierre otra instancia del asistente.`);
       return;
     }
-    if (level <= 1) return;
-    console.log('[renderer]', message);
+    console.error('[electron] error servidor asistente:', err?.message || err);
   });
-  const devUrl = process.env.ELECTRON_START_URL;
-  if (devUrl) {
-    mainWindow.loadURL(devUrl);
-  } else if (app.isPackaged) {
-    console.log('[electron] app empaquetada: cargando sistema principal en', desktopWebUrl);
-    mainWindow.loadURL(desktopWebUrl).catch((err) => {
-      console.error('[electron] error loadURL principal:', err?.message || err);
-      const localHtml = path.join(__dirname, '..', 'client', 'dist', 'index.html');
-      mainWindow.loadFile(localHtml).catch((err2) => {
-        console.error('[electron] error loadFile respaldo:', err2?.message || err2);
-      });
-    });
-  } else {
-    const localHtml = path.join(__dirname, '..', 'client', 'dist', 'index.html');
-    mainWindow.loadFile(localHtml);
-  }
 }
 
 function configureAutoStart() {
@@ -376,13 +459,16 @@ function registerPrintingIpc() {
 app.whenReady().then(() => {
   console.log('[electron] proceso main iniciado');
   configureAutoStart();
-  registerPrintingIpc();
   createWindow();
+  createTray();
+  createLocalAssistantServer();
+  registerPrintingIpc();
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
   });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  // Mantener asistente en segundo plano.
+  if (process.platform === 'darwin') app.dock?.hide();
 });
