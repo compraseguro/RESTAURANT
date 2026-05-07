@@ -71,6 +71,7 @@ const DEFAULT_PRINTING_CONFIG = {
   bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
 };
 const DESKTOP_SETUP_URL = import.meta.env.VITE_DESKTOP_SETUP_URL || '/downloads/RestoFADEY Setup.exe';
+const PRINTING_CONFIG_CACHE_KEY = 'resto_printing_config_cache_v1';
 
 const MENU_ITEMS = [
   { id: 'regional', label: 'Configuración regional', icon: MdLanguage },
@@ -368,17 +369,37 @@ export default function Settings() {
     loader
       .then((cfg) => {
         if (cfg && typeof cfg === 'object') {
-          setPrintingConfig({
+          const normalized = {
             caja: { ...DEFAULT_PRINTING_CONFIG.caja, ...(cfg.caja || {}) },
             cocina: { ...DEFAULT_PRINTING_CONFIG.cocina, ...(cfg.cocina || {}) },
             bar: { ...DEFAULT_PRINTING_CONFIG.bar, ...(cfg.bar || {}) },
-          });
+          };
+          setPrintingConfig(normalized);
+          try {
+            window.localStorage?.setItem(PRINTING_CONFIG_CACHE_KEY, JSON.stringify(normalized));
+          } catch (_) {
+            // noop
+          }
           return;
         }
         setPrintingConfig(DEFAULT_PRINTING_CONFIG);
       })
       .catch((err) => {
         console.warn('[printing] fallback frontend config por error de carga:', err?.message || err);
+        try {
+          const raw = window.localStorage?.getItem(PRINTING_CONFIG_CACHE_KEY);
+          if (raw) {
+            const cached = JSON.parse(raw);
+            setPrintingConfig({
+              caja: { ...DEFAULT_PRINTING_CONFIG.caja, ...(cached?.caja || {}) },
+              cocina: { ...DEFAULT_PRINTING_CONFIG.cocina, ...(cached?.cocina || {}) },
+              bar: { ...DEFAULT_PRINTING_CONFIG.bar, ...(cached?.bar || {}) },
+            });
+            return;
+          }
+        } catch (_) {
+          // noop
+        }
         setPrintingConfig(DEFAULT_PRINTING_CONFIG);
       });
   };
@@ -477,7 +498,14 @@ export default function Settings() {
       : api.printing.put('/printing/config', printingConfig);
     req
       .then((saved) => {
-        if (saved && typeof saved === 'object') setPrintingConfig(saved);
+        if (saved && typeof saved === 'object') {
+          setPrintingConfig(saved);
+          try {
+            window.localStorage?.setItem(PRINTING_CONFIG_CACHE_KEY, JSON.stringify(saved));
+          } catch (_) {
+            // noop
+          }
+        }
         toast.success('Configuración de impresoras guardada');
         refreshPrinterStatus();
       })
@@ -1435,6 +1463,10 @@ export default function Settings() {
             {['caja', 'cocina', 'bar'].map((moduleKey) => {
               const cfg = printingConfig?.[moduleKey] || {};
               const modulePrinters = detectedPrintersByModule[moduleKey] || [];
+              const selectedName = String(cfg.nombre || '').trim();
+              const visiblePrinters = selectedName && !modulePrinters.some((p) => p.name === selectedName)
+                ? [{ name: selectedName }, ...modulePrinters]
+                : modulePrinters;
               const moduleLabel = moduleKey === 'caja' ? 'Caja' : moduleKey === 'cocina' ? 'Cocina' : 'Bar';
               return (
                 <div key={moduleKey} className="card space-y-3">
@@ -1481,7 +1513,7 @@ export default function Settings() {
                           }))}
                         >
                           <option value="">Seleccione una impresora</option>
-                          {modulePrinters.map((p) => (
+                          {visiblePrinters.map((p) => (
                             <option key={p.name} value={p.name}>{p.name}</option>
                           ))}
                         </select>
