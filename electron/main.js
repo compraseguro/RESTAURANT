@@ -214,8 +214,20 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
       preload: preloadPath,
     },
+  });
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[electron] renderer listo');
+  });
+  mainWindow.webContents.on('console-message', (_event, level, message) => {
+    if (String(message || '').includes('PRELOAD CARGADO')) {
+      console.log('[electron] confirmación preload desde renderer');
+      return;
+    }
+    if (level <= 1) return;
+    console.log('[renderer]', message);
   });
   const devUrl = process.env.ELECTRON_START_URL;
   if (devUrl) {
@@ -227,6 +239,9 @@ function createWindow() {
 }
 
 function registerPrintingIpc() {
+  ipcMain.on('preload:ready', () => {
+    console.log('[electron] IPC funcionando: preload:ready');
+  });
   ipcMain.handle('printing:health', async () => ({ status: 'ok' }));
   ipcMain.handle('printing:getConfig', async () => loadConfig());
   ipcMain.handle('printing:saveConfig', async (_event, cfg) => saveConfig(cfg));

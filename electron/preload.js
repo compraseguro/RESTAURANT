@@ -1,6 +1,13 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 console.log('PRELOAD CARGADO');
+try {
+  ipcRenderer.send('preload:ready');
+} catch (_) {
+  // noop
+}
+
+contextBridge.exposeInMainWorld('__ELECTRON__', true);
 
 contextBridge.exposeInMainWorld('electronPrinting', {
   health: () => ipcRenderer.invoke('printing:health'),

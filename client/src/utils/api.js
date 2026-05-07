@@ -76,6 +76,7 @@ export function getPrintingApiBase() {
 export function hasElectronPrinting() {
   return Boolean(
     typeof window !== 'undefined'
+    && (window.__ELECTRON__ || /Electron/i.test(window.navigator?.userAgent || ''))
     && window.electronPrinting
     && typeof window.electronPrinting.getPrinters === 'function'
   );
