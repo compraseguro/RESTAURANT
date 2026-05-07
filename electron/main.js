@@ -255,8 +255,8 @@ function getNetworkPrintersFromWindows() {
 
 function escPosBufferToHtmlSafeText(buffer) {
   let s = Buffer.from(buffer || []).toString('latin1');
-  /** Inicial ESC @: al quitar ESC queda «@» en impresión por GDI. */
-  s = s.replace(/^\x1B@/, '');
+  /** Comando ESC @ (init): si queda en el flujo, la impresión GDI suele mostrar «@». Quitar todas las apariciones en vista texto. */
+  s = s.replace(/\x1B\x40/g, '');
   /** Corte GS V (p. ej. \\x1D\\x56\\x41): bytes imprimibles quedan como «VA». */
   s = s.replace(/[\r\n\x1A]*\x1D\x56[\x00\x01\x30\x31\x41][\s\S]*$/g, '');
   s = s.replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '');

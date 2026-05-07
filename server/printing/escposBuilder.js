@@ -1,5 +1,13 @@
 const { logoToEscPosRaster } = require('./thermalLogo');
 
+/** Quita pies de depuración antiguos u overlays que no deben salir al cliente. */
+function stripDebugLinesFromPreformattedText(raw) {
+  return String(raw || '')
+    .split('\n')
+    .filter((line) => !/^\s*m[oó]dulo\s*:/i.test(String(line || '').trim()))
+    .join('\n');
+}
+
 function charsPerLine(paperWidth) {
   return Number(paperWidth) === 58 ? 32 : 48;
 }
@@ -53,9 +61,10 @@ async function buildTicket(moduleName, data = {}, options = {}) {
   const width = charsPerLine(paperW);
 
   /** Cuerpo ya formateado en cliente: UTF-8 + alineación centrada + logo opcional + corte. */
-  if (data.preformatted && String(data.text || '').trim()) {
+  const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
+  if (data.preformatted && cleanedPreformatted) {
     const lines = [];
-    String(data.text)
+    cleanedPreformatted
       .split('\n')
       .forEach((part) => wrapLine(part, width).forEach((line) => lines.push(`${line}\n`)));
     lines.push('\n');
