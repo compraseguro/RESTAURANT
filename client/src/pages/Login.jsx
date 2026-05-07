@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { api, resolveMediaUrl } from '../utils/api';
+import { api, hasElectronPrinting, resolveMediaUrl } from '../utils/api';
 import toast from 'react-hot-toast';
 import { MdStorefront, MdPerson, MdLock, MdVisibility, MdVisibilityOff, MdArrowBack, MdCameraAlt, MdGetApp } from 'react-icons/md';
 import AttendancePhotoCapture from '../components/AttendancePhotoCapture';
@@ -235,13 +235,15 @@ export default function Login() {
                     'Ingresar'
                   )}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => void installFromLogin()}
-                  className="w-full py-2 rounded-lg text-sm font-semibold border border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] inline-flex items-center justify-center gap-2"
-                >
-                  <MdGetApp className="text-base" /> Instalar aplicación
-                </button>
+                {!hasElectronPrinting() && (
+                  <button
+                    type="button"
+                    onClick={() => void installFromLogin()}
+                    className="w-full py-2 rounded-lg text-sm font-semibold border border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] inline-flex items-center justify-center gap-2"
+                  >
+                    <MdGetApp className="text-base" /> Instalar aplicación
+                  </button>
+                )}
               </form>
             </>
           )}
