@@ -3,6 +3,12 @@
  * - Si defines VITE_API_URL (p. ej. en .env), se usa siempre.
  * - En desarrollo (npm run dev) sin variable: `/api` → proxy de Vite al backend local (p. ej. :3001).
  * - En build de producción sin variable: URL por defecto en la nube (despliegue clásico).
+ *
+ * Impresión USB (Node + módulo `printer` en Windows):
+ * - Debe apuntar al backend local. Use `VITE_LOCAL_PRINTING_API` (build) o en runtime:
+ *   `localStorage.setItem('resto_local_printing_api', 'http://127.0.0.1:3001')`
+ *   (sin `/api` al final; se añade automáticamente).
+ * - Las llamadas bajo `api.printing.*` usan esa base; el resto del sistema sigue usando API_BASE.
  */
 const rawApi = import.meta.env.VITE_API_URL;
 const hasExplicitApi = rawApi !== undefined && rawApi !== null && String(rawApi).trim() !== '';
@@ -17,6 +23,55 @@ if (hasExplicitApi) {
   API_ORIGIN = 'https://resto-fadey-api.onrender.com';
 }
 export const API_BASE = API_ORIGIN ? `${API_ORIGIN}/api` : '/api';
+
+function normalizeApiOrigin(url) {
+  let o = String(url || '').trim().replace(/\/$/, '');
+  if (/\/api\/?$/i.test(o)) o = o.replace(/\/api\/?$/i, '');
+  return o;
+}
+
+/** Base `/api` del servidor Node local para rutas `/printing/*` (detección USB, impresión RAW). */
+export function getPrintingApiBase() {
+  if (typeof window !== 'undefined') {
+    const injected = window.__RESTO_PRINTING_API__ || window.__RESTO_LOCAL_PRINTING_API__;
+    if (injected && String(injected).trim()) {
+      const o = normalizeApiOrigin(injected);
+      if (o) {
+        console.info('[printing] Bridge URL (inyectada):', `${o}/api`);
+        return `${o}/api`;
+      }
+    }
+    const ls = window.localStorage?.getItem('resto_local_printing_api');
+    if (ls && String(ls).trim()) {
+      const o = normalizeApiOrigin(ls);
+      if (o) {
+        console.info('[printing] Bridge URL (localStorage):', `${o}/api`);
+        return `${o}/api`;
+      }
+    }
+  }
+  const envLocal = import.meta.env.VITE_LOCAL_PRINTING_API;
+  if (envLocal !== undefined && envLocal !== null && String(envLocal).trim() !== '') {
+    const o = normalizeApiOrigin(envLocal);
+    if (o) {
+      console.info('[printing] Bridge URL (VITE_LOCAL_PRINTING_API):', `${o}/api`);
+      return `${o}/api`;
+    }
+  }
+  if (typeof window !== 'undefined' && import.meta.env.PROD) {
+    if (/onrender\.com|vercel\.app/i.test(API_BASE)) {
+      const port = String(import.meta.env.VITE_LOCAL_PRINTING_PORT || '3001').trim() || '3001';
+      const o = normalizeApiOrigin(`http://127.0.0.1:${port}`);
+      console.info(
+        '[printing] API principal remota: usando bridge Node local por defecto (ajuste localStorage.resto_local_printing_api si el puerto no es',
+        `${port}):`,
+        `${o}/api`,
+      );
+      return `${o}/api`;
+    }
+  }
+  return API_BASE;
+}
 
 /**
  * Origen del servidor para archivos estáticos (`/uploads/...`), sin el sufijo `/api`.
@@ -81,6 +136,33 @@ async function request(endpoint, options = {}) {
   return data;
 }
 
+async function printingRequest(endpoint, options = {}) {
+  const token = localStorage.getItem('token');
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const base = getPrintingApiBase();
+  const res = await fetch(`${base}${endpoint}`, { ...options, headers });
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (_) {
+    data = null;
+  }
+  if (!res.ok) {
+    if (data?.error) throw new Error(data.error);
+    if (res.status === 404) {
+      throw new Error(
+        'No se encontró el servicio de impresión (404). En PC con Windows, ejecute el backend Node local y configure localStorage.resto_local_printing_api o VITE_LOCAL_PRINTING_API.'
+      );
+    }
+    throw new Error(
+      data?.message || `Error ${res.status}: el servidor de impresión no devolvió JSON válido`
+    );
+  }
+  return data;
+}
+
 export const api = {
   /** `options` se fusiona con fetch (p. ej. `{ cache: 'no-store' }`). */
   get: (endpoint, options = {}) => request(endpoint, { method: 'GET', cache: 'no-store', ...options }),
@@ -88,6 +170,12 @@ export const api = {
   put: (endpoint, body) => request(endpoint, { method: 'PUT', body: JSON.stringify(body) }),
   patch: (endpoint, body) => request(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (endpoint) => request(endpoint, { method: 'DELETE' }),
+  /** Mismo token que el API principal; base URL puede ser el Node local (USB / RAW). */
+  printing: {
+    get: (endpoint, options = {}) => printingRequest(endpoint, { method: 'GET', cache: 'no-store', ...options }),
+    post: (endpoint, body = {}) => printingRequest(endpoint, { method: 'POST', body: JSON.stringify(body) }),
+    put: (endpoint, body) => printingRequest(endpoint, { method: 'PUT', body: JSON.stringify(body) }),
+  },
   upload: async (file) => {
     const token = localStorage.getItem('token');
     const formData = new FormData();

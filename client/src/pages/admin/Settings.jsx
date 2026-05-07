@@ -281,10 +281,14 @@ export default function Settings() {
   const [attendanceGallerySaving, setAttendanceGallerySaving] = useState(false);
   const [printingConfig, setPrintingConfig] = useState({
     caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
-    cocina: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
-    bar: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
+    cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
+    bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
   });
-  const [detectedPrinters, setDetectedPrinters] = useState([]);
+  const [detectedPrintersByModule, setDetectedPrintersByModule] = useState({
+    caja: [],
+    cocina: [],
+    bar: [],
+  });
   const [printingBusy, setPrintingBusy] = useState(false);
   const [printerStatus, setPrinterStatus] = useState({
     caja: { status: 'No disponible', connected: false },
@@ -333,7 +337,7 @@ export default function Settings() {
       });
   };
   const loadPrintingConfig = () => {
-    api.get('/printing/config')
+    api.printing.get('/printing/config')
       .then((cfg) => {
         if (cfg && typeof cfg === 'object') setPrintingConfig(cfg);
       })
@@ -344,7 +348,7 @@ export default function Settings() {
   const isValidIp = (value) => /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(String(value || '').trim());
   const refreshPrinterStatus = () => {
     ['caja', 'cocina', 'bar'].forEach((moduleKey) => {
-      api.get(`/printing/status/${moduleKey}`)
+      api.printing.get(`/printing/status/${moduleKey}`)
         .then((data) => {
           setPrinterStatus((prev) => ({
             ...prev,
@@ -362,11 +366,12 @@ export default function Settings() {
         });
     });
   };
-  const detectUsbPrinters = () => {
+  const detectUsbPrintersForModule = (moduleKey) => {
     setPrintingBusy(true);
-    api.get('/printing/printers')
+    api.printing.get(`/printing/printers?module=${encodeURIComponent(moduleKey)}`)
       .then((data) => {
-        setDetectedPrinters(Array.isArray(data?.printers) ? data.printers : []);
+        const list = Array.isArray(data?.printers) ? data.printers : [];
+        setDetectedPrintersByModule((prev) => ({ ...prev, [moduleKey]: list }));
         refreshPrinterStatus();
       })
       .catch((err) => toast.error(err.message || 'No se pudo detectar impresoras'))
@@ -374,7 +379,7 @@ export default function Settings() {
   };
   const printTestByModule = (moduleKey) => {
     setPrintingBusy(true);
-    api.post(`/printing/test/${moduleKey}`, {})
+    api.printing.post(`/printing/test/${moduleKey}`, {})
       .then(() => {
         toast.success(`Prueba enviada a ${moduleKey}`);
         refreshPrinterStatus();
@@ -383,17 +388,28 @@ export default function Settings() {
       .finally(() => setPrintingBusy(false));
   };
   const savePrintingConfig = () => {
-    const invalid = ['caja', 'cocina', 'bar'].find((moduleKey) => {
+    const invalidRed = ['caja', 'cocina', 'bar'].find((moduleKey) => {
       const cfg = printingConfig?.[moduleKey] || {};
-      if (String(cfg.tipo || 'usb') !== 'red') return false;
-      return !isValidIp(cfg.ip);
+      if (String(cfg.tipo || 'usb').toLowerCase() !== 'red') return false;
+      if (!isValidIp(cfg.ip)) return true;
+      const p = Number(cfg.puerto);
+      return !Number.isFinite(p) || p < 1 || p > 65535;
     });
-    if (invalid) {
-      toast.error(`IP inválida en ${invalid}. No se guardó la configuración.`);
+    if (invalidRed) {
+      toast.error(`Revise IP y puerto en ${invalidRed} (modo Red). No se guardó.`);
+      return;
+    }
+    const invalidUsb = ['caja', 'cocina', 'bar'].find((moduleKey) => {
+      const cfg = printingConfig?.[moduleKey] || {};
+      if (String(cfg.tipo || 'usb').toLowerCase() === 'red') return false;
+      return !String(cfg.nombre || '').trim();
+    });
+    if (invalidUsb) {
+      toast.error(`Seleccione una impresora USB en ${invalidUsb} o use modo Red. No se guardó.`);
       return;
     }
     setPrintingBusy(true);
-    api.put('/printing/config', printingConfig)
+    api.printing.put('/printing/config', printingConfig)
       .then((saved) => {
         if (saved && typeof saved === 'object') setPrintingConfig(saved);
         toast.success('Configuración de impresoras guardada');
@@ -1257,12 +1273,11 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="card space-y-3">
               <p className="text-sm text-slate-500">
-                Configure una impresora por módulo (Caja, Cocina y Bar). USB usa impresoras instaladas en Windows; Red usa IP + puerto.
+                Configure una impresora por módulo (Caja, Cocina y Bar). USB usa la lista del sistema vía el backend Node local (Windows); Red usa IP + puerto.
+                En PC de escritorio, el cliente usa el bridge local (p. ej. <code className="text-xs">http://127.0.0.1:3001</code>); si el puerto es otro, defina{' '}
+                <code className="text-xs">localStorage.resto_local_printing_api</code>.
               </p>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className="btn-secondary text-sm" onClick={detectUsbPrinters} disabled={printingBusy}>
-                  Detectar impresoras USB
-                </button>
                 <button type="button" className="btn-primary text-sm flex items-center gap-2" onClick={savePrintingConfig} disabled={printingBusy}>
                   <MdSave /> Guardar configuración
                 </button>
@@ -1271,6 +1286,7 @@ export default function Settings() {
 
             {['caja', 'cocina', 'bar'].map((moduleKey) => {
               const cfg = printingConfig?.[moduleKey] || {};
+              const modulePrinters = detectedPrintersByModule[moduleKey] || [];
               const moduleLabel = moduleKey === 'caja' ? 'Caja' : moduleKey === 'cocina' ? 'Cocina' : 'Bar';
               return (
                 <div key={moduleKey} className="card space-y-3">
@@ -1306,7 +1322,7 @@ export default function Settings() {
                     </div>
 
                     {(cfg.tipo || 'usb') === 'usb' ? (
-                      <div className="md:col-span-1">
+                      <div className="md:col-span-1 space-y-2">
                         <label className="block text-sm font-medium text-slate-700 mb-1">Impresora USB</label>
                         <select
                           className="input-field"
@@ -1317,10 +1333,18 @@ export default function Settings() {
                           }))}
                         >
                           <option value="">Seleccione una impresora</option>
-                          {detectedPrinters.map((p) => (
+                          {modulePrinters.map((p) => (
                             <option key={p.name} value={p.name}>{p.name}</option>
                           ))}
                         </select>
+                        <button
+                          type="button"
+                          className="btn-secondary text-sm w-full sm:w-auto"
+                          onClick={() => detectUsbPrintersForModule(moduleKey)}
+                          disabled={printingBusy}
+                        >
+                          Detectar impresoras USB ({moduleLabel})
+                        </button>
                       </div>
                     ) : (
                       <>

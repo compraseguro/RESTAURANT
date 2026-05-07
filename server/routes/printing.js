@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { loadConfig, saveConfig, normalizeConfig } = require('../printing/printerConfig');
 const { getPrinters } = require('../printing/printerDetector');
-const { print, printTest, getPrinterStatus, isValidIp } = require('../printing/printerService');
+const { print, printTest, getPrinterStatus } = require('../printing/printerService');
 
 router.use(authenticateToken, requireRole('admin', 'master_admin', 'cajero', 'mozo', 'cocina', 'bar'));
 
@@ -12,13 +12,6 @@ router.get('/config', requireRole('admin', 'master_admin', 'cajero', 'cocina', '
 
 router.put('/config', requireRole('admin', 'master_admin', 'cajero', 'cocina', 'bar'), (req, res) => {
   try {
-    const input = req.body || {};
-    ['caja', 'cocina', 'bar'].forEach((moduleKey) => {
-      const moduleCfg = input?.[moduleKey];
-      if (moduleCfg && String(moduleCfg.tipo || '').toLowerCase() === 'red' && !isValidIp(moduleCfg.ip)) {
-        throw new Error(`IP inválida en ${moduleKey}`);
-      }
-    });
     const next = saveConfig(req.body || {});
     res.json(next);
   } catch (err) {
@@ -27,7 +20,13 @@ router.put('/config', requireRole('admin', 'master_admin', 'cajero', 'cocina', '
 });
 
 router.get('/printers', requireRole('admin', 'master_admin', 'cajero', 'cocina', 'bar'), (req, res) => {
-  res.json({ printers: getPrinters() });
+  const mod = String(req.query.module || '').trim().toLowerCase();
+  const list = getPrinters();
+  const items = list.map((p) => ({ name: p.name }));
+  console.log(
+    `[printing] GET /printers → ${list.length} impresora(s) USB${mod ? ` (módulo solicitante: ${mod})` : ''}`,
+  );
+  res.json({ printers: list, items });
 });
 
 router.post('/print/:module', (req, res) => {
@@ -61,7 +60,7 @@ router.get('/status/:module', requireRole('admin', 'master_admin', 'cajero', 'co
 });
 
 router.get('/normalize-preview', requireRole('admin', 'master_admin'), (req, res) => {
-  res.json(normalizeConfig(req.body || {}));
+  res.json(normalizeConfig(req.body || {}, { strict: false }));
 });
 
 module.exports = router;

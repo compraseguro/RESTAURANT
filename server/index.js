@@ -279,6 +279,7 @@ async function start() {
   logSqlitePersistenceWarnings();
   console.log(`[DB] SQLite path: ${getDbPath()}`);
   console.log(`[uploads] Archivos estáticos en: ${uploadsDir}`);
+  console.log('[printing] Bridge iniciado: rutas /api/printing (config, GET /printers, impresión RAW USB/Red en este proceso Node).');
   if (typeof billingRoutes.startBillingAutoRetryJob === 'function') {
     billingRoutes.startBillingAutoRetryJob();
   }

@@ -54,7 +54,7 @@ const CAJA_OPTIONS = [
 
 async function printCajaTicket(payload) {
   try {
-    await api.post('/printing/print/caja', payload);
+    await api.printing.post('/printing/print/caja', payload);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message || 'No se pudo imprimir' };
@@ -249,9 +249,9 @@ export default function POSPanel() {
   const [sendingCloseMail, setSendingCloseMail] = useState(false);
   const [activeCajaOption, setActiveCajaOption] = useState(searchParams.get('view') || 'cobrar');
   const [printingConfig, setPrintingConfig] = useState({
-    caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true },
-    cocina: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true },
-    bar: { tipo: 'red', nombre: '', ip: '', puerto: 9100, autoPrint: true },
+    caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
+    cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
+    bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
   });
   const [detectedPrinters, setDetectedPrinters] = useState([]);
   const [printingBusy, setPrintingBusy] = useState(false);
@@ -418,7 +418,7 @@ export default function POSPanel() {
 
   const loadPrinterConfig = async () => {
     try {
-      setPrintingConfig(await api.get('/printing/config'));
+      setPrintingConfig(await api.printing.get('/printing/config'));
     } catch (err) {
       toast.error(err.message || 'No se pudo cargar la impresora de caja');
     }
@@ -427,7 +427,7 @@ export default function POSPanel() {
   const detectUsbPrinters = async () => {
     try {
       setPrintingBusy(true);
-      const data = await api.get('/printing/printers');
+      const data = await api.printing.get('/printing/printers?module=caja');
       setDetectedPrinters(Array.isArray(data?.printers) ? data.printers : []);
     } catch (err) {
       toast.error(err.message || 'No se pudo detectar impresoras USB');
@@ -439,7 +439,7 @@ export default function POSPanel() {
   const savePrinterConfig = async () => {
     try {
       setPrintingBusy(true);
-      const next = await api.put('/printing/config', printingConfig);
+      const next = await api.printing.put('/printing/config', { caja: printingConfig.caja });
       setPrintingConfig(next || printingConfig);
       toast.success('Impresora de caja guardada');
     } catch (err) {
