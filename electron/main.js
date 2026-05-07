@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const net = require('net');
+const { execFile } = require('child_process');
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { buildTicket } = require('../server/printing/escposBuilder');
 
@@ -102,21 +103,65 @@ function saveConfig(input) {
 
 async function getPrinters() {
   const win = mainWindow || BrowserWindow.getAllWindows()[0];
+  const fromElectron = async () => {
+    if (!win || typeof win.webContents?.getPrintersAsync !== 'function') {
+      return [];
+    }
+    try {
+      const raw = await win.webContents.getPrintersAsync();
+      const list = (raw || [])
+        .map((p) => ({ name: String(p?.name || '').trim() }))
+        .filter((p) => p.name);
+      if (list.length) {
+        console.log(`[electron-printing] impresoras detectadas (Electron): ${list.length}`);
+      }
+      return list;
+    } catch (err) {
+      console.error('[electron-printing] error getPrintersAsync:', err.message || err);
+      return [];
+    }
+  };
+
+  const fromWindowsPowerShell = () => new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve([]);
+    const ps = 'Get-Printer | Select-Object -ExpandProperty Name | ConvertTo-Json -Compress';
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', ps],
+      { windowsHide: true, timeout: 5000, maxBuffer: 1024 * 1024 },
+      (err, stdout) => {
+        if (err) {
+          console.error('[electron-printing] error PowerShell Get-Printer:', err.message || err);
+          return resolve([]);
+        }
+        try {
+          const parsed = JSON.parse(String(stdout || '').trim() || '[]');
+          const arr = Array.isArray(parsed) ? parsed : [parsed];
+          const list = arr
+            .map((name) => ({ name: String(name || '').trim() }))
+            .filter((p) => p.name);
+          if (list.length) {
+            console.log(`[electron-printing] impresoras detectadas (PowerShell): ${list.length}`);
+          }
+          resolve(list);
+        } catch (parseErr) {
+          console.error('[electron-printing] JSON inválido de Get-Printer:', parseErr.message || parseErr);
+          resolve([]);
+        }
+      },
+    );
+  });
+
+  const first = await fromElectron();
+  if (first.length) return first;
+  const second = await fromWindowsPowerShell();
+  if (second.length) return second;
   if (!win) {
-    console.warn('[electron-printing] getPrinters sin ventana; devolviendo lista vacía');
-    return [];
+    console.warn('[electron-printing] getPrinters sin ventana y sin datos PowerShell');
+  } else {
+    console.warn('[electron-printing] no se detectaron impresoras por Electron ni PowerShell');
   }
-  try {
-    const raw = await win.webContents.getPrintersAsync();
-    const list = (raw || [])
-      .map((p) => ({ name: String(p?.name || '').trim() }))
-      .filter((p) => p.name);
-    console.log(`[electron-printing] impresoras detectadas (Electron): ${list.length}`);
-    return list;
-  } catch (err) {
-    console.error('[electron-printing] error getPrintersAsync:', err.message || err);
-    return [];
-  }
+  return [];
 }
 
 function printUSB(printerName, buffer) {
