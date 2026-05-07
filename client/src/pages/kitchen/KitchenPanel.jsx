@@ -5,13 +5,20 @@ import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
 import EndShiftModal from '../../components/EndShiftModal';
-import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime } from 'react-icons/md';
+import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime, MdPrint } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 /** Pedido auto-pedido con cuenta de cliente (sin mesa física). */
 function isCuentaClienteSelfOrder(order) {
   return String(order?.table_number || '') === 'Cliente' && String(order?.customer_id || '').trim() !== '';
+}
+
+function isBarItem(item = {}) {
+  const area = String(item?.production_area || '').toLowerCase();
+  if (area === 'bar') return true;
+  const text = `${item?.category_name_lc || ''} ${item?.product_name || ''}`.toLowerCase();
+  return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some((t) => text.includes(t));
 }
 
 export default function KitchenPanel({ station = 'cocina' }) {
@@ -67,6 +74,39 @@ export default function KitchenPanel({ station = 'cocina' }) {
   }, [filter, station]);
   useActiveInterval(loadOrders, 10000);
 
+  const getStationItems = (items = []) => {
+    const list = Array.isArray(items) ? items : [];
+    return isBar ? list.filter(isBarItem) : list.filter((it) => !isBarItem(it));
+  };
+
+  const printOrderForStation = async (order, { silent = false } = {}) => {
+    try {
+      const moduleKey = isBar ? 'bar' : 'cocina';
+      let payloadOrder = order || {};
+      let items = getStationItems(payloadOrder?.items || []);
+      if (!items.length && payloadOrder?.id) {
+        const full = await api.get(`/orders/${payloadOrder.id}`);
+        payloadOrder = full || payloadOrder;
+        items = getStationItems(payloadOrder?.items || []);
+      }
+      if (!items.length) {
+        if (!silent) toast.error(`El pedido no tiene ítems para ${isBar ? 'bar' : 'cocina'}`);
+        return false;
+      }
+      await api.printing.post(`/printing/print/${moduleKey}`, {
+        title: moduleKey === 'bar' ? 'COMANDA BAR' : 'COMANDA COCINA',
+        mesa: payloadOrder?.table_number || '',
+        orderNumber: payloadOrder?.order_number,
+        items,
+      });
+      if (!silent) toast.success(`Comanda enviada a ${isBar ? 'bar' : 'cocina'}`);
+      return true;
+    } catch (err) {
+      if (!silent) toast.error(err?.message || 'No se pudo imprimir comanda');
+      return false;
+    }
+  };
+
   const tryAutoPrintStationOrder = async (order, eventLabel = 'new-order') => {
     const moduleKey = isBar ? 'bar' : 'cocina';
     const eventKey = `${order?.id || 'x'}:${order?.updated_at || order?.created_at || 't'}:${eventLabel}:${moduleKey}`;
@@ -78,14 +118,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
     try {
       const cfg = await api.printing.get('/printing/config');
       if (!cfg?.[moduleKey]?.autoPrint) return;
-      const items = Array.isArray(order?.items) ? order.items : [];
-      if (!items.length) return;
-      await api.printing.post(`/printing/print/${moduleKey}`, {
-        title: moduleKey === 'bar' ? 'COMANDA BAR' : 'COMANDA COCINA',
-        mesa: order?.table_number || '',
-        orderNumber: order?.order_number,
-        items,
-      });
+      await printOrderForStation(order, { silent: true });
     } catch (err) {
       console.warn('[printing] auto panel cocina/bar:', err?.message || err);
     }
@@ -251,7 +284,14 @@ export default function KitchenPanel({ station = 'cocina' }) {
                 })()}
               </div>
 
-              <div className="px-4 py-3 border-t border-[color:var(--ui-border)]">
+              <div className="px-4 py-3 border-t border-[color:var(--ui-border)] space-y-2">
+                <button
+                  type="button"
+                  onClick={() => void printOrderForStation(order)}
+                  className="w-full py-2 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] text-xs font-semibold transition-colors inline-flex items-center justify-center gap-2"
+                >
+                  <MdPrint /> Imprimir comanda
+                </button>
                 {order.status === 'pending' ? (
                   <button
                     type="button"
