@@ -205,13 +205,16 @@ async function printerStatus(moduleKey) {
 }
 
 function createWindow() {
+  const preloadPath = path.join(__dirname, 'preload.js');
+  console.log('[electron] preload path:', preloadPath);
+  console.log('[electron] app.isPackaged:', app.isPackaged);
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
     },
   });
   const devUrl = process.env.ELECTRON_START_URL;

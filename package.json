@@ -22,7 +22,9 @@
     "prepare:first-owner": "node scripts/prepare-first-owner.js",
     "serve:offer": "npx --yes serve rolando-offer -l 8080",
     "electron": "electron .",
-    "electron:dev": "concurrently \"npm run server\" \"cd client && npm run dev\" \"cross-env ELECTRON_START_URL=http://localhost:5173 electron .\""
+    "electron:dev": "concurrently \"npm run server\" \"cd client && npm run dev\" \"cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
+    "electron:build": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis",
+    "electron:dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --publish never"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -39,6 +41,51 @@
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
-    "electron": "^37.10.3"
+    "electron": "^37.10.3",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.restofadey.desktop",
+    "productName": "Resto FADEY",
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "directories": {
+      "output": "release/dist",
+      "buildResources": "client/public"
+    },
+    "files": [
+      "electron/**",
+      "client/dist/**",
+      "server/printing/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "RestoFADEY Setup.exe",
+      "icon": "client/public/icon-512.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Resto FADEY"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://updates.restofadey.com/desktop"
+      }
+    ]
   }
 }
