@@ -195,6 +195,61 @@ async function getPrinters() {
   return [];
 }
 
+function getNetworkPrintersFromWindows() {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve([]);
+    const ps = [
+      '$printers = Get-Printer | Select-Object Name,PortName',
+      '$ports = Get-PrinterPort | Select-Object Name,PrinterHostAddress,HostAddress,PortNumber',
+      '$result = @()',
+      'foreach($p in $printers){',
+      '  $port = $ports | Where-Object { $_.Name -eq $p.PortName } | Select-Object -First 1',
+      '  if($port){',
+      '    $ip = $port.PrinterHostAddress',
+      '    if(-not $ip){ $ip = $port.HostAddress }',
+      '    if($ip){',
+      '      $result += [pscustomobject]@{',
+      '        name = $p.Name',
+      '        ip = $ip',
+      '        port = [int]($port.PortNumber)',
+      '        portName = $p.PortName',
+      '      }',
+      '    }',
+      '  }',
+      '}',
+      '$result | ConvertTo-Json -Compress',
+    ].join('; ');
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', ps],
+      { windowsHide: true, timeout: 6000, maxBuffer: 1024 * 1024 },
+      (err, stdout) => {
+        if (err) {
+          console.error('[electron-printing] error Get-PrinterPort:', err.message || err);
+          return resolve([]);
+        }
+        try {
+          const parsed = JSON.parse(String(stdout || '').trim() || '[]');
+          const arr = Array.isArray(parsed) ? parsed : [parsed];
+          const list = arr
+            .map((it) => ({
+              name: String(it?.name || '').trim(),
+              ip: String(it?.ip || '').trim(),
+              port: Number(it?.port || 9100),
+              portName: String(it?.portName || '').trim(),
+            }))
+            .filter((it) => isValidIp(it.ip) && Number.isFinite(it.port) && it.port > 0 && it.port <= 65535);
+          console.log(`[electron-printing] impresoras de red detectadas (Windows): ${list.length}`);
+          resolve(list);
+        } catch (parseErr) {
+          console.error('[electron-printing] JSON inválido Get-PrinterPort:', parseErr.message || parseErr);
+          resolve([]);
+        }
+      },
+    );
+  });
+}
+
 function printUSB(printerName, buffer) {
   if (printerLib && typeof printerLib.printDirect === 'function') {
     return new Promise((resolve, reject) => {
@@ -372,6 +427,14 @@ function createLocalAssistantServer() {
       res.json(loadConfig());
     } catch (err) {
       res.status(500).json({ error: err?.message || 'No se pudo leer configuración' });
+    }
+  });
+  assistant.get('/api/printing/network-printers', async (_req, res) => {
+    try {
+      const list = await getNetworkPrintersFromWindows();
+      res.json(list);
+    } catch (err) {
+      res.status(500).json({ error: err?.message || 'No se pudo detectar impresoras de red' });
     }
   });
   assistant.put('/api/printing/config', (req, res) => {

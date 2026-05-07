@@ -302,6 +302,11 @@ export default function Settings() {
     cocina: [],
     bar: [],
   });
+  const [detectedNetworkPrintersByModule, setDetectedNetworkPrintersByModule] = useState({
+    caja: [],
+    cocina: [],
+    bar: [],
+  });
   const [printingBusy, setPrintingBusy] = useState(false);
   const [printerStatus, setPrinterStatus] = useState({
     caja: { status: 'No disponible', connected: false },
@@ -442,6 +447,25 @@ export default function Settings() {
         refreshPrinterStatus();
       })
       .catch((err) => toast.error(err.message || printingUnreachableMessage()))
+      .finally(() => setPrintingBusy(false));
+  };
+  const detectNetworkPrintersForModule = (moduleKey) => {
+    setPrintingBusy(true);
+    api.printing.get('/printing/network-printers')
+      .then((data) => {
+        const list = Array.isArray(data)
+          ? data
+            .map((it) => ({
+              name: String(it?.name || '').trim(),
+              ip: String(it?.ip || '').trim(),
+              port: Number(it?.port || 9100),
+            }))
+            .filter((it) => it.ip)
+          : [];
+        setDetectedNetworkPrintersByModule((prev) => ({ ...prev, [moduleKey]: list }));
+        if (!list.length) toast('No se detectaron impresoras de red en Windows');
+      })
+      .catch((err) => toast.error(err.message || 'No se pudo detectar impresoras de red'))
       .finally(() => setPrintingBusy(false));
   };
   const detectUsbPrintersElectronAuto = () => {
@@ -1468,6 +1492,7 @@ export default function Settings() {
                 ? [{ name: selectedName }, ...modulePrinters]
                 : modulePrinters;
               const moduleLabel = moduleKey === 'caja' ? 'Caja' : moduleKey === 'cocina' ? 'Cocina' : 'Bar';
+              const moduleNetworkPrinters = detectedNetworkPrintersByModule[moduleKey] || [];
               return (
                 <div key={moduleKey} className="card space-y-3">
                   <h3 className="font-semibold text-slate-800">{moduleLabel}</h3>
@@ -1553,6 +1578,40 @@ export default function Settings() {
                               [moduleKey]: { ...(prev[moduleKey] || {}), puerto: Number(e.target.value || 9100) },
                             }))}
                           />
+                        </div>
+                        <div className="md:col-span-1 space-y-2">
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Impresoras de red detectadas</label>
+                          <select
+                            className="input-field"
+                            value=""
+                            onChange={(e) => {
+                              const selected = moduleNetworkPrinters.find((it) => `${it.ip}:${it.port}` === e.target.value);
+                              if (!selected) return;
+                              setPrintingConfig((prev) => ({
+                                ...prev,
+                                [moduleKey]: {
+                                  ...(prev[moduleKey] || {}),
+                                  ip: selected.ip,
+                                  puerto: Number(selected.port || 9100),
+                                },
+                              }));
+                            }}
+                          >
+                            <option value="">Seleccione impresora de red</option>
+                            {moduleNetworkPrinters.map((it) => (
+                              <option key={`${it.name}-${it.ip}-${it.port}`} value={`${it.ip}:${it.port}`}>
+                                {it.name || 'Impresora'} - {it.ip}:{it.port}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="btn-secondary text-sm w-full sm:w-auto"
+                            onClick={() => detectNetworkPrintersForModule(moduleKey)}
+                            disabled={printingBusy}
+                          >
+                            Detectar impresoras de red ({moduleLabel})
+                          </button>
                         </div>
                       </>
                     )}
