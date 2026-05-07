@@ -37,9 +37,6 @@
     "sql.js": "^1.11.0",
     "uuid": "^11.0.3"
   },
-  "optionalDependencies": {
-    "printer": "^0.4.0"
-  },
   "devDependencies": {
     "cross-env": "^7.0.3",
     "electron": "^37.10.3"

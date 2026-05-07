@@ -119,6 +119,33 @@ async function getPrinters() {
   }
 }
 
+function printUSB(printerName, buffer) {
+  const win = mainWindow || BrowserWindow.getAllWindows()[0];
+  if (!win) throw new Error('no hay ventana principal para imprimir');
+  return new Promise((resolve, reject) => {
+    const html = `<pre style="font-family: monospace; white-space: pre;">${buffer.toString('utf8')}</pre>`;
+    const printWin = new BrowserWindow({
+      show: false,
+      webPreferences: { offscreen: true },
+    });
+    printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    printWin.webContents.on('did-finish-load', () => {
+      printWin.webContents.print(
+        { silent: true, deviceName: printerName, printBackground: false },
+        (success, failureReason) => {
+          if (!success) {
+            console.error('[electron-printing] fallo print (USB):', failureReason);
+            reject(new Error(failureReason || 'Error al imprimir'));
+          } else {
+            resolve({ ok: true });
+          }
+          printWin.close();
+        },
+      );
+    });
+  });
+}
+
 function printNetwork(ip, port, buffer) {
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
@@ -143,31 +170,8 @@ async function printByModule(moduleKey, payload = {}) {
   const ticket = buildTicket(key, payload, { paperWidth: cfg.paperWidth || 80 });
   if (cfg.tipo === 'usb') {
     if (!cfg.nombre) throw new Error(`impresora USB no configurada en ${key}`);
-    const win = mainWindow || BrowserWindow.getAllWindows()[0];
-    if (!win) throw new Error('no hay ventana principal para imprimir');
     console.log(`[electron-printing] imprimir ${key} usb (Electron driver): ${cfg.nombre}`);
-    return new Promise((resolve, reject) => {
-      const html = `<pre style="font-family: monospace; white-space: pre;">${ticket.toString('utf8')}</pre>`;
-      const printWin = new BrowserWindow({
-        show: false,
-        webPreferences: { offscreen: true },
-      });
-      printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-      printWin.webContents.on('did-finish-load', () => {
-        printWin.webContents.print(
-          { silent: true, deviceName: cfg.nombre, printBackground: false },
-          (success, failureReason) => {
-            if (!success) {
-              console.error('[electron-printing] fallo print (USB):', failureReason);
-              reject(new Error(failureReason || 'Error al imprimir'));
-            } else {
-              resolve({ ok: true });
-            }
-            printWin.close();
-          },
-        );
-      });
-    });
+    return printUSB(cfg.nombre, ticket);
   }
   if (!isValidIp(cfg.ip)) throw new Error(`IP inválida en ${key}`);
   console.log(`[electron-printing] imprimir ${key} red: ${cfg.ip}:${cfg.puerto}`);
@@ -179,7 +183,7 @@ async function printerStatus(moduleKey) {
   if (!MODULE_KEYS.includes(key)) throw new Error('módulo inválido');
   const cfg = loadConfig()[key];
   if (cfg.tipo === 'usb') {
-    const connected = getPrinters().some((p) => p.name === cfg.nombre);
+    const connected = (await getPrinters()).some((p) => p.name === cfg.nombre);
     return { status: connected ? 'Conectada' : 'No disponible', connected, tipo: 'usb', module: key };
   }
   const connected = await new Promise((resolve) => {
