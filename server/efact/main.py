@@ -124,6 +124,8 @@ def venta_desde_dict(data: dict) -> VentaInput:
         provincia=em["provincia"],
         departamento=em["departamento"],
         distrito=em["distrito"],
+        telefono=str(em.get("telefono", "") or ""),
+        correo=str(em.get("correo", "") or ""),
     )
     cliente = ClienteInput(
         tipo_doc=str(cl["tipo_doc"]),

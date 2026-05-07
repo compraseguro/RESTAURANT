@@ -375,7 +375,12 @@ export function buildPrecuentaPlainText({
 }) {
   const w = thermalCharWidth(widthMm);
   const lines = [];
-  lines.push(...buildRestaurantTicketHeaderLines(restaurant, widthMm));
+  /** Precuenta: solo nombre del local (Mi empresa), sin bloque fiscal completo. */
+  const trade = restaurantDisplayNameUpper(restaurant);
+  if (trade) {
+    lines.push(centerThermalLine(trade, w));
+    lines.push('-'.repeat(w));
+  }
   lines.push(centerThermalLine('PRE CUENTA', w));
   const { date, time } = formatPeDateTimeParts(printedAt);
   lines.push(padLeftRight(`Fecha: ${date}`, `Hora: ${time}`, w));
@@ -414,6 +419,7 @@ export function buildNotaVentaPlainText({
 }) {
   const w = thermalCharWidth(widthMm);
   const lines = [];
+  /** Nota de venta térmica: cabecera completa (Mi restaurante + emisor SUNAT). */
   lines.push(...buildRestaurantTicketHeaderLines(restaurant, widthMm));
   lines.push(centerThermalLine('NOTA DE VENTA', w));
   const { date, time } = formatPeDateTimeParts(printedAt);
@@ -477,16 +483,10 @@ export function buildPedidoMesaTicketPlainText({
   items = [],
   widthMm = 80,
   printedAt = new Date(),
-  restaurant = null,
 }) {
   const w = thermalCharWidth(widthMm);
   const { clip: clipMax } = thermalPaperMetrics(widthMm);
   const lines = [];
-  if (restaurant && typeof restaurant === 'object') {
-    const hasData = ['name', 'billing_nombre_comercial', 'legal_name', 'company_ruc', 'address', 'billing_emisor_direccion', 'phone', 'email']
-      .some((k) => String(restaurant[k] || '').trim());
-    if (hasData) lines.push(...buildRestaurantTicketHeaderLines(restaurant, widthMm));
-  }
   lines.push(centerThermalLine('PEDIDO MESA', w));
   const { date, time } = formatPeDateTimeParts(printedAt);
   lines.push(padLeftRight(`Fecha: ${date}`, `Hora: ${time}`, w));

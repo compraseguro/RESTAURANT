@@ -78,6 +78,44 @@ function formatPeDateTimeLine(d) {
   }
 }
 
+/** Misma información de emisor que el ticket térmico de nota / comprobante (no precuenta). */
+function drawEmisorBlockCentered(doc, restaurant, contentLeft, contentW) {
+  const brand =
+    String(restaurant?.name || restaurant?.billing_nombre_comercial || '').trim() || 'Restaurante';
+  const legal = String(restaurant?.legal_name || '').trim();
+  const ruc = String(restaurant?.company_ruc || '').trim();
+  const addr = String(restaurant?.billing_emisor_direccion || restaurant?.address || '').trim();
+  const phone = String(restaurant?.phone || '').trim();
+  const email = String(restaurant?.email || '').trim();
+
+  doc.font('Helvetica-Bold').fontSize(14).fillColor('#000').text(brand.toUpperCase(), contentLeft, doc.y, {
+    width: contentW,
+    align: 'center',
+  });
+  doc.moveDown(0.28);
+  doc.font('Helvetica').fontSize(10);
+  if (legal) {
+    doc.text(`Razón social: ${legal}`, { width: contentW, align: 'center' });
+    doc.moveDown(0.2);
+  }
+  if (ruc) {
+    doc.text(`RUC: ${ruc}`, { width: contentW, align: 'center' });
+    doc.moveDown(0.2);
+  }
+  if (addr) {
+    doc.text(`Dirección: ${addr}`, { width: contentW, align: 'center' });
+    doc.moveDown(0.2);
+  }
+  if (phone) {
+    doc.text(`Tel: ${phone}`, { width: contentW, align: 'center' });
+    doc.moveDown(0.2);
+  }
+  if (email) {
+    doc.text(`Correo: ${email}`, { width: contentW, align: 'center' });
+    doc.moveDown(0.2);
+  }
+}
+
 /**
  * @returns {Promise<string>} URL relativa `/uploads/billing-documents/...` o ''
  */
@@ -114,8 +152,6 @@ function saveLocalFallbackReceiptPdf(docId, {
     });
     doc.on('error', reject);
 
-    const rname = String(restaurant?.name || 'Restaurante').trim() || 'Restaurante';
-    const ruc = String(restaurant?.company_ruc || '').trim();
     const label =
       docType === 'factura'
         ? 'FACTURA'
@@ -139,15 +175,7 @@ function saveLocalFallbackReceiptPdf(docId, {
         }
       }
 
-      doc.font('Helvetica-Bold').fontSize(14).fillColor('#000').text(rname, contentLeft, doc.y, {
-        width: contentW,
-        align: 'center',
-      });
-      doc.moveDown(0.35);
-      if (ruc) {
-        doc.font('Helvetica').fontSize(10).text(`RUC ${ruc}`, { width: contentW, align: 'center' });
-        doc.moveDown(0.35);
-      }
+      drawEmisorBlockCentered(doc, restaurant, contentLeft, contentW);
       doc.font('Helvetica-Bold').fontSize(12).text(label, { width: contentW, align: 'center' });
       doc.font('Helvetica').fontSize(11).text(String(fullNumber || ''), { width: contentW, align: 'center' });
       doc.moveDown(0.25);
@@ -255,9 +283,8 @@ function saveLocalFallbackReceiptPdf(docId, {
     }
 
     /* Boleta / factura fallback: leyenda SUNAT solo si aplica envío electrónico */
-    doc.fontSize(16).text(rname, { align: 'center' });
-    if (ruc) doc.fontSize(10).text(`RUC ${ruc}`, { align: 'center' });
-    doc.moveDown(0.5);
+    drawEmisorBlockCentered(doc, restaurant, contentLeft, contentW);
+    doc.moveDown(0.35);
     doc.fontSize(12).text(label, { align: 'center' });
     doc.fontSize(11).text(String(fullNumber || ''), { align: 'center' });
     doc.moveDown();

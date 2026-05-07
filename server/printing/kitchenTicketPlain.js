@@ -60,40 +60,6 @@ function orderHasTakeoutNote(order) {
   return String(order?.notes || '').toUpperCase().includes(KITCHEN_TAKEOUT_NOTE);
 }
 
-/** Misma lógica que buildRestaurantTicketHeaderLines en el cliente (Mi restaurante + emisor). */
-function buildRestaurantHeaderLinesServer(row, widthMm) {
-  if (!row || typeof row !== 'object') return [];
-  const w = thermalCharWidth(widthMm);
-  const brand =
-    String(row.name || '').trim()
-    || String(row.billing_nombre_comercial || '').trim()
-    || 'RESTAURANTE';
-  const lines = [];
-  lines.push(centerThermalLine(brand.toUpperCase(), w));
-  const legal = String(row.legal_name || '').trim();
-  if (legal) {
-    for (const seg of wrapThermalLine(`Razón social: ${legal}`, w)) lines.push(seg);
-  }
-  const ruc = String(row.company_ruc || '').trim();
-  if (ruc) lines.push(`RUC: ${ruc}`.slice(0, w));
-  const addr =
-    String(row.billing_emisor_direccion || '').trim()
-    || String(row.address || '').trim();
-  if (addr) {
-    for (const seg of wrapThermalLine(`Dirección: ${addr}`, w)) lines.push(seg);
-  }
-  const phone = String(row.phone || '').trim();
-  if (phone) {
-    for (const seg of wrapThermalLine(`Tel: ${phone}`, w)) lines.push(seg);
-  }
-  const email = String(row.email || '').trim();
-  if (email) {
-    for (const seg of wrapThermalLine(`Correo: ${email}`, w)) lines.push(seg);
-  }
-  lines.push('-'.repeat(w));
-  return lines;
-}
-
 function peParts(d) {
   const date = d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const time = d.toLocaleTimeString('es-PE', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -104,14 +70,10 @@ function peParts(d) {
  * @param {object} order
  * @param {object[]} items — ítems ya filtrados (cocina o bar)
  * @param {number} widthMm
- * @param {object|null} restaurantRow — fila `restaurants` (opcional)
  */
-function buildPedidoMesaTicketPlainTextServer(order, items, widthMm = 80, restaurantRow = null) {
+function buildPedidoMesaTicketPlainTextServer(order, items, widthMm = 80) {
   const w = thermalCharWidth(widthMm);
   const lines = [];
-  if (restaurantRow) {
-    lines.push(...buildRestaurantHeaderLinesServer(restaurantRow, widthMm));
-  }
   const printedAt = new Date();
   lines.push(centerThermalLine('PEDIDO MESA', w));
   const { date, time } = peParts(printedAt);

@@ -44,12 +44,22 @@ def generar_pdf_comprobante(venta: VentaInput, ruta_salida: Path) -> Path:
     story.append(Spacer(1, 0.5 * cm))
 
     e = venta.emisor
-    emisor_txt = f"""
-    <b>{e.razon_social}</b><br/>
-    RUC: {e.ruc}<br/>
-    {e.direccion}<br/>
-    {e.distrito} — {e.provincia} — {e.departamento}
-    """
+    nc = (e.nombre_comercial or "").strip()
+    rs = (e.razon_social or "").strip()
+    emisor_parts = []
+    if nc and nc.upper() != rs.upper():
+        emisor_parts.append(f"<b>{nc}</b>")
+    emisor_parts.append(f"<b>{rs}</b>")
+    emisor_parts.append(f"RUC: {e.ruc}")
+    emisor_parts.append(f"{e.direccion}")
+    emisor_parts.append(f"{e.distrito} — {e.provincia} — {e.departamento}")
+    tel = (getattr(e, "telefono", None) or "").strip()
+    mail = (getattr(e, "correo", None) or "").strip()
+    if tel:
+        emisor_parts.append(f"Tel: {tel}")
+    if mail:
+        emisor_parts.append(f"Correo: {mail}")
+    emisor_txt = "<br/>".join(emisor_parts)
     story.append(Paragraph(emisor_txt, styles["Normal"]))
     story.append(Spacer(1, 0.4 * cm))
 

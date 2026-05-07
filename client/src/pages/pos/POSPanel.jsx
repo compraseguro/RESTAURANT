@@ -1363,7 +1363,6 @@ export default function POSPanel() {
         const barTicketItems = rows.filter((r) => r.isBar).map((r) => r.ticketItem);
         if (cfg?.cocina?.autoPrint && kitchenTicketItems.length > 0) {
           const text = buildPedidoMesaTicketPlainText({
-            restaurant: printRestaurantInfo,
             tableLabel: tableNumber || '',
             orderNumber,
             takeout,
@@ -1376,7 +1375,6 @@ export default function POSPanel() {
         }
         if (cfg?.bar?.autoPrint && barTicketItems.length > 0) {
           const text = buildPedidoMesaTicketPlainText({
-            restaurant: printRestaurantInfo,
             tableLabel: tableNumber || '',
             orderNumber,
             takeout,

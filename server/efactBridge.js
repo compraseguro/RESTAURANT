@@ -125,6 +125,8 @@ function buildEfactSaleJson({
       provincia,
       departamento,
       distrito,
+      telefono: String(restaurant.phone || '').trim(),
+      correo: String(restaurant.email || '').trim(),
     },
     cliente: {
       tipo_doc: tipoDoc,

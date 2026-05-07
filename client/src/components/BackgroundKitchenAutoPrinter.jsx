@@ -30,10 +30,9 @@ export default function BackgroundKitchenAutoPrinter() {
     }
 
     try {
-      const [cfg, fullOrder, restaurant] = await Promise.all([
+      const [cfg, fullOrder] = await Promise.all([
         api.printing.get('/printing/config'),
         api.get(`/orders/${orderId}`),
-        api.get('/restaurant').catch(() => ({})),
       ]);
       const items = Array.isArray(fullOrder?.items) ? fullOrder.items : [];
       if (!items.length) return;
@@ -60,7 +59,6 @@ export default function BackgroundKitchenAutoPrinter() {
 
       if (cfg?.cocina?.autoPrint && kitchenItems.length > 0) {
         const text = buildPedidoMesaTicketPlainText({
-          restaurant,
           tableLabel: tableLbl,
           orderNumber: fullOrder?.order_number,
           takeout,
@@ -73,7 +71,6 @@ export default function BackgroundKitchenAutoPrinter() {
       }
       if (cfg?.bar?.autoPrint && barItems.length > 0) {
         const text = buildPedidoMesaTicketPlainText({
-          restaurant,
           tableLabel: tableLbl,
           orderNumber: fullOrder?.order_number,
           takeout,

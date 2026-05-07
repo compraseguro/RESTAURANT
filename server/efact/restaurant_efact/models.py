@@ -54,6 +54,8 @@ class EmisorConfig:
     provincia: str
     departamento: str
     distrito: str
+    telefono: str = ""
+    correo: str = ""
 
 
 @dataclass
