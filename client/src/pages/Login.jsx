@@ -21,8 +21,6 @@ const FALLBACK_RESTAURANT_NAME = 'Resto Fadey App';
 
 /** Pie del login: fijo, no configurable (no usar datos de /restaurant). */
 const LOGIN_PRODUCT_FOOTER = 'RESTO FADEY APP - SISTEMA DE GESTION';
-const DESKTOP_SETUP_URL = import.meta.env.VITE_DESKTOP_SETUP_URL || '/downloads/RestoFADEY Setup.exe';
-
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -38,6 +36,7 @@ export default function Login() {
   const [brandLogo, setBrandLogo] = useState('');
   /** Nombre comercial del establecimiento (Mi empresa / Mi Restaurante); distinto del subtítulo del producto. */
   const [restaurantName, setRestaurantName] = useState(FALLBACK_RESTAURANT_NAME);
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
 
   const photosRequired = attendancePolicy.loginRequired;
   const policyReady = !attendancePolicy.loading;
@@ -53,18 +52,34 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const onBeforeInstall = (e) => {
+      e.preventDefault();
+      setInstallPromptEvent(e);
+    };
+    const onInstalled = () => {
+      setInstallPromptEvent(null);
+      toast.success('Aplicación instalada correctamente');
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+
   const installFromLogin = async () => {
     try {
-      const url = String(DESKTOP_SETUP_URL || '').trim();
-      if (!url) throw new Error('URL de instalador no configurada');
-      toast.success('Iniciando descarga del instalador. Luego ejecútelo para instalar la app.');
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_self';
-      link.rel = 'noopener noreferrer';
-      link.click();
+      if (!installPromptEvent) {
+        toast('La instalación rápida no está disponible en este navegador.');
+        return;
+      }
+      installPromptEvent.prompt();
+      await installPromptEvent.userChoice;
+      setInstallPromptEvent(null);
     } catch (_) {
-      window.location.assign(DESKTOP_SETUP_URL);
+      toast.error('No se pudo iniciar la instalación');
     }
   };
 
@@ -224,7 +239,7 @@ export default function Login() {
                     onClick={() => void installFromLogin()}
                     className="w-full py-2 rounded-lg text-sm font-semibold border border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] inline-flex items-center justify-center gap-2"
                   >
-                    <MdGetApp className="text-base" /> Descargar app de escritorio
+                    <MdGetApp className="text-base" /> Instalar aplicación
                   </button>
                 )}
               </form>

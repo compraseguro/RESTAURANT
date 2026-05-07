@@ -8,16 +8,11 @@ import { CartProvider } from './context/CartContext';
 import './index.css';
 import { initOrientationRespect } from './orientationRespect';
 import { applyUiTheme, readStoredUiTheme } from './theme/uiTheme';
+import { registerServiceWorker } from './serviceWorkerRegister';
 
 applyUiTheme(readStoredUiTheme());
 initOrientationRespect();
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.getRegistrations()
-      .then((regs) => Promise.all(regs.map((r) => r.unregister())))
-      .catch(() => {});
-  });
-}
+registerServiceWorker();
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
