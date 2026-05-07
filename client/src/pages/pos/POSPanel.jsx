@@ -1645,11 +1645,13 @@ export default function POSPanel() {
     const first = Math.min(...timestamps);
     return Math.max(0, Math.round((Date.now() - first) / (1000 * 60 * 60)));
   })();
-  const printPrecuenta = async () => {
-    if (!selectedTable) return;
-    const payableOrders = splitMode
-      ? (selectedTable.orders || []).filter(o => selectedOrderIds.includes(o.id))
-      : (selectedTable.orders || []);
+  const printPrecuenta = async (tableOverride = null) => {
+    const table = tableOverride || selectedTable;
+    if (!table) return;
+    const useSplit = !tableOverride && splitMode;
+    const payableOrders = useSplit
+      ? (table.orders || []).filter(o => selectedOrderIds.includes(o.id))
+      : (table.orders || []);
     if (payableOrders.length === 0) return toast.error('No hay pedidos para precuenta');
     const restaurantName = String(printRestaurantInfo?.name || 'Resto-FADEY').trim() || 'Resto-FADEY';
     const groupedPrecuenta = groupItemsByProductNameForBill(payableOrders.flatMap((o) => o.items || []));
@@ -1664,7 +1666,7 @@ export default function POSPanel() {
     const copies = 1;
     const plain = buildPrecuentaPlainText({
       restaurantName,
-      tableName: selectedTable.name,
+      tableName: table.name,
       userLine: `${formatPeDateTimeLine(new Date())} · ${user?.full_name || 'Cajero/a'}`,
       takeoutLine: precuentaParaLlevar ? KITCHEN_TAKEOUT_NOTE : '',
       customerLines,
@@ -1677,7 +1679,7 @@ export default function POSPanel() {
     });
     const r = await printCajaTicket({
       title: 'PRE CUENTA',
-      mesa: selectedTable.name,
+      mesa: table.name,
       items: groupedPrecuenta.map((row) => ({ quantity: row.qty, name: row.name })),
       text: plain,
     });
@@ -2073,7 +2075,7 @@ export default function POSPanel() {
                 type="button"
                 onClick={() => {
                   setSelectedTable(tableDetail);
-                  void printPrecuenta();
+                  void printPrecuenta(tableDetail);
                 }}
                 disabled={!tableDetail.orders?.length}
                 className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
