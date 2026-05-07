@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
@@ -22,6 +22,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const navigate = useNavigate();
   const location = useLocation();
   const emit = useSocketEmit();
+  const printedEventKeysRef = useRef(new Set());
   const isBar = station === 'bar';
   const StationIcon = isBar ? MdLocalBar : MdKitchen;
   const panelTitle = isBar ? 'Panel de Bar' : 'Panel de Cocina';
@@ -66,9 +67,34 @@ export default function KitchenPanel({ station = 'cocina' }) {
   }, [filter, station]);
   useActiveInterval(loadOrders, 10000);
 
+  const tryAutoPrintStationOrder = async (order, eventLabel = 'new-order') => {
+    const moduleKey = isBar ? 'bar' : 'cocina';
+    const eventKey = `${order?.id || 'x'}:${order?.updated_at || order?.created_at || 't'}:${eventLabel}:${moduleKey}`;
+    if (printedEventKeysRef.current.has(eventKey)) return;
+    printedEventKeysRef.current.add(eventKey);
+    if (printedEventKeysRef.current.size > 300) {
+      printedEventKeysRef.current = new Set(Array.from(printedEventKeysRef.current).slice(-150));
+    }
+    try {
+      const cfg = await api.printing.get('/printing/config');
+      if (!cfg?.[moduleKey]?.autoPrint) return;
+      const items = Array.isArray(order?.items) ? order.items : [];
+      if (!items.length) return;
+      await api.printing.post(`/printing/print/${moduleKey}`, {
+        title: moduleKey === 'bar' ? 'COMANDA BAR' : 'COMANDA COCINA',
+        mesa: order?.table_number || '',
+        orderNumber: order?.order_number,
+        items,
+      });
+    } catch (err) {
+      console.warn('[printing] auto panel cocina/bar:', err?.message || err);
+    }
+  };
+
   const handleKitchenIncomingOrder = (order, toastLabel) => {
     loadOrders();
     playStationAlert();
+    void tryAutoPrintStationOrder(order, toastLabel);
     const num = order?.order_number;
     toast.success(
       num != null ? `${toastLabel} #${num} (${isBar ? 'bar' : 'cocina'})` : toastLabel,
