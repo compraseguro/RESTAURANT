@@ -31,6 +31,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const emit = useSocketEmit();
   const printedEventKeysRef = useRef(new Set());
   const printedOrderIdsRef = useRef(new Set());
+  const bootstrapDoneRef = useRef(false);
   const isBar = station === 'bar';
   const StationIcon = isBar ? MdLocalBar : MdKitchen;
   const panelTitle = isBar ? 'Panel de Bar' : 'Panel de Cocina';
@@ -68,6 +69,17 @@ export default function KitchenPanel({ station = 'cocina' }) {
       const list = await api.get(`/orders/kitchen?${qs.toString()}`);
       const safeList = Array.isArray(list) ? list : [];
       setOrders(safeList);
+      if (!bootstrapDoneRef.current) {
+        // Primera carga del panel: marcar pendientes existentes como ya vistos
+        // para no reimprimir comandas antiguas al iniciar/refrescar.
+        safeList.forEach((order) => {
+          if (order?.id && String(order?.status || '').toLowerCase() === 'pending') {
+            printedOrderIdsRef.current.add(order.id);
+          }
+        });
+        bootstrapDoneRef.current = true;
+        return;
+      }
       for (const order of safeList) {
         if (!order?.id) continue;
         if (String(order?.status || '').toLowerCase() !== 'pending') continue;
