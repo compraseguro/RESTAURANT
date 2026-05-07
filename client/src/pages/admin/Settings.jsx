@@ -5,6 +5,7 @@ import {
   electronPrinting,
   formatDateTime,
   hasElectronPrinting,
+  isElectronRuntime,
   normalizeUsbPrinterList,
   printingUnreachableMessage,
 } from '../../utils/api';
@@ -1332,6 +1333,12 @@ export default function Settings() {
                   Configure una impresora por módulo (Caja, Cocina y Bar). En la app de escritorio, la detección e impresión USB/Red
                   usan integración nativa de Electron y funcionan sin navegador.
                 </p>
+              ) : isElectronRuntime() ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+                  <p className="text-sm text-amber-800">
+                    La app se está ejecutando en escritorio, pero la integración de impresión no está disponible en esta compilación.
+                  </p>
+                </div>
               ) : (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
                   <p className="text-sm text-amber-800">

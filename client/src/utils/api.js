@@ -73,10 +73,20 @@ export function getPrintingApiBase() {
   return API_BASE;
 }
 
-export function hasElectronPrinting() {
+export function isElectronRuntime() {
   return Boolean(
     typeof window !== 'undefined'
-    && (window.__ELECTRON__ || /Electron/i.test(window.navigator?.userAgent || ''))
+    && (
+      window.__ELECTRON__
+      || /Electron/i.test(window.navigator?.userAgent || '')
+      || Boolean(window?.process?.versions?.electron)
+    )
+  );
+}
+
+export function hasElectronPrinting() {
+  return Boolean(
+    isElectronRuntime()
     && window.electronPrinting
     && typeof window.electronPrinting.getPrinters === 'function'
   );
@@ -177,6 +187,9 @@ async function request(endpoint, options = {}) {
 }
 
 function printingUnreachableMessage() {
+  if (isElectronRuntime()) {
+    return 'Integración de impresión de escritorio no disponible';
+  }
   return 'Servicio de impresión no iniciado';
 }
 

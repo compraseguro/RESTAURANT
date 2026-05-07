@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { api, hasElectronPrinting, resolveMediaUrl } from '../utils/api';
+import { api, isElectronRuntime, resolveMediaUrl } from '../utils/api';
 import toast from 'react-hot-toast';
 import { MdStorefront, MdPerson, MdLock, MdVisibility, MdVisibilityOff, MdArrowBack, MdCameraAlt, MdGetApp } from 'react-icons/md';
 import AttendancePhotoCapture from '../components/AttendancePhotoCapture';
@@ -235,7 +235,7 @@ export default function Login() {
                     'Ingresar'
                   )}
                 </button>
-                {!hasElectronPrinting() && (
+                {!isElectronRuntime() && (
                   <button
                     type="button"
                     onClick={() => void installFromLogin()}
