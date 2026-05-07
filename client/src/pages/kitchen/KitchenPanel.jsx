@@ -8,6 +8,7 @@ import EndShiftModal from '../../components/EndShiftModal';
 import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime, MdPrint } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { orderHasTakeoutNote, buildPedidoMesaTicketPlainText } from '../../utils/ticketPlainText';
 
 /** Pedido auto-pedido con cuenta de cliente (sin mesa física). */
 function isCuentaClienteSelfOrder(order) {
@@ -92,12 +93,37 @@ export default function KitchenPanel({ station = 'cocina' }) {
         if (!silent) toast.error(`El pedido no tiene ítems para ${isBar ? 'bar' : 'cocina'}`);
         return false;
       }
-      await api.printing.post(`/printing/print/${moduleKey}`, {
-        title: moduleKey === 'bar' ? 'COMANDA BAR' : 'COMANDA COCINA',
-        mesa: payloadOrder?.table_number || '',
+      const cfg = await api.printing.get('/printing/config');
+      const paper =
+        Number(
+          (isBar ? cfg?.bar?.paperWidth ?? cfg?.bar?.anchoPapel : cfg?.cocina?.paperWidth ?? cfg?.cocina?.anchoPapel)
+            || 80,
+        ) === 58
+          ? 58
+          : 80;
+      const takeout = orderHasTakeoutNote(payloadOrder);
+      const waiter = String(payloadOrder?.created_by_user_name || '').trim();
+      const tableLbl =
+        payloadOrder?.type === 'dine_in' && payloadOrder?.table_number
+          ? `Mesa ${String(payloadOrder.table_number).trim()}`
+          : String(payloadOrder?.table_number || '').trim();
+      const ticketItems = items.map((it) => ({
+        product_name: String(it.product_name || '').trim() || '—',
+        variant_name: String(it.variant_name || '').trim(),
+        quantity: Number(it.quantity || 1),
+        notes: String(it.notes || '').trim(),
+        modifier_option: String(it.modifier_option || '').trim(),
+      }));
+      const text = buildPedidoMesaTicketPlainText({
+        tableLabel: tableLbl,
         orderNumber: payloadOrder?.order_number,
-        items,
+        takeout,
+        waiterName: waiter,
+        items: ticketItems,
+        widthMm: paper,
+        printedAt: new Date(),
       });
+      await api.printing.post(`/printing/print/${moduleKey}`, { text, preformatted: true });
       if (!silent) toast.success(`Comanda enviada a ${isBar ? 'bar' : 'cocina'}`);
       return true;
     } catch (err) {

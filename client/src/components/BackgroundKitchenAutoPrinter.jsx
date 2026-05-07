@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
+import { orderHasTakeoutNote, buildPedidoMesaTicketPlainText } from '../utils/ticketPlainText';
 
 function isBarItem(item = {}) {
   const area = String(item?.production_area || '').toLowerCase();
@@ -38,22 +39,47 @@ export default function BackgroundKitchenAutoPrinter() {
 
       const kitchenItems = items.filter((it) => !isBarItem(it));
       const barItems = items.filter((it) => isBarItem(it));
+      const paperC = Number(cfg?.cocina?.paperWidth || cfg?.cocina?.anchoPapel || 80) === 58 ? 58 : 80;
+      const paperB = Number(cfg?.bar?.paperWidth || cfg?.bar?.anchoPapel || 80) === 58 ? 58 : 80;
+      const takeout = orderHasTakeoutNote(fullOrder);
+      const waiter = String(fullOrder?.created_by_user_name || '').trim();
+      const tableLbl =
+        fullOrder?.type === 'dine_in' && fullOrder?.table_number
+          ? `Mesa ${String(fullOrder.table_number).trim()}`
+          : String(fullOrder?.table_number || '').trim();
+
+      const toTicket = (list) =>
+        list.map((it) => ({
+          product_name: String(it.product_name || '').trim() || '—',
+          variant_name: String(it.variant_name || '').trim(),
+          quantity: Number(it.quantity || 1),
+          notes: String(it.notes || '').trim(),
+          modifier_option: String(it.modifier_option || '').trim(),
+        }));
 
       if (cfg?.cocina?.autoPrint && kitchenItems.length > 0) {
-        await api.printing.post('/printing/print/cocina', {
-          title: 'COMANDA COCINA',
-          mesa: fullOrder?.table_number || '',
+        const text = buildPedidoMesaTicketPlainText({
+          tableLabel: tableLbl,
           orderNumber: fullOrder?.order_number,
-          items: kitchenItems,
+          takeout,
+          waiterName: waiter,
+          items: toTicket(kitchenItems),
+          widthMm: paperC,
+          printedAt: new Date(),
         });
+        await api.printing.post('/printing/print/cocina', { text, preformatted: true });
       }
       if (cfg?.bar?.autoPrint && barItems.length > 0) {
-        await api.printing.post('/printing/print/bar', {
-          title: 'COMANDA BAR',
-          mesa: fullOrder?.table_number || '',
+        const text = buildPedidoMesaTicketPlainText({
+          tableLabel: tableLbl,
           orderNumber: fullOrder?.order_number,
-          items: barItems,
+          takeout,
+          waiterName: waiter,
+          items: toTicket(barItems),
+          widthMm: paperB,
+          printedAt: new Date(),
         });
+        await api.printing.post('/printing/print/bar', { text, preformatted: true });
       }
     } catch (err) {
       console.warn('[printing] auto background cocina/bar:', err?.message || err);

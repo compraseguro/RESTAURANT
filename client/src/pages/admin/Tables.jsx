@@ -10,7 +10,12 @@ import StaffMesaPedidoTabs from '../../components/StaffMesaPedidoTabs';
 import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
 import toast from 'react-hot-toast';
 import { MdTableRestaurant, MdReceipt, MdClose } from 'react-icons/md';
-import { KITCHEN_TAKEOUT_NOTE } from '../../utils/ticketPlainText';
+import {
+  KITCHEN_TAKEOUT_NOTE,
+  orderHasTakeoutNote,
+  buildPedidoMesaTicketPlainText,
+  enrichCartLineForKitchenItem,
+} from '../../utils/ticketPlainText';
 
 export default function Tables() {
   const { user } = useAuth();
@@ -45,6 +50,8 @@ export default function Tables() {
     cartTotal,
     resetCart,
   } = useStaffOrderCart(modifiers);
+
+  const productsById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
   const loadTables = () => {
     api.get('/tables').then(data => {
@@ -146,35 +153,46 @@ export default function Tables() {
       const txt = String(fallbackName || product?.name || '').toLowerCase();
       return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some((t) => txt.includes(t));
     };
-    const autoPrintKitchenBarFromLines = async ({ orderNumber, tableNumber, lines }) => {
+    const autoPrintKitchenBarFromLines = async ({ orderNumber, tableNumber, lines, orderSnapshot }) => {
       try {
         const cfg = await api.printing.get('/printing/config');
+        const modMap = new Map((modifiers || []).map((m) => [m.id, m]));
         const rows = (Array.isArray(lines) ? lines : []).map((line) => {
           const p = productsById.get(line.product_id) || {};
           return {
-            quantity: Number(line.quantity || 1),
-            name: String(line.name || p.name || '').trim(),
-            notes: String(line.notes || '').trim(),
+            ticketItem: enrichCartLineForKitchenItem(line, productsById, modMap),
             isBar: isBarProduct(p, line.name),
           };
         });
-        const kitchenItems = rows.filter((r) => !r.isBar).map(({ quantity, name, notes }) => ({ quantity, name, notes }));
-        const barItems = rows.filter((r) => r.isBar).map(({ quantity, name, notes }) => ({ quantity, name, notes }));
-        if (cfg?.cocina?.autoPrint && kitchenItems.length > 0) {
-          await api.printing.post('/printing/print/cocina', {
-            title: 'COMANDA COCINA',
-            mesa: tableNumber || '',
+        const paperC = Number(cfg?.cocina?.paperWidth || cfg?.cocina?.anchoPapel || 80) === 58 ? 58 : 80;
+        const paperB = Number(cfg?.bar?.paperWidth || cfg?.bar?.anchoPapel || 80) === 58 ? 58 : 80;
+        const takeout = orderSnapshot ? orderHasTakeoutNote(orderSnapshot) : false;
+        const waiter = String(orderSnapshot?.created_by_user_name || user?.full_name || '').trim();
+        const kitchenTicketItems = rows.filter((r) => !r.isBar).map((r) => r.ticketItem);
+        const barTicketItems = rows.filter((r) => r.isBar).map((r) => r.ticketItem);
+        if (cfg?.cocina?.autoPrint && kitchenTicketItems.length > 0) {
+          const text = buildPedidoMesaTicketPlainText({
+            tableLabel: tableNumber || '',
             orderNumber,
-            items: kitchenItems,
+            takeout,
+            waiterName: waiter,
+            items: kitchenTicketItems,
+            widthMm: paperC,
+            printedAt: new Date(),
           });
+          await api.printing.post('/printing/print/cocina', { text, preformatted: true });
         }
-        if (cfg?.bar?.autoPrint && barItems.length > 0) {
-          await api.printing.post('/printing/print/bar', {
-            title: 'COMANDA BAR',
-            mesa: tableNumber || '',
+        if (cfg?.bar?.autoPrint && barTicketItems.length > 0) {
+          const text = buildPedidoMesaTicketPlainText({
+            tableLabel: tableNumber || '',
             orderNumber,
-            items: barItems,
+            takeout,
+            waiterName: waiter,
+            items: barTicketItems,
+            widthMm: paperB,
+            printedAt: new Date(),
           });
+          await api.printing.post('/printing/print/bar', { text, preformatted: true });
         }
       } catch (err) {
         console.warn('[printing] auto desde mesas:', err?.message || err);
@@ -199,6 +217,7 @@ export default function Tables() {
         orderNumber: created?.order_number || '',
         tableNumber: `Mesa ${selectedTable.number}`,
         lines: cart,
+        orderSnapshot: created,
       });
       toast.success(`Pedido enviado a Mesa ${selectedTable.number}`, { id: tid });
       closeMenuPanel();

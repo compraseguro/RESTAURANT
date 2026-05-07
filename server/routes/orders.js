@@ -7,6 +7,7 @@ const { getOrderWithItems, createOrderInTransaction, replaceOrderLinesInTransact
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
 const { loadConfig } = require('../printing/printerConfig');
 const { print } = require('../printing/printerService');
+const { buildPedidoMesaTicketPlainTextServer } = require('../printing/kitchenTicketPlain');
 
 const router = express.Router();
 const ORDER_TRANSITIONS = {
@@ -59,21 +60,15 @@ async function autoPrintKitchenBar(order) {
     const items = Array.isArray(order?.items) ? order.items : [];
     const barItems = items.filter(isBarItemRow);
     const kitchenItems = items.filter((it) => !isBarItemRow(it));
+    const paperC = Number(cfg.cocina?.paperWidth || cfg.cocina?.anchoPapel || 80) === 58 ? 58 : 80;
+    const paperB = Number(cfg.bar?.paperWidth || cfg.bar?.anchoPapel || 80) === 58 ? 58 : 80;
     if (cfg.cocina?.autoPrint && kitchenItems.length > 0) {
-      await print('cocina', {
-        title: 'COMANDA COCINA',
-        mesa: order?.table_number || '',
-        orderNumber: order?.order_number,
-        items: kitchenItems,
-      });
+      const text = buildPedidoMesaTicketPlainTextServer(order, kitchenItems, paperC);
+      await print('cocina', { text, preformatted: true });
     }
     if (cfg.bar?.autoPrint && barItems.length > 0) {
-      await print('bar', {
-        title: 'COMANDA BAR',
-        mesa: order?.table_number || '',
-        orderNumber: order?.order_number,
-        items: barItems,
-      });
+      const text = buildPedidoMesaTicketPlainTextServer(order, barItems, paperB);
+      await print('bar', { text, preformatted: true });
     }
   } catch (err) {
     console.error('[printing] auto cocina/bar:', err.message || err);

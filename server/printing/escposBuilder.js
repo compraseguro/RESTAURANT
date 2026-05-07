@@ -44,7 +44,20 @@ function buildTicket(moduleName, data = {}, options = {}) {
   const width = charsPerLine(options.paperWidth || 80);
   const lines = [];
   lines.push('\x1B\x40');
-  lines.push(center('RESTO FADEY', width));
+
+  /** Cuerpo ya formateado (nota, precuenta, pedido mesa): sin cabecera duplicada ni pie de módulo. */
+  if (data.preformatted && String(data.text || '').trim()) {
+    String(data.text)
+      .split('\n')
+      .forEach((part) => wrapLine(part, width).forEach((line) => lines.push(`${line}\n`)));
+    lines.push('\n\n');
+    lines.push('\x1D\x56\x41');
+    return Buffer.from(lines.join(''), 'utf8');
+  }
+
+  const header =
+    String(data.restaurantHeader || data.restaurantName || 'RESTO FADEY').trim() || 'RESTO FADEY';
+  lines.push(center(header.toUpperCase(), width));
   if (data.title) lines.push(center(String(data.title).toUpperCase(), width));
   if (data.mesa) lines.push(...wrapLine(`Mesa: ${data.mesa}`, width).map((v) => `${v}\n`));
   if (data.orderNumber != null) lines.push(...wrapLine(`Pedido: #${data.orderNumber}`, width).map((v) => `${v}\n`));
