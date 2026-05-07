@@ -1624,13 +1624,13 @@ export default function POSPanel() {
       widthMm,
     });
     const r = await printCajaTicket({
-      title: 'NOTA DE VENTA',
-      mesa: tableName || '',
-      items: groupedNota.map((row) => ({ quantity: row.qty, name: row.name })),
+      title: 'PRE CUENTA',
+      mesa: selectedTable.name,
+      items: groupedPrecuenta.map((row) => ({ quantity: row.qty, name: row.name })),
       text: plain,
     });
-    if (r.ok) toast.success('Acción completada');
-    else toast.error(r.error || 'No se pudo imprimir');
+    if (r.ok) toast.success('Precuenta impresa');
+    else toast.error(r.error || 'No se pudo imprimir precuenta');
   };
 
   const printNotaVenta = async ({ tableName, orders, docs, customer }) => {
