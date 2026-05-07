@@ -4,6 +4,7 @@ import {
   checkPrintingHealth,
   electronPrinting,
   formatDateTime,
+  getPrintingApiBase,
   hasElectronPrinting,
   isElectronRuntime,
   normalizeUsbPrinterList,
@@ -306,6 +307,19 @@ export default function Settings() {
     cocina: { status: 'No disponible', connected: false },
     bar: { status: 'No disponible', connected: false },
   });
+  const [printingLinkStatus, setPrintingLinkStatus] = useState({
+    checking: false,
+    connected: false,
+    source: 'Sin verificar',
+    detail: '',
+  });
+  const [manualPrintingApi, setManualPrintingApi] = useState(() => {
+    try {
+      return String(window.localStorage?.getItem('resto_local_printing_api') || 'http://127.0.0.1:3001');
+    } catch (_) {
+      return 'http://127.0.0.1:3001';
+    }
+  });
   const { user: currentUser } = useAuth();
   const autoSaveTimerRef = useRef(null);
   const historySearchTimerRef = useRef(null);
@@ -477,6 +491,52 @@ export default function Settings() {
       window.location.href = DESKTOP_SETUP_URL;
     }
   };
+  const verifyPrintingLink = async () => {
+    setPrintingLinkStatus((prev) => ({ ...prev, checking: true }));
+    try {
+      if (hasElectronPrinting()) {
+        await electronPrinting.health();
+        setPrintingLinkStatus({
+          checking: false,
+          connected: true,
+          source: 'Electron vinculado',
+          detail: 'Impresión nativa por IPC',
+        });
+        return true;
+      }
+      await checkPrintingHealth();
+      setPrintingLinkStatus({
+        checking: false,
+        connected: true,
+        source: 'Asistente local vinculado',
+        detail: getPrintingApiBase(),
+      });
+      return true;
+    } catch (err) {
+      setPrintingLinkStatus({
+        checking: false,
+        connected: false,
+        source: 'Sin vínculo',
+        detail: err?.message || printingUnreachableMessage(),
+      });
+      return false;
+    }
+  };
+  const linkPrintingAssistantManually = async () => {
+    const raw = String(manualPrintingApi || '').trim();
+    if (!raw) {
+      toast.error('Ingrese una URL local (ej. http://127.0.0.1:3001)');
+      return;
+    }
+    try {
+      window.localStorage?.setItem('resto_local_printing_api', raw);
+      const ok = await verifyPrintingLink();
+      if (ok) toast.success('Asistente de impresión vinculado');
+      else toast.error('No se pudo vincular el asistente');
+    } catch (_) {
+      toast.error('No se pudo guardar la URL local');
+    }
+  };
   const loadAppSettingsHistory = () => {
     setSettingsHistoryLoading(true);
     const params = [
@@ -503,6 +563,11 @@ export default function Settings() {
   useEffect(() => {
     if (activeSection === 'impresoras' && hasElectronPrinting()) {
       detectUsbPrintersElectronAuto();
+    }
+  }, [activeSection]);
+  useEffect(() => {
+    if (activeSection === 'impresoras') {
+      verifyPrintingLink();
     }
   }, [activeSection]);
 
@@ -1336,25 +1401,31 @@ export default function Settings() {
         {activeSection === 'impresoras' && (
           <div className="space-y-4">
             <div className="card space-y-3">
-              {hasElectronPrinting() ? (
-                <p className="text-sm text-slate-500">
-                  Configure una impresora por módulo (Caja, Cocina y Bar). En la app de escritorio, la detección e impresión USB/Red
-                  usan integración nativa de Electron y funcionan sin navegador.
-                </p>
-              ) : isElectronRuntime() ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
-                  <p className="text-sm text-amber-800">
-                    La app se está ejecutando en escritorio, pero la integración de impresión no está disponible en esta compilación.
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-1">
+                  <p className={`text-sm font-semibold ${printingLinkStatus.connected ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {printingLinkStatus.connected ? 'Vinculación activa' : 'Sin vinculación'}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {printingLinkStatus.source}{printingLinkStatus.detail ? ` · ${printingLinkStatus.detail}` : ''}
                   </p>
                 </div>
-              ) : (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
-                  <p className="text-sm text-amber-800">
-                    La impresión automática está disponible solo en la aplicación de escritorio.
-                  </p>
+                <div className="md:col-span-2 flex flex-wrap items-center gap-2">
+                  <input
+                    className="input-field flex-1 min-w-[220px]"
+                    value={manualPrintingApi}
+                    onChange={(e) => setManualPrintingApi(e.target.value)}
+                    placeholder="http://127.0.0.1:3001"
+                  />
+                  <button type="button" className="btn-secondary text-sm" onClick={linkPrintingAssistantManually} disabled={printingBusy || printingLinkStatus.checking}>
+                    Vincular manual
+                  </button>
+                  <button type="button" className="btn-secondary text-sm" onClick={() => void verifyPrintingLink()} disabled={printingBusy || printingLinkStatus.checking}>
+                    Verificar vínculo
+                  </button>
                 </div>
-              )}
-              <div className="flex flex-wrap gap-2">
+              </div>
+              <div className="flex justify-end">
                 <button type="button" className="btn-primary text-sm flex items-center gap-2" onClick={savePrintingConfig} disabled={printingBusy}>
                   <MdSave /> Guardar configuración
                 </button>
@@ -1418,7 +1489,7 @@ export default function Settings() {
                           type="button"
                           className="btn-secondary text-sm w-full sm:w-auto"
                           onClick={() => detectUsbPrintersForModule(moduleKey)}
-                          disabled={printingBusy || !hasElectronPrinting()}
+                          disabled={printingBusy}
                         >
                           Detectar impresoras USB ({moduleLabel})
                         </button>
