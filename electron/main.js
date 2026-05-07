@@ -328,6 +328,19 @@ function createWindow() {
   }
 }
 
+function configureAutoStart() {
+  if (process.platform !== 'win32') return;
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      path: process.execPath,
+    });
+    console.log('[electron] inicio con Windows activado');
+  } catch (err) {
+    console.warn('[electron] no se pudo activar inicio con Windows:', err?.message || err);
+  }
+}
+
 function registerPrintingIpc() {
   ipcMain.on('preload:ready', () => {
     console.log('[electron] IPC funcionando: preload:ready');
@@ -352,6 +365,7 @@ function registerPrintingIpc() {
 
 app.whenReady().then(() => {
   console.log('[electron] proceso main iniciado');
+  configureAutoStart();
   registerPrintingIpc();
   createWindow();
   app.on('activate', () => {

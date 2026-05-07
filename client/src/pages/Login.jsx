@@ -55,9 +55,16 @@ export default function Login() {
 
   const installFromLogin = async () => {
     try {
-      window.open(DESKTOP_SETUP_URL, '_blank', 'noopener,noreferrer');
+      const url = String(DESKTOP_SETUP_URL || '').trim();
+      if (!url) throw new Error('URL de instalador no configurada');
+      toast.success('Iniciando descarga del instalador. Luego ejecútelo para instalar la app.');
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_self';
+      link.rel = 'noopener noreferrer';
+      link.click();
     } catch (_) {
-      window.open(DESKTOP_SETUP_URL, '_blank', 'noopener,noreferrer');
+      window.location.assign(DESKTOP_SETUP_URL);
     }
   };
 

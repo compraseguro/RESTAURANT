@@ -82,7 +82,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Resto FADEY"
+      "shortcutName": "Resto FADEY",
+      "runAfterFinish": true
     },
     "publish": [
       {
