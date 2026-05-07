@@ -4,15 +4,8 @@ const net = require('net');
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { buildTicket } = require('../server/printing/escposBuilder');
 
-let printerLib = null;
-try {
-  // eslint-disable-next-line global-require
-  printerLib = require('printer');
-} catch (_) {
-  printerLib = null;
-}
-
 const MODULE_KEYS = ['caja', 'cocina', 'bar'];
+let mainWindow = null;
 
 function isValidIp(value) {
   return /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(String(value || '').trim());
@@ -107,38 +100,23 @@ function saveConfig(input) {
   return normalized;
 }
 
-function getPrinters() {
-  if (!printerLib || typeof printerLib.getPrinters !== 'function') {
-    console.warn('[electron-printing] módulo "printer" no disponible');
+async function getPrinters() {
+  const win = mainWindow || BrowserWindow.getAllWindows()[0];
+  if (!win) {
+    console.warn('[electron-printing] getPrinters sin ventana; devolviendo lista vacía');
     return [];
   }
   try {
-    const list = printerLib
-      .getPrinters()
+    const raw = await win.webContents.getPrintersAsync();
+    const list = (raw || [])
       .map((p) => ({ name: String(p?.name || '').trim() }))
       .filter((p) => p.name);
-    console.log(`[electron-printing] impresoras detectadas: ${list.length}`);
+    console.log(`[electron-printing] impresoras detectadas (Electron): ${list.length}`);
     return list;
   } catch (err) {
-    console.error('[electron-printing] error detectando impresoras:', err.message || err);
+    console.error('[electron-printing] error getPrintersAsync:', err.message || err);
     return [];
   }
-}
-
-function printUSB(printerName, buffer) {
-  if (!printerLib || typeof printerLib.printDirect !== 'function') {
-    throw new Error('módulo printer no disponible');
-  }
-  return new Promise((resolve, reject) => {
-    printerLib.printDirect({
-      data: buffer,
-      printer: printerName,
-      type: 'RAW',
-      options: { interface: `printer:${printerName}` },
-      success() { resolve({ ok: true }); },
-      error(err) { reject(err); },
-    });
-  });
 }
 
 function printNetwork(ip, port, buffer) {
@@ -165,8 +143,31 @@ async function printByModule(moduleKey, payload = {}) {
   const ticket = buildTicket(key, payload, { paperWidth: cfg.paperWidth || 80 });
   if (cfg.tipo === 'usb') {
     if (!cfg.nombre) throw new Error(`impresora USB no configurada en ${key}`);
-    console.log(`[electron-printing] imprimir ${key} usb: ${cfg.nombre}`);
-    return printUSB(cfg.nombre, ticket);
+    const win = mainWindow || BrowserWindow.getAllWindows()[0];
+    if (!win) throw new Error('no hay ventana principal para imprimir');
+    console.log(`[electron-printing] imprimir ${key} usb (Electron driver): ${cfg.nombre}`);
+    return new Promise((resolve, reject) => {
+      const html = `<pre style="font-family: monospace; white-space: pre;">${ticket.toString('utf8')}</pre>`;
+      const printWin = new BrowserWindow({
+        show: false,
+        webPreferences: { offscreen: true },
+      });
+      printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      printWin.webContents.on('did-finish-load', () => {
+        printWin.webContents.print(
+          { silent: true, deviceName: cfg.nombre, printBackground: false },
+          (success, failureReason) => {
+            if (!success) {
+              console.error('[electron-printing] fallo print (USB):', failureReason);
+              reject(new Error(failureReason || 'Error al imprimir'));
+            } else {
+              resolve({ ok: true });
+            }
+            printWin.close();
+          },
+        );
+      });
+    });
   }
   if (!isValidIp(cfg.ip)) throw new Error(`IP inválida en ${key}`);
   console.log(`[electron-printing] imprimir ${key} red: ${cfg.ip}:${cfg.puerto}`);
@@ -200,7 +201,7 @@ async function printerStatus(moduleKey) {
 }
 
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     webPreferences: {
@@ -211,10 +212,10 @@ function createWindow() {
   });
   const devUrl = process.env.ELECTRON_START_URL;
   if (devUrl) {
-    win.loadURL(devUrl);
+    mainWindow.loadURL(devUrl);
   } else {
     const localHtml = path.join(__dirname, '..', 'client', 'dist', 'index.html');
-    win.loadFile(localHtml);
+    mainWindow.loadFile(localHtml);
   }
 }
 
