@@ -1,21 +1,24 @@
 /**
  * Logo del restaurante → raster ESC/POS (GS v 0) para tickets térmicos.
+ * Soporta archivo bajo uploads/ y URL http(s) (misma imagen que ve el panel).
  */
 
 const fs = require('fs');
 const path = require('path');
 const { getUploadsRoot } = require('../uploadsPath');
 
+function getJimp() {
+  try {
+    // eslint-disable-next-line global-require
+    return require('jimp');
+  } catch (_) {
+    return null;
+  }
+}
+
 function resolveLogoFsPath(logoUrl) {
   let s = String(logoUrl || '').trim();
-  if (!s) return '';
-  if (/^https?:\/\//i.test(s)) {
-    try {
-      s = new URL(s).pathname || '';
-    } catch (_) {
-      return '';
-    }
-  }
+  if (!s || /^https?:\/\//i.test(s)) return '';
   let rel = s.replace(/^\/+/, '');
   if (rel.startsWith('uploads/')) rel = rel.slice('uploads/'.length);
   const full = path.join(getUploadsRoot(), rel);
@@ -42,25 +45,68 @@ function escposGsV0Raster(bitmapRows, widthDots, heightDots) {
 }
 
 /**
- * @param {string} logoUrl — ruta tipo `/uploads/...` o relativa bajo uploads
+ * Carga la imagen con Jimp: URL absoluta (fetch) o ruta local bajo uploads.
+ */
+async function loadJimpImage(logoUrl) {
+  const Jimp = getJimp();
+  if (!Jimp) {
+    console.warn('[printing] jimp no disponible; omitiendo logo térmico');
+    return null;
+  }
+
+  const raw = String(logoUrl || '').trim();
+  if (!raw) return null;
+
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      if (typeof fetch !== 'function') {
+        console.warn('[printing] logo por URL requiere Node 18+ (fetch). Use archivo local o actualice Node.');
+        return null;
+      }
+      const res = await fetch(raw, { redirect: 'follow' });
+      if (!res.ok) {
+        console.warn('[printing] logo HTTP', res.status, String(raw).slice(0, 96));
+        return null;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      return await Jimp.read(buf);
+    } catch (e) {
+      console.warn('[printing] logo fetch:', e.message || e);
+      return null;
+    }
+  }
+
+  const abs = resolveLogoFsPath(raw);
+  if (abs) {
+    try {
+      return await Jimp.read(abs);
+    } catch (e) {
+      console.warn('[printing] logo archivo:', e.message || e);
+      return null;
+    }
+  }
+
+  console.warn(
+    '[printing] logo no resuelto (ni URL http ni archivo en uploads). Valor:',
+    raw.slice(0, 120),
+  );
+  return null;
+}
+
+/**
+ * @param {string} logoUrl — URL absoluta, o ruta `/uploads/...` / relativa bajo uploads
  * @param {number} paperWidthMm — 58 u 80
  * @returns {Promise<Buffer|null>}
  */
 async function logoToEscPosRaster(logoUrl, paperWidthMm) {
-  const abs = resolveLogoFsPath(logoUrl);
-  if (!abs) return null;
-  let Jimp;
-  try {
-    // eslint-disable-next-line global-require
-    Jimp = require('jimp');
-  } catch (_) {
-    console.warn('[printing] jimp no disponible; omitiendo logo térmico');
-    return null;
-  }
+  const image = await loadJimpImage(logoUrl);
+  if (!image) return null;
+  const Jimp = getJimp();
+  if (!Jimp) return null;
+
   try {
     const maxW = maxLogoWidthDots(paperWidthMm);
     const maxH = 220;
-    const image = await Jimp.read(abs);
     image.contain(maxW, maxH);
     image.greyscale();
     const w = image.getWidth();
@@ -84,7 +130,7 @@ async function logoToEscPosRaster(logoUrl, paperWidthMm) {
     }
     return escposGsV0Raster(out, w, h);
   } catch (e) {
-    console.warn('[printing] logo térmico:', e.message || e);
+    console.warn('[printing] logo térmico raster:', e.message || e);
     return null;
   }
 }

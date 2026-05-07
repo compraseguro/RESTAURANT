@@ -63,6 +63,7 @@
       "electron/**",
       "client/dist/**",
       "server/printing/**",
+      "server/uploadsPath.js",
       "package.json"
     ],
     "win": {
