@@ -375,8 +375,11 @@ export function buildPrecuentaPlainText({
 }) {
   const w = thermalCharWidth(widthMm);
   const lines = [];
-  /** Precuenta: solo nombre del local (Mi empresa), sin bloque fiscal completo. */
-  const trade = restaurantDisplayNameUpper(restaurant);
+  /** Precuenta: una sola línea, nombre de cartel (comercial primero); sin bloque fiscal. */
+  const commercial = String(restaurant?.billing_nombre_comercial || '').trim();
+  const brand = String(restaurant?.name || '').trim();
+  const tradeRaw = commercial || brand;
+  const trade = tradeRaw ? tradeRaw.replace(/^@+\s*/u, '').toUpperCase() : '';
   if (trade) {
     lines.push(centerThermalLine(trade, w));
     lines.push('-'.repeat(w));

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, formatCurrency, formatDate } from '../../utils/api';
+import { getOrderChargeTotal } from '../../utils/mesaOrderLines';
 import { MdAdd, MdEdit, MdDelete, MdSearch, MdPhone, MdEmail, MdReceipt, MdAttachMoney, MdContentCopy } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -12,14 +13,6 @@ function selfOrderClienteUrl(customerId) {
 
 function orderTotalPieces(o) {
   return (o.items || []).reduce((sum, it) => sum + Number(it.quantity || 0), 0);
-}
-
-/** Mismo criterio que caja (POS) para el importe cobrable del pedido. */
-function getOrderChargeTotal(o) {
-  if (!o) return 0;
-  const base = Number(o.subtotal || 0) + Number(o.delivery_fee || 0);
-  const discount = Number(o.discount || 0);
-  return Math.max(0, base - discount);
 }
 
 function orderProductsShortLabel(o) {

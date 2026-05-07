@@ -23,7 +23,12 @@ import {
   enrichCartLineForKitchenItem,
 } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
-import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
+import {
+  billLineDisplayName,
+  billLineKey,
+  groupItemsByProductNameForBill,
+  getOrderChargeTotal,
+} from '../../utils/mesaOrderLines';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -116,13 +121,6 @@ const normalizeCustomerEmail = (value) => {
   if (!raw || raw.toLowerCase() === '@gmail.com') return '';
   if (raw.includes('@')) return raw;
   return `${raw}@gmail.com`;
-};
-
-const getOrderChargeTotal = (order) => {
-  if (!order) return 0;
-  const base = Number(order.subtotal || 0) + Number(order.delivery_fee || 0);
-  const discount = Number(order.discount || 0);
-  return Math.max(0, base - discount);
 };
 
 /** Reconstruye nota y modificador desde `order_items.notes` (mismo formato que al crear el pedido). */
@@ -1703,6 +1701,13 @@ export default function POSPanel() {
       billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
       billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
     ].filter(Boolean);
+    const ordersSubtotal = payableOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
+    const discountForPrecuenta = !discountConfig.applied
+      ? 0
+      : (discountConfig.type === 'percent'
+        ? Math.min(ordersSubtotal, ordersSubtotal * (discountValue / 100))
+        : Math.min(ordersSubtotal, discountValue));
+    const payableForPrecuenta = Math.max(0, ordersSubtotal - discountForPrecuenta);
     const widthMm = 80;
     const plain = buildPrecuentaPlainText({
       restaurant: printRestaurantInfo,
@@ -1712,9 +1717,9 @@ export default function POSPanel() {
       customerLines,
       groupedRows: groupedPrecuenta,
       formatCurrencyFn: formatCurrency,
-      subtotal: selectionBaseTotal,
-      discount: discountPreview,
-      payableTotal,
+      subtotal: ordersSubtotal,
+      discount: discountForPrecuenta,
+      payableTotal: payableForPrecuenta,
       widthMm,
       printedAt: new Date(),
     });

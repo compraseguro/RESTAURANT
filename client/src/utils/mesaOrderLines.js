@@ -4,6 +4,34 @@
  * Identidad de línea para mesa / precuenta / cobro: mismo producto, variante, notas y precio unitario → se agrupan cantidades.
  * No agrupa solo por nombre (evita mezclar ítems distintos con el mismo texto).
  */
+/** Suma importe de líneas (misma fórmula que agrupación de precuenta / cobro). */
+export function sumOrderItemsChargeSubtotal(items) {
+  return (items || []).reduce((s, it) => {
+    const qty = Number(it.quantity || 0);
+    const unit = Number(it.unit_price ?? 0);
+    return s + Number(it.subtotal != null ? it.subtotal : unit * qty);
+  }, 0);
+}
+
+/**
+ * Importe cobrable del pedido: alinea totales con la tabla de ítems (suma de líneas),
+ * y si viene vacío usa subtotal/total de la fila `orders`.
+ */
+export function getOrderChargeTotal(order) {
+  if (!order) return 0;
+  const delivery = Number(order.delivery_fee || 0);
+  const discount = Number(order.discount || 0);
+  const itemSum = sumOrderItemsChargeSubtotal(order.items);
+  let base = itemSum + delivery;
+  if (base <= 0) {
+    base = Number(order.subtotal || 0) + delivery;
+  }
+  if (base <= 0) {
+    base = Number(order.total || 0);
+  }
+  return Math.max(0, base - discount);
+}
+
 export function billLineKey(it) {
   const pid = String(it.product_id || '').trim();
   const variant = String(it.variant_name || '').trim().toLowerCase();
