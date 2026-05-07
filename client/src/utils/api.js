@@ -73,6 +73,45 @@ export function getPrintingApiBase() {
   return API_BASE;
 }
 
+export function hasElectronPrinting() {
+  return Boolean(
+    typeof window !== 'undefined'
+    && window.electronPrinting
+    && typeof window.electronPrinting.getPrinters === 'function'
+  );
+}
+
+export const electronPrinting = {
+  getConfig: async () => {
+    if (!hasElectronPrinting()) throw new Error('Electron printing no disponible');
+    return window.electronPrinting.getConfig();
+  },
+  saveConfig: async (cfg) => {
+    if (!hasElectronPrinting()) throw new Error('Electron printing no disponible');
+    return window.electronPrinting.saveConfig(cfg);
+  },
+  getPrinters: async (moduleKey = '') => {
+    if (!hasElectronPrinting()) throw new Error('Electron printing no disponible');
+    return window.electronPrinting.getPrinters(moduleKey);
+  },
+  health: async () => {
+    if (!hasElectronPrinting()) throw new Error('Electron printing no disponible');
+    return window.electronPrinting.health();
+  },
+  getStatus: async (moduleKey) => {
+    if (!hasElectronPrinting()) throw new Error('Electron printing no disponible');
+    return window.electronPrinting.getStatus(moduleKey);
+  },
+  printTest: async (moduleKey) => {
+    if (!hasElectronPrinting()) throw new Error('Electron printing no disponible');
+    return window.electronPrinting.printTest(moduleKey);
+  },
+  printModule: async (moduleKey, payload = {}) => {
+    if (!hasElectronPrinting()) throw new Error('Electron printing no disponible');
+    return window.electronPrinting.printModule(moduleKey, payload);
+  },
+};
+
 /**
  * Origen del servidor para archivos estáticos (`/uploads/...`), sin el sufijo `/api`.
  * Si VITE_API_URL es `https://host/api`, las imágenes deben ir a `https://host/uploads/...`

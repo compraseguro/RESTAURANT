@@ -3,10 +3,12 @@ import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import {
   api,
   checkPrintingHealth,
+  electronPrinting,
   formatCurrency,
   formatPeDateTimeLine,
   formatPeDateTimeParts,
   getPaymentMethodOptions,
+  hasElectronPrinting,
   normalizeUsbPrinterList,
   PAYMENT_METHODS,
   printingUnreachableMessage,
@@ -70,7 +72,11 @@ const CAJA_OPTIONS = [
 
 async function printCajaTicket(payload) {
   try {
-    await api.printing.post('/printing/print/caja', payload);
+    if (hasElectronPrinting()) {
+      await electronPrinting.printModule('caja', payload);
+    } else {
+      await api.printing.post('/printing/print/caja', payload);
+    }
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message || 'No se pudo imprimir' };
@@ -430,7 +436,9 @@ export default function POSPanel() {
 
   const loadPrinterConfig = async () => {
     try {
-      const cfg = await api.printing.get('/printing/config');
+      const cfg = hasElectronPrinting()
+        ? await electronPrinting.getConfig()
+        : await api.printing.get('/printing/config');
       setPrintingConfig({
         caja: { ...DEFAULT_PRINTING_CONFIG.caja, ...(cfg?.caja || {}) },
         cocina: { ...DEFAULT_PRINTING_CONFIG.cocina, ...(cfg?.cocina || {}) },
@@ -445,8 +453,14 @@ export default function POSPanel() {
   const detectUsbPrinters = async () => {
     try {
       setPrintingBusy(true);
-      await checkPrintingHealth();
-      const data = await api.printing.get('/printers?module=caja');
+      if (hasElectronPrinting()) {
+        await electronPrinting.health();
+      } else {
+        await checkPrintingHealth();
+      }
+      const data = hasElectronPrinting()
+        ? await electronPrinting.getPrinters('caja')
+        : await api.printing.get('/printers?module=caja');
       setDetectedPrinters(normalizeUsbPrinterList(data));
     } catch (err) {
       toast.error(err.message || printingUnreachableMessage());
@@ -458,7 +472,9 @@ export default function POSPanel() {
   const savePrinterConfig = async () => {
     try {
       setPrintingBusy(true);
-      const next = await api.printing.put('/printing/config', { caja: printingConfig.caja });
+      const next = hasElectronPrinting()
+        ? await electronPrinting.saveConfig({ caja: printingConfig.caja })
+        : await api.printing.put('/printing/config', { caja: printingConfig.caja });
       setPrintingConfig(next || printingConfig);
       toast.success('Impresora de caja guardada');
     } catch (err) {

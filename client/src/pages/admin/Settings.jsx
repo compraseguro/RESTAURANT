@@ -2,7 +2,9 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   api,
   checkPrintingHealth,
+  electronPrinting,
   formatDateTime,
+  hasElectronPrinting,
   normalizeUsbPrinterList,
   printingUnreachableMessage,
 } from '../../utils/api';
@@ -344,7 +346,10 @@ export default function Settings() {
       });
   };
   const loadPrintingConfig = () => {
-    api.printing.get('/printing/config')
+    const loader = hasElectronPrinting()
+      ? electronPrinting.getConfig()
+      : api.printing.get('/printing/config');
+    loader
       .then((cfg) => {
         if (cfg && typeof cfg === 'object') {
           setPrintingConfig({
@@ -364,7 +369,10 @@ export default function Settings() {
   const isValidIp = (value) => /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(String(value || '').trim());
   const refreshPrinterStatus = () => {
     ['caja', 'cocina', 'bar'].forEach((moduleKey) => {
-      api.printing.get(`/printing/status/${moduleKey}`)
+      const req = hasElectronPrinting()
+        ? electronPrinting.getStatus(moduleKey)
+        : api.printing.get(`/printing/status/${moduleKey}`);
+      req
         .then((data) => {
           setPrinterStatus((prev) => ({
             ...prev,
@@ -384,8 +392,13 @@ export default function Settings() {
   };
   const detectUsbPrintersForModule = (moduleKey) => {
     setPrintingBusy(true);
-    checkPrintingHealth()
-      .then(() => api.printing.get(`/printers?module=${encodeURIComponent(moduleKey)}`))
+    const health = hasElectronPrinting()
+      ? electronPrinting.health()
+      : checkPrintingHealth();
+    health
+      .then(() => (hasElectronPrinting()
+        ? electronPrinting.getPrinters(moduleKey)
+        : api.printing.get(`/printers?module=${encodeURIComponent(moduleKey)}`)))
       .then((data) => {
         const list = normalizeUsbPrinterList(data);
         setDetectedPrintersByModule((prev) => ({ ...prev, [moduleKey]: list }));
@@ -396,7 +409,10 @@ export default function Settings() {
   };
   const printTestByModule = (moduleKey) => {
     setPrintingBusy(true);
-    api.printing.post(`/printing/test/${moduleKey}`, {})
+    const req = hasElectronPrinting()
+      ? electronPrinting.printTest(moduleKey)
+      : api.printing.post(`/printing/test/${moduleKey}`, {});
+    req
       .then(() => {
         toast.success(`Prueba enviada a ${moduleKey}`);
         refreshPrinterStatus();
@@ -426,7 +442,10 @@ export default function Settings() {
       return;
     }
     setPrintingBusy(true);
-    api.printing.put('/printing/config', printingConfig)
+    const req = hasElectronPrinting()
+      ? electronPrinting.saveConfig(printingConfig)
+      : api.printing.put('/printing/config', printingConfig);
+    req
       .then((saved) => {
         if (saved && typeof saved === 'object') setPrintingConfig(saved);
         toast.success('Configuración de impresoras guardada');

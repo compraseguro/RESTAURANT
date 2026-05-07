@@ -2,6 +2,7 @@
   "name": "restaurant-platform",
   "version": "1.0.0",
   "description": "Plataforma completa para restaurante - Admin, Cocina, POS, Cliente, Delivery",
+  "main": "electron/main.js",
   "scripts": {
     "server": "node server/index.js",
     "client": "cd client && npm run dev",
@@ -19,7 +20,9 @@
     "lint": "node scripts/lint-check.js",
     "reset-demo": "node scripts/reset-demo.js",
     "prepare:first-owner": "node scripts/prepare-first-owner.js",
-    "serve:offer": "npx --yes serve rolando-offer -l 8080"
+    "serve:offer": "npx --yes serve rolando-offer -l 8080",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"npm run server\" \"cd client && npm run dev\" \"cross-env ELECTRON_START_URL=http://localhost:5173 electron .\""
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -36,5 +39,9 @@
   },
   "optionalDependencies": {
     "printer": "^0.4.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^37.0.1"
   }
 }
