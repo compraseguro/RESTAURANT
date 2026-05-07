@@ -44,6 +44,9 @@
     "electron": "^37.10.3",
     "electron-builder": "^24.13.3"
   },
+  "optionalDependencies": {
+    "printer": "*"
+  },
   "build": {
     "appId": "com.restofadey.desktop",
     "productName": "Resto FADEY",

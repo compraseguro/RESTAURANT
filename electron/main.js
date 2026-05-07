@@ -7,6 +7,15 @@ const { buildTicket } = require('../server/printing/escposBuilder');
 
 const MODULE_KEYS = ['caja', 'cocina', 'bar'];
 let mainWindow = null;
+let printerLib = null;
+try {
+  // Fallback nativo RAW si el módulo está disponible en esa instalación.
+  // eslint-disable-next-line global-require, import/no-extraneous-dependencies
+  printerLib = require('printer');
+  console.log('[electron-printing] módulo "printer" cargado');
+} catch (err) {
+  console.warn('[electron-printing] módulo "printer" no disponible, se usarán fallbacks');
+}
 
 function isValidIp(value) {
   return /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(String(value || '').trim());
@@ -103,6 +112,21 @@ function saveConfig(input) {
 
 async function getPrinters() {
   const win = mainWindow || BrowserWindow.getAllWindows()[0];
+  const fromPrinterModule = () => {
+    if (!printerLib || typeof printerLib.getPrinters !== 'function') return [];
+    try {
+      const list = (printerLib.getPrinters() || [])
+        .map((p) => ({ name: String(p?.name || '').trim() }))
+        .filter((p) => p.name);
+      if (list.length) {
+        console.log(`[electron-printing] impresoras detectadas (printer): ${list.length}`);
+      }
+      return list;
+    } catch (err) {
+      console.error('[electron-printing] error printer.getPrinters:', err.message || err);
+      return [];
+    }
+  };
   const fromElectron = async () => {
     if (!win || typeof win.webContents?.getPrintersAsync !== 'function') {
       return [];
@@ -152,23 +176,44 @@ async function getPrinters() {
     );
   });
 
-  const first = await fromElectron();
+  const first = fromPrinterModule();
   if (first.length) return first;
-  const second = await fromWindowsPowerShell();
+  const second = await fromElectron();
   if (second.length) return second;
+  const third = await fromWindowsPowerShell();
+  if (third.length) return third;
   if (!win) {
     console.warn('[electron-printing] getPrinters sin ventana y sin datos PowerShell');
   } else {
-    console.warn('[electron-printing] no se detectaron impresoras por Electron ni PowerShell');
+    console.warn('[electron-printing] no se detectaron impresoras por printer, Electron ni PowerShell');
   }
   return [];
 }
 
 function printUSB(printerName, buffer) {
+  if (printerLib && typeof printerLib.printDirect === 'function') {
+    return new Promise((resolve, reject) => {
+      try {
+        printerLib.printDirect({
+          data: buffer,
+          printer: String(printerName || '').trim(),
+          type: 'RAW',
+          success: () => resolve({ ok: true }),
+          error: (err) => reject(new Error(err?.message || String(err || 'Error al imprimir RAW'))),
+        });
+      } catch (err) {
+        reject(new Error(err?.message || 'Error al imprimir RAW'));
+      }
+    });
+  }
   const win = mainWindow || BrowserWindow.getAllWindows()[0];
   if (!win) throw new Error('no hay ventana principal para imprimir');
   return new Promise((resolve, reject) => {
-    const html = `<pre style="font-family: monospace; white-space: pre;">${buffer.toString('utf8')}</pre>`;
+    const printableText = String(buffer || Buffer.from([]))
+      .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '')
+      .trim();
+    const safeText = printableText || 'TEST RESTO FADEY';
+    const html = `<pre style="font-family: Consolas, monospace; white-space: pre; margin: 0; font-size: 12px;">${safeText}</pre>`;
     const printWin = new BrowserWindow({
       show: false,
       webPreferences: { offscreen: true },
