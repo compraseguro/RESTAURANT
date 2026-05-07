@@ -296,6 +296,7 @@ async function printerStatus(moduleKey) {
 
 function createWindow() {
   const preloadPath = path.join(__dirname, 'preload.js');
+  const desktopWebFallbackUrl = process.env.RESTO_DESKTOP_WEB_URL || 'https://restaurant-ebon-psi.vercel.app';
   console.log('[electron] preload path:', preloadPath);
   console.log('[electron] app.isPackaged:', app.isPackaged);
   mainWindow = new BrowserWindow({
@@ -324,7 +325,16 @@ function createWindow() {
     mainWindow.loadURL(devUrl);
   } else {
     const localHtml = path.join(__dirname, '..', 'client', 'dist', 'index.html');
-    mainWindow.loadFile(localHtml);
+    mainWindow.webContents.once('did-fail-load', (_event, code, desc) => {
+      console.error(`[electron] fallo carga local (${code}): ${desc}`);
+      console.log('[electron] usando fallback web:', desktopWebFallbackUrl);
+      mainWindow.loadURL(desktopWebFallbackUrl);
+    });
+    mainWindow.loadFile(localHtml).catch((err) => {
+      console.error('[electron] error loadFile:', err?.message || err);
+      console.log('[electron] usando fallback web:', desktopWebFallbackUrl);
+      mainWindow.loadURL(desktopWebFallbackUrl);
+    });
   }
 }
 
