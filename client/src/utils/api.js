@@ -194,13 +194,28 @@ function printingUnreachableMessage() {
 }
 
 export async function checkPrintingHealth() {
+  const base = getPrintingApiBase();
+  /** Sin Authorization: petición "simple" para evitar preflight y bloqueos HTTPS→localhost (Private Network Access). */
+  let res;
   try {
-    const out = await printingRequest('/health', { method: 'GET', cache: 'no-store' });
-    if (out && String(out.status || '').toLowerCase() === 'ok') return true;
-    return false;
+    res = await fetch(`${base}/health`, { method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' } });
   } catch (err) {
+    const msg = err && err.message ? String(err.message) : 'fetch';
+    console.warn('[printing] health fetch falló hacia', base, msg);
     throw new Error(printingUnreachableMessage());
   }
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (_) {
+    data = null;
+  }
+  if (!res.ok) {
+    throw new Error(printingUnreachableMessage());
+  }
+  if (data && String(data.status || '').toLowerCase() === 'ok') return true;
+  return false;
 }
 
 async function printingRequest(endpoint, options = {}) {

@@ -416,10 +416,15 @@ function createTray() {
 
 function createLocalAssistantServer() {
   const assistant = express();
+  /** Chrome/Edge: páginas HTTPS que llaman a http://127.0.0.1 exigen esta cabecera en la respuesta (Private Network Access). */
+  assistant.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    next();
+  });
   assistant.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Access-Control-Request-Private-Network'],
   }));
   assistant.use(express.json({ limit: '2mb' }));
 
