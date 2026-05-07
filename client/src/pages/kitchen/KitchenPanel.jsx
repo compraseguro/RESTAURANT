@@ -93,7 +93,10 @@ export default function KitchenPanel({ station = 'cocina' }) {
         if (!silent) toast.error(`El pedido no tiene ítems para ${isBar ? 'bar' : 'cocina'}`);
         return false;
       }
-      const cfg = await api.printing.get('/printing/config');
+      const [cfg, restaurant] = await Promise.all([
+        api.printing.get('/printing/config'),
+        api.get('/restaurant').catch(() => ({})),
+      ]);
       const paper =
         Number(
           (isBar ? cfg?.bar?.paperWidth ?? cfg?.bar?.anchoPapel : cfg?.cocina?.paperWidth ?? cfg?.cocina?.anchoPapel)
@@ -115,6 +118,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
         modifier_option: String(it.modifier_option || '').trim(),
       }));
       const text = buildPedidoMesaTicketPlainText({
+        restaurant,
         tableLabel: tableLbl,
         orderNumber: payloadOrder?.order_number,
         takeout,

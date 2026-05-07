@@ -62,7 +62,7 @@ function buildTicket(moduleName, data = {}, options = {}) {
   lines.push('\x1B\x40');
 
   const header =
-    String(data.restaurantHeader || data.restaurantName || 'RESTO FADEY').trim() || 'RESTO FADEY';
+    String(data.restaurantHeader || data.restaurantName || 'RESTAURANTE').trim() || 'RESTAURANTE';
   lines.push(center(header.toUpperCase(), width));
   if (data.title) lines.push(center(String(data.title).toUpperCase(), width));
   if (data.mesa) lines.push(...wrapLine(`Mesa: ${data.mesa}`, width).map((v) => `${v}\n`));

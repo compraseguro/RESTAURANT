@@ -155,7 +155,10 @@ export default function Tables() {
     };
     const autoPrintKitchenBarFromLines = async ({ orderNumber, tableNumber, lines, orderSnapshot }) => {
       try {
-        const cfg = await api.printing.get('/printing/config');
+        const [cfg, restaurant] = await Promise.all([
+          api.printing.get('/printing/config'),
+          api.get('/restaurant').catch(() => ({})),
+        ]);
         const modMap = new Map((modifiers || []).map((m) => [m.id, m]));
         const rows = (Array.isArray(lines) ? lines : []).map((line) => {
           const p = productsById.get(line.product_id) || {};
@@ -172,6 +175,7 @@ export default function Tables() {
         const barTicketItems = rows.filter((r) => r.isBar).map((r) => r.ticketItem);
         if (cfg?.cocina?.autoPrint && kitchenTicketItems.length > 0) {
           const text = buildPedidoMesaTicketPlainText({
+            restaurant,
             tableLabel: tableNumber || '',
             orderNumber,
             takeout,
@@ -184,6 +188,7 @@ export default function Tables() {
         }
         if (cfg?.bar?.autoPrint && barTicketItems.length > 0) {
           const text = buildPedidoMesaTicketPlainText({
+            restaurant,
             tableLabel: tableNumber || '',
             orderNumber,
             takeout,

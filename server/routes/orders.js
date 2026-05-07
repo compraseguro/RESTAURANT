@@ -62,12 +62,16 @@ async function autoPrintKitchenBar(order) {
     const kitchenItems = items.filter((it) => !isBarItemRow(it));
     const paperC = Number(cfg.cocina?.paperWidth || cfg.cocina?.anchoPapel || 80) === 58 ? 58 : 80;
     const paperB = Number(cfg.bar?.paperWidth || cfg.bar?.anchoPapel || 80) === 58 ? 58 : 80;
+    const restaurantRow = queryOne(
+      `SELECT name, legal_name, company_ruc, billing_emisor_direccion, address, phone, email, billing_nombre_comercial
+       FROM restaurants LIMIT 1`,
+    );
     if (cfg.cocina?.autoPrint && kitchenItems.length > 0) {
-      const text = buildPedidoMesaTicketPlainTextServer(order, kitchenItems, paperC);
+      const text = buildPedidoMesaTicketPlainTextServer(order, kitchenItems, paperC, restaurantRow);
       await print('cocina', { text, preformatted: true });
     }
     if (cfg.bar?.autoPrint && barItems.length > 0) {
-      const text = buildPedidoMesaTicketPlainTextServer(order, barItems, paperB);
+      const text = buildPedidoMesaTicketPlainTextServer(order, barItems, paperB, restaurantRow);
       await print('bar', { text, preformatted: true });
     }
   } catch (err) {

@@ -315,13 +315,14 @@ export default function POSPanel() {
   const [priceResults, setPriceResults] = useState([]);
   const printRef = useRef(null);
   const [printRestaurantInfo, setPrintRestaurantInfo] = useState({
-    name: 'Resto-FADEY',
+    name: '',
     logo: '',
     legal_name: '',
     billing_nombre_comercial: '',
     billing_emisor_direccion: '',
     address: '',
     phone: '',
+    email: '',
     company_ruc: '',
   });
   const { user } = useAuth();
@@ -388,13 +389,14 @@ export default function POSPanel() {
         setAdminRegisterId('');
       }
       setPrintRestaurantInfo({
-        name: String(restaurantRes?.name || 'Resto-FADEY').trim() || 'Resto-FADEY',
+        name: String(restaurantRes?.name || '').trim(),
         logo: resolveMediaUrl(restaurantRes?.logo || ''),
         legal_name: String(restaurantRes?.legal_name || '').trim(),
         billing_nombre_comercial: String(restaurantRes?.billing_nombre_comercial || '').trim(),
         billing_emisor_direccion: String(restaurantRes?.billing_emisor_direccion || '').trim(),
         address: String(restaurantRes?.address || '').trim(),
         phone: String(restaurantRes?.phone || '').trim(),
+        email: String(restaurantRes?.email || '').trim(),
         company_ruc: String(restaurantRes?.company_ruc || '').trim(),
       });
       const visibleCategories = cats.filter(c => !WAREHOUSE_CATEGORY_NAMES.has((c.name || '').toUpperCase()));
@@ -1361,6 +1363,7 @@ export default function POSPanel() {
         const barTicketItems = rows.filter((r) => r.isBar).map((r) => r.ticketItem);
         if (cfg?.cocina?.autoPrint && kitchenTicketItems.length > 0) {
           const text = buildPedidoMesaTicketPlainText({
+            restaurant: printRestaurantInfo,
             tableLabel: tableNumber || '',
             orderNumber,
             takeout,
@@ -1373,6 +1376,7 @@ export default function POSPanel() {
         }
         if (cfg?.bar?.autoPrint && barTicketItems.length > 0) {
           const text = buildPedidoMesaTicketPlainText({
+            restaurant: printRestaurantInfo,
             tableLabel: tableNumber || '',
             orderNumber,
             takeout,
