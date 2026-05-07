@@ -1,6 +1,11 @@
 /** Texto plano monoespaciado para tickets (ancho tipo rollo 58/80 mm). */
 
 import { formatDateTime, formatPeDateTimeParts, labelDeliveryPaymentModality } from './api';
+import thermalLayout from '@thermalPrintLayout';
+
+function defaultThermalPrintWidthChars() {
+  return Number(thermalLayout.charsPerLine['80']) || 54;
+}
 
 /** Nota de pedido mesa/salón «para llevar» (POS). Debe coincidir con lo guardado en `orders.notes`. */
 export const KITCHEN_TAKEOUT_NOTE = 'PARA LLEVAR';
@@ -21,14 +26,17 @@ export function thermalPaperMetrics(widthMm) {
   };
 }
 
-/** Ancho en caracteres según rollo (misma lógica que `charsPerLine` en escposBuilder.js). */
+/** Ancho en caracteres (misma fuente que `server/printing/thermalPrintLayout.json` + escposBuilder). */
 export function thermalCharWidth(widthMm) {
-  return Number(widthMm) <= 58 ? 32 : 54;
+  const n = Number(widthMm);
+  const cl = thermalLayout.charsPerLine;
+  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 54;
+  return n <= 58 ? Number(cl['58']) || 32 : Number(cl['80']) || 54;
 }
 
 /** Alinea `izq` y `der` en una sola línea de ancho fijo. */
 export function padLeftRight(left, right, width) {
-  const w = Math.max(8, Number(width) || 48);
+  const w = Math.max(8, Number(width) || defaultThermalPrintWidthChars());
   const L = String(left ?? '');
   const R = String(right ?? '');
   const space = w - L.length - R.length;
@@ -39,7 +47,7 @@ export function padLeftRight(left, right, width) {
 }
 
 export function centerThermalLine(text, width) {
-  const w = Math.max(8, Number(width) || 48);
+  const w = Math.max(8, Number(width) || defaultThermalPrintWidthChars());
   const s = String(text || '').trim();
   if (!s) return '';
   if (s.length >= w) return s.slice(0, w);
@@ -53,7 +61,7 @@ export function stripThermalDebugFooter(text) {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .trim();
-  s = s.replace(/\s+m[oó]dulo\s*:\s*caja\b/gi, '');
+  s = s.replace(/\s*m[oó]dulo\s*:\s*[a-záéíóúñ0-9_-]+\b/gi, '');
   s = s.replace(/\n\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[ap]\.?\s*m\.?\s*$/i, '');
   return s
     .split('\n')
@@ -96,7 +104,7 @@ export function restaurantDisplayNameUpper(restaurant = {}) {
 }
 
 function pipedTableDims(wch) {
-  const w = Math.max(24, Number(wch) || 48);
+  const w = Math.max(24, Number(wch) || defaultThermalPrintWidthChars());
   const pipeCount = 5;
   const inner = w - pipeCount;
   let nameW;
@@ -202,7 +210,7 @@ function paymentCheckboxRows(paymentMethod, width) {
   const y = `${mk(pm === 'yape' || pm === 'plin')} Yape/Plin`;
   const tr = `${mk(pm === 'transferencia')} Transferencia`;
   const cr = `${mk(pm === 'tarjeta' || pm === 'online')} Crédito`;
-  const w = Math.max(8, Number(width) || 48);
+  const w = Math.max(8, Number(width) || defaultThermalPrintWidthChars());
   const half = Math.floor(w / 2);
   const row1 = `${e.padEnd(half)}${y}`.slice(0, w);
   const row2 = `${tr.padEnd(half)}${cr}`.slice(0, w);

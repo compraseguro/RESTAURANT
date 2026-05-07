@@ -7,6 +7,13 @@ const cors = require('cors');
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification } = require('electron');
 const { buildTicket } = require('../server/printing/escposBuilder');
 
+try {
+  const tl = require('../server/printing/thermalPrintLayout.json');
+  console.log(`[electron] Ticket térmico ${tl.revision} · ${tl.charsPerLine['80']} columnas (80 mm)`);
+} catch (e) {
+  console.warn('[electron] thermalPrintLayout:', e.message);
+}
+
 const MODULE_KEYS = ['caja', 'cocina', 'bar'];
 const LOCAL_ASSISTANT_BASE_PORT = Number(process.env.RESTO_ASSISTANT_PORT || 3001);
 const ASSISTANT_PORT_TRY_COUNT = 15;

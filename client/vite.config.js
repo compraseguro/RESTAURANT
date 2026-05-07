@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const clientPkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8'));
+const repoRoot = resolve(__dirname, '..');
 
 export default defineConfig(() => {
   const isDesktopBuild = String(process.env.VITE_DESKTOP_BUILD || '').trim() === '1';
@@ -13,6 +14,11 @@ export default defineConfig(() => {
     base: isDesktopBuild ? './' : '/',
     define: {
       __APP_VERSION__: JSON.stringify(clientPkg.version),
+    },
+    resolve: {
+      alias: {
+        '@thermalPrintLayout': resolve(repoRoot, 'server/printing/thermalPrintLayout.json'),
+      },
     },
     plugins: [
       react(),
@@ -34,6 +40,9 @@ export default defineConfig(() => {
     server: {
       host: '0.0.0.0',
       port: 5173,
+      fs: {
+        allow: [repoRoot],
+      },
       proxy: {
         '/api': 'http://localhost:3001',
         '/uploads': 'http://localhost:3001',

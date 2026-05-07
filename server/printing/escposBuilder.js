@@ -1,4 +1,5 @@
 const { logoToEscPosRaster } = require('./thermalLogo');
+const thermalLayout = require('./thermalPrintLayout.json');
 
 /** Quita pies de depuración que no deben salir en papel (p. ej. «Modulo: caja»). */
 function stripDebugLinesFromPreformattedText(raw) {
@@ -6,9 +7,9 @@ function stripDebugLinesFromPreformattedText(raw) {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .trim();
-  /** Fracción pegada al texto anterior sin salto de línea */
-  s = s.replace(/\s+m[oó]dulo\s*:\s*caja\b/gi, '');
-  /** Fecha/hora tipo inglés que suele ir tras ese pie en builds antiguos */
+  /** Cualquier «modulo: xxx» pegado o en línea (builds antiguos / drivers). */
+  s = s.replace(/\s*m[oó]dulo\s*:\s*[a-záéíóúñ0-9_-]+\b/gi, '');
+  /** Fecha/hora tipo inglés que suele ir tras ese pie */
   s = s.replace(/\n\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[ap]\.?\s*m\.?\s*$/i, '');
   return s
     .split('\n')
@@ -23,9 +24,12 @@ function stripDebugLinesFromPreformattedText(raw) {
     .join('\n');
 }
 
-/** Caracteres por línea Font A típicos (XP-80 / 80 mm ~54; 58 mm ~32). Debe coincidir con `thermalCharWidth` del cliente. */
+/** Misma tabla que `thermalPrintLayout.json` y `thermalCharWidth()` en el cliente. */
 function charsPerLine(paperWidth) {
-  return Number(paperWidth) === 58 ? 32 : 54;
+  const n = Number(paperWidth);
+  const cl = thermalLayout.charsPerLine;
+  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 54;
+  return n <= 58 ? Number(cl['58']) || 32 : Number(cl['80']) || 54;
 }
 
 function center(text, width) {

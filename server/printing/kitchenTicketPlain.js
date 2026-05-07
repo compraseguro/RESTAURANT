@@ -4,13 +4,18 @@
  */
 
 const KITCHEN_TAKEOUT_NOTE = 'PARA LLEVAR';
+const thermalLayout = require('./thermalPrintLayout.json');
 
 function thermalCharWidth(widthMm) {
-  return Number(widthMm) <= 58 ? 32 : 54;
+  const n = Number(widthMm);
+  const cl = thermalLayout.charsPerLine;
+  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 54;
+  return n <= 58 ? Number(cl['58']) || 32 : Number(cl['80']) || 54;
 }
 
 function padLeftRight(left, right, width) {
-  const w = Math.max(8, Number(width) || 48);
+  const fallback = Number(thermalLayout.charsPerLine['80']) || 54;
+  const w = Math.max(8, Number(width) || fallback);
   const L = String(left ?? '');
   const R = String(right ?? '');
   const space = w - L.length - R.length;
@@ -21,7 +26,8 @@ function padLeftRight(left, right, width) {
 }
 
 function centerThermalLine(text, width) {
-  const w = Math.max(8, Number(width) || 48);
+  const fallback = Number(thermalLayout.charsPerLine['80']) || 54;
+  const w = Math.max(8, Number(width) || fallback);
   const s = String(text || '').trim();
   if (!s) return '';
   if (s.length >= w) return s.slice(0, w);
