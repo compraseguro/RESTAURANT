@@ -203,15 +203,28 @@ function printingUnreachableMessage() {
 /** Puertos estándar del asistente (3001 + alternativas si el primero está ocupado). */
 const ASSISTANT_STANDARD_PORTS = Array.from({ length: 15 }, (_, i) => 3001 + i);
 
-async function fetchPrintingHealthOk(url) {
+/** Origen guardado por el usuario o por descubrimiento automático (sin `/api`). */
+export function getPersistedPrintingBridgeOrigin() {
+  if (typeof window === 'undefined') return '';
+  try {
+    const ls = window.localStorage?.getItem('resto_local_printing_api');
+    const o = normalizeApiOrigin(ls || '');
+    return o || '';
+  } catch (_) {
+    return '';
+  }
+}
+
+async function fetchPrintingHealthDetail(url, timeoutMs = 3200) {
   try {
     const opts = {
       method: 'GET',
       cache: 'no-store',
       headers: { Accept: 'application/json' },
+      mode: 'cors',
     };
     if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
-      opts.signal = AbortSignal.timeout(3200);
+      opts.signal = AbortSignal.timeout(timeoutMs);
     }
     const res = await fetch(url, opts);
     const text = await res.text();
@@ -221,37 +234,48 @@ async function fetchPrintingHealthOk(url) {
     } catch (_) {
       data = null;
     }
-    return Boolean(res.ok && data && String(data.status || '').toLowerCase() === 'ok');
+    const ok = Boolean(res.ok && data && String(data.status || '').toLowerCase() === 'ok');
+    const assistant = ok && String(data?.mode || '').toLowerCase() === 'assistant';
+    return { ok, assistant };
   } catch (_) {
-    return false;
+    return { ok: false, assistant: false };
   }
 }
 
-async function tryAssistantOriginOnce(originBase) {
+async function probeOriginHealth(originBase, timeoutMs) {
   const base = String(originBase || '').trim().replace(/\/$/, '');
-  if (!base) return false;
-  return (
-    (await fetchPrintingHealthOk(`${base}/api/health`))
-    || (await fetchPrintingHealthOk(`${base}/health`))
-  );
+  if (!base) return { ok: false, assistant: false, origin: '' };
+  let r = await fetchPrintingHealthDetail(`${base}/api/health`, timeoutMs);
+  if (r.ok) return { ...r, origin: base };
+  r = await fetchPrintingHealthDetail(`${base}/health`, timeoutMs);
+  return { ...r, origin: base };
 }
 
-/** Busca el asistente en 127.0.0.1:3001…3015 y guarda la URL para los siguientes intentos. */
+/**
+ * Escanea 127.0.0.1:3001…3015 en paralelo y guarda la URL del asistente Electron (`mode: 'assistant'`).
+ * No usa otros servicios con `/health` OK para no pisar la URL manual ni elegir el API Node equivocado.
+ */
 async function discoverAssistantAndPersist() {
-  for (const port of ASSISTANT_STANDARD_PORTS) {
-    const origin = `http://127.0.0.1:${port}`;
-    const ok = await tryAssistantOriginOnce(origin);
-    if (ok) {
-      try {
-        window.localStorage?.setItem('resto_local_printing_api', origin);
-      } catch (_) {
-        /* noop */
-      }
-      console.info('[printing] Asistente detectado automáticamente en', origin);
-      return true;
-    }
+  const timeoutMs = 1800;
+  const rows = await Promise.all(
+    ASSISTANT_STANDARD_PORTS.map(async (port) => {
+      const origin = `http://127.0.0.1:${port}`;
+      const row = await probeOriginHealth(origin, timeoutMs);
+      return { port, origin: row.origin || origin, ok: row.ok, assistant: row.assistant };
+    }),
+  );
+  const assistants = rows.filter((r) => r.ok && r.assistant);
+  if (!assistants.length) return false;
+
+  assistants.sort((a, b) => a.port - b.port);
+  const pick = assistants[0];
+  try {
+    window.localStorage?.setItem('resto_local_printing_api', pick.origin);
+  } catch (_) {
+    /* noop */
   }
-  return false;
+  console.info('[printing] Asistente Electron detectado en', pick.origin);
+  return true;
 }
 
 /** Origen del bridge sin sufijo `/api` (ej. `http://127.0.0.1:3001`). */
@@ -262,6 +286,11 @@ function getPrintingBridgeOriginOnly() {
 }
 
 export async function checkPrintingHealth() {
+  /** Si el asistente Electron quedó en otro puerto (3002…), lo encontramos sin depender de localStorage. */
+  if (await discoverAssistantAndPersist()) {
+    return true;
+  }
+
   const apiBase = String(getPrintingApiBase() || '').trim().replace(/\/$/, '');
   const origin = getPrintingBridgeOriginOnly();
   const urls = [...new Set([`${apiBase}/health`, `${origin}/health`].filter(Boolean))];
@@ -274,6 +303,7 @@ export async function checkPrintingHealth() {
           method: 'GET',
           cache: 'no-store',
           headers: { Accept: 'application/json' },
+          mode: 'cors',
         };
         if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
           opts.signal = AbortSignal.timeout(8000);
@@ -294,10 +324,6 @@ export async function checkPrintingHealth() {
       }
     }
     if (attempt < 2) await new Promise((r) => setTimeout(r, 400));
-  }
-
-  if (await discoverAssistantAndPersist()) {
-    return true;
   }
 
   console.warn('[printing] health falló tras reintentos y descubrimiento:', lastErr?.message || lastErr, urls);

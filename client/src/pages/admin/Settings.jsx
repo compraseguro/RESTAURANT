@@ -4,6 +4,7 @@ import {
   checkPrintingHealth,
   electronPrinting,
   formatDateTime,
+  getPersistedPrintingBridgeOrigin,
   getPrintingApiBase,
   hasElectronPrinting,
   isElectronRuntime,
@@ -551,7 +552,10 @@ export default function Settings() {
         let detail = 'Impresión con aplicación Resto FADEY instalada';
         try {
           const br = await electronPrinting.getBridgeOrigin();
-          if (br?.origin) detail = `Servicio local · ${br.origin}`;
+          if (br?.origin) {
+            detail = `Servicio local · ${br.origin}`;
+            setManualPrintingApi(br.origin);
+          }
         } catch (_) {
           /* noop */
         }
@@ -564,6 +568,8 @@ export default function Settings() {
         return true;
       }
       await checkPrintingHealth();
+      const persisted = getPersistedPrintingBridgeOrigin();
+      if (persisted) setManualPrintingApi(persisted);
       setPrintingLinkStatus({
         checking: false,
         connected: true,
@@ -625,9 +631,10 @@ export default function Settings() {
     }
   }, [activeSection]);
   useEffect(() => {
-    if (activeSection === 'impresoras') {
-      verifyPrintingLink();
-    }
+    if (activeSection !== 'impresoras') return;
+    const persisted = getPersistedPrintingBridgeOrigin();
+    if (persisted) setManualPrintingApi(persisted);
+    verifyPrintingLink();
   }, [activeSection]);
 
   useEffect(() => {
@@ -1474,7 +1481,9 @@ export default function Settings() {
                     {printingLinkStatus.connected ? 'Vinculación activa' : 'Sin vinculación'}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    {printingLinkStatus.source}{printingLinkStatus.detail ? ` · ${printingLinkStatus.detail}` : ''}
+                    {printingLinkStatus.checking
+                      ? 'Verificando vínculo…'
+                      : `${printingLinkStatus.source}${printingLinkStatus.detail ? ` · ${printingLinkStatus.detail}` : ''}`}
                   </p>
                 </div>
                 <div className="md:col-span-2 flex flex-wrap items-center gap-2">
