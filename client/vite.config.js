@@ -8,7 +8,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const clientPkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8'));
 
 export default defineConfig(() => {
+  const isDesktopBuild = String(process.env.VITE_DESKTOP_BUILD || '').trim() === '1';
   return {
+    base: isDesktopBuild ? './' : '/',
     define: {
       __APP_VERSION__: JSON.stringify(clientPkg.version),
     },

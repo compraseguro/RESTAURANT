@@ -23,8 +23,8 @@
     "serve:offer": "npx --yes serve rolando-offer -l 8080",
     "electron": "electron .",
     "electron:dev": "concurrently \"npm run server\" \"cd client && npm run dev\" \"cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
-    "electron:build": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis",
-    "electron:dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --publish never"
+    "electron:build": "cross-env VITE_DESKTOP_BUILD=1 npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis",
+    "electron:dist": "cross-env VITE_DESKTOP_BUILD=1 npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --publish never"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
