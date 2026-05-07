@@ -4,9 +4,9 @@ const path = require('path');
 const CONFIG_PATH = path.join(__dirname, 'printer-config.json');
 
 const DEFAULT_CONFIG = {
-  caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
-  cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
-  bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
+  caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
+  cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
+  bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
 };
 
 function isValidIp(value) {
@@ -39,6 +39,7 @@ function normalizeModuleLenient(moduleConfig, moduleName) {
     puerto: normalizePuerto(src),
     autoPrint: moduleName === 'caja' ? true : Boolean(src.autoPrint ?? true),
     anchoPapel: resolveAnchoPapel(src),
+    paperWidth: resolveAnchoPapel(src),
   };
 }
 
@@ -90,19 +91,47 @@ function mergeModulePayload(current, incoming) {
 }
 
 function ensureConfigFile() {
+  const dir = path.dirname(CONFIG_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   if (!fs.existsSync(CONFIG_PATH)) {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(normalizeConfig(DEFAULT_CONFIG, { strict: false }), null, 2), 'utf8');
+    console.log(`[printing] configuración creada en primera ejecución: ${CONFIG_PATH}`);
   }
+}
+
+function safeDefaultConfig(reason = '') {
+  if (reason) {
+    console.warn(`[printing] usando fallback de configuración: ${reason}`);
+  }
+  return normalizeConfig(DEFAULT_CONFIG, { strict: false });
 }
 
 function loadConfig() {
   try {
     ensureConfigFile();
     const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
-    return normalizeConfig(JSON.parse(raw), { strict: false });
+    let parsed = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (jsonErr) {
+      console.error('[printing] JSON inválido en printer-config.json:', jsonErr.message || jsonErr);
+      const fallback = safeDefaultConfig('JSON inválido');
+      try {
+        fs.writeFileSync(CONFIG_PATH, JSON.stringify(fallback, null, 2), 'utf8');
+        console.log('[printing] configuración reparada con valores por defecto');
+      } catch (writeErr) {
+        console.error('[printing] no se pudo reparar printer-config.json:', writeErr.message || writeErr);
+      }
+      return fallback;
+    }
+    const normalized = normalizeConfig(parsed, { strict: false });
+    console.log(`[printing] configuración cargada: ${CONFIG_PATH}`);
+    return normalized;
   } catch (err) {
-    console.error('[printing] error leyendo config:', err.message);
-    return normalizeConfig(DEFAULT_CONFIG, { strict: false });
+    console.error('[printing] error lectura/permiso en config:', err.message || err);
+    return safeDefaultConfig('error de lectura');
   }
 }
 
@@ -111,7 +140,8 @@ function saveConfig(nextConfig) {
   let currentRaw = {};
   try {
     currentRaw = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-  } catch (_) {
+  } catch (err) {
+    console.error('[printing] error leyendo config actual al guardar:', err.message || err);
     currentRaw = {};
   }
   const incoming = nextConfig && typeof nextConfig === 'object' ? nextConfig : {};
@@ -124,13 +154,22 @@ function saveConfig(nextConfig) {
     if (merged[k].paperWidth != null && merged[k].anchoPapel == null) {
       merged[k].anchoPapel = merged[k].paperWidth;
     }
+    if (merged[k].anchoPapel != null && merged[k].paperWidth == null) {
+      merged[k].paperWidth = merged[k].anchoPapel;
+    }
   });
   const keysExplicit = ['caja', 'cocina', 'bar'].filter((k) => Object.prototype.hasOwnProperty.call(incoming, k));
   let finalized = normalizeConfig(merged, { strict: false });
   keysExplicit.forEach((k) => {
     finalized[k] = normalizeModuleStrict(merged[k], k);
   });
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(finalized, null, 2), 'utf8');
+  try {
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(finalized, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[printing] error escritura config (permisos/ruta):', err.message || err);
+    throw new Error('No se pudo escribir la configuración de impresión');
+  }
+  console.log(`[printing] configuración guardada: ${CONFIG_PATH}`);
   return finalized;
 }
 

@@ -61,6 +61,11 @@ const ROLES = {
 
 const DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
 const DAY_NAMES = { lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo' };
+const DEFAULT_PRINTING_CONFIG = {
+  caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
+  cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
+  bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
+};
 
 const MENU_ITEMS = [
   { id: 'regional', label: 'Configuración regional', icon: MdLanguage },
@@ -285,11 +290,7 @@ export default function Settings() {
   const [attendanceGalleryLoading, setAttendanceGalleryLoading] = useState(false);
   const [attendanceGalleryDraft, setAttendanceGalleryDraft] = useState({});
   const [attendanceGallerySaving, setAttendanceGallerySaving] = useState(false);
-  const [printingConfig, setPrintingConfig] = useState({
-    caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
-    cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
-    bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
-  });
+  const [printingConfig, setPrintingConfig] = useState(DEFAULT_PRINTING_CONFIG);
   const [detectedPrintersByModule, setDetectedPrintersByModule] = useState({
     caja: [],
     cocina: [],
@@ -345,10 +346,19 @@ export default function Settings() {
   const loadPrintingConfig = () => {
     api.printing.get('/printing/config')
       .then((cfg) => {
-        if (cfg && typeof cfg === 'object') setPrintingConfig(cfg);
+        if (cfg && typeof cfg === 'object') {
+          setPrintingConfig({
+            caja: { ...DEFAULT_PRINTING_CONFIG.caja, ...(cfg.caja || {}) },
+            cocina: { ...DEFAULT_PRINTING_CONFIG.cocina, ...(cfg.cocina || {}) },
+            bar: { ...DEFAULT_PRINTING_CONFIG.bar, ...(cfg.bar || {}) },
+          });
+          return;
+        }
+        setPrintingConfig(DEFAULT_PRINTING_CONFIG);
       })
-      .catch(() => {
-        toast.error('No se pudo cargar configuración de impresoras');
+      .catch((err) => {
+        console.warn('[printing] fallback frontend config por error de carga:', err?.message || err);
+        setPrintingConfig(DEFAULT_PRINTING_CONFIG);
       });
   };
   const isValidIp = (value) => /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(String(value || '').trim());

@@ -36,6 +36,11 @@ import {
 
 /** Mesa sintética al cobrar cuenta desde Clientes (no existe fila en `tables`). */
 const POS_ADMIN_REGISTER_KEY = 'posAdminRegisterId';
+const DEFAULT_PRINTING_CONFIG = {
+  caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
+  cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
+  bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
+};
 
 const CLIENT_CHECKOUT_TABLE_PREFIX = 'client-checkout:';
 function isClientCheckoutTable(table) {
@@ -259,11 +264,7 @@ export default function POSPanel() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [sendingCloseMail, setSendingCloseMail] = useState(false);
   const [activeCajaOption, setActiveCajaOption] = useState(searchParams.get('view') || 'cobrar');
-  const [printingConfig, setPrintingConfig] = useState({
-    caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
-    cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
-    bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, anchoPapel: 80 },
-  });
+  const [printingConfig, setPrintingConfig] = useState(DEFAULT_PRINTING_CONFIG);
   const [detectedPrinters, setDetectedPrinters] = useState([]);
   const [printingBusy, setPrintingBusy] = useState(false);
   const [closingData, setClosingData] = useState(null);
@@ -429,9 +430,15 @@ export default function POSPanel() {
 
   const loadPrinterConfig = async () => {
     try {
-      setPrintingConfig(await api.printing.get('/printing/config'));
+      const cfg = await api.printing.get('/printing/config');
+      setPrintingConfig({
+        caja: { ...DEFAULT_PRINTING_CONFIG.caja, ...(cfg?.caja || {}) },
+        cocina: { ...DEFAULT_PRINTING_CONFIG.cocina, ...(cfg?.cocina || {}) },
+        bar: { ...DEFAULT_PRINTING_CONFIG.bar, ...(cfg?.bar || {}) },
+      });
     } catch (err) {
-      toast.error(err.message || 'No se pudo cargar la impresora de caja');
+      console.warn('[printing] fallback POS config por error de carga:', err?.message || err);
+      setPrintingConfig(DEFAULT_PRINTING_CONFIG);
     }
   };
 
