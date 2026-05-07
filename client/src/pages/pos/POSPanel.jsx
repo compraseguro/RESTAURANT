@@ -1658,13 +1658,16 @@ export default function POSPanel() {
       widthMm,
     });
     const r = await printCajaTicket({
-      title: 'PRE CUENTA',
-      mesa: table.name,
-      items: groupedTable.map((row) => ({ quantity: row.qty, name: row.name })),
+      title: 'NOTA DE VENTA',
+      mesa: tableName || '',
+      items: groupedNota.map((row) => ({ quantity: row.qty, name: row.name })),
       text: plain,
     });
-    if (r.ok) toast.success('Acción completada');
-    else toast.error(r.error || 'No se pudo imprimir');
+    if (r.ok) {
+      toast.success('Nota de venta impresa');
+    } else {
+      toast.error(r.error || 'No se pudo imprimir nota de venta');
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
