@@ -140,6 +140,16 @@ function printingUnreachableMessage() {
   return 'Servicio de impresión no iniciado';
 }
 
+export async function checkPrintingHealth() {
+  try {
+    const out = await printingRequest('/health', { method: 'GET', cache: 'no-store' });
+    if (out && String(out.status || '').toLowerCase() === 'ok') return true;
+    return false;
+  } catch (err) {
+    throw new Error(printingUnreachableMessage());
+  }
+}
+
 async function printingRequest(endpoint, options = {}) {
   const token = localStorage.getItem('token');
   const headers = { 'Content-Type': 'application/json', ...options.headers };

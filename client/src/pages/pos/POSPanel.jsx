@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
-import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl, normalizeUsbPrinterList, printingUnreachableMessage } from '../../utils/api';
+import {
+  api,
+  checkPrintingHealth,
+  formatCurrency,
+  formatPeDateTimeLine,
+  formatPeDateTimeParts,
+  getPaymentMethodOptions,
+  normalizeUsbPrinterList,
+  PAYMENT_METHODS,
+  printingUnreachableMessage,
+  resolveMediaUrl,
+} from '../../utils/api';
 import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote, buildPrecuentaPlainText, buildNotaVentaPlainText } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
@@ -427,6 +438,7 @@ export default function POSPanel() {
   const detectUsbPrinters = async () => {
     try {
       setPrintingBusy(true);
+      await checkPrintingHealth();
       const data = await api.printing.get('/printers?module=caja');
       setDetectedPrinters(normalizeUsbPrinterList(data));
     } catch (err) {

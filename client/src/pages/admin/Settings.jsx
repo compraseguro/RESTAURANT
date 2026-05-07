@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { api, formatDateTime, normalizeUsbPrinterList, printingUnreachableMessage } from '../../utils/api';
+import {
+  api,
+  checkPrintingHealth,
+  formatDateTime,
+  normalizeUsbPrinterList,
+  printingUnreachableMessage,
+} from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -368,7 +374,8 @@ export default function Settings() {
   };
   const detectUsbPrintersForModule = (moduleKey) => {
     setPrintingBusy(true);
-    api.printing.get(`/printers?module=${encodeURIComponent(moduleKey)}`)
+    checkPrintingHealth()
+      .then(() => api.printing.get(`/printers?module=${encodeURIComponent(moduleKey)}`))
       .then((data) => {
         const list = normalizeUsbPrinterList(data);
         setDetectedPrintersByModule((prev) => ({ ...prev, [moduleKey]: list }));

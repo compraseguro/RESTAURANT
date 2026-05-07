@@ -157,6 +157,9 @@ const certUpload = multer({
   },
 });
 
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
 app.post('/api/upload/billing-cert', authenticateToken, requireRole('admin', 'master_admin'), (req, res) => {
   certUpload.single('cert')(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message || 'No se pudo guardar el certificado' });
@@ -198,6 +201,19 @@ app.use('/api/delivery', require('./routes/delivery'));
 app.use('/api/tables', require('./routes/tables'));
 app.use('/api/admin-modules', require('./routes/adminModules'));
 const { getPrinters } = require('./printing/printerDetector');
+app.get('/printers', (req, res) => {
+  try {
+    const mod = String(req.query.module || '').trim().toLowerCase();
+    const list = getPrinters().map((p) => ({ name: p.name }));
+    console.log(
+      `[printing] GET /printers → ${list.length} impresora(s)${mod ? ` (módulo solicitante: ${mod})` : ''}`,
+    );
+    res.json(list);
+  } catch (err) {
+    console.error('[printing] error GET /printers:', err.message || err);
+    res.status(500).json({ error: 'No se pudieron detectar impresoras' });
+  }
+});
 /** Alias solicitado: GET /api/printers → [{ "name": "..." }] (misma auth que /api/printing/printers). */
 app.get(
   '/api/printers',
@@ -311,6 +327,10 @@ async function start() {
     billingRoutes.startBillingAutoRetryJob();
   }
   server.on('error', (err) => {
+    if (err && err.code === 'EADDRINUSE') {
+      console.error(`[server] puerto ocupado: ${LISTEN_HOST}:${PORT}. Cierre la instancia previa o cambie PORT.`);
+      return;
+    }
     console.error('[server] error en el socket HTTP:', err.message || err);
   });
   server.listen(PORT, LISTEN_HOST, () => {
