@@ -25,7 +25,7 @@ import {
   MdLabel, MdDoNotDisturb, MdCategory, MdHistory,
   MdSecurity, MdDashboard, MdEventSeat, MdDeliveryDining, MdPhotoCamera,
   MdAssessment, MdInsights, MdLocalOffer, MdDiscount,
-  MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette, MdDownload,
+  MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette,
 } from 'react-icons/md';
 import { UI_THEME_OPTIONS, applyUiTheme, getValidUiThemeId } from '../../theme/uiTheme';
 
@@ -68,7 +68,6 @@ const DEFAULT_PRINTING_CONFIG = {
   cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
   bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
 };
-const DESKTOP_SETUP_URL = import.meta.env.VITE_DESKTOP_SETUP_URL || '/downloads/RestoFADEY Setup.exe';
 
 const MENU_ITEMS = [
   { id: 'regional', label: 'Configuración regional', icon: MdLanguage },
@@ -1338,13 +1337,6 @@ export default function Settings() {
                   <p className="text-sm text-amber-800">
                     La impresión automática está disponible solo en la aplicación de escritorio.
                   </p>
-                  <a
-                    href={DESKTOP_SETUP_URL}
-                    className="btn-primary text-sm inline-flex items-center gap-2"
-                    download
-                  >
-                    <MdDownload /> Descargar app de escritorio
-                  </a>
                 </div>
               )}
               <div className="flex flex-wrap gap-2">

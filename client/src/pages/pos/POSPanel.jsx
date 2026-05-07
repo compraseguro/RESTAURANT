@@ -33,12 +33,11 @@ import {
   MdRestaurantMenu,
   MdAccessTime, MdPersonAdd, MdEmail, MdSearch,
   MdDeliveryDining,
-  MdEdit, MdDelete, MdVisibility, MdPrint, MdSave, MdDownload,
+  MdEdit, MdDelete, MdVisibility, MdPrint, MdSave,
 } from 'react-icons/md';
 
 /** Mesa sintética al cobrar cuenta desde Clientes (no existe fila en `tables`). */
 const POS_ADMIN_REGISTER_KEY = 'posAdminRegisterId';
-const DESKTOP_SETUP_URL = import.meta.env.VITE_DESKTOP_SETUP_URL || '/downloads/RestoFADEY Setup.exe';
 const DEFAULT_PRINTING_CONFIG = {
   caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
   cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
@@ -2251,9 +2250,6 @@ export default function POSPanel() {
           {!hasElectronPrinting() && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
               <p className="text-sm text-amber-800">La impresión automática está disponible solo en la aplicación de escritorio.</p>
-              <a href={DESKTOP_SETUP_URL} className="btn-primary inline-flex items-center gap-2 text-sm" download>
-                <MdDownload /> Descargar app de escritorio
-              </a>
             </div>
           )}
           {(() => {

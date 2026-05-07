@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api, resolveMediaUrl } from '../utils/api';
 import toast from 'react-hot-toast';
-import { MdStorefront, MdPerson, MdLock, MdVisibility, MdVisibilityOff, MdArrowBack, MdCameraAlt } from 'react-icons/md';
+import { MdStorefront, MdPerson, MdLock, MdVisibility, MdVisibilityOff, MdArrowBack, MdCameraAlt, MdGetApp } from 'react-icons/md';
 import AttendancePhotoCapture from '../components/AttendancePhotoCapture';
 
 function getRoleRoute(role) {
@@ -21,6 +21,7 @@ const FALLBACK_RESTAURANT_NAME = 'Resto Fadey App';
 
 /** Pie del login: fijo, no configurable (no usar datos de /restaurant). */
 const LOGIN_PRODUCT_FOOTER = 'RESTO FADEY APP - SISTEMA DE GESTION';
+const DESKTOP_SETUP_URL = import.meta.env.VITE_DESKTOP_SETUP_URL || '/downloads/RestoFADEY Setup.exe';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -37,6 +38,7 @@ export default function Login() {
   const [brandLogo, setBrandLogo] = useState('');
   /** Nombre comercial del establecimiento (Mi empresa / Mi Restaurante); distinto del subtítulo del producto. */
   const [restaurantName, setRestaurantName] = useState(FALLBACK_RESTAURANT_NAME);
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
 
   const photosRequired = attendancePolicy.loginRequired;
   const policyReady = !attendancePolicy.loading;
@@ -51,6 +53,37 @@ export default function Login() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const onBeforeInstall = (e) => {
+      e.preventDefault();
+      setInstallPromptEvent(e);
+    };
+    const onInstalled = () => {
+      setInstallPromptEvent(null);
+      toast.success('Aplicación instalada correctamente');
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+
+  const installFromLogin = async () => {
+    try {
+      if (installPromptEvent) {
+        installPromptEvent.prompt();
+        await installPromptEvent.userChoice;
+        setInstallPromptEvent(null);
+        return;
+      }
+      window.open(DESKTOP_SETUP_URL, '_blank', 'noopener,noreferrer');
+    } catch (_) {
+      window.open(DESKTOP_SETUP_URL, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   useEffect(() => {
     api
@@ -201,6 +234,13 @@ export default function Login() {
                   ) : (
                     'Ingresar'
                   )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void installFromLogin()}
+                  className="w-full py-2 rounded-lg text-sm font-semibold border border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] inline-flex items-center justify-center gap-2"
+                >
+                  <MdGetApp className="text-base" /> Instalar aplicación
                 </button>
               </form>
             </>
