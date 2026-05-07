@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
@@ -29,9 +29,6 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const navigate = useNavigate();
   const location = useLocation();
   const emit = useSocketEmit();
-  const printedEventKeysRef = useRef(new Set());
-  const printedOrderIdsRef = useRef(new Set());
-  const bootstrapDoneRef = useRef(false);
   const isBar = station === 'bar';
   const StationIcon = isBar ? MdLocalBar : MdKitchen;
   const panelTitle = isBar ? 'Panel de Bar' : 'Panel de Cocina';
@@ -66,27 +63,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
       const qs = new URLSearchParams();
       if (filter !== 'all') qs.set('type', filter);
       qs.set('station', station);
-      const list = await api.get(`/orders/kitchen?${qs.toString()}`);
-      const safeList = Array.isArray(list) ? list : [];
-      setOrders(safeList);
-      if (!bootstrapDoneRef.current) {
-        // Primera carga del panel: marcar pendientes existentes como ya vistos
-        // para no reimprimir comandas antiguas al iniciar/refrescar.
-        safeList.forEach((order) => {
-          if (order?.id && String(order?.status || '').toLowerCase() === 'pending') {
-            printedOrderIdsRef.current.add(order.id);
-          }
-        });
-        bootstrapDoneRef.current = true;
-        return;
-      }
-      for (const order of safeList) {
-        if (!order?.id) continue;
-        if (String(order?.status || '').toLowerCase() !== 'pending') continue;
-        if (printedOrderIdsRef.current.has(order.id)) continue;
-        const printed = await tryAutoPrintStationOrder(order, 'poll');
-        if (printed) printedOrderIdsRef.current.add(order.id);
-      }
+      setOrders(await api.get(`/orders/kitchen?${qs.toString()}`));
     } catch (err) { console.error(err); }
   };
 
@@ -129,31 +106,9 @@ export default function KitchenPanel({ station = 'cocina' }) {
     }
   };
 
-  const tryAutoPrintStationOrder = async (order, eventLabel = 'new-order') => {
-    const moduleKey = isBar ? 'bar' : 'cocina';
-    const eventKey = `${order?.id || 'x'}:${order?.updated_at || order?.created_at || 't'}:${eventLabel}:${moduleKey}`;
-    if (printedEventKeysRef.current.has(eventKey)) return;
-    printedEventKeysRef.current.add(eventKey);
-    if (printedEventKeysRef.current.size > 300) {
-      printedEventKeysRef.current = new Set(Array.from(printedEventKeysRef.current).slice(-150));
-    }
-    try {
-      const cfg = await api.printing.get('/printing/config');
-      if (!cfg?.[moduleKey]?.autoPrint) return;
-      return await printOrderForStation(order, { silent: true });
-    } catch (err) {
-      console.warn('[printing] auto panel cocina/bar:', err?.message || err);
-      return false;
-    }
-  };
-
   const handleKitchenIncomingOrder = (order, toastLabel) => {
     loadOrders();
     playStationAlert();
-    void (async () => {
-      const printed = await tryAutoPrintStationOrder(order, toastLabel);
-      if (printed && order?.id) printedOrderIdsRef.current.add(order.id);
-    })();
     const num = order?.order_number;
     toast.success(
       num != null ? `${toastLabel} #${num} (${isBar ? 'bar' : 'cocina'})` : toastLabel,

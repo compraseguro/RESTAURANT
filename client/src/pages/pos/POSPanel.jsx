@@ -1316,6 +1316,45 @@ export default function POSPanel() {
     const tid = toast.loading(
       editingOrderId ? 'Guardando cambios…' : quickSaleMode ? 'Registrando venta…' : 'Enviando pedido…'
     );
+    const isBarProduct = (product, fallbackName = '') => {
+      if (String(product?.production_area || '').toLowerCase() === 'bar') return true;
+      const txt = String(fallbackName || product?.name || '').toLowerCase();
+      return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some((t) => txt.includes(t));
+    };
+    const autoPrintKitchenBarFromLines = async ({ orderNumber, tableNumber, lines }) => {
+      try {
+        const cfg = await api.printing.get('/printing/config');
+        const rows = (Array.isArray(lines) ? lines : []).map((line) => {
+          const p = productsById.get(line.product_id) || {};
+          return {
+            quantity: Number(line.quantity || 1),
+            name: String(line.name || p.name || line.product_name || '').trim(),
+            notes: String(line.notes || '').trim(),
+            isBar: isBarProduct(p, line.name || line.product_name),
+          };
+        });
+        const kitchenItems = rows.filter((r) => !r.isBar).map(({ quantity, name, notes }) => ({ quantity, name, notes }));
+        const barItems = rows.filter((r) => r.isBar).map(({ quantity, name, notes }) => ({ quantity, name, notes }));
+        if (cfg?.cocina?.autoPrint && kitchenItems.length > 0) {
+          await api.printing.post('/printing/print/cocina', {
+            title: 'COMANDA COCINA',
+            mesa: tableNumber || '',
+            orderNumber,
+            items: kitchenItems,
+          });
+        }
+        if (cfg?.bar?.autoPrint && barItems.length > 0) {
+          await api.printing.post('/printing/print/bar', {
+            title: 'COMANDA BAR',
+            mesa: tableNumber || '',
+            orderNumber,
+            items: barItems,
+          });
+        }
+      } catch (err) {
+        console.warn('[printing] auto en envio de pedido:', err?.message || err);
+      }
+    };
     try {
       if (editingOrderId) {
         const noteOrder = paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '';
@@ -1348,6 +1387,14 @@ export default function POSPanel() {
               items: linesPayload(lines),
               notes: noteOrder,
             });
+            const currentOrderNumber = String(
+              (selectedTable?.orders || []).find((o) => o.id === oid)?.order_number || ''
+            );
+            await autoPrintKitchenBarFromLines({
+              orderNumber: currentOrderNumber,
+              tableNumber: selectedTable?.number ? `Mesa ${selectedTable.number}` : '',
+              lines,
+            });
             updatedOrderIds.push(oid);
           }
         }
@@ -1372,6 +1419,11 @@ export default function POSPanel() {
         customer_name: quickSaleMode ? 'VENTA RAPIDA' : `Mesa ${selectedTable.number}`,
         payment_method: paymentMethod,
         notes: !quickSaleMode && paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
+      });
+      await autoPrintKitchenBarFromLines({
+        orderNumber: createdOrder?.order_number || '',
+        tableNumber: quickSaleMode ? '' : `Mesa ${selectedTable?.number || ''}`.trim(),
+        lines: cart,
       });
       if (quickSaleMode) {
         let doc = null;
