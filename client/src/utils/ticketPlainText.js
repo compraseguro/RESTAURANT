@@ -375,12 +375,14 @@ export function buildPrecuentaPlainText({
 }) {
   const w = thermalCharWidth(widthMm);
   const lines = [];
-  /** Precuenta: una sola línea, nombre de cartel (comercial primero); sin bloque fiscal. */
-  const commercial = String(restaurant?.billing_nombre_comercial || '').trim();
-  const brand = String(restaurant?.name || '').trim();
-  const tradeRaw = commercial || brand;
-  const trade = tradeRaw ? tradeRaw.replace(/^@+\s*/u, '').toUpperCase() : '';
-  if (trade) {
+  /**
+   * Precuenta: solo nombre comercial de facturación (cartel), nunca el nombre interno del local.
+   * Si hay logo térmico, no repetir título en texto (el logo va arriba en el bridge ESC/POS).
+   */
+  const hasThermalLogo = String(restaurant?.logo || '').trim();
+  const tradeRaw = String(restaurant?.billing_nombre_comercial || '').trim().replace(/^@+\s*/u, '');
+  const trade = tradeRaw ? tradeRaw.toUpperCase() : '';
+  if (!hasThermalLogo && trade) {
     lines.push(centerThermalLine(trade, w));
     lines.push('-'.repeat(w));
   }

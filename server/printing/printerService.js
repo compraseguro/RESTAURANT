@@ -122,7 +122,7 @@ async function print(moduleName, data = {}) {
   }
   const cfg = loadConfig();
   const moduleCfg = cfg[moduleKey];
-  const ticket = buildTicket(moduleKey, data, { paperWidth: moduleCfg.anchoPapel || 80 });
+  const ticket = await buildTicket(moduleKey, data, { paperWidth: moduleCfg.anchoPapel || 80 });
   const target = moduleCfg.tipo === 'usb'
     ? moduleCfg.nombre
     : `${moduleCfg.ip}:${moduleCfg.puerto}`;

@@ -328,7 +328,7 @@ async function printByModule(moduleKey, payload = {}) {
   const key = String(moduleKey || '').toLowerCase();
   if (!MODULE_KEYS.includes(key)) throw new Error('módulo inválido');
   const cfg = loadConfig()[key];
-  const ticket = buildTicket(key, payload, { paperWidth: cfg.paperWidth || 80 });
+  const ticket = await buildTicket(key, payload, { paperWidth: cfg.paperWidth || 80 });
   if (cfg.tipo === 'usb') {
     if (!cfg.nombre) throw new Error(`impresora USB no configurada en ${key}`);
     console.log(`[electron-printing] imprimir ${key} usb (Electron driver): ${cfg.nombre}`);

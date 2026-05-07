@@ -276,6 +276,10 @@ export default function POSPanel() {
   const [sendingCloseMail, setSendingCloseMail] = useState(false);
   const [activeCajaOption, setActiveCajaOption] = useState(searchParams.get('view') || 'cobrar');
   const [printingConfig, setPrintingConfig] = useState(DEFAULT_PRINTING_CONFIG);
+  const cajaPaperWidthMm = useMemo(() => {
+    const raw = Number(printingConfig?.caja?.paperWidth ?? printingConfig?.caja?.anchoPapel ?? 80);
+    return raw === 58 ? 58 : 80;
+  }, [printingConfig?.caja?.paperWidth, printingConfig?.caja?.anchoPapel]);
   const [detectedPrinters, setDetectedPrinters] = useState([]);
   const [printingBusy, setPrintingBusy] = useState(false);
   const [closingData, setClosingData] = useState(null);
@@ -815,6 +819,8 @@ export default function POSPanel() {
     const r = await printCajaTicket({
       text: textForPrint,
       preformatted: true,
+      logoUrl: String(printRestaurantInfo.logo || '').trim() || undefined,
+      paperWidth: cajaPaperWidthMm,
     });
     if (r.ok) toast.success('Acción completada');
     else toast.error(r.error || 'No se pudo imprimir');
@@ -1708,7 +1714,7 @@ export default function POSPanel() {
         ? Math.min(ordersSubtotal, ordersSubtotal * (discountValue / 100))
         : Math.min(ordersSubtotal, discountValue));
     const payableForPrecuenta = Math.max(0, ordersSubtotal - discountForPrecuenta);
-    const widthMm = 80;
+    const widthMm = cajaPaperWidthMm;
     const plain = buildPrecuentaPlainText({
       restaurant: printRestaurantInfo,
       tableName: table.name,
@@ -1726,6 +1732,8 @@ export default function POSPanel() {
     const r = await printCajaTicket({
       text: plain,
       preformatted: true,
+      logoUrl: String(printRestaurantInfo.logo || '').trim() || undefined,
+      paperWidth: widthMm,
     });
     if (r.ok) toast.success('Precuenta impresa');
     else toast.error(r.error || 'No se pudo imprimir precuenta');
@@ -1742,7 +1750,7 @@ export default function POSPanel() {
       customer?.phone && `Tel: ${customer.phone}`,
       customer?.address && `Dir: ${customer.address}`,
     ].filter(Boolean);
-    const widthMm = 80;
+    const widthMm = cajaPaperWidthMm;
     const plain = buildNotaVentaPlainText({
       restaurant: printRestaurantInfo,
       docLine: docText,
@@ -1759,6 +1767,8 @@ export default function POSPanel() {
     const r = await printCajaTicket({
       text: plain,
       preformatted: true,
+      logoUrl: String(printRestaurantInfo.logo || '').trim() || undefined,
+      paperWidth: widthMm,
     });
     if (r.ok) {
       toast.success('Nota de venta impresa');
@@ -1924,7 +1934,7 @@ export default function POSPanel() {
       billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
       billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
     ].filter(Boolean);
-    const widthMm = 80;
+    const widthMm = cajaPaperWidthMm;
     const plain = buildPrecuentaPlainText({
       restaurant: printRestaurantInfo,
       tableName: table.name,
@@ -1942,6 +1952,8 @@ export default function POSPanel() {
     const r = await printCajaTicket({
       text: plain,
       preformatted: true,
+      logoUrl: String(printRestaurantInfo.logo || '').trim() || undefined,
+      paperWidth: widthMm,
     });
     if (r.ok) toast.success('Acción completada');
     else toast.error(r.error || 'No se pudo imprimir');

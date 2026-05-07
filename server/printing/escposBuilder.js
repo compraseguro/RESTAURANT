@@ -1,3 +1,5 @@
+const { logoToEscPosRaster } = require('./thermalLogo');
+
 function charsPerLine(paperWidth) {
   return Number(paperWidth) === 58 ? 32 : 48;
 }
@@ -40,55 +42,77 @@ function wrapLine(text, width) {
   return out.length ? out : [''];
 }
 
-function buildTicket(moduleName, data = {}, options = {}) {
-  const width = charsPerLine(options.paperWidth || 80);
+/**
+ * @param {string} moduleName
+ * @param {object} data
+ * @param {object} options — { paperWidth: 58|80 }
+ * @returns {Promise<Buffer>}
+ */
+async function buildTicket(moduleName, data = {}, options = {}) {
+  const paperW = Number(data.paperWidth) || Number(options.paperWidth) || 80;
+  const width = charsPerLine(paperW);
 
-  /** Cuerpo ya formateado: solo texto UTF-8 envuelto + comandos ESC/POS al inicio/fin (evita @ y «VA» si el driver filtra bytes). */
+  /** Cuerpo ya formateado en cliente: UTF-8 + alineación centrada + logo opcional + corte. */
   if (data.preformatted && String(data.text || '').trim()) {
     const lines = [];
     String(data.text)
       .split('\n')
       .forEach((part) => wrapLine(part, width).forEach((line) => lines.push(`${line}\n`)));
-    lines.push('\n\n');
+    lines.push('\n');
     const body = Buffer.from(lines.join(''), 'utf8');
-    return Buffer.concat([
-      Buffer.from('\x1B\x40', 'binary'),
-      body,
-      Buffer.from('\x1D\x56\x41', 'binary'),
-    ]);
+
+    const chunks = [Buffer.from('\x1B\x40', 'binary')];
+
+    const logoUrl = data.logoUrl || data.logo;
+    if (logoUrl) {
+      const raster = await logoToEscPosRaster(String(logoUrl).trim(), paperW);
+      if (raster && raster.length) {
+        chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
+        chunks.push(raster);
+        chunks.push(Buffer.from('\n', 'binary'));
+      }
+    }
+
+    chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
+    chunks.push(body);
+    chunks.push(Buffer.from('\x1B\x61\x00', 'binary'));
+    chunks.push(Buffer.from('\n', 'binary'));
+    chunks.push(Buffer.from('\x1D\x56\x41', 'binary'));
+    return Buffer.concat(chunks);
   }
 
-  const lines = [];
-  lines.push('\x1B\x40');
-
+  const body = [];
   const header =
     String(data.restaurantHeader || data.restaurantName || 'RESTAURANTE').trim() || 'RESTAURANTE';
-  lines.push(center(header.toUpperCase(), width));
-  if (data.title) lines.push(center(String(data.title).toUpperCase(), width));
-  if (data.mesa) lines.push(...wrapLine(`Mesa: ${data.mesa}`, width).map((v) => `${v}\n`));
-  if (data.orderNumber != null) lines.push(...wrapLine(`Pedido: #${data.orderNumber}`, width).map((v) => `${v}\n`));
-  lines.push(sep(width));
+  body.push(center(header.toUpperCase(), width));
+  if (data.title) body.push(center(String(data.title).toUpperCase(), width));
+  if (data.mesa) body.push(...wrapLine(`Mesa: ${data.mesa}`, width).map((v) => `${v}\n`));
+  if (data.orderNumber != null) {
+    body.push(...wrapLine(`Pedido: #${data.orderNumber}`, width).map((v) => `${v}\n`));
+  }
+  body.push(sep(width));
 
   const items = Array.isArray(data.items) ? data.items : [];
   items.forEach((item) => {
     const qty = Number(item.quantity || item.qty || 0);
     const name = String(item.product_name || item.name || '').trim() || 'Producto';
-    wrapLine(`${qty || 1} ${name}`, width).forEach((line) => lines.push(`${line}\n`));
+    wrapLine(`${qty || 1} ${name}`, width).forEach((line) => body.push(`${line}\n`));
   });
 
   if (items.length === 0 && data.text) {
     String(data.text)
       .split('\n')
-      .forEach((part) => wrapLine(part, width).forEach((line) => lines.push(`${line}\n`)));
+      .forEach((part) => wrapLine(part, width).forEach((line) => body.push(`${line}\n`)));
   }
 
-  lines.push('\n');
-  lines.push(sep(width));
-  lines.push(...wrapLine(`Modulo: ${moduleName}`, width).map((v) => `${v}\n`));
-  lines.push(...wrapLine(`${new Date().toLocaleString('es-PE')}`, width).map((v) => `${v}\n`));
-  lines.push('\n\n');
-  lines.push('\x1D\x56\x41');
-  return Buffer.from(lines.join(''), 'utf8');
+  body.push('\n');
+  body.push(sep(width));
+
+  return Buffer.concat([
+    Buffer.from('\x1B\x40\x1B\x61\x01', 'binary'),
+    Buffer.from(body.join(''), 'utf8'),
+    Buffer.from('\x1B\x61\x00\n\n\x1D\x56\x41', 'binary'),
+  ]);
 }
 
-module.exports = { buildTicket };
+module.exports = { buildTicket, charsPerLine };
