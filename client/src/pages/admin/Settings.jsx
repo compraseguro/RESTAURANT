@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { api, formatDateTime } from '../../utils/api';
+import { api, formatDateTime, normalizeUsbPrinterList, printingUnreachableMessage } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -368,13 +368,13 @@ export default function Settings() {
   };
   const detectUsbPrintersForModule = (moduleKey) => {
     setPrintingBusy(true);
-    api.printing.get(`/printing/printers?module=${encodeURIComponent(moduleKey)}`)
+    api.printing.get(`/printers?module=${encodeURIComponent(moduleKey)}`)
       .then((data) => {
-        const list = Array.isArray(data?.printers) ? data.printers : [];
+        const list = normalizeUsbPrinterList(data);
         setDetectedPrintersByModule((prev) => ({ ...prev, [moduleKey]: list }));
         refreshPrinterStatus();
       })
-      .catch((err) => toast.error(err.message || 'No se pudo detectar impresoras'))
+      .catch((err) => toast.error(err.message || printingUnreachableMessage()))
       .finally(() => setPrintingBusy(false));
   };
   const printTestByModule = (moduleKey) => {
@@ -1273,9 +1273,10 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="card space-y-3">
               <p className="text-sm text-slate-500">
-                Configure una impresora por módulo (Caja, Cocina y Bar). USB usa la lista del sistema vía el backend Node local (Windows); Red usa IP + puerto.
-                En PC de escritorio, el cliente usa el bridge local (p. ej. <code className="text-xs">http://127.0.0.1:3001</code>); si el puerto es otro, defina{' '}
-                <code className="text-xs">localStorage.resto_local_printing_api</code>.
+                Configure una impresora por módulo (Caja, Cocina y Bar). La detección USB la hace solo el backend Node en esta PC (no el navegador).
+                La PWA o la app instalada <strong>no pueden arrancar</strong> ese servidor solas: debe estar en ejecución (por ejemplo{' '}
+                <code className="text-xs">npm run start</code> o el acceso directo <code className="text-xs">scripts/start-printing-bridge.cmd</code>).
+                Por defecto el bridge escucha en <code className="text-xs">127.0.0.1:3001</code>. Si el mensaje es «Servicio de impresión no iniciado», abra ese servicio en Windows.
               </p>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn-primary text-sm flex items-center gap-2" onClick={savePrintingConfig} disabled={printingBusy}>

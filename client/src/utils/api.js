@@ -136,12 +136,26 @@ async function request(endpoint, options = {}) {
   return data;
 }
 
+function printingUnreachableMessage() {
+  return 'Servicio de impresión no iniciado';
+}
+
 async function printingRequest(endpoint, options = {}) {
   const token = localStorage.getItem('token');
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const base = getPrintingApiBase();
-  const res = await fetch(`${base}${endpoint}`, { ...options, headers });
+  let res;
+  try {
+    res = await fetch(`${base}${endpoint}`, { ...options, headers });
+  } catch (err) {
+    const msg = err && err.message ? String(err.message) : 'fetch';
+    console.warn('[printing] fetch falló hacia', base, msg);
+    if (/Failed to fetch|NetworkError|Load failed|network/i.test(msg)) {
+      throw new Error(printingUnreachableMessage());
+    }
+    throw new Error(printingUnreachableMessage());
+  }
   const text = await res.text();
   let data = null;
   try {
@@ -162,6 +176,15 @@ async function printingRequest(endpoint, options = {}) {
   }
   return data;
 }
+
+/** Lista desde GET /api/printing/printers o GET /api/printers (array o legado { printers }). */
+export function normalizeUsbPrinterList(data) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.printers)) return data.printers;
+  return [];
+}
+
+export { printingUnreachableMessage };
 
 export const api = {
   /** `options` se fusiona con fetch (p. ej. `{ cache: 'no-store' }`). */

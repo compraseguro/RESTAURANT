@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
-import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
+import { api, formatCurrency, getPaymentMethodOptions, formatPeDateTimeParts, formatPeDateTimeLine, PAYMENT_METHODS, resolveMediaUrl, normalizeUsbPrinterList, printingUnreachableMessage } from '../../utils/api';
 import { KITCHEN_TAKEOUT_NOTE, orderHasTakeoutNote, buildPrecuentaPlainText, buildNotaVentaPlainText } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { billLineDisplayName, billLineKey, groupItemsByProductNameForBill } from '../../utils/mesaOrderLines';
@@ -427,10 +427,10 @@ export default function POSPanel() {
   const detectUsbPrinters = async () => {
     try {
       setPrintingBusy(true);
-      const data = await api.printing.get('/printing/printers?module=caja');
-      setDetectedPrinters(Array.isArray(data?.printers) ? data.printers : []);
+      const data = await api.printing.get('/printers?module=caja');
+      setDetectedPrinters(normalizeUsbPrinterList(data));
     } catch (err) {
-      toast.error(err.message || 'No se pudo detectar impresoras USB');
+      toast.error(err.message || printingUnreachableMessage());
     } finally {
       setPrintingBusy(false);
     }

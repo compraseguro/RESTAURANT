@@ -24,9 +24,9 @@ router.get('/printers', requireRole('admin', 'master_admin', 'cajero', 'cocina',
   const list = getPrinters();
   const items = list.map((p) => ({ name: p.name }));
   console.log(
-    `[printing] GET /printers → ${list.length} impresora(s) USB${mod ? ` (módulo solicitante: ${mod})` : ''}`,
+    `[printing] GET /api/printing/printers → ${list.length} impresora(s) USB${mod ? ` (módulo solicitante: ${mod})` : ''}`,
   );
-  res.json({ printers: list, items });
+  res.json(items);
 });
 
 router.post('/print/:module', (req, res) => {

@@ -21,6 +21,12 @@ const { createRateLimiter } = require('./middleware/rateLimit');
 
 const app = express();
 const server = http.createServer(app);
+
+/** En Render/Railway el API es público; en PC local el bridge debe aceptar el origen de la PWA (Vercel) y localhost. */
+function isCloudDeployment() {
+  return String(process.env.RENDER || '').toLowerCase() === 'true' || !!process.env.RAILWAY_ENVIRONMENT;
+}
+
 const corsOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
   .map(v => v.trim())
@@ -37,6 +43,11 @@ function wildcardToRegex(rule) {
 
 function isOriginAllowed(origin) {
   if (!origin) return true;
+  if (!isCloudDeployment()) {
+    if (/\.vercel\.app$/i.test(origin)) return true;
+    if (/^https?:\/\/localhost(:\d+)?$/i.test(origin)) return true;
+    if (/^https?:\/\/127\.0\.0\.1(:\d+)?$/i.test(origin)) return true;
+  }
   if (!corsOrigins.length) return true;
   if (corsOrigins.includes(origin)) return true;
   return corsOrigins
@@ -154,7 +165,7 @@ app.post('/api/upload/billing-cert', authenticateToken, requireRole('admin', 'ma
   });
 });
 
-app.get('/api/healthz', (req, res) => res.json({ ok: true, uptime: process.uptime() }));
+app.get('/api/healthz', (req, res) => res.json({ ok: true, uptime: process.uptime(), bridge: 'restaurant-node' }));
 app.get('/api/readyz', async (req, res) => {
   try {
     await initDatabase();
@@ -186,6 +197,21 @@ app.use('/api/pos', require('./routes/pos'));
 app.use('/api/delivery', require('./routes/delivery'));
 app.use('/api/tables', require('./routes/tables'));
 app.use('/api/admin-modules', require('./routes/adminModules'));
+const { getPrinters } = require('./printing/printerDetector');
+/** Alias solicitado: GET /api/printers → [{ "name": "..." }] (misma auth que /api/printing/printers). */
+app.get(
+  '/api/printers',
+  authenticateToken,
+  requireRole('admin', 'master_admin', 'cajero', 'mozo', 'cocina', 'bar'),
+  (req, res) => {
+    const mod = String(req.query.module || '').trim().toLowerCase();
+    const list = getPrinters().map((p) => ({ name: p.name }));
+    console.log(
+      `[printing] GET /api/printers → ${list.length} impresora(s)${mod ? ` (módulo solicitante: ${mod})` : ''}`,
+    );
+    res.json(list);
+  },
+);
 app.use('/api/printing', require('./routes/printing'));
 app.use('/api/master-admin', require('./routes/masterAdmin'));
 const billingRoutes = require('./routes/billing');
@@ -232,7 +258,8 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => { console.log(`Desconectado: ${socket.id}`); });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = Number(process.env.PORT) || 3001;
+const LISTEN_HOST = process.env.LISTEN_HOST || (isCloudDeployment() ? '0.0.0.0' : '127.0.0.1');
 
 function logSqlitePersistenceWarnings() {
   const info = getDatabasePersistenceInfo();
@@ -279,16 +306,22 @@ async function start() {
   logSqlitePersistenceWarnings();
   console.log(`[DB] SQLite path: ${getDbPath()}`);
   console.log(`[uploads] Archivos estáticos en: ${uploadsDir}`);
-  console.log('[printing] Bridge iniciado: rutas /api/printing (config, GET /printers, impresión RAW USB/Red en este proceso Node).');
+  console.log('[printing] Bridge de impresión: rutas /api/printing/* y GET /api/printers (USB vía Node en esta máquina).');
   if (typeof billingRoutes.startBillingAutoRetryJob === 'function') {
     billingRoutes.startBillingAutoRetryJob();
   }
-  server.listen(PORT, () => {
+  server.on('error', (err) => {
+    console.error('[server] error en el socket HTTP:', err.message || err);
+  });
+  server.listen(PORT, LISTEN_HOST, () => {
+    const localUrl = `http://${LISTEN_HOST === '0.0.0.0' ? '127.0.0.1' : LISTEN_HOST}:${PORT}`;
+    console.log(`[server] escuchando en http://${LISTEN_HOST}:${PORT} (acceso local típico: ${localUrl})`);
     console.log(`
 ======================================================
    RESTAURANT PLATFORM - SERVIDOR ACTIVO
-   Puerto: ${PORT}
+   Host: ${LISTEN_HOST}  Puerto: ${PORT}
    Base de datos: ${getDbPath()}
+   Impresión USB: ejecute este proceso en la PC caja (no se inicia solo desde el navegador/PWA).
    Maestro: use MASTER_USERNAME / MASTER_PASSWORD (.env) o credenciales ya guardadas.
    Staff: sin usuarios demo; el maestro crea el administrador en /master.
    Datos: en la nube use disco persistente y DB_PATH (ver .env.example).
@@ -297,7 +330,7 @@ async function start() {
   });
 }
 
-start().catch(err => {
-  console.error('Error al iniciar:', err);
+start().catch((err) => {
+  console.error('[server] error al iniciar la aplicación:', err.message || err);
   process.exit(1);
 });
