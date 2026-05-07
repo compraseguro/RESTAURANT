@@ -61,6 +61,11 @@ async function buildTicket(moduleName, data = {}, options = {}) {
     lines.push('\n');
     const body = Buffer.from(lines.join(''), 'utf8');
 
+    /**
+     * Cuerpo preformateado en cliente (centerThermalLine, tablas con |, padLeftRight).
+     * NO usar alineación ESC/POS centrada en todo el bloque: rompe columnas y totales.
+     * Solo centrar el raster del logo; el texto va en alineación izquierda (por defecto).
+     */
     const chunks = [Buffer.from('\x1B\x40', 'binary')];
 
     const logoUrl = data.logoUrl || data.logo;
@@ -69,13 +74,11 @@ async function buildTicket(moduleName, data = {}, options = {}) {
       if (raster && raster.length) {
         chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
         chunks.push(raster);
-        chunks.push(Buffer.from('\n', 'binary'));
+        chunks.push(Buffer.from('\n\x1B\x61\x00', 'binary'));
       }
     }
 
-    chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
     chunks.push(body);
-    chunks.push(Buffer.from('\x1B\x61\x00', 'binary'));
     chunks.push(Buffer.from('\n', 'binary'));
     chunks.push(Buffer.from('\x1D\x56\x41', 'binary'));
     return Buffer.concat(chunks);

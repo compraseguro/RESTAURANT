@@ -110,8 +110,8 @@ async function printTest(moduleName) {
   const moduleKey = String(moduleName || '').toLowerCase();
   const moduleLabel = moduleKey === 'caja' ? 'Caja' : moduleKey === 'cocina' ? 'Cocina' : 'Bar';
   return print(moduleKey, {
-    title: 'TEST RESTO FADEY',
-    text: `Modulo: ${moduleLabel}\n${new Date().toLocaleString('es-PE')}`,
+    title: 'PRUEBA DE IMPRESI?N',
+    text: `${moduleLabel}\n${new Date().toLocaleString('es-PE')}`,
   });
 }
 

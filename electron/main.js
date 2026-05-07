@@ -466,8 +466,8 @@ function createLocalAssistantServer() {
   assistant.post('/api/printing/test/:module', async (req, res) => {
     try {
       await printByModule(req.params.module, {
-        title: 'TEST RESTO FADEY',
-        text: `Módulo: ${String(req.params.module || '').toUpperCase()}\n${new Date().toLocaleString('es-PE')}`,
+        title: 'PRUEBA DE IMPRESIÓN',
+        text: `${String(req.params.module || '').toUpperCase()}\n${new Date().toLocaleString('es-PE')}`,
       });
       res.json({ ok: true });
     } catch (err) {
@@ -523,8 +523,8 @@ function registerPrintingIpc() {
   ipcMain.handle('printing:printTest', async (_event, moduleKey) => {
     const label = moduleKey === 'caja' ? 'Caja' : moduleKey === 'cocina' ? 'Cocina' : 'Bar';
     return printByModule(moduleKey, {
-      title: 'TEST RESTO FADEY',
-      text: `Módulo: ${label}\n${new Date().toLocaleString('es-PE')}`,
+      title: 'PRUEBA DE IMPRESIÓN',
+      text: `${label}\n${new Date().toLocaleString('es-PE')}`,
     });
   });
   ipcMain.handle('printing:printModule', async (_event, moduleKey, payload) => printByModule(moduleKey, payload || {}));
