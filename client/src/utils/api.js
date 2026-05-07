@@ -109,6 +109,13 @@ export const electronPrinting = {
     if (!hasElectronPrinting()) throw new Error('Electron printing no disponible');
     return window.electronPrinting.health();
   },
+  getBridgeOrigin: async () => {
+    if (!hasElectronPrinting()) throw new Error('Electron printing no disponible');
+    if (typeof window.electronPrinting.getBridgeOrigin !== 'function') {
+      return { ok: false, origin: '', port: null };
+    }
+    return window.electronPrinting.getBridgeOrigin();
+  },
   getStatus: async (moduleKey) => {
     if (!hasElectronPrinting()) throw new Error('Electron printing no disponible');
     return window.electronPrinting.getStatus(moduleKey);
@@ -188,9 +195,63 @@ async function request(endpoint, options = {}) {
 
 function printingUnreachableMessage() {
   if (isElectronRuntime()) {
-    return 'Integración de impresión de escritorio no disponible';
+    return 'Abra la aplicación Resto FADEY en esta PC (ícono junto al reloj). Si ya está abierta, clic derecho → «Reintentar servicio de impresión».';
   }
-  return 'Servicio de impresión no iniciado';
+  return 'No se encontró el programa de impresión Resto FADEY en esta computadora. Instálelo, manténgalo abierto junto al reloj y pulse «Verificar vínculo».';
+}
+
+/** Puertos estándar del asistente (3001 + alternativas si el primero está ocupado). */
+const ASSISTANT_STANDARD_PORTS = Array.from({ length: 15 }, (_, i) => 3001 + i);
+
+async function fetchPrintingHealthOk(url) {
+  try {
+    const opts = {
+      method: 'GET',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    };
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      opts.signal = AbortSignal.timeout(3200);
+    }
+    const res = await fetch(url, opts);
+    const text = await res.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (_) {
+      data = null;
+    }
+    return Boolean(res.ok && data && String(data.status || '').toLowerCase() === 'ok');
+  } catch (_) {
+    return false;
+  }
+}
+
+async function tryAssistantOriginOnce(originBase) {
+  const base = String(originBase || '').trim().replace(/\/$/, '');
+  if (!base) return false;
+  return (
+    (await fetchPrintingHealthOk(`${base}/api/health`))
+    || (await fetchPrintingHealthOk(`${base}/health`))
+  );
+}
+
+/** Busca el asistente en 127.0.0.1:3001…3015 y guarda la URL para los siguientes intentos. */
+async function discoverAssistantAndPersist() {
+  for (const port of ASSISTANT_STANDARD_PORTS) {
+    const origin = `http://127.0.0.1:${port}`;
+    const ok = await tryAssistantOriginOnce(origin);
+    if (ok) {
+      try {
+        window.localStorage?.setItem('resto_local_printing_api', origin);
+      } catch (_) {
+        /* noop */
+      }
+      console.info('[printing] Asistente detectado automáticamente en', origin);
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Origen del bridge sin sufijo `/api` (ej. `http://127.0.0.1:3001`). */
@@ -234,7 +295,12 @@ export async function checkPrintingHealth() {
     }
     if (attempt < 2) await new Promise((r) => setTimeout(r, 400));
   }
-  console.warn('[printing] health falló tras reintentos:', lastErr?.message || lastErr, urls);
+
+  if (await discoverAssistantAndPersist()) {
+    return true;
+  }
+
+  console.warn('[printing] health falló tras reintentos y descubrimiento:', lastErr?.message || lastErr, urls);
   throw new Error(printingUnreachableMessage());
 }
 
@@ -265,7 +331,7 @@ async function printingRequest(endpoint, options = {}) {
     if (data?.error) throw new Error(data.error);
     if (res.status === 404) {
       throw new Error(
-        'No se encontró el servicio de impresión (404). En PC con Windows, ejecute el backend Node local y configure localStorage.resto_local_printing_api o VITE_LOCAL_PRINTING_API.'
+        'No responde el programa de impresión en esta PC. Instale Resto FADEY, déjelo abierto junto al reloj y pulse «Verificar vínculo».',
       );
     }
     throw new Error(

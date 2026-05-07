@@ -4,11 +4,14 @@ const net = require('net');
 const { execFile } = require('child_process');
 const express = require('express');
 const cors = require('cors');
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification } = require('electron');
 const { buildTicket } = require('../server/printing/escposBuilder');
 
 const MODULE_KEYS = ['caja', 'cocina', 'bar'];
-const LOCAL_ASSISTANT_PORT = Number(process.env.RESTO_ASSISTANT_PORT || 3001);
+const LOCAL_ASSISTANT_BASE_PORT = Number(process.env.RESTO_ASSISTANT_PORT || 3001);
+const ASSISTANT_PORT_TRY_COUNT = 15;
+/** Puerto donde quedó escuchando el asistente (3001… o siguiente libre). */
+let assistantListenPort = null;
 let mainWindow = null; // Ventana oculta auxiliar para APIs de impresión del sistema.
 let tray = null;
 let localServer = null;
@@ -389,34 +392,24 @@ function createWindow() {
   return mainWindow;
 }
 
-function createTray() {
-  if (tray) return;
-  const iconPath = path.join(__dirname, '..', 'client', 'public', 'icon-192.png');
-  const icon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
-  tray = new Tray(icon);
-  tray.setToolTip('Resto FADEY - Asistente de impresión');
-  const menu = Menu.buildFromTemplate([
-    { label: 'Asistente activo (127.0.0.1:3001)', enabled: false },
-    { type: 'separator' },
-    {
-      label: 'Salir',
-      click: () => {
-        app.isQuitting = true;
-        try {
-          if (localServer) localServer.close();
-        } catch (_) {
-          // noop
-        }
-        app.quit();
-      },
-    },
-  ]);
-  tray.setContextMenu(menu);
+function bridgePortFilePath() {
+  return path.join(app.getPath('userData'), 'printing-bridge-port.json');
 }
 
-function createLocalAssistantServer() {
+function saveBridgePort(port) {
+  try {
+    fs.writeFileSync(
+      bridgePortFilePath(),
+      JSON.stringify({ port, updatedAt: new Date().toISOString() }),
+      'utf8',
+    );
+  } catch (_) {
+    /* noop */
+  }
+}
+
+function buildAssistantExpressApp() {
   const assistant = express();
-  /** Chrome/Edge: páginas HTTPS que llaman a http://127.0.0.1 exigen esta cabecera en la respuesta (Private Network Access). */
   assistant.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Private-Network', 'true');
     next();
@@ -488,16 +481,119 @@ function createLocalAssistantServer() {
     }
   });
 
-  localServer = assistant.listen(LOCAL_ASSISTANT_PORT, '127.0.0.1', () => {
-    console.log(`[electron] asistente de impresión activo en http://127.0.0.1:${LOCAL_ASSISTANT_PORT}`);
+  return assistant;
+}
+
+function listenAssistantOnPort(expressApp, port) {
+  return new Promise((resolve, reject) => {
+    const srv = expressApp.listen(port, '127.0.0.1', () => resolve(srv));
+    srv.on('error', (err) => reject(err));
   });
-  localServer.on('error', (err) => {
-    if (err?.code === 'EADDRINUSE') {
-      console.error(`[electron] puerto ${LOCAL_ASSISTANT_PORT} en uso. Cierre otra instancia del asistente.`);
-      return;
+}
+
+function showTrayBalloon(title, body) {
+  try {
+    if (Notification.isSupported()) {
+      new Notification({ title, body }).show();
     }
-    console.error('[electron] error servidor asistente:', err?.message || err);
+  } catch (_) {
+    /* noop */
+  }
+}
+
+async function stopAssistantServer() {
+  if (!localServer) return;
+  await new Promise((resolve) => {
+    try {
+      localServer.close(() => resolve());
+    } catch (_) {
+      resolve();
+    }
   });
+  localServer = null;
+}
+
+async function startPrintingAssistantServer() {
+  await stopAssistantServer();
+  assistantListenPort = null;
+
+  let lastErr = null;
+  for (let i = 0; i < ASSISTANT_PORT_TRY_COUNT; i += 1) {
+    const port = LOCAL_ASSISTANT_BASE_PORT + i;
+    try {
+      const expressApp = buildAssistantExpressApp();
+      localServer = await listenAssistantOnPort(expressApp, port);
+      assistantListenPort = port;
+      saveBridgePort(port);
+      console.log(`[electron] asistente de impresión activo en http://127.0.0.1:${port}`);
+      updateTrayMenu();
+      return port;
+    } catch (err) {
+      lastErr = err;
+      if (localServer) {
+        try {
+          localServer.close();
+        } catch (_) {
+          /* noop */
+        }
+        localServer = null;
+      }
+      if (err && err.code !== 'EADDRINUSE') {
+        console.error('[electron] error servidor asistente:', err.message || err);
+        break;
+      }
+    }
+  }
+
+  assistantListenPort = null;
+  updateTrayMenu();
+  console.error('[electron] no se pudo abrir ningún puerto para el asistente:', lastErr?.message || lastErr);
+  showTrayBalloon(
+    'Resto FADEY — Impresión',
+    'No se pudo iniciar el servicio en esta PC (puertos ocupados). Elija «Reintentar servicio» en el ícono junto al reloj o reinicie Windows.',
+  );
+  return null;
+}
+
+function updateTrayMenu() {
+  if (!tray) return;
+  const statusLabel = assistantListenPort
+    ? `Servicio listo · puerto ${assistantListenPort}`
+    : 'Servicio detenido — pulse «Reintentar»';
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: statusLabel, enabled: false },
+      {
+        label: 'Reintentar servicio de impresión',
+        click: () => {
+          void startPrintingAssistantServer();
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Salir',
+        click: () => {
+          app.isQuitting = true;
+          void stopAssistantServer().finally(() => {
+            try {
+              app.quit();
+            } catch (_) {
+              process.exit(0);
+            }
+          });
+        },
+      },
+    ]),
+  );
+}
+
+function createTray() {
+  if (tray) return;
+  const iconPath = path.join(__dirname, '..', 'client', 'public', 'icon-192.png');
+  const icon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
+  tray = new Tray(icon);
+  tray.setToolTip('Resto FADEY — Impresión (mantenga abierto para cobrar con ticket)');
+  updateTrayMenu();
 }
 
 function configureAutoStart() {
@@ -517,7 +613,19 @@ function registerPrintingIpc() {
   ipcMain.on('preload:ready', () => {
     console.log('[electron] IPC funcionando: preload:ready');
   });
-  ipcMain.handle('printing:health', async () => ({ status: 'ok' }));
+  ipcMain.handle('printing:getBridgeOrigin', async () => ({
+    ok: Boolean(assistantListenPort),
+    origin: assistantListenPort ? `http://127.0.0.1:${assistantListenPort}` : '',
+    port: assistantListenPort,
+  }));
+  ipcMain.handle('printing:health', async () => {
+    if (!assistantListenPort) {
+      throw new Error(
+        'Servicio de impresión no activo. Clic derecho en el ícono Resto FADEY junto al reloj → «Reintentar servicio de impresión».',
+      );
+    }
+    return { status: 'ok', port: assistantListenPort };
+  });
   ipcMain.handle('printing:getConfig', async () => loadConfig());
   ipcMain.handle('printing:saveConfig', async (_event, cfg) => saveConfig(cfg));
   ipcMain.handle('printing:getPrinters', async (_event, moduleKey = '') => {
@@ -535,17 +643,27 @@ function registerPrintingIpc() {
   ipcMain.handle('printing:printModule', async (_event, moduleKey, payload) => printByModule(moduleKey, payload || {}));
 }
 
-app.whenReady().then(() => {
-  console.log('[electron] proceso main iniciado');
-  configureAutoStart();
-  createWindow();
-  createTray();
-  createLocalAssistantServer();
-  registerPrintingIpc();
-  app.on('activate', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+const acquiredSingleInstance = app.requestSingleInstanceLock();
+
+if (!acquiredSingleInstance) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    showTrayBalloon('Resto FADEY', 'El programa de impresión ya está en ejecución (busque el ícono junto al reloj).');
   });
-});
+
+  app.whenReady().then(() => {
+    console.log('[electron] proceso main iniciado');
+    configureAutoStart();
+    createWindow();
+    createTray();
+    void startPrintingAssistantServer();
+    registerPrintingIpc();
+    app.on('activate', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+    });
+  });
+}
 
 app.on('window-all-closed', () => {
   // Mantener asistente en segundo plano.

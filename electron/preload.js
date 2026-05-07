@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('__ELECTRON__', true);
 
 contextBridge.exposeInMainWorld('electronPrinting', {
   health: () => ipcRenderer.invoke('printing:health'),
+  getBridgeOrigin: () => ipcRenderer.invoke('printing:getBridgeOrigin'),
   getConfig: () => ipcRenderer.invoke('printing:getConfig'),
   saveConfig: (cfg) => ipcRenderer.invoke('printing:saveConfig', cfg),
   getPrinters: (moduleKey = '') => ipcRenderer.invoke('printing:getPrinters', moduleKey),

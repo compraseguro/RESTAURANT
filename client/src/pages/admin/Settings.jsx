@@ -548,11 +548,18 @@ export default function Settings() {
     try {
       if (hasElectronPrinting()) {
         await electronPrinting.health();
+        let detail = 'Impresión con aplicación Resto FADEY instalada';
+        try {
+          const br = await electronPrinting.getBridgeOrigin();
+          if (br?.origin) detail = `Servicio local · ${br.origin}`;
+        } catch (_) {
+          /* noop */
+        }
         setPrintingLinkStatus({
           checking: false,
           connected: true,
-          source: 'Electron vinculado',
-          detail: 'Impresión nativa por IPC',
+          source: 'Aplicación Resto FADEY',
+          detail,
         });
         return true;
       }
@@ -1452,6 +1459,14 @@ export default function Settings() {
 
         {activeSection === 'impresoras' && (
           <div className="space-y-4">
+            <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+              <p className="font-medium mb-1">Para imprimir tickets en esta computadora</p>
+              <ul className="list-disc pl-5 space-y-1 text-sky-900/90">
+                <li>Instale y abra <strong>Resto FADEY</strong> (quedará un ícono junto al reloj de Windows).</li>
+                <li>No cierre ese programa mientras use la caja en esta PC.</li>
+                <li>Si dice «Sin vinculación», pulse <strong>Verificar vínculo</strong>. Si sigue igual: clic derecho en el ícono → <strong>Reintentar servicio de impresión</strong>.</li>
+              </ul>
+            </div>
             <div className="card space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="md:col-span-1">
