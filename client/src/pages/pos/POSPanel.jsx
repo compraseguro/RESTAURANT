@@ -21,6 +21,7 @@ import {
   buildNotaVentaPlainText,
   buildPedidoMesaTicketPlainText,
   enrichCartLineForKitchenItem,
+  getThermalPrintRevision,
 } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import {
@@ -1735,8 +1736,9 @@ export default function POSPanel() {
       logoUrl: String(printRestaurantInfo.logo || '').trim() || undefined,
       paperWidth: widthMm,
     });
-    if (r.ok) toast.success('Precuenta impresa');
-    else toast.error(r.error || 'No se pudo imprimir precuenta');
+    if (r.ok) {
+      toast.success(`Precuenta impresa · ${getThermalPrintRevision()}`);
+    } else toast.error(r.error || 'No se pudo imprimir precuenta');
   };
 
   const printNotaVenta = async ({ tableName, orders, docs, customer, paymentMethod: paymentMethodArg }) => {

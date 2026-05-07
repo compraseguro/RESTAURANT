@@ -7,6 +7,11 @@ function defaultThermalPrintWidthChars() {
   return Number(thermalLayout.charsPerLine['80']) || 54;
 }
 
+/** Indica si el bundle JS actual incluye el layout térmico (diagnosticar caché de Vercel/navegador). */
+export function getThermalPrintRevision() {
+  return String(thermalLayout?.revision || '');
+}
+
 /** Nota de pedido mesa/salón «para llevar» (POS). Debe coincidir con lo guardado en `orders.notes`. */
 export const KITCHEN_TAKEOUT_NOTE = 'PARA LLEVAR';
 
@@ -58,6 +63,7 @@ export function centerThermalLine(text, width) {
 /** Quita pies que no deben imprimirse (p. ej. «Modulo: caja»). */
 export function stripThermalDebugFooter(text) {
   let s = String(text || '')
+    .normalize('NFKC')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .trim();

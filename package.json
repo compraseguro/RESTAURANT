@@ -1,6 +1,6 @@
 {
   "name": "restaurant-platform",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Plataforma completa para restaurante - Admin, Cocina, POS, Cliente, Delivery",
   "main": "electron/main.js",
   "scripts": {

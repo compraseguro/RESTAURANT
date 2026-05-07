@@ -4,6 +4,7 @@ const thermalLayout = require('./thermalPrintLayout.json');
 /** Quita pies de depuración que no deben salir en papel (p. ej. «Modulo: caja»). */
 function stripDebugLinesFromPreformattedText(raw) {
   let s = String(raw || '')
+    .normalize('NFKC')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .trim();
