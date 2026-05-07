@@ -140,6 +140,46 @@ export default function Tables() {
       return toast.error(`"${missingRequiredNote.name}" requiere nota obligatoria`);
     }
     const tid = toast.loading('Enviando pedido…');
+    const productsById = new Map((products || []).map((p) => [p.id, p]));
+    const isBarProduct = (product, fallbackName = '') => {
+      if (String(product?.production_area || '').toLowerCase() === 'bar') return true;
+      const txt = String(fallbackName || product?.name || '').toLowerCase();
+      return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some((t) => txt.includes(t));
+    };
+    const autoPrintKitchenBarFromLines = async ({ orderNumber, tableNumber, lines }) => {
+      try {
+        const cfg = await api.printing.get('/printing/config');
+        const rows = (Array.isArray(lines) ? lines : []).map((line) => {
+          const p = productsById.get(line.product_id) || {};
+          return {
+            quantity: Number(line.quantity || 1),
+            name: String(line.name || p.name || '').trim(),
+            notes: String(line.notes || '').trim(),
+            isBar: isBarProduct(p, line.name),
+          };
+        });
+        const kitchenItems = rows.filter((r) => !r.isBar).map(({ quantity, name, notes }) => ({ quantity, name, notes }));
+        const barItems = rows.filter((r) => r.isBar).map(({ quantity, name, notes }) => ({ quantity, name, notes }));
+        if (cfg?.cocina?.autoPrint && kitchenItems.length > 0) {
+          await api.printing.post('/printing/print/cocina', {
+            title: 'COMANDA COCINA',
+            mesa: tableNumber || '',
+            orderNumber,
+            items: kitchenItems,
+          });
+        }
+        if (cfg?.bar?.autoPrint && barItems.length > 0) {
+          await api.printing.post('/printing/print/bar', {
+            title: 'COMANDA BAR',
+            mesa: tableNumber || '',
+            orderNumber,
+            items: barItems,
+          });
+        }
+      } catch (err) {
+        console.warn('[printing] auto desde mesas:', err?.message || err);
+      }
+    };
     try {
       const created = await api.post('/orders', {
         items: cart.map(i => ({
@@ -154,6 +194,11 @@ export default function Tables() {
         customer_name: `Mesa ${selectedTable.number}`,
         payment_method: 'efectivo',
         notes: paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
+      });
+      await autoPrintKitchenBarFromLines({
+        orderNumber: created?.order_number || '',
+        tableNumber: `Mesa ${selectedTable.number}`,
+        lines: cart,
       });
       toast.success(`Pedido enviado a Mesa ${selectedTable.number}`, { id: tid });
       closeMenuPanel();
