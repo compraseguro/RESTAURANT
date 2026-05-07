@@ -69,6 +69,7 @@ const DEFAULT_PRINTING_CONFIG = {
   cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
   bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
 };
+const DESKTOP_SETUP_URL = import.meta.env.VITE_DESKTOP_SETUP_URL || '/downloads/RestoFADEY Setup.exe';
 
 const MENU_ITEMS = [
   { id: 'regional', label: 'Configuración regional', icon: MdLanguage },
@@ -468,6 +469,13 @@ export default function Settings() {
       })
       .catch((err) => toast.error(err.message || 'No se pudo guardar'))
       .finally(() => setPrintingBusy(false));
+  };
+  const openDesktopInstaller = () => {
+    try {
+      window.open(DESKTOP_SETUP_URL, '_blank', 'noopener,noreferrer');
+    } catch (_) {
+      window.location.href = DESKTOP_SETUP_URL;
+    }
   };
   const loadAppSettingsHistory = () => {
     setSettingsHistoryLoading(true);
@@ -1478,6 +1486,18 @@ export default function Settings() {
                 </div>
               );
             })}
+            {!isElectronRuntime() && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="btn-secondary text-sm"
+                  onClick={openDesktopInstaller}
+                  disabled={printingBusy}
+                >
+                  Descargar/Reinstalar app de escritorio
+                </button>
+              </div>
+            )}
           </div>
         )}
 
