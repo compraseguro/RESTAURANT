@@ -1703,6 +1703,7 @@ export default function POSPanel() {
     ].filter(Boolean);
     const widthMm = 80;
     const plain = buildPrecuentaPlainText({
+      restaurant: printRestaurantInfo,
       tableName: table.name,
       mozoName,
       takeoutLine: precuentaParaLlevar ? KITCHEN_TAKEOUT_NOTE : '',
@@ -1918,6 +1919,7 @@ export default function POSPanel() {
     ].filter(Boolean);
     const widthMm = 80;
     const plain = buildPrecuentaPlainText({
+      restaurant: printRestaurantInfo,
       tableName: table.name,
       mozoName: mozoNameTbl,
       takeoutLine: precuentaParaLlevar ? KITCHEN_TAKEOUT_NOTE : '',

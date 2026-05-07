@@ -42,18 +42,24 @@ function wrapLine(text, width) {
 
 function buildTicket(moduleName, data = {}, options = {}) {
   const width = charsPerLine(options.paperWidth || 80);
-  const lines = [];
-  lines.push('\x1B\x40');
 
-  /** Cuerpo ya formateado (nota, precuenta, pedido mesa): sin cabecera duplicada ni pie de módulo. */
+  /** Cuerpo ya formateado: solo texto UTF-8 envuelto + comandos ESC/POS al inicio/fin (evita @ y «VA» si el driver filtra bytes). */
   if (data.preformatted && String(data.text || '').trim()) {
+    const lines = [];
     String(data.text)
       .split('\n')
       .forEach((part) => wrapLine(part, width).forEach((line) => lines.push(`${line}\n`)));
     lines.push('\n\n');
-    lines.push('\x1D\x56\x41');
-    return Buffer.from(lines.join(''), 'utf8');
+    const body = Buffer.from(lines.join(''), 'utf8');
+    return Buffer.concat([
+      Buffer.from('\x1B\x40', 'binary'),
+      body,
+      Buffer.from('\x1D\x56\x41', 'binary'),
+    ]);
   }
+
+  const lines = [];
+  lines.push('\x1B\x40');
 
   const header =
     String(data.restaurantHeader || data.restaurantName || 'RESTO FADEY').trim() || 'RESTO FADEY';

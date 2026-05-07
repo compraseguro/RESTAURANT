@@ -250,6 +250,20 @@ function getNetworkPrintersFromWindows() {
   });
 }
 
+function escPosBufferToHtmlSafeText(buffer) {
+  let s = Buffer.from(buffer || []).toString('latin1');
+  /** Inicial ESC @: al quitar ESC queda «@» en impresión por GDI. */
+  s = s.replace(/^\x1B@/, '');
+  /** Corte GS V (p. ej. \\x1D\\x56\\x41): bytes imprimibles quedan como «VA». */
+  s = s.replace(/[\r\n\x1A]*\x1D\x56[\x00\x01\x30\x31\x41][\s\S]*$/g, '');
+  s = s.replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '');
+  s = s.replace(/\n{3,}/g, '\n\n').trim();
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function printUSB(printerName, buffer) {
   if (printerLib && typeof printerLib.printDirect === 'function') {
     return new Promise((resolve, reject) => {
@@ -269,10 +283,7 @@ function printUSB(printerName, buffer) {
   const win = mainWindow || BrowserWindow.getAllWindows()[0];
   if (!win) throw new Error('no hay ventana principal para imprimir');
   return new Promise((resolve, reject) => {
-    const printableText = String(buffer || Buffer.from([]))
-      .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '')
-      .trim();
-    const safeText = printableText || 'TEST RESTO FADEY';
+    const safeText = escPosBufferToHtmlSafeText(buffer) || '—';
     const html = `<pre style="font-family: Consolas, monospace; white-space: pre; margin: 0; font-size: 12px;">${safeText}</pre>`;
     const printWin = new BrowserWindow({
       show: false,

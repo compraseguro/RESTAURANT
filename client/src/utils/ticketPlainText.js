@@ -61,61 +61,76 @@ function padCenterStr(str, width) {
   return `${' '.repeat(left)}${s}${' '.repeat(pad - left)}`;
 }
 
-/**
- * Fila de tabla: producto | cant | P.unit | total (cant centrada en su hueco).
- */
-export function formatProductRowFourCols(name, qty, unitPrice, lineTotal, formatCurrencyFn, widthChars) {
-  const w = Math.max(24, Number(widthChars) || 48);
-  const q = Math.round(Number(qty) || 0);
-  const u = moneyAmountStr(formatCurrencyFn(unitPrice));
-  const t = moneyAmountStr(formatCurrencyFn(lineTotal));
+/** Nombre comercial / razón social para ticket (como en Mi restaurante). */
+export function restaurantDisplayNameUpper(restaurant = {}) {
+  const r = restaurant || {};
+  const name = String(r.billing_nombre_comercial || '').trim()
+    || String(r.name || '').trim()
+    || '';
+  return name ? name.toUpperCase() : '';
+}
+
+function pipedTableDims(wch) {
+  const w = Math.max(24, Number(wch) || 48);
+  const pipeCount = 5;
+  const inner = w - pipeCount;
+  let nameW;
   let qW;
   let uW;
   let tW;
   if (w <= 34) {
     qW = 3;
-    uW = 7;
-    tW = 7;
+    uW = 5;
+    tW = 6;
+    nameW = inner - qW - uW - tW;
   } else {
-    qW = 4;
-    uW = 9;
-    tW = 9;
+    qW = 5;
+    uW = 8;
+    tW = 10;
+    nameW = inner - qW - uW - tW;
   }
-  const rightBlockW = 1 + qW + 1 + uW + 1 + tW;
-  const nameMax = Math.max(6, w - rightBlockW);
-  const nm = String(name || '—').trim() || '—';
-  const namePart = nm.length <= nameMax ? nm.padEnd(nameMax) : nm.slice(0, nameMax);
-  const qStr = padCenterStr(q, qW);
-  const uStr = u.padStart(uW);
-  const tStr = t.padStart(tW);
-  return `${namePart} ${qStr} ${uStr} ${tStr}`;
+  if (nameW < 6) {
+    nameW = 6;
+    tW = Math.max(4, inner - nameW - qW - uW);
+  }
+  return { nameW, qW, uW, tW, w };
+}
+
+function pipedDataRow(c0, c1, c2, c3, dims) {
+  const { nameW, qW, uW, tW, w } = dims;
+  const a = String(c0).slice(0, nameW).padEnd(nameW);
+  const b = padCenterStr(String(c1), qW);
+  const c = String(c2).padStart(uW);
+  const d = String(c3).padStart(tW);
+  return `|${a}|${b}|${c}|${d}|`.slice(0, w);
 }
 
 export function pushProductTableSection(lines, groupedRows, formatCurrencyFn, widthMm) {
-  const wch = thermalCharWidth(widthMm);
-  const qtyW = wch <= 34 ? 3 : 4;
-  const uW = wch <= 34 ? 7 : 9;
-  const tW = wch <= 34 ? 7 : 9;
-  const rightBlockW = 1 + qtyW + 1 + uW + 1 + tW;
-  const nameMax = Math.max(6, wch - rightBlockW);
+  const dims = pipedTableDims(thermalCharWidth(widthMm));
+  const { nameW, w } = dims;
 
   lines.push('PRODUCTOS');
-  const head =
-    `${'Producto'.slice(0, nameMax).padEnd(nameMax)} ${padCenterStr('Cant', qtyW)} ${'P.unit'.padStart(uW)} ${'Total'.padStart(tW)}`;
-  lines.push(head.slice(0, wch));
-  lines.push('-'.repeat(wch));
+  lines.push('-'.repeat(w));
+  const h0 = w <= 34 ? 'Prod' : 'Producto';
+  const h1 = w <= 34 ? 'Cant' : 'Cant';
+  const h2 = w <= 34 ? 'P.u' : 'P. u.';
+  const h3 = w <= 34 ? 'Tot' : 'Total';
+  lines.push(pipedDataRow(h0, h1, h2, h3, dims));
+  lines.push('-'.repeat(w));
 
   for (const g of groupedRows || []) {
     const qty = Number(g.qty || 0);
     const nm = String(g.name || '').trim() || '—';
     const unit = g.unitPrice != null ? Number(g.unitPrice) : qty > 0 ? Number(g.subtotal || 0) / qty : 0;
     const sub = Number(g.subtotal != null ? g.subtotal : unit * qty);
-    const segs = wrapThermalLine(nm, nameMax);
+    const uStr = moneyAmountStr(formatCurrencyFn(unit));
+    const tStr = moneyAmountStr(formatCurrencyFn(sub));
+    const segs = wrapThermalLine(nm, nameW);
     segs.forEach((seg, i) => {
       if (i === 0) {
-        lines.push(formatProductRowFourCols(seg, qty, unit, sub, formatCurrencyFn, wch));
+        lines.push(pipedDataRow(seg, qty, uStr, tStr, dims));
       } else {
-        lines.push(`${seg.padEnd(nameMax)}${' '.repeat(wch - nameMax)}`.slice(0, wch));
+        lines.push(pipedDataRow(seg, '', '', '', dims));
       }
     });
   }
@@ -338,6 +353,7 @@ export function buildKitchenTicketPlainText({
 
 /** Texto plano para precuenta de caja. */
 export function buildPrecuentaPlainText({
+  restaurant = {},
   tableName = '',
   mozoName = '',
   takeoutLine = '',
@@ -352,6 +368,11 @@ export function buildPrecuentaPlainText({
 }) {
   const w = thermalCharWidth(widthMm);
   const lines = [];
+  const trade = restaurantDisplayNameUpper(restaurant);
+  if (trade) {
+    lines.push(centerThermalLine(trade, w));
+    lines.push('-'.repeat(w));
+  }
   lines.push(centerThermalLine('PRE CUENTA', w));
   const { date, time } = formatPeDateTimeParts(printedAt);
   lines.push(padLeftRight(`Fecha: ${date}`, `Hora: ${time}`, w));
@@ -368,6 +389,8 @@ export function buildPrecuentaPlainText({
   lines.push(padLeftRight('Subtotal:', formatCurrencyFn(subtotal), w));
   lines.push(padLeftRight('Descuento:', formatCurrencyFn(discount), w));
   lines.push(padLeftRight('TOTAL A PAGAR:', formatCurrencyFn(payableTotal), w));
+  lines.push('-'.repeat(w));
+  lines.push(centerThermalLine('¡Gracias por preferirnos!', w));
   lines.push('');
   return lines.join('\n');
 }
