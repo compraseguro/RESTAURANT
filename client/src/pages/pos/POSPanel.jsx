@@ -2017,6 +2017,17 @@ export default function POSPanel() {
               >
                 <MdAttachMoney /> {isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar Mesa'}
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTable(tableDetail);
+                  void printPrecuenta();
+                }}
+                disabled={!tableDetail.orders?.length}
+                className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+              >
+                <MdPrint /> Imprimir precuenta
+              </button>
               <div className="flex flex-1 min-w-[200px] gap-2">
                 <button
                   type="button"
