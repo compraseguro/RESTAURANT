@@ -38,7 +38,6 @@ export default function Login() {
   const [brandLogo, setBrandLogo] = useState('');
   /** Nombre comercial del establecimiento (Mi empresa / Mi Restaurante); distinto del subtítulo del producto. */
   const [restaurantName, setRestaurantName] = useState(FALLBACK_RESTAURANT_NAME);
-  const [installPromptEvent, setInstallPromptEvent] = useState(null);
 
   const photosRequired = attendancePolicy.loginRequired;
   const policyReady = !attendancePolicy.loading;
@@ -54,31 +53,8 @@ export default function Login() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    const onBeforeInstall = (e) => {
-      e.preventDefault();
-      setInstallPromptEvent(e);
-    };
-    const onInstalled = () => {
-      setInstallPromptEvent(null);
-      toast.success('Aplicación instalada correctamente');
-    };
-    window.addEventListener('beforeinstallprompt', onBeforeInstall);
-    window.addEventListener('appinstalled', onInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
-      window.removeEventListener('appinstalled', onInstalled);
-    };
-  }, []);
-
   const installFromLogin = async () => {
     try {
-      if (installPromptEvent) {
-        installPromptEvent.prompt();
-        await installPromptEvent.userChoice;
-        setInstallPromptEvent(null);
-        return;
-      }
       window.open(DESKTOP_SETUP_URL, '_blank', 'noopener,noreferrer');
     } catch (_) {
       window.open(DESKTOP_SETUP_URL, '_blank', 'noopener,noreferrer');
@@ -241,7 +217,7 @@ export default function Login() {
                     onClick={() => void installFromLogin()}
                     className="w-full py-2 rounded-lg text-sm font-semibold border border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] inline-flex items-center justify-center gap-2"
                   >
-                    <MdGetApp className="text-base" /> Instalar aplicación
+                    <MdGetApp className="text-base" /> Descargar app de escritorio
                   </button>
                 )}
               </form>
