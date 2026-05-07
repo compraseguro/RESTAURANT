@@ -1,10 +1,16 @@
 const { logoToEscPosRaster } = require('./thermalLogo');
 
-/** Quita pies de depuración antiguos u overlays que no deben salir al cliente. */
+/** Quita pies de depuración que no deben salir en papel (p. ej. «Módulo: caja»). */
 function stripDebugLinesFromPreformattedText(raw) {
   return String(raw || '')
     .split('\n')
-    .filter((line) => !/^\s*m[oó]dulo\s*:/i.test(String(line || '').trim()))
+    .filter((line) => {
+      const t = String(line || '').trim();
+      if (!t) return true;
+      if (/^m[oó]dulo\b/i.test(t)) return false;
+      if (/^module\b/i.test(t)) return false;
+      return true;
+    })
     .join('\n');
 }
 
@@ -72,8 +78,8 @@ async function buildTicket(moduleName, data = {}, options = {}) {
 
     /**
      * Cuerpo preformateado en cliente (centerThermalLine, tablas con |, padLeftRight).
-     * NO usar alineación ESC/POS centrada en todo el bloque: rompe columnas y totales.
-     * Solo centrar el raster del logo; el texto va en alineación izquierda (por defecto).
+     * Alineación centrada ESC/POS en el bloque de texto: líneas de ancho completo se ven igual;
+     * las cortas quedan centradas en el rollo.
      */
     const chunks = [Buffer.from('\x1B\x40', 'binary')];
 
@@ -83,11 +89,13 @@ async function buildTicket(moduleName, data = {}, options = {}) {
       if (raster && raster.length) {
         chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
         chunks.push(raster);
-        chunks.push(Buffer.from('\n\x1B\x61\x00', 'binary'));
+        chunks.push(Buffer.from('\n', 'binary'));
       }
     }
 
+    chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
     chunks.push(body);
+    chunks.push(Buffer.from('\n\x1B\x61\x00', 'binary'));
     chunks.push(Buffer.from('\n', 'binary'));
     chunks.push(Buffer.from('\x1D\x56\x41', 'binary'));
     return Buffer.concat(chunks);

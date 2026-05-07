@@ -46,6 +46,20 @@ export function centerThermalLine(text, width) {
   return `${' '.repeat(pad)}${s}`;
 }
 
+/** Quita pies que no deben imprimirse (p. ej. «Módulo: caja»). */
+export function stripThermalDebugFooter(text) {
+  return String(text || '')
+    .split('\n')
+    .filter((line) => {
+      const t = String(line || '').trim();
+      if (!t) return true;
+      if (/^m[oó]dulo\b/i.test(t)) return false;
+      if (/^module\b/i.test(t)) return false;
+      return true;
+    })
+    .join('\n');
+}
+
 function moneyAmountStr(formatted) {
   return String(formatted || '')
     .replace(/^\s*S\/?\s*/i, '')
@@ -405,7 +419,7 @@ export function buildPrecuentaPlainText({
   lines.push('-'.repeat(w));
   lines.push(centerThermalLine('¡Gracias por preferirnos!', w));
   lines.push('');
-  return lines.join('\n');
+  return stripThermalDebugFooter(lines.join('\n'));
 }
 
 /** Texto plano para nota de venta. */
@@ -455,7 +469,7 @@ export function buildNotaVentaPlainText({
   lines.push(padLeftRight('TOTAL:', formatCurrencyFn(total), w));
   lines.push(centerThermalLine('¡Gracias por preferirnos!', w));
   lines.push('');
-  return lines.join('\n');
+  return stripThermalDebugFooter(lines.join('\n'));
 }
 
 /** Convierte una línea del carrito de mozo/caja en ítem para {@link buildPedidoMesaTicketPlainText}. */
