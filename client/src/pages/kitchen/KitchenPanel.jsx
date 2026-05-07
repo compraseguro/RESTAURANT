@@ -291,31 +291,35 @@ export default function KitchenPanel({ station = 'cocina' }) {
                 })()}
               </div>
 
-              <div className="px-4 py-3 border-t border-[color:var(--ui-border)] space-y-2">
-                <button
-                  type="button"
-                  onClick={() => void printOrderForStation(order)}
-                  className="w-full py-2 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] text-xs font-semibold transition-colors inline-flex items-center justify-center gap-2"
-                >
-                  <MdPrint /> Imprimir comanda
-                </button>
-                {order.status === 'pending' ? (
+              <div className="px-4 py-3 border-t border-[color:var(--ui-border)]">
+                <div className="flex gap-2 items-stretch">
                   <button
                     type="button"
-                    onClick={() => updateStatus(order.id, 'preparing')}
-                    className="w-full py-2.5 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
+                    title="Imprimir comanda"
+                    aria-label="Imprimir comanda"
+                    onClick={() => void printOrderForStation(order)}
+                    className="shrink-0 w-10 h-10 min-w-[2.5rem] rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] text-[var(--ui-body-text)] transition-colors inline-flex items-center justify-center"
                   >
-                    <StationIcon /> PREPARAR
+                    <MdPrint className="text-xl" />
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => updateStatus(order.id, 'ready')}
-                    className="w-full py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
-                  >
-                    <MdCheckCircle /> LISTO
-                  </button>
-                )}
+                  {order.status === 'pending' ? (
+                    <button
+                      type="button"
+                      onClick={() => updateStatus(order.id, 'preparing')}
+                      className="flex-1 min-h-[2.5rem] py-2.5 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
+                    >
+                      <StationIcon /> PREPARAR
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => updateStatus(order.id, 'ready')}
+                      className="flex-1 min-h-[2.5rem] py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                    >
+                      <MdCheckCircle /> LISTO
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
