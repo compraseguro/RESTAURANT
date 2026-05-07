@@ -33,11 +33,12 @@ import {
   MdRestaurantMenu,
   MdAccessTime, MdPersonAdd, MdEmail, MdSearch,
   MdDeliveryDining,
-  MdEdit, MdDelete, MdVisibility, MdPrint, MdSave,
+  MdEdit, MdDelete, MdVisibility, MdPrint, MdSave, MdDownload,
 } from 'react-icons/md';
 
 /** Mesa sintética al cobrar cuenta desde Clientes (no existe fila en `tables`). */
 const POS_ADMIN_REGISTER_KEY = 'posAdminRegisterId';
+const DESKTOP_SETUP_URL = import.meta.env.VITE_DESKTOP_SETUP_URL || '/downloads/RestoFADEY Setup.exe';
 const DEFAULT_PRINTING_CONFIG = {
   caja: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
   cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
@@ -488,6 +489,11 @@ export default function POSPanel() {
     loadData();
     loadPrinterConfig();
   }, []);
+  useEffect(() => {
+    if (activeCajaOption === 'impresora' && hasElectronPrinting()) {
+      detectUsbPrinters();
+    }
+  }, [activeCajaOption]);
   useActiveInterval(loadData, 10000);
   useSocket('order-update', loadData);
   useSocket('table-update', loadData);
@@ -2242,6 +2248,14 @@ export default function POSPanel() {
       {activeCajaOption === 'impresora' && (
         <div className="card max-w-3xl">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><MdPrint /> Configuración de Impresora (Caja)</h3>
+          {!hasElectronPrinting() && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+              <p className="text-sm text-amber-800">La impresión automática está disponible solo en la aplicación de escritorio.</p>
+              <a href={DESKTOP_SETUP_URL} className="btn-primary inline-flex items-center gap-2 text-sm" download>
+                <MdDownload /> Descargar app de escritorio
+              </a>
+            </div>
+          )}
           {(() => {
             const cfg = printingConfig?.caja || { tipo: 'usb', nombre: '', ip: '', puerto: 9100 };
             return (
@@ -2309,7 +2323,7 @@ export default function POSPanel() {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className="btn-secondary" onClick={detectUsbPrinters} disabled={printingBusy}>
+                  <button type="button" className="btn-secondary" onClick={detectUsbPrinters} disabled={printingBusy || !hasElectronPrinting()}>
                     Detectar impresoras USB
                   </button>
                   <button type="button" className="btn-primary inline-flex items-center gap-2" onClick={savePrinterConfig} disabled={printingBusy}>

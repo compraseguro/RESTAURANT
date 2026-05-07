@@ -25,7 +25,7 @@ import {
   MdLabel, MdDoNotDisturb, MdCategory, MdHistory,
   MdSecurity, MdDashboard, MdEventSeat, MdDeliveryDining, MdPhotoCamera,
   MdAssessment, MdInsights, MdLocalOffer, MdDiscount,
-  MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette,
+  MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette, MdDownload,
 } from 'react-icons/md';
 import { UI_THEME_OPTIONS, applyUiTheme, getValidUiThemeId } from '../../theme/uiTheme';
 
@@ -68,6 +68,7 @@ const DEFAULT_PRINTING_CONFIG = {
   cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
   bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
 };
+const DESKTOP_SETUP_URL = import.meta.env.VITE_DESKTOP_SETUP_URL || '/downloads/RestoFADEY Setup.exe';
 
 const MENU_ITEMS = [
   { id: 'regional', label: 'Configuración regional', icon: MdLanguage },
@@ -407,6 +408,20 @@ export default function Settings() {
       .catch((err) => toast.error(err.message || printingUnreachableMessage()))
       .finally(() => setPrintingBusy(false));
   };
+  const detectUsbPrintersElectronAuto = () => {
+    if (!hasElectronPrinting()) return;
+    ['caja', 'cocina', 'bar'].forEach((moduleKey) => {
+      electronPrinting.getPrinters(moduleKey)
+        .then((data) => {
+          const list = normalizeUsbPrinterList(data);
+          setDetectedPrintersByModule((prev) => ({ ...prev, [moduleKey]: list }));
+        })
+        .catch((err) => {
+          console.warn('[printing] no se pudo detectar impresoras en Electron:', err?.message || err);
+          setDetectedPrintersByModule((prev) => ({ ...prev, [moduleKey]: [] }));
+        });
+    });
+  };
   const printTestByModule = (moduleKey) => {
     setPrintingBusy(true);
     const req = hasElectronPrinting()
@@ -477,6 +492,11 @@ export default function Settings() {
   };
 
   useEffect(() => { loadUsers(); loadRestaurant(); loadAppSettings(); loadPrintingConfig(); refreshPrinterStatus(); }, []);
+  useEffect(() => {
+    if (activeSection === 'impresoras' && hasElectronPrinting()) {
+      detectUsbPrintersElectronAuto();
+    }
+  }, [activeSection]);
 
   useEffect(() => {
     if (!attendanceGalleryUserId) {
@@ -1308,12 +1328,25 @@ export default function Settings() {
         {activeSection === 'impresoras' && (
           <div className="space-y-4">
             <div className="card space-y-3">
-              <p className="text-sm text-slate-500">
-                Configure una impresora por módulo (Caja, Cocina y Bar). La detección USB la hace solo el backend Node en esta PC (no el navegador).
-                La PWA o la app instalada <strong>no pueden arrancar</strong> ese servidor solas: debe estar en ejecución (por ejemplo{' '}
-                <code className="text-xs">npm run start</code> o el acceso directo <code className="text-xs">scripts/start-printing-bridge.cmd</code>).
-                Por defecto el bridge escucha en <code className="text-xs">127.0.0.1:3001</code>. Si el mensaje es «Servicio de impresión no iniciado», abra ese servicio en Windows.
-              </p>
+              {hasElectronPrinting() ? (
+                <p className="text-sm text-slate-500">
+                  Configure una impresora por módulo (Caja, Cocina y Bar). En la app de escritorio, la detección e impresión USB/Red
+                  usan integración nativa de Electron y funcionan sin navegador.
+                </p>
+              ) : (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+                  <p className="text-sm text-amber-800">
+                    La impresión automática está disponible solo en la aplicación de escritorio.
+                  </p>
+                  <a
+                    href={DESKTOP_SETUP_URL}
+                    className="btn-primary text-sm inline-flex items-center gap-2"
+                    download
+                  >
+                    <MdDownload /> Descargar app de escritorio
+                  </a>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn-primary text-sm flex items-center gap-2" onClick={savePrintingConfig} disabled={printingBusy}>
                   <MdSave /> Guardar configuración
@@ -1378,7 +1411,7 @@ export default function Settings() {
                           type="button"
                           className="btn-secondary text-sm w-full sm:w-auto"
                           onClick={() => detectUsbPrintersForModule(moduleKey)}
-                          disabled={printingBusy}
+                          disabled={printingBusy || !hasElectronPrinting()}
                         >
                           Detectar impresoras USB ({moduleLabel})
                         </button>
