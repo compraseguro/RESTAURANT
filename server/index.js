@@ -42,7 +42,8 @@ function wildcardToRegex(rule) {
 }
 
 function isOriginAllowed(origin) {
-  if (!origin) return true;
+  // Electron empaquetado (file://) suele enviar Origin "null".
+  if (!origin || origin === 'null') return true;
   if (!isCloudDeployment()) {
     if (/\.vercel\.app$/i.test(origin)) return true;
     if (/^https?:\/\/localhost(:\d+)?$/i.test(origin)) return true;

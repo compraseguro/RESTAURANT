@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, HashRouter } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
@@ -42,14 +42,25 @@ class ErrorBoundary extends React.Component {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
-        <AuthProvider>
-          <CartProvider>
-            <App />
-            <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
-          </CartProvider>
-        </AuthProvider>
-      </BrowserRouter>
+      {window.location.protocol === 'file:' ? (
+        <HashRouter>
+          <AuthProvider>
+            <CartProvider>
+              <App />
+              <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+            </CartProvider>
+          </AuthProvider>
+        </HashRouter>
+      ) : (
+        <BrowserRouter>
+          <AuthProvider>
+            <CartProvider>
+              <App />
+              <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+            </CartProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      )}
     </ErrorBoundary>
   </React.StrictMode>
 );
