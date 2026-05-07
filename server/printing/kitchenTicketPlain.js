@@ -6,7 +6,7 @@
 const KITCHEN_TAKEOUT_NOTE = 'PARA LLEVAR';
 
 function thermalCharWidth(widthMm) {
-  return Number(widthMm) <= 58 ? 32 : 48;
+  return Number(widthMm) <= 58 ? 32 : 54;
 }
 
 function padLeftRight(left, right, width) {

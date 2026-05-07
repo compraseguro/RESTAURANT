@@ -287,7 +287,7 @@ function printUSB(printerName, buffer) {
   if (!win) throw new Error('no hay ventana principal para imprimir');
   return new Promise((resolve, reject) => {
     const safeText = escPosBufferToHtmlSafeText(buffer) || '—';
-    const html = `<pre style="font-family: Consolas, monospace; white-space: pre; margin: 0; font-size: 12px; text-align: center;">${safeText}</pre>`;
+    const html = `<!DOCTYPE html><meta charset="utf-8"><style>body{margin:0;padding:0}pre{font-family:Consolas,'Courier New',monospace;white-space:pre;margin:0;padding:0;font-size:11px;text-align:left;width:100%;box-sizing:border-box}</style><pre>${safeText}</pre>`;
     const printWin = new BrowserWindow({
       show: false,
       webPreferences: { offscreen: true },

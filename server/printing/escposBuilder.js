@@ -1,21 +1,31 @@
 const { logoToEscPosRaster } = require('./thermalLogo');
 
-/** Quita pies de depuración que no deben salir en papel (p. ej. «Módulo: caja»). */
+/** Quita pies de depuración que no deben salir en papel (p. ej. «Modulo: caja»). */
 function stripDebugLinesFromPreformattedText(raw) {
-  return String(raw || '')
+  let s = String(raw || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim();
+  /** Fracción pegada al texto anterior sin salto de línea */
+  s = s.replace(/\s+m[oó]dulo\s*:\s*caja\b/gi, '');
+  /** Fecha/hora tipo inglés que suele ir tras ese pie en builds antiguos */
+  s = s.replace(/\n\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[ap]\.?\s*m\.?\s*$/i, '');
+  return s
     .split('\n')
+    .map((line) => line.replace(/\uFEFF/g, '').trimEnd())
     .filter((line) => {
       const t = String(line || '').trim();
       if (!t) return true;
       if (/^m[oó]dulo\b/i.test(t)) return false;
-      if (/^module\b/i.test(t)) return false;
+      if (/^module\s*:/i.test(t)) return false;
       return true;
     })
     .join('\n');
 }
 
+/** Caracteres por línea Font A típicos (XP-80 / 80 mm ~54; 58 mm ~32). Debe coincidir con `thermalCharWidth` del cliente. */
 function charsPerLine(paperWidth) {
-  return Number(paperWidth) === 58 ? 32 : 48;
+  return Number(paperWidth) === 58 ? 32 : 54;
 }
 
 function center(text, width) {
@@ -66,7 +76,7 @@ async function buildTicket(moduleName, data = {}, options = {}) {
   const paperW = Number(data.paperWidth) || Number(options.paperWidth) || 80;
   const width = charsPerLine(paperW);
 
-  /** Cuerpo ya formateado en cliente: UTF-8 + alineación centrada + logo opcional + corte. */
+  /** Cuerpo ya formateado en cliente (centrados locales con espacios, tablas con |). Recorte con wrap al ancho térmico. */
   const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
   if (data.preformatted && cleanedPreformatted) {
     const lines = [];
@@ -77,9 +87,8 @@ async function buildTicket(moduleName, data = {}, options = {}) {
     const body = Buffer.from(lines.join(''), 'utf8');
 
     /**
-     * Cuerpo preformateado en cliente (centerThermalLine, tablas con |, padLeftRight).
-     * Alineación centrada ESC/POS en el bloque de texto: líneas de ancho completo se ven igual;
-     * las cortas quedan centradas en el rollo.
+     * Logo centrado; texto del ticket alineado a la izquierda para usar el ancho útil del papel.
+     * Centrar todo el bloque ESC/POS dejaba una «columna» estrecha con márgenes grandes en 80 mm.
      */
     const chunks = [Buffer.from('\x1B\x40', 'binary')];
 
@@ -89,14 +98,13 @@ async function buildTicket(moduleName, data = {}, options = {}) {
       if (raster && raster.length) {
         chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
         chunks.push(raster);
-        chunks.push(Buffer.from('\n', 'binary'));
+        chunks.push(Buffer.from('\n\x1B\x61\x00', 'binary'));
       }
     }
 
-    chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
+    chunks.push(Buffer.from('\x1B\x61\x00', 'binary'));
     chunks.push(body);
     chunks.push(Buffer.from('\n\x1B\x61\x00', 'binary'));
-    chunks.push(Buffer.from('\n', 'binary'));
     chunks.push(Buffer.from('\x1D\x56\x41', 'binary'));
     return Buffer.concat(chunks);
   }

@@ -12,17 +12,18 @@ export function orderHasTakeoutNote(order) {
 /** Anchos de carácter típicos para papel 58 mm vs 80 mm. */
 export function thermalPaperMetrics(widthMm) {
   const narrow = Number(widthMm) <= 58;
+  const wideChars = thermalCharWidth(widthMm);
   return {
     clip: narrow ? 32 : 42,
-    itemLine: narrow ? 32 : 48,
+    itemLine: narrow ? 32 : wideChars,
     nameInQtyRow: narrow ? 24 : 34,
     phoneClip: narrow ? 24 : 32,
   };
 }
 
-/** Ancho en caracteres según rollo (misma lógica que impresora). */
+/** Ancho en caracteres según rollo (misma lógica que `charsPerLine` en escposBuilder.js). */
 export function thermalCharWidth(widthMm) {
-  return Number(widthMm) <= 58 ? 32 : 48;
+  return Number(widthMm) <= 58 ? 32 : 54;
 }
 
 /** Alinea `izq` y `der` en una sola línea de ancho fijo. */
@@ -46,15 +47,22 @@ export function centerThermalLine(text, width) {
   return `${' '.repeat(pad)}${s}`;
 }
 
-/** Quita pies que no deben imprimirse (p. ej. «Módulo: caja»). */
+/** Quita pies que no deben imprimirse (p. ej. «Modulo: caja»). */
 export function stripThermalDebugFooter(text) {
-  return String(text || '')
+  let s = String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim();
+  s = s.replace(/\s+m[oó]dulo\s*:\s*caja\b/gi, '');
+  s = s.replace(/\n\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[ap]\.?\s*m\.?\s*$/i, '');
+  return s
     .split('\n')
+    .map((line) => line.replace(/\uFEFF/g, '').trimEnd())
     .filter((line) => {
       const t = String(line || '').trim();
       if (!t) return true;
       if (/^m[oó]dulo\b/i.test(t)) return false;
-      if (/^module\b/i.test(t)) return false;
+      if (/^module\s*:/i.test(t)) return false;
       return true;
     })
     .join('\n');
@@ -390,11 +398,15 @@ export function buildPrecuentaPlainText({
   const w = thermalCharWidth(widthMm);
   const lines = [];
   /**
-   * Precuenta: solo nombre comercial de facturación (cartel), nunca el nombre interno del local.
-   * Si hay logo térmico, no repetir título en texto (el logo va arriba en el bridge ESC/POS).
+   * Cartel de precuenta: nombre comercial SUNAT si existe; si no, nombre del local («Mi restaurante»).
+   * No usar otro fallback inventado para que coincida con lo configurado en la app.
    */
   const hasThermalLogo = String(restaurant?.logo || '').trim();
-  const tradeRaw = String(restaurant?.billing_nombre_comercial || '').trim().replace(/^@+\s*/u, '');
+  const tradeRaw = String(
+    restaurant?.billing_nombre_comercial || restaurant?.name || '',
+  )
+    .trim()
+    .replace(/^@+\s*/u, '');
   const trade = tradeRaw ? tradeRaw.toUpperCase() : '';
   if (!hasThermalLogo && trade) {
     lines.push(centerThermalLine(trade, w));
