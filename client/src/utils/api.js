@@ -193,29 +193,49 @@ function printingUnreachableMessage() {
   return 'Servicio de impresión no iniciado';
 }
 
+/** Origen del bridge sin sufijo `/api` (ej. `http://127.0.0.1:3001`). */
+function getPrintingBridgeOriginOnly() {
+  const apiBase = String(getPrintingApiBase() || '').trim().replace(/\/$/, '');
+  const stripped = apiBase.replace(/\/api\/?$/i, '');
+  return stripped || apiBase;
+}
+
 export async function checkPrintingHealth() {
-  const base = getPrintingApiBase();
-  /** Sin Authorization: petición "simple" para evitar preflight y bloqueos HTTPS→localhost (Private Network Access). */
-  let res;
-  try {
-    res = await fetch(`${base}/health`, { method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' } });
-  } catch (err) {
-    const msg = err && err.message ? String(err.message) : 'fetch';
-    console.warn('[printing] health fetch falló hacia', base, msg);
-    throw new Error(printingUnreachableMessage());
+  const apiBase = String(getPrintingApiBase() || '').trim().replace(/\/$/, '');
+  const origin = getPrintingBridgeOriginOnly();
+  const urls = [...new Set([`${apiBase}/health`, `${origin}/health`].filter(Boolean))];
+
+  let lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    for (const url of urls) {
+      try {
+        const opts = {
+          method: 'GET',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+        };
+        if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+          opts.signal = AbortSignal.timeout(8000);
+        }
+        const res = await fetch(url, opts);
+        const text = await res.text();
+        let data = null;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch (_) {
+          data = null;
+        }
+        if (res.ok && data && String(data.status || '').toLowerCase() === 'ok') {
+          return true;
+        }
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 400));
   }
-  const text = await res.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch (_) {
-    data = null;
-  }
-  if (!res.ok) {
-    throw new Error(printingUnreachableMessage());
-  }
-  if (data && String(data.status || '').toLowerCase() === 'ok') return true;
-  return false;
+  console.warn('[printing] health falló tras reintentos:', lastErr?.message || lastErr, urls);
+  throw new Error(printingUnreachableMessage());
 }
 
 async function printingRequest(endpoint, options = {}) {
