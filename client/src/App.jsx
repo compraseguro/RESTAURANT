@@ -31,6 +31,7 @@ import Cart from './pages/customer/Cart';
 import CustomerOrders from './pages/customer/CustomerOrders';
 import OrderTracking from './pages/customer/OrderTracking';
 import MasterAdmin from './pages/master/MasterAdmin';
+import PwaInstallPrompt from './components/PwaInstallPrompt';
 
 const ADMIN_MODULE_PATHS = [
   { path: '/admin', moduleId: 'escritorio', roles: ['admin', 'cajero'] },
@@ -150,7 +151,8 @@ export default function App() {
   }
 
   return (
-    <Routes>
+    <>
+      <Routes>
       <Route path="/auto-pedido" element={<SelfOrder />} />
       <Route path="/auto-pedido-cliente" element={<SelfOrderCliente />} />
       <Route path="/" element={user && user.type === 'staff' ? <Navigate to={
@@ -198,6 +200,8 @@ export default function App() {
       <Route path="/tracking/:id" element={<LegacyTrackingRedirect />} />
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
+      </Routes>
+      <PwaInstallPrompt />
+    </>
   );
 }
