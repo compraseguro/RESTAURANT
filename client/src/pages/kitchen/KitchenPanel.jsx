@@ -30,6 +30,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const location = useLocation();
   const emit = useSocketEmit();
   const printedEventKeysRef = useRef(new Set());
+  const printedOrderIdsRef = useRef(new Set());
   const isBar = station === 'bar';
   const StationIcon = isBar ? MdLocalBar : MdKitchen;
   const panelTitle = isBar ? 'Panel de Bar' : 'Panel de Cocina';
@@ -64,7 +65,16 @@ export default function KitchenPanel({ station = 'cocina' }) {
       const qs = new URLSearchParams();
       if (filter !== 'all') qs.set('type', filter);
       qs.set('station', station);
-      setOrders(await api.get(`/orders/kitchen?${qs.toString()}`));
+      const list = await api.get(`/orders/kitchen?${qs.toString()}`);
+      const safeList = Array.isArray(list) ? list : [];
+      setOrders(safeList);
+      for (const order of safeList) {
+        if (!order?.id) continue;
+        if (String(order?.status || '').toLowerCase() !== 'pending') continue;
+        if (printedOrderIdsRef.current.has(order.id)) continue;
+        const printed = await tryAutoPrintStationOrder(order, 'poll');
+        if (printed) printedOrderIdsRef.current.add(order.id);
+      }
     } catch (err) { console.error(err); }
   };
 
@@ -118,16 +128,20 @@ export default function KitchenPanel({ station = 'cocina' }) {
     try {
       const cfg = await api.printing.get('/printing/config');
       if (!cfg?.[moduleKey]?.autoPrint) return;
-      await printOrderForStation(order, { silent: true });
+      return await printOrderForStation(order, { silent: true });
     } catch (err) {
       console.warn('[printing] auto panel cocina/bar:', err?.message || err);
+      return false;
     }
   };
 
   const handleKitchenIncomingOrder = (order, toastLabel) => {
     loadOrders();
     playStationAlert();
-    void tryAutoPrintStationOrder(order, toastLabel);
+    void (async () => {
+      const printed = await tryAutoPrintStationOrder(order, toastLabel);
+      if (printed && order?.id) printedOrderIdsRef.current.add(order.id);
+    })();
     const num = order?.order_number;
     toast.success(
       num != null ? `${toastLabel} #${num} (${isBar ? 'bar' : 'cocina'})` : toastLabel,
