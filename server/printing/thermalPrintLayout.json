@@ -1,8 +1,8 @@
 {
-  "revision": "thermal-v7-75mm-dedupe",
+  "revision": "thermal-v8-leftalign-75cols",
   "charsPerLine": {
     "58": 32,
-    "75": 48,
+    "75": 42,
     "80": 54
   }
 }

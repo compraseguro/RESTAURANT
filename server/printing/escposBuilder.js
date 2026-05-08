@@ -32,7 +32,7 @@ function charsPerLine(paperWidth) {
   const cl = thermalLayout.charsPerLine;
   if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 54;
   if (n <= 58) return Number(cl['58']) || 32;
-  if (n <= 75) return Number(cl['75']) || 48;
+  if (n <= 75) return Number(cl['75']) || 42;
   return Number(cl['80']) || 54;
 }
 
@@ -111,8 +111,9 @@ async function buildTicket(moduleName, data = {}, options = {}) {
     const body = Buffer.from(lines.join(''), 'utf8');
 
     /**
-     * Logo centrado; texto del ticket alineado a la izquierda para usar el ancho útil del papel.
-     * Centrar todo el bloque ESC/POS dejaba una «columna» estrecha con márgenes grandes en 80 mm.
+     * Logo: centrado hardware (ESC a 1). Cuerpo precuenta/caja: ESC a 0 (izquierda).
+     * El texto ya viene centrado con espacios en ancho fijo (`center()`); si además se envía ESC a 1,
+     * muchas térmicas «recentran» la línea y el ticket parece descuadrado.
      */
     const chunks = [Buffer.from('\x1B\x40', 'binary')];
 
@@ -126,7 +127,7 @@ async function buildTicket(moduleName, data = {}, options = {}) {
       }
     }
 
-    chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
+    chunks.push(Buffer.from('\x1B\x61\x00', 'binary'));
     chunks.push(body);
     chunks.push(Buffer.from('\n\x1B\x61\x00', 'binary'));
     chunks.push(Buffer.from('\x1D\x56\x41', 'binary'));

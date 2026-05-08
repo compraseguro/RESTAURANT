@@ -11,7 +11,7 @@ function thermalCharWidth(widthMm) {
   const cl = thermalLayout.charsPerLine;
   if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 54;
   if (n <= 58) return Number(cl['58']) || 32;
-  if (n <= 75) return Number(cl['75']) || 48;
+  if (n <= 75) return Number(cl['75']) || 42;
   return Number(cl['80']) || 54;
 }
 

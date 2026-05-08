@@ -337,7 +337,13 @@ async function printByModule(moduleKey, payload = {}) {
   const key = String(moduleKey || '').toLowerCase();
   if (!MODULE_KEYS.includes(key)) throw new Error('módulo inválido');
   const cfg = loadConfig()[key];
-  const ticket = await buildTicket(key, payload, { paperWidth: cfg.paperWidth || 80 });
+  const pw =
+    Number(payload.paperWidth) ||
+    Number(payload.anchoPapel) ||
+    Number(cfg.paperWidth) ||
+    Number(cfg.anchoPapel) ||
+    80;
+  const ticket = await buildTicket(key, { ...payload, paperWidth: pw }, { paperWidth: pw });
   if (cfg.tipo === 'usb') {
     if (!cfg.nombre) throw new Error(`impresora USB no configurada en ${key}`);
     console.log(`[electron-printing] imprimir ${key} usb (Electron driver): ${cfg.nombre}`);
@@ -469,9 +475,13 @@ function buildAssistantExpressApp() {
   });
   assistant.post('/api/printing/test/:module', async (req, res) => {
     try {
-      await printByModule(req.params.module, {
+      const mod = String(req.params.module || '').toLowerCase();
+      if (!MODULE_KEYS.includes(mod)) throw new Error('módulo inválido');
+      const cfg = loadConfig()[mod];
+      const pw = cfg.paperWidth || cfg.anchoPapel || 80;
+      await printByModule(mod, {
         title: 'PRUEBA DE IMPRESIÓN',
-        text: `${String(req.params.module || '').toUpperCase()}\n${new Date().toLocaleString('es-PE')}`,
+        text: `${mod.toUpperCase()}\n${pw} mm (config)\n${new Date().toLocaleString('es-PE')}`,
       });
       res.json({ ok: true });
     } catch (err) {
@@ -640,10 +650,13 @@ function registerPrintingIpc() {
   });
   ipcMain.handle('printing:getStatus', async (_event, moduleKey) => printerStatus(moduleKey));
   ipcMain.handle('printing:printTest', async (_event, moduleKey) => {
-    const label = moduleKey === 'caja' ? 'Caja' : moduleKey === 'cocina' ? 'Cocina' : 'Bar';
+    const key = String(moduleKey || '').toLowerCase();
+    const label = key === 'caja' ? 'Caja' : key === 'cocina' ? 'Cocina' : 'Bar';
+    const cfg = loadConfig()[key];
+    const pw = cfg?.paperWidth || cfg?.anchoPapel || 80;
     return printByModule(moduleKey, {
       title: 'PRUEBA DE IMPRESIÓN',
-      text: `${label}\n${new Date().toLocaleString('es-PE')}`,
+      text: `${label}\n${pw} mm (config)\n${new Date().toLocaleString('es-PE')}`,
     });
   });
   ipcMain.handle('printing:printModule', async (_event, moduleKey, payload) => printByModule(moduleKey, payload || {}));
