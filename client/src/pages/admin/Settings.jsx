@@ -1680,17 +1680,21 @@ export default function Settings() {
                   </p>
 
                   {moduleKey !== 'caja' && (
-                    <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(cfg.autoPrint)}
-                        onChange={(e) => setPrintingConfig((prev) => ({
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`text-xs px-2 py-1 rounded-full border ${Boolean(cfg.autoPrint) ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                        {Boolean(cfg.autoPrint) ? 'Impresora activa' : 'Impresora desactivada'}
+                      </span>
+                      <button
+                        type="button"
+                        className={`btn-secondary text-sm ${Boolean(cfg.autoPrint) ? 'border-rose-200 text-rose-700 hover:bg-rose-50' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'}`}
+                        onClick={() => setPrintingConfig((prev) => ({
                           ...prev,
-                          [moduleKey]: { ...(prev[moduleKey] || {}), autoPrint: e.target.checked },
+                          [moduleKey]: { ...(prev[moduleKey] || {}), autoPrint: !Boolean(cfg.autoPrint) },
                         }))}
-                      />
-                      Imprimir automáticamente
-                    </label>
+                      >
+                        {Boolean(cfg.autoPrint) ? `Desactivar impresora (${moduleLabel})` : `Activar impresora (${moduleLabel})`}
+                      </button>
+                    </div>
                   )}
                 </div>
               );
