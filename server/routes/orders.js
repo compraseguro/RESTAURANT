@@ -5,10 +5,6 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { assertPaymentMethodAllowed } = require('../businessRules');
 const { getOrderWithItems, createOrderInTransaction, replaceOrderLinesInTransaction, actorFromRequest } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
-const { loadConfig } = require('../printing/printerConfig');
-const { print } = require('../printing/printerService');
-const { buildPedidoMesaTicketPlainTextServer } = require('../printing/kitchenTicketPlain');
-
 const router = express.Router();
 const ORDER_TRANSITIONS = {
   pending: ['preparing', 'cancelled'],
@@ -52,34 +48,6 @@ function isBarItemRow(item) {
 function isBarOnlyOrder(items = []) {
   if (!Array.isArray(items) || items.length === 0) return false;
   return items.every(isBarItemRow);
-}
-
-function normalizePaperWidthMm(value) {
-  const n = Number(value);
-  if (n === 58) return 58;
-  if (n === 75) return 75;
-  return 80;
-}
-
-async function autoPrintKitchenBar(order) {
-  try {
-    const cfg = loadConfig();
-    const items = Array.isArray(order?.items) ? order.items : [];
-    const barItems = items.filter(isBarItemRow);
-    const kitchenItems = items.filter((it) => !isBarItemRow(it));
-    const paperC = normalizePaperWidthMm(cfg.cocina?.anchoPapel ?? cfg.cocina?.paperWidth ?? 80);
-    const paperB = normalizePaperWidthMm(cfg.bar?.anchoPapel ?? cfg.bar?.paperWidth ?? 80);
-    if (cfg.cocina?.autoPrint && kitchenItems.length > 0) {
-      const text = buildPedidoMesaTicketPlainTextServer(order, kitchenItems, paperC);
-      await print('cocina', { text, preformatted: true });
-    }
-    if (cfg.bar?.autoPrint && barItems.length > 0) {
-      const text = buildPedidoMesaTicketPlainTextServer(order, barItems, paperB);
-      await print('bar', { text, preformatted: true });
-    }
-  } catch (err) {
-    console.error('[printing] auto cocina/bar:', err.message || err);
-  }
 }
 
 /** Ítems con production_area (Escritorio, listados, etc.) */
@@ -251,7 +219,6 @@ router.put('/:id/lines', authenticateToken, requireRole('admin', 'cajero', 'mozo
       /** Cocina/bar: mismo efecto que pedido nuevo para impresión automática (ítems añadidos a mesa existente). */
       io.emit('order-lines-updated', order);
     }
-    autoPrintKitchenBar(order);
     res.json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo actualizar el pedido' });
@@ -309,7 +276,6 @@ router.post('/', authenticateToken, (req, res) => {
     const order = getOrderWithItems(result.orderId);
     const io = req.app.get('io');
     if (io) { io.emit('new-order', order); io.emit('order-update', order); }
-    autoPrintKitchenBar(order);
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo crear el pedido' });

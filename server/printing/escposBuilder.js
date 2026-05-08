@@ -85,14 +85,16 @@ async function buildTicket(moduleName, data = {}, options = {}) {
   const width = charsPerLine(paperW);
   const key = String(moduleName || '').toLowerCase();
   /**
-   * En precuenta/caja dejamos márgenes visuales para que el ticket no quede "pegado" al borde izquierdo.
-   * Cocina/bar conservan el ancho completo para priorizar legibilidad de ítems.
+   * Márgenes tipo «recuadro»: en caja más fuerte; en cocina/bar también en 75 mm.
    */
-  const contentWidth = key === 'caja'
-    ? Math.max(28, width - (paperW <= 58 ? 2 : paperW <= 75 ? 6 : 8))
-    : width;
+  let contentWidth = width;
+  if (key === 'caja') {
+    contentWidth = Math.max(28, width - (paperW <= 58 ? 2 : paperW <= 75 ? 6 : 8));
+  } else if (paperW <= 75) {
+    contentWidth = Math.max(26, width - 4);
+  }
 
-  /** Cuerpo ya formateado en cliente (centrados locales con espacios, tablas con |). Recorte con wrap al ancho térmico. */
+  /** Cuerpo ya formateado en cliente; recorte con wrap y centrado en ancho de papel (ESC a 0 + espacios). */
   const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
   if (data.preformatted && cleanedPreformatted) {
     const lines = [];
@@ -100,11 +102,7 @@ async function buildTicket(moduleName, data = {}, options = {}) {
       .split('\n')
       .forEach((part) => {
         wrapLine(part, contentWidth).forEach((line) => {
-          if (key === 'caja') {
-            lines.push(center(line, width));
-          } else {
-            lines.push(`${line}\n`);
-          }
+          lines.push(center(line, width));
         });
       });
     lines.push('\n');

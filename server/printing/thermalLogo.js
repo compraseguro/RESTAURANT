@@ -60,6 +60,16 @@ async function loadJimpImage(logoUrl) {
   const raw = String(logoUrl || '').trim();
   if (!raw) return null;
 
+  if (/^data:image\/[a-z+]+;base64,/i.test(raw)) {
+    try {
+      const b64 = raw.split(',', 2)[1];
+      if (b64) return await Jimp.read(Buffer.from(b64, 'base64'));
+    } catch (e) {
+      console.warn('[printing] logo data URL:', e.message || e);
+      return null;
+    }
+  }
+
   if (/^https?:\/\//i.test(raw)) {
     try {
       if (typeof fetch !== 'function') {

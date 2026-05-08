@@ -125,6 +125,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
         items: ticketItems,
         widthMm: paper,
         printedAt: new Date(),
+        orderType: payloadOrder?.type || 'dine_in',
       });
       await api.printing.post(`/printing/print/${moduleKey}`, { text, preformatted: true });
       if (!silent) toast.success(`Comanda enviada a ${isBar ? 'bar' : 'cocina'}`);

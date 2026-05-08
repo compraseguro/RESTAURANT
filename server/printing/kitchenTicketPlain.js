@@ -15,6 +15,22 @@ function thermalCharWidth(widthMm) {
   return Number(cl['80']) || 54;
 }
 
+function thermalInnerWidth(widthMm) {
+  const base = thermalCharWidth(widthMm);
+  const n = Number(widthMm);
+  const inset = !Number.isFinite(n) || n <= 0 ? 4 : n <= 58 ? 2 : n <= 75 ? 4 : 4;
+  return Math.max(24, base - inset);
+}
+
+function insetSeparator(widthMm) {
+  const full = thermalCharWidth(widthMm);
+  const inner = thermalInnerWidth(widthMm);
+  const pad = full - inner;
+  const left = Math.floor(pad / 2);
+  const right = pad - left;
+  return `${' '.repeat(left)}${'-'.repeat(inner)}${' '.repeat(right)}`;
+}
+
 function padLeftRight(left, right, width) {
   const fallback = Number(thermalLayout.charsPerLine['80']) || 54;
   const w = Math.max(8, Number(width) || fallback);
@@ -79,46 +95,58 @@ function peParts(d) {
  * @param {object[]} items — ítems ya filtrados (cocina o bar)
  * @param {number} widthMm
  */
-function buildPedidoMesaTicketPlainTextServer(order, items, widthMm = 80) {
+function buildPedidoMesaTicketPlainTextServer(order, items, widthMm = 75) {
   const w = thermalCharWidth(widthMm);
+  const inner = thermalInnerWidth(widthMm);
+  const sep = insetSeparator(widthMm);
   const lines = [];
   const printedAt = new Date();
-  lines.push(centerThermalLine('PEDIDO MESA', w));
+  const orderType = String(order?.type || 'dine_in').toLowerCase();
+  const takeout = orderHasTakeoutNote(order);
+
+  let title = 'MESA';
+  if (orderType === 'delivery') title = 'DELIVERY';
+  else if (orderType === 'pickup') title = 'RECOJO';
+  else {
+    const raw = String(order?.table_number || '').replace(/^mesa\s*/i, '').trim();
+    const num = raw || String(order?.order_number ?? '').trim();
+    title = num ? `MESA ${num}`.toUpperCase() : 'MESA';
+  }
+
+  lines.push(centerThermalLine(title, w));
   const { date, time } = peParts(printedAt);
   lines.push(padLeftRight(`Fecha: ${date}`, `Hora: ${time}`, w));
-  lines.push(orderHasTakeoutNote(order) ? 'PARA LLEVAR: SÍ' : 'PARA LLEVAR: NO');
-  const waiter = String(order?.created_by_user_name || '').trim();
-  if (waiter) lines.push(`Mozo: ${waiter.slice(0, w)}`);
-  if (order?.order_number != null && order?.order_number !== '') lines.push(`Pedido: #${order.order_number}`);
-  const tableLbl =
-    order?.type === 'dine_in' && order?.table_number
-      ? `Mesa ${String(order.table_number).trim()}`
-      : String(order?.table_number || '').trim();
-  if (tableLbl) lines.push(`Ubicación: ${tableLbl.slice(0, w)}`);
-  lines.push('-'.repeat(w));
-  lines.push('DETALLE');
+  lines.push(sep);
+  lines.push(padLeftRight('PEDIDO', takeout ? 'PARA LLEVAR' : '', w));
+  if (order?.order_number != null && order?.order_number !== '') {
+    lines.push(padLeftRight('Pedido', `#${order.order_number}`, w));
+  }
+  lines.push(sep);
+
+  const nameW = Math.max(12, inner - 6);
   for (const it of items || []) {
     const q = Number(it.quantity || it.qty || 0) || 1;
     const nm = String(it.product_name || it.name || '—').trim() || '—';
     const v = String(it.variant_name || '').trim();
-    const title = v ? `${q}  ${nm} (${v})` : `${q}  ${nm}`;
-    for (const seg of wrapThermalLine(title, w)) lines.push(seg);
+    const lead = `${q}x`;
+    const titleLine = v ? `${lead} ${nm} (${v})` : `${lead} ${nm}`;
+    for (const seg of wrapThermalLine(titleLine, inner)) lines.push(centerThermalLine(seg, w));
     const noteBits = [];
     const rawNotes = String(it.notes || '').trim();
     if (rawNotes) {
       rawNotes.split(' | ').map((x) => x.trim()).filter(Boolean).forEach((p) => noteBits.push(p));
     }
     const modOpt = String(it.modifier_option || '').trim();
-    if (modOpt) noteBits.push(`Modificador: ${modOpt}`);
+    if (modOpt) noteBits.push(`Mod: ${modOpt}`);
     if (noteBits.length) {
-      lines.push('  Detalles:');
       for (const b of noteBits) {
-        for (const seg of wrapThermalLine(`  · ${b}`, w)) lines.push(seg);
+        for (const seg of wrapThermalLine(`· ${b}`, nameW)) {
+          lines.push(centerThermalLine(`  ${seg}`, w));
+        }
       }
     }
-    lines.push('');
   }
-  lines.push('-'.repeat(w));
+  lines.push(sep);
   lines.push('');
   return lines.join('\n');
 }

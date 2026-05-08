@@ -43,6 +43,39 @@ export function thermalCharWidth(widthMm) {
   return Number(cl['80']) || 54;
 }
 
+/** Ancho útil con margen lateral (efecto «recuadro» en 75 mm). */
+export function thermalInnerWidth(widthMm) {
+  const base = thermalCharWidth(widthMm);
+  const n = Number(widthMm);
+  const inset = !Number.isFinite(n) || n <= 0 ? 4 : n <= 58 ? 2 : n <= 75 ? 4 : 4;
+  return Math.max(24, base - inset);
+}
+
+/** Separador punteado insetado (sin `|` ni caracteres raros en bordes). */
+export function insetSeparator(widthMm) {
+  const full = thermalCharWidth(widthMm);
+  const inner = thermalInnerWidth(widthMm);
+  const pad = full - inner;
+  const left = Math.floor(pad / 2);
+  const right = pad - left;
+  return `${' '.repeat(left)}${'-'.repeat(inner)}${' '.repeat(right)}`;
+}
+
+/** Etiqueta legible para ticket térmico. */
+export function paymentMethodDisplayLabel(method) {
+  const m = String(method || '').toLowerCase().trim();
+  const map = {
+    efectivo: 'Efectivo',
+    tarjeta: 'Tarjeta',
+    yape: 'Yape',
+    plin: 'Plin',
+    transferencia: 'Transferencia',
+    online: 'Online',
+    otro: 'Otro',
+  };
+  return map[m] || (m ? m.charAt(0).toUpperCase() + m.slice(1) : '—');
+}
+
 /** Alinea `izq` y `der` en una sola línea de ancho fijo. */
 export function padLeftRight(left, right, width) {
   const w = Math.max(8, Number(width) || defaultThermalPrintWidthChars());
@@ -92,15 +125,6 @@ function moneyAmountStr(formatted) {
     .trim();
 }
 
-function padCenterStr(str, width) {
-  const s = String(str);
-  const w = Math.max(1, Number(width) || 1);
-  if (s.length >= w) return s.slice(0, w);
-  const pad = w - s.length;
-  const left = Math.floor(pad / 2);
-  return `${' '.repeat(left)}${s}${' '.repeat(pad - left)}`;
-}
-
 /**
  * Marca principal del ticket: «Nombre del Restaurante» (Mi empresa),
  * si no hay, nombre comercial de facturación.
@@ -113,53 +137,51 @@ export function restaurantDisplayNameUpper(restaurant = {}) {
   return name ? name.toUpperCase() : '';
 }
 
-function pipedTableDims(wch) {
-  const w = Math.max(24, Number(wch) || defaultThermalPrintWidthChars());
-  const pipeCount = 5;
-  const inner = w - pipeCount;
-  let nameW;
-  let qW;
-  let uW;
-  let tW;
-  if (w <= 34) {
-    qW = 3;
-    uW = 5;
-    tW = 6;
-    nameW = inner - qW - uW - tW;
-  } else {
-    qW = 5;
-    uW = 8;
-    tW = 10;
-    nameW = inner - qW - uW - tW;
-  }
-  if (nameW < 6) {
-    nameW = 6;
-    tW = Math.max(4, inner - nameW - qW - uW);
+function columnProductDims(contentW) {
+  const w = Math.max(20, Number(contentW) || 32);
+  let qW = 4;
+  let uW = 7;
+  let tW = 8;
+  let nameW = w - qW - uW - tW - 3;
+  if (nameW < 8) {
+    nameW = 8;
+    tW = Math.max(6, w - nameW - qW - uW - 3);
   }
   return { nameW, qW, uW, tW, w };
 }
 
-function pipedDataRow(c0, c1, c2, c3, dims) {
+function rowProduct4Col(name, qty, uStr, tStr, dims) {
   const { nameW, qW, uW, tW, w } = dims;
-  const a = String(c0).slice(0, nameW).padEnd(nameW);
-  const b = padCenterStr(String(c1), qW);
-  const c = String(c2).padStart(uW);
-  const d = String(c3).padStart(tW);
-  return `|${a}|${b}|${c}|${d}|`.slice(0, w);
+  const a = String(name).slice(0, nameW).padEnd(nameW);
+  const b = String(qty).padStart(qW);
+  const c = String(uStr).padStart(uW);
+  const d = String(tStr).padStart(tW);
+  return `${a} ${b} ${c} ${d}`.slice(0, w);
 }
 
 export function pushProductTableSection(lines, groupedRows, formatCurrencyFn, widthMm) {
-  const dims = pipedTableDims(thermalCharWidth(widthMm));
-  const { nameW, w } = dims;
+  const inner = thermalInnerWidth(widthMm);
+  const dims = columnProductDims(inner);
+  const { nameW } = dims;
+  const sep = insetSeparator(widthMm);
+  const full = thermalCharWidth(widthMm);
 
-  lines.push('PRODUCTOS');
-  lines.push('-'.repeat(w));
-  const h0 = w <= 34 ? 'Prod' : 'Producto';
-  const h1 = w <= 34 ? 'Cant' : 'Cant';
-  const h2 = w <= 34 ? 'P.u' : 'P. u.';
-  const h3 = w <= 34 ? 'Tot' : 'Total';
-  lines.push(pipedDataRow(h0, h1, h2, h3, dims));
-  lines.push('-'.repeat(w));
+  const padRow = (rowInner) => {
+    const r = String(rowInner || '').slice(0, inner);
+    const pad = full - inner;
+    const L = Math.floor(pad / 2);
+    const R = pad - L;
+    return `${' '.repeat(L)}${r.padEnd(inner)}${' '.repeat(R)}`.slice(0, full);
+  };
+
+  lines.push(padRow('PRODUCTOS'));
+  lines.push(sep);
+  const h0 = inner <= 30 ? 'Prod.' : 'Producto';
+  const h1 = 'Cant';
+  const h2 = inner <= 30 ? 'P.u.' : 'P. unit.';
+  const h3 = 'Total';
+  lines.push(padRow(rowProduct4Col(h0, h1, h2, h3, dims)));
+  lines.push(sep);
 
   for (const g of groupedRows || []) {
     const qty = Number(g.qty || 0);
@@ -171,9 +193,9 @@ export function pushProductTableSection(lines, groupedRows, formatCurrencyFn, wi
     const segs = wrapThermalLine(nm, nameW);
     segs.forEach((seg, i) => {
       if (i === 0) {
-        lines.push(pipedDataRow(seg, qty, uStr, tStr, dims));
+        lines.push(padRow(rowProduct4Col(seg, qty, uStr, tStr, dims)));
       } else {
-        lines.push(pipedDataRow(seg, '', '', '', dims));
+        lines.push(padRow(rowProduct4Col(seg, '', '', '', dims)));
       }
     });
   }
@@ -182,6 +204,7 @@ export function pushProductTableSection(lines, groupedRows, formatCurrencyFn, wi
 /** Líneas de cabecera: Mi Restaurante (información) + emisor SUNAT si existe (GET /restaurant). */
 export function buildRestaurantTicketHeaderLines(restaurant = {}, widthMm = 80) {
   const w = thermalCharWidth(widthMm);
+  const inner = thermalInnerWidth(widthMm);
   const r = restaurant || {};
   const brand =
     String(r.billing_nombre_comercial || '').trim()
@@ -197,34 +220,20 @@ export function buildRestaurantTicketHeaderLines(restaurant = {}, widthMm = 80) 
   const lines = [];
   lines.push(centerThermalLine(brand.toUpperCase(), w));
   if (legal) {
-    for (const seg of wrapThermalLine(`Razón social: ${legal}`, w)) lines.push(seg);
+    for (const seg of wrapThermalLine(`Razón social: ${legal}`, inner)) lines.push(centerThermalLine(seg, w));
   }
-  if (ruc) lines.push(`RUC: ${ruc}`.slice(0, w));
+  if (ruc) lines.push(centerThermalLine(`RUC: ${ruc}`.slice(0, inner), w));
   if (addr) {
-    for (const seg of wrapThermalLine(`Dirección: ${addr}`, w)) lines.push(seg);
+    for (const seg of wrapThermalLine(addr, inner)) lines.push(centerThermalLine(seg, w));
   }
   if (phone) {
-    for (const seg of wrapThermalLine(`Tel: ${phone}`, w)) lines.push(seg);
+    for (const seg of wrapThermalLine(`Tel: ${phone}`, inner)) lines.push(centerThermalLine(seg, w));
   }
   if (email) {
-    for (const seg of wrapThermalLine(`Correo: ${email}`, w)) lines.push(seg);
+    for (const seg of wrapThermalLine(`Correo: ${email}`, inner)) lines.push(centerThermalLine(seg, w));
   }
-  lines.push('-'.repeat(w));
+  lines.push(insetSeparator(widthMm));
   return lines;
-}
-
-function paymentCheckboxRows(paymentMethod, width) {
-  const pm = String(paymentMethod || 'efectivo').toLowerCase().trim();
-  const mk = (on) => (on ? '[X]' : '[ ]');
-  const e = `${mk(pm === 'efectivo')} Efectivo`;
-  const y = `${mk(pm === 'yape' || pm === 'plin')} Yape/Plin`;
-  const tr = `${mk(pm === 'transferencia')} Transferencia`;
-  const cr = `${mk(pm === 'tarjeta' || pm === 'online')} Crédito`;
-  const w = Math.max(8, Number(width) || defaultThermalPrintWidthChars());
-  const half = Math.floor(w / 2);
-  const row1 = `${e.padEnd(half)}${y}`.slice(0, w);
-  const row2 = `${tr.padEnd(half)}${cr}`.slice(0, w);
-  return [row1, row2];
 }
 
 function wrapThermalLine(text, maxLen) {
@@ -414,21 +423,31 @@ export function buildPrecuentaPlainText({
   printedAt = new Date(),
 }) {
   const w = thermalCharWidth(widthMm);
+  const inner = thermalInnerWidth(widthMm);
+  const sep = insetSeparator(widthMm);
   const lines = [];
   /**
-   * Cartel de precuenta: nombre comercial SUNAT si existe; si no, nombre del local («Mi restaurante»).
-   * No usar otro fallback inventado para que coincida con lo configurado en la app.
+   * Cabecera texto: nombre grande (el logo raster va aparte en `logoUrl` → asistente Electron).
    */
-  const hasThermalLogo = String(restaurant?.logo || '').trim();
   const tradeRaw = String(
     restaurant?.billing_nombre_comercial || restaurant?.name || '',
   )
     .trim()
     .replace(/^@+\s*/u, '');
   const trade = tradeRaw ? tradeRaw.toUpperCase() : '';
-  if (!hasThermalLogo && trade) {
+  if (trade) {
     lines.push(centerThermalLine(trade, w));
-    lines.push('-'.repeat(w));
+    const addr =
+      String(restaurant?.billing_emisor_direccion || '').trim()
+      || String(restaurant?.address || '').trim();
+    const phone = String(restaurant?.phone || '').trim();
+    if (addr) {
+      for (const seg of wrapThermalLine(addr, inner)) lines.push(centerThermalLine(seg, w));
+    }
+    if (phone) {
+      for (const seg of wrapThermalLine(`Tel: ${phone}`, inner)) lines.push(centerThermalLine(seg, w));
+    }
+    lines.push(sep);
   }
   lines.push(centerThermalLine('PRE CUENTA', w));
   const { date, time } = formatPeDateTimeParts(printedAt);
@@ -436,18 +455,20 @@ export function buildPrecuentaPlainText({
   const mesaLbl = tableName ? `Mesa: ${tableName}` : 'Mesa: —';
   const mozoLbl = mozoName ? `Mozo: ${mozoName}` : 'Mozo: —';
   lines.push(padLeftRight(mesaLbl, mozoLbl, w));
-  if (takeoutLine) lines.push(takeoutLine);
+  if (takeoutLine) lines.push(centerThermalLine(String(takeoutLine).toUpperCase(), w));
   for (const l of customerLines) {
-    if (l) lines.push(String(l).slice(0, w));
+    if (l) lines.push(centerThermalLine(String(l).slice(0, inner), w));
   }
-  lines.push('-'.repeat(w));
+  lines.push(sep);
   pushProductTableSection(lines, groupedRows, formatCurrencyFn, widthMm);
-  lines.push('-'.repeat(w));
+  lines.push(sep);
   lines.push(padLeftRight('Subtotal:', formatCurrencyFn(subtotal), w));
-  lines.push(padLeftRight('Descuento:', formatCurrencyFn(discount), w));
+  if (Number(discount) > 0.001) {
+    lines.push(padLeftRight('Descuento:', formatCurrencyFn(discount), w));
+  }
   lines.push(padLeftRight('TOTAL A PAGAR:', formatCurrencyFn(payableTotal), w));
-  lines.push('-'.repeat(w));
-  lines.push(centerThermalLine('¡Gracias por preferirnos!', w));
+  lines.push(sep);
+  lines.push(centerThermalLine('Gracias por su preferencia', w));
   lines.push('');
   return stripThermalDebugFooter(lines.join('\n'));
 }
@@ -462,42 +483,115 @@ export function buildNotaVentaPlainText({
   formatCurrencyFn = (n) => String(n),
   subtotal = null,
   total = 0,
+  discount = 0,
   widthMm = 80,
   printedAt = new Date(),
   paymentMethod = 'efectivo',
 }) {
   const w = thermalCharWidth(widthMm);
+  const inner = thermalInnerWidth(widthMm);
+  const sep = insetSeparator(widthMm);
   const lines = [];
-  /** Nota de venta térmica: cabecera completa (Mi restaurante + emisor SUNAT). */
   lines.push(...buildRestaurantTicketHeaderLines(restaurant, widthMm));
   lines.push(centerThermalLine('NOTA DE VENTA', w));
   const { date, time } = formatPeDateTimeParts(printedAt);
-  const numLeft = docLine ? `Número: ${docLine}` : 'Número: —';
-  lines.push(padLeftRight(numLeft, `Hora: ${time}`, w));
-  lines.push(`Fecha: ${date}`);
-  if (tableName) lines.push(`Mesa: ${String(tableName).slice(0, w)}`);
+  const numLine = docLine ? `Nº ${docLine}` : 'Nº —';
+  lines.push(padLeftRight(`Fecha: ${date}`, `Hora: ${time}`, w));
+  lines.push(centerThermalLine(numLine, w));
+  if (tableName) lines.push(centerThermalLine(`Mesa: ${String(tableName).slice(0, inner)}`, w));
 
-  lines.push('DATOS DEL CLIENTE');
+  lines.push(centerThermalLine('DATOS DEL CLIENTE', w));
   if ((customerLines || []).filter(Boolean).length === 0) {
-    lines.push('Nombre: _________________________');
-    lines.push('DNI / RUC: ____________________');
+    lines.push(centerThermalLine('Nombre: (—)', w));
   } else {
     for (const l of customerLines) {
-      if (l) lines.push(String(l).slice(0, w));
+      if (l) {
+        for (const seg of wrapThermalLine(String(l), inner)) lines.push(centerThermalLine(seg, w));
+      }
     }
   }
 
-  lines.push('Condición de pago:');
-  for (const row of paymentCheckboxRows(paymentMethod, w)) lines.push(row);
+  lines.push(padLeftRight('Método de pago:', paymentMethodDisplayLabel(paymentMethod), w));
 
-  lines.push('-'.repeat(w));
+  lines.push(sep);
   pushProductTableSection(lines, groupedRows, formatCurrencyFn, widthMm);
-  lines.push('-'.repeat(w));
+  lines.push(sep);
   const sumLines = (groupedRows || []).reduce((s, g) => s + Number(g.subtotal != null ? g.subtotal : 0), 0);
   const sub = subtotal != null ? Number(subtotal) : sumLines;
-  lines.push(padLeftRight('SUBTOTAL:', formatCurrencyFn(sub), w));
+  lines.push(padLeftRight('Subtotal:', formatCurrencyFn(sub), w));
+  if (Number(discount) > 0.001) {
+    lines.push(padLeftRight('Descuento:', formatCurrencyFn(discount), w));
+  }
   lines.push(padLeftRight('TOTAL:', formatCurrencyFn(total), w));
-  lines.push(centerThermalLine('¡Gracias por preferirnos!', w));
+  lines.push(sep);
+  lines.push(centerThermalLine('Gracias por su preferencia', w));
+  lines.push('');
+  return stripThermalDebugFooter(lines.join('\n'));
+}
+
+/**
+ * Representación impresa boleta/factura SUNAT (térmica; el PDF legal sigue en el servidor).
+ */
+export function buildBoletaFacturaPlainText({
+  restaurant = {},
+  doc = {},
+  groupedRows = [],
+  formatCurrencyFn = (n) => String(n),
+  subtotal = 0,
+  tax = 0,
+  total = 0,
+  discount = 0,
+  customer = {},
+  widthMm = 80,
+  printedAt = new Date(),
+  paymentMethod = 'efectivo',
+}) {
+  const w = thermalCharWidth(widthMm);
+  const inner = thermalInnerWidth(widthMm);
+  const sep = insetSeparator(widthMm);
+  const docType = String(doc?.doc_type || '').toLowerCase();
+  const title =
+    docType === 'factura' ? 'FACTURA ELECTRÓNICA' : 'BOLETA DE VENTA ELECTRÓNICA';
+  const fullNum = String(doc?.full_number || '').trim() || '—';
+  const sunatLine = String(doc?.sunat_description || doc?.provider_message || '').trim();
+  const lines = [];
+  lines.push(...buildRestaurantTicketHeaderLines(restaurant, widthMm));
+  lines.push(centerThermalLine(title, w));
+  const { date, time } = formatPeDateTimeParts(printedAt);
+  lines.push(padLeftRight(`Fecha: ${date}`, `Hora: ${time}`, w));
+  lines.push(centerThermalLine(`Nº ${fullNum}`, w));
+  if (String(doc?.hash_code || '').trim()) {
+    lines.push(centerThermalLine(`Hash: ${String(doc.hash_code).slice(0, inner)}`, w));
+  }
+  const cName = String(customer?.name || '').trim();
+  const cDoc = String(customer?.doc_number || '').trim();
+  if (cName || cDoc) {
+    lines.push(centerThermalLine('DATOS DEL CLIENTE', w));
+    if (cName) {
+      for (const seg of wrapThermalLine(`Nombre: ${cName}`, inner)) lines.push(centerThermalLine(seg, w));
+    }
+    if (cDoc) lines.push(centerThermalLine(`Doc: ${cDoc}`, w));
+  }
+  lines.push(padLeftRight('Método de pago:', paymentMethodDisplayLabel(paymentMethod), w));
+  lines.push(sep);
+  pushProductTableSection(lines, groupedRows, formatCurrencyFn, widthMm);
+  lines.push(sep);
+  const st = Number(subtotal) || 0;
+  const igv = Number(tax) || 0;
+  const to = Number(total) || 0;
+  const disc = Number(discount) || 0;
+  lines.push(padLeftRight('Op. gravadas:', formatCurrencyFn(st), w));
+  if (igv > 0.001) lines.push(padLeftRight('IGV:', formatCurrencyFn(igv), w));
+  if (disc > 0.001) lines.push(padLeftRight('Descuento:', formatCurrencyFn(disc), w));
+  lines.push(padLeftRight('IMPORTE TOTAL:', formatCurrencyFn(to), w));
+  if (sunatLine) {
+    for (const seg of wrapThermalLine(sunatLine, inner)) lines.push(centerThermalLine(seg, w));
+  } else {
+    lines.push(centerThermalLine('Estado: aceptada (ver PDF/XML en sistema)', w));
+  }
+  lines.push(sep);
+  lines.push(centerThermalLine('Representación impresa. Conserve su comprobante.', w));
+  lines.push(centerThermalLine('Gracias por su preferencia', w));
   lines.push('');
   return stripThermalDebugFooter(lines.join('\n'));
 }
@@ -522,7 +616,7 @@ export function enrichCartLineForKitchenItem(line, productsById, modifiersByIdMa
 }
 
 /**
- * Comanda cocina/bar: PEDIDO MESA, fecha/hora, para llevar, cantidad + producto y bloque de detalles/notas.
+ * Comanda cocina/bar: título mesa (mayúsculas), fecha|hora, PEDIDO + «PARA LLEVAR» a la derecha si aplica, ítems.
  */
 export function buildPedidoMesaTicketPlainText({
   tableLabel = '',
@@ -530,45 +624,65 @@ export function buildPedidoMesaTicketPlainText({
   takeout = false,
   waiterName = '',
   items = [],
-  widthMm = 80,
+  widthMm = 75,
   printedAt = new Date(),
+  orderType = 'dine_in',
 }) {
   const w = thermalCharWidth(widthMm);
-  const { clip: clipMax } = thermalPaperMetrics(widthMm);
+  const inner = thermalInnerWidth(widthMm);
+  const sep = insetSeparator(widthMm);
   const lines = [];
-  lines.push(centerThermalLine('PEDIDO MESA', w));
+
+  let title = 'MESA';
+  if (orderType === 'delivery') title = 'DELIVERY';
+  else if (orderType === 'pickup') title = 'RECOJO';
+  else {
+    const raw = String(tableLabel || '').replace(/^mesa\s*/i, '').trim();
+    const num = raw || String(orderNumber != null ? orderNumber : '').trim();
+    title = num ? `MESA ${num}`.toUpperCase() : 'MESA';
+  }
+
+  lines.push(centerThermalLine(title, w));
   const { date, time } = formatPeDateTimeParts(printedAt);
   lines.push(padLeftRight(`Fecha: ${date}`, `Hora: ${time}`, w));
-  lines.push(takeout ? 'PARA LLEVAR: SÍ' : 'PARA LLEVAR: NO');
-  if (waiterName) lines.push(`Mozo: ${String(waiterName).slice(0, clipMax)}`);
-  if (orderNumber !== '' && orderNumber != null) lines.push(`Pedido: #${orderNumber}`);
-  if (tableLabel) lines.push(`Ubicación: ${String(tableLabel).slice(0, clipMax)}`);
-  lines.push('-'.repeat(w));
-  lines.push('DETALLE');
+  lines.push(sep);
+  lines.push(padLeftRight('PEDIDO', takeout ? 'PARA LLEVAR' : '', w));
+  if (orderNumber !== '' && orderNumber != null) {
+    lines.push(padLeftRight(`Nº pedido`, `#${orderNumber}`, w));
+  }
+  lines.push(sep);
+
+  const nameW = Math.max(12, inner - 6);
   for (const it of items || []) {
     const q = Number(it.quantity || it.qty || 0) || 1;
     const nm = String(it.product_name || it.name || '—').trim() || '—';
     const v = String(it.variant_name || '').trim();
-    const title = v ? `${q}  ${nm} (${v})` : `${q}  ${nm}`;
-    for (const seg of wrapThermalLine(title, w)) lines.push(seg);
+    const lead = `${q}x`;
+    const titleLine = v ? `${lead} ${nm} (${v})` : `${lead} ${nm}`;
+    for (const seg of wrapThermalLine(titleLine, inner)) {
+      lines.push(centerThermalLine(seg, w));
+    }
 
     const noteBits = [];
     const rawNotes = String(it.notes || '').trim();
     if (rawNotes) {
-      const parts = rawNotes.split(' | ').map((x) => x.trim()).filter(Boolean);
-      parts.forEach((p) => noteBits.push(p));
+      rawNotes
+        .split(' | ')
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .forEach((p) => noteBits.push(p));
     }
     const modOpt = String(it.modifier_option || '').trim();
-    if (modOpt) noteBits.push(`Modificador: ${modOpt}`);
+    if (modOpt) noteBits.push(`Mod: ${modOpt}`);
     if (noteBits.length) {
-      lines.push('  Detalles:');
       for (const b of noteBits) {
-        for (const seg of wrapThermalLine(`  · ${b}`, w)) lines.push(seg);
+        for (const seg of wrapThermalLine(`· ${b}`, nameW)) {
+          lines.push(centerThermalLine(`  ${seg}`, w));
+        }
       }
     }
-    lines.push('');
   }
-  lines.push('-'.repeat(w));
+  lines.push(sep);
   lines.push('');
   return lines.join('\n');
 }

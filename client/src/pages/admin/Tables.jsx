@@ -10,19 +10,7 @@ import StaffMesaPedidoTabs from '../../components/StaffMesaPedidoTabs';
 import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
 import toast from 'react-hot-toast';
 import { MdTableRestaurant, MdReceipt, MdClose } from 'react-icons/md';
-import {
-  KITCHEN_TAKEOUT_NOTE,
-  orderHasTakeoutNote,
-  buildPedidoMesaTicketPlainText,
-  enrichCartLineForKitchenItem,
-} from '../../utils/ticketPlainText';
-
-function normalizePaperWidthMm(value) {
-  const n = Number(value);
-  if (n === 58) return 58;
-  if (n === 75) return 75;
-  return 80;
-}
+import { KITCHEN_TAKEOUT_NOTE } from '../../utils/ticketPlainText';
 
 export default function Tables() {
   const { user } = useAuth();
@@ -154,57 +142,6 @@ export default function Tables() {
       return toast.error(`"${missingRequiredNote.name}" requiere nota obligatoria`);
     }
     const tid = toast.loading('Enviando pedido…');
-    const productsById = new Map((products || []).map((p) => [p.id, p]));
-    const isBarProduct = (product, fallbackName = '') => {
-      if (String(product?.production_area || '').toLowerCase() === 'bar') return true;
-      const txt = String(fallbackName || product?.name || '').toLowerCase();
-      return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some((t) => txt.includes(t));
-    };
-    const autoPrintKitchenBarFromLines = async ({ orderNumber, tableNumber, lines, orderSnapshot }) => {
-      try {
-        const cfg = await api.printing.get('/printing/config');
-        const modMap = new Map((modifiers || []).map((m) => [m.id, m]));
-        const rows = (Array.isArray(lines) ? lines : []).map((line) => {
-          const p = productsById.get(line.product_id) || {};
-          return {
-            ticketItem: enrichCartLineForKitchenItem(line, productsById, modMap),
-            isBar: isBarProduct(p, line.name),
-          };
-        });
-        const paperC = normalizePaperWidthMm(cfg?.cocina?.anchoPapel ?? cfg?.cocina?.paperWidth ?? 80);
-        const paperB = normalizePaperWidthMm(cfg?.bar?.anchoPapel ?? cfg?.bar?.paperWidth ?? 80);
-        const takeout = orderSnapshot ? orderHasTakeoutNote(orderSnapshot) : false;
-        const waiter = String(orderSnapshot?.created_by_user_name || user?.full_name || '').trim();
-        const kitchenTicketItems = rows.filter((r) => !r.isBar).map((r) => r.ticketItem);
-        const barTicketItems = rows.filter((r) => r.isBar).map((r) => r.ticketItem);
-        if (cfg?.cocina?.autoPrint && kitchenTicketItems.length > 0) {
-          const text = buildPedidoMesaTicketPlainText({
-            tableLabel: tableNumber || '',
-            orderNumber,
-            takeout,
-            waiterName: waiter,
-            items: kitchenTicketItems,
-            widthMm: paperC,
-            printedAt: new Date(),
-          });
-          await api.printing.post('/printing/print/cocina', { text, preformatted: true });
-        }
-        if (cfg?.bar?.autoPrint && barTicketItems.length > 0) {
-          const text = buildPedidoMesaTicketPlainText({
-            tableLabel: tableNumber || '',
-            orderNumber,
-            takeout,
-            waiterName: waiter,
-            items: barTicketItems,
-            widthMm: paperB,
-            printedAt: new Date(),
-          });
-          await api.printing.post('/printing/print/bar', { text, preformatted: true });
-        }
-      } catch (err) {
-        console.warn('[printing] auto desde mesas:', err?.message || err);
-      }
-    };
     try {
       const created = await api.post('/orders', {
         items: cart.map(i => ({
@@ -219,12 +156,6 @@ export default function Tables() {
         customer_name: `Mesa ${selectedTable.number}`,
         payment_method: 'efectivo',
         notes: paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
-      });
-      await autoPrintKitchenBarFromLines({
-        orderNumber: created?.order_number || '',
-        tableNumber: `Mesa ${selectedTable.number}`,
-        lines: cart,
-        orderSnapshot: created,
       });
       toast.success(`Pedido enviado a Mesa ${selectedTable.number}`, { id: tid });
       closeMenuPanel();

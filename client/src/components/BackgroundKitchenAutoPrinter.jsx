@@ -92,6 +92,7 @@ export default function BackgroundKitchenAutoPrinter() {
           items: toTicket(kitchenItems),
           widthMm: paperC,
           printedAt: new Date(),
+          orderType: fullOrder?.type || 'dine_in',
         });
         await api.printing.post('/printing/print/cocina', { text, preformatted: true });
       }
@@ -104,6 +105,7 @@ export default function BackgroundKitchenAutoPrinter() {
           items: toTicket(barItems),
           widthMm: paperB,
           printedAt: new Date(),
+          orderType: fullOrder?.type || 'dine_in',
         });
         await api.printing.post('/printing/print/bar', { text, preformatted: true });
       }

@@ -19,8 +19,7 @@ import {
   orderHasTakeoutNote,
   buildPrecuentaPlainText,
   buildNotaVentaPlainText,
-  buildPedidoMesaTicketPlainText,
-  enrichCartLineForKitchenItem,
+  buildBoletaFacturaPlainText,
   getThermalPrintRevision,
 } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
@@ -82,28 +81,11 @@ const CAJA_OPTIONS = [
   { id: 'consulta_precios', label: 'Consulta de precios' },
   { id: 'impresora', label: 'Impresora' },
 ];
-const POS_RECENT_AUTOPRINT_KEY = 'resto_pos_recent_kitchen_autoprint';
-
 function normalizePaperWidthMm(value) {
   const n = Number(value);
   if (n === 58) return 58;
   if (n === 75) return 75;
   return 80;
-}
-
-function markRecentKitchenAutoprint(orderId) {
-  if (!orderId || typeof window === 'undefined') return;
-  try {
-    const raw = window.sessionStorage.getItem(POS_RECENT_AUTOPRINT_KEY);
-    const data = raw ? JSON.parse(raw) : {};
-    data[String(orderId)] = Date.now();
-    Object.keys(data).forEach((k) => {
-      if (Date.now() - Number(data[k] || 0) > 20000) delete data[k];
-    });
-    window.sessionStorage.setItem(POS_RECENT_AUTOPRINT_KEY, JSON.stringify(data));
-  } catch (_) {
-    // noop
-  }
 }
 
 async function printCajaTicket(payload) {
@@ -1135,12 +1117,15 @@ export default function POSPanel() {
         if (pdf && billingForm.doc_type !== 'nota_venta') {
           window.open(resolveMediaUrl(pdf), '_blank', 'noopener,noreferrer');
         }
+        const logoUrl = String(printRestaurantInfo.logo || '').trim() || undefined;
+        const pw = cajaPaperWidthMm;
         if (billingForm.doc_type === 'nota_venta') {
           await printNotaVenta({
             tableName: selectedTable?.name || '',
             orders: payableOrders,
             docs: issuedDocs,
             paymentMethod,
+            discountTotal: totalDiscountToApply,
             customer: {
               doc_number: billingForm.customer_doc_number,
               name: billingForm.customer_name,
@@ -1148,6 +1133,38 @@ export default function POSPanel() {
               phone: billingForm.customer_phone,
             },
           });
+        } else if (billingForm.doc_type === 'boleta' || billingForm.doc_type === 'factura') {
+          for (let i = 0; i < issuedDocs.length; i += 1) {
+            const doc = issuedDocs[i];
+            const ord = payableOrders[i];
+            if (!doc || !ord) continue;
+            const grouped = groupItemsByProductNameForBill(ord.items || []);
+            const ordDisc = Number(discountsByOrder[ord.id] || 0);
+            const plain = buildBoletaFacturaPlainText({
+              restaurant: printRestaurantInfo,
+              doc,
+              groupedRows: grouped,
+              formatCurrencyFn: formatCurrency,
+              subtotal: Number(ord.subtotal || 0),
+              tax: Number(ord.tax || 0),
+              total: getOrderChargeTotal(ord),
+              discount: ordDisc,
+              customer: {
+                name: billingForm.customer_name,
+                doc_number: billingForm.customer_doc_number,
+              },
+              widthMm: pw,
+              printedAt: new Date(),
+              paymentMethod,
+            });
+            const r = await printCajaTicket({
+              text: plain,
+              preformatted: true,
+              logoUrl,
+              paperWidth: pw,
+            });
+            if (!r.ok) toast.error(r.error || 'No se pudo imprimir comprobante SUNAT');
+          }
         }
       } else {
         toast.success(`${payableOrders.length} pedido(s) cobrados en ${selectedTable.name}`);
@@ -1373,57 +1390,6 @@ export default function POSPanel() {
     const tid = toast.loading(
       editingOrderId ? 'Guardando cambios…' : quickSaleMode ? 'Registrando venta…' : 'Enviando pedido…'
     );
-    const isBarProduct = (product, fallbackName = '') => {
-      if (String(product?.production_area || '').toLowerCase() === 'bar') return true;
-      const txt = String(fallbackName || product?.name || '').toLowerCase();
-      return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some((t) => txt.includes(t));
-    };
-    const autoPrintKitchenBarFromLines = async ({ orderId, orderNumber, tableNumber, lines, orderSnapshot }) => {
-      try {
-        const cfg = await api.printing.get('/printing/config');
-        const modMap = new Map((modifiers || []).map((m) => [m.id, m]));
-        const rows = (Array.isArray(lines) ? lines : []).map((line) => {
-          const p = productsById.get(line.product_id) || {};
-          return {
-            ticketItem: enrichCartLineForKitchenItem(line, productsById, modMap),
-            isBar: isBarProduct(p, line.name || line.product_name),
-          };
-        });
-        const paperC = normalizePaperWidthMm(cfg?.cocina?.anchoPapel ?? cfg?.cocina?.paperWidth ?? 80);
-        const paperB = normalizePaperWidthMm(cfg?.bar?.anchoPapel ?? cfg?.bar?.paperWidth ?? 80);
-        const takeout = orderSnapshot ? orderHasTakeoutNote(orderSnapshot) : false;
-        const waiter = String(orderSnapshot?.created_by_user_name || user?.full_name || '').trim();
-        const kitchenTicketItems = rows.filter((r) => !r.isBar).map((r) => r.ticketItem);
-        const barTicketItems = rows.filter((r) => r.isBar).map((r) => r.ticketItem);
-        if (cfg?.cocina?.autoPrint && kitchenTicketItems.length > 0) {
-          const text = buildPedidoMesaTicketPlainText({
-            tableLabel: tableNumber || '',
-            orderNumber,
-            takeout,
-            waiterName: waiter,
-            items: kitchenTicketItems,
-            widthMm: paperC,
-            printedAt: new Date(),
-          });
-          await api.printing.post('/printing/print/cocina', { text, preformatted: true });
-        }
-        if (cfg?.bar?.autoPrint && barTicketItems.length > 0) {
-          const text = buildPedidoMesaTicketPlainText({
-            tableLabel: tableNumber || '',
-            orderNumber,
-            takeout,
-            waiterName: waiter,
-            items: barTicketItems,
-            widthMm: paperB,
-            printedAt: new Date(),
-          });
-          await api.printing.post('/printing/print/bar', { text, preformatted: true });
-        }
-        markRecentKitchenAutoprint(orderId);
-      } catch (err) {
-        console.warn('[printing] auto en envio de pedido:', err?.message || err);
-      }
-    };
     try {
       if (editingOrderId) {
         const noteOrder = paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '';
@@ -1456,18 +1422,6 @@ export default function POSPanel() {
               items: linesPayload(lines),
               notes: noteOrder,
             });
-            const sourceOrder = (selectedTable?.orders || []).find((o) => o.id === oid);
-            const currentOrderNumber = String(sourceOrder?.order_number || '');
-            await autoPrintKitchenBarFromLines({
-              orderId: oid,
-              orderNumber: currentOrderNumber,
-              tableNumber: selectedTable?.number ? `Mesa ${selectedTable.number}` : '',
-              lines,
-              orderSnapshot: {
-                notes: noteOrder || sourceOrder?.notes,
-                created_by_user_name: sourceOrder?.created_by_user_name,
-              },
-            });
             updatedOrderIds.push(oid);
           }
         }
@@ -1492,13 +1446,6 @@ export default function POSPanel() {
         customer_name: quickSaleMode ? 'VENTA RAPIDA' : `Mesa ${selectedTable.number}`,
         payment_method: paymentMethod,
         notes: !quickSaleMode && paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
-      });
-      await autoPrintKitchenBarFromLines({
-        orderId: createdOrder?.id || '',
-        orderNumber: createdOrder?.order_number || '',
-        tableNumber: quickSaleMode ? '' : `Mesa ${selectedTable?.number || ''}`.trim(),
-        lines: cart,
-        orderSnapshot: createdOrder,
       });
       if (quickSaleMode) {
         let doc = null;
@@ -1773,7 +1720,14 @@ export default function POSPanel() {
     } else toast.error(r.error || 'No se pudo imprimir precuenta');
   };
 
-  const printNotaVenta = async ({ tableName, orders, docs, customer, paymentMethod: paymentMethodArg }) => {
+  const printNotaVenta = async ({
+    tableName,
+    orders,
+    docs,
+    customer,
+    paymentMethod: paymentMethodArg,
+    discountTotal = 0,
+  }) => {
     const docText = (docs || []).map((d) => String(d?.full_number || '').trim()).filter(Boolean).join(' · ');
     const groupedNota = groupItemsByProductNameForBill((orders || []).flatMap((o) => o.items || []));
     const total = (orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
@@ -1794,6 +1748,7 @@ export default function POSPanel() {
       formatCurrencyFn: formatCurrency,
       subtotal: subtotalLines,
       total,
+      discount: discountTotal,
       widthMm,
       printedAt: new Date(),
       paymentMethod: paymentMethodArg || paymentMethod || 'efectivo',
