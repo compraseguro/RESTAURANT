@@ -83,6 +83,14 @@ function wrapLine(text, width) {
 async function buildTicket(moduleName, data = {}, options = {}) {
   const paperW = Number(data.paperWidth) || Number(options.paperWidth) || 80;
   const width = charsPerLine(paperW);
+  const key = String(moduleName || '').toLowerCase();
+  /**
+   * En precuenta/caja dejamos márgenes visuales para que el ticket no quede "pegado" al borde izquierdo.
+   * Cocina/bar conservan el ancho completo para priorizar legibilidad de ítems.
+   */
+  const contentWidth = key === 'caja'
+    ? Math.max(28, width - (paperW <= 58 ? 2 : paperW <= 75 ? 6 : 8))
+    : width;
 
   /** Cuerpo ya formateado en cliente (centrados locales con espacios, tablas con |). Recorte con wrap al ancho térmico. */
   const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
@@ -90,7 +98,15 @@ async function buildTicket(moduleName, data = {}, options = {}) {
     const lines = [];
     cleanedPreformatted
       .split('\n')
-      .forEach((part) => wrapLine(part, width).forEach((line) => lines.push(`${line}\n`)));
+      .forEach((part) => {
+        wrapLine(part, contentWidth).forEach((line) => {
+          if (key === 'caja') {
+            lines.push(center(line, width));
+          } else {
+            lines.push(`${line}\n`);
+          }
+        });
+      });
     lines.push('\n');
     const body = Buffer.from(lines.join(''), 'utf8');
 
