@@ -278,9 +278,9 @@ export default function POSPanel() {
   const [activeCajaOption, setActiveCajaOption] = useState(searchParams.get('view') || 'cobrar');
   const [printingConfig, setPrintingConfig] = useState(DEFAULT_PRINTING_CONFIG);
   const cajaPaperWidthMm = useMemo(() => {
-    const raw = Number(printingConfig?.caja?.paperWidth ?? printingConfig?.caja?.anchoPapel ?? 80);
+    const raw = Number(printingConfig?.caja?.anchoPapel ?? printingConfig?.caja?.paperWidth ?? 80);
     return raw === 58 ? 58 : 80;
-  }, [printingConfig?.caja?.paperWidth, printingConfig?.caja?.anchoPapel]);
+  }, [printingConfig?.caja?.anchoPapel, printingConfig?.caja?.paperWidth]);
   const [detectedPrinters, setDetectedPrinters] = useState([]);
   const [printingBusy, setPrintingBusy] = useState(false);
   const [closingData, setClosingData] = useState(null);
@@ -1360,8 +1360,8 @@ export default function POSPanel() {
             isBar: isBarProduct(p, line.name || line.product_name),
           };
         });
-        const paperC = Number(cfg?.cocina?.paperWidth || cfg?.cocina?.anchoPapel || 80) === 58 ? 58 : 80;
-        const paperB = Number(cfg?.bar?.paperWidth || cfg?.bar?.anchoPapel || 80) === 58 ? 58 : 80;
+        const paperC = Number(cfg?.cocina?.anchoPapel ?? cfg?.cocina?.paperWidth ?? 80) === 58 ? 58 : 80;
+        const paperB = Number(cfg?.bar?.anchoPapel ?? cfg?.bar?.paperWidth ?? 80) === 58 ? 58 : 80;
         const takeout = orderSnapshot ? orderHasTakeoutNote(orderSnapshot) : false;
         const waiter = String(orderSnapshot?.created_by_user_name || user?.full_name || '').trim();
         const kitchenTicketItems = rows.filter((r) => !r.isBar).map((r) => r.ticketItem);

@@ -1551,10 +1551,14 @@ export default function Settings() {
                       <label className="block text-sm font-medium text-slate-700 mb-1">Ancho de papel</label>
                       <select
                         className="input-field"
-                        value={Number(cfg.anchoPapel || 80)}
+                        value={Number(cfg.anchoPapel ?? cfg.paperWidth ?? 80)}
                         onChange={(e) => setPrintingConfig((prev) => ({
                           ...prev,
-                          [moduleKey]: { ...(prev[moduleKey] || {}), anchoPapel: Number(e.target.value) === 58 ? 58 : 80 },
+                          [moduleKey]: {
+                            ...(prev[moduleKey] || {}),
+                            anchoPapel: Number(e.target.value) === 58 ? 58 : 80,
+                            paperWidth: Number(e.target.value) === 58 ? 58 : 80,
+                          },
                         }))}
                       >
                         <option value={58}>58 mm</option>
