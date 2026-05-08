@@ -521,9 +521,16 @@ export default function POSPanel() {
   const savePrinterConfig = async () => {
     try {
       setPrintingBusy(true);
+      const rawWidth = printingConfig?.caja?.anchoPapel ?? printingConfig?.caja?.paperWidth ?? 80;
+      const width = normalizePaperWidthMm(rawWidth);
+      const cajaCfg = {
+        ...(printingConfig?.caja || {}),
+        anchoPapel: width,
+        paperWidth: width,
+      };
       const next = hasElectronPrinting()
-        ? await electronPrinting.saveConfig({ caja: printingConfig.caja })
-        : await api.printing.put('/printing/config', { caja: printingConfig.caja });
+        ? await electronPrinting.saveConfig({ caja: cajaCfg })
+        : await api.printing.put('/printing/config', { caja: cajaCfg });
       setPrintingConfig(next || printingConfig);
       toast.success('Impresora de caja guardada');
     } catch (err) {
@@ -2405,6 +2412,7 @@ export default function POSPanel() {
           )}
           {(() => {
             const cfg = printingConfig?.caja || { tipo: 'usb', nombre: '', ip: '', puerto: 9100 };
+            const cajaPaperWidth = normalizePaperWidthMm(cfg.anchoPapel ?? cfg.paperWidth ?? 80);
             return (
               <div className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -2422,8 +2430,26 @@ export default function POSPanel() {
                       <option value="red">Red</option>
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Ancho de papel</label>
+                    <select
+                      className="input-field"
+                      value={cajaPaperWidth}
+                      onChange={(e) => {
+                        const width = normalizePaperWidthMm(e.target.value);
+                        setPrintingConfig((prev) => ({
+                          ...prev,
+                          caja: { ...(prev.caja || {}), anchoPapel: width, paperWidth: width },
+                        }));
+                      }}
+                    >
+                      <option value={58}>58 mm</option>
+                      <option value={75}>75 mm</option>
+                      <option value={80}>80 mm</option>
+                    </select>
+                  </div>
                   {(cfg.tipo || 'usb') === 'usb' ? (
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-1">
                       <label className="block text-sm font-medium text-slate-700 mb-1">Impresora USB</label>
                       <select
                         className="input-field"
