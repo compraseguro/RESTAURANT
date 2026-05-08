@@ -17,6 +17,13 @@ import {
   enrichCartLineForKitchenItem,
 } from '../../utils/ticketPlainText';
 
+function normalizePaperWidthMm(value) {
+  const n = Number(value);
+  if (n === 58) return 58;
+  if (n === 75) return 75;
+  return 80;
+}
+
 export default function Tables() {
   const { user } = useAuth();
   const [tables, setTables] = useState([]);
@@ -164,8 +171,8 @@ export default function Tables() {
             isBar: isBarProduct(p, line.name),
           };
         });
-        const paperC = Number(cfg?.cocina?.paperWidth || cfg?.cocina?.anchoPapel || 80) === 58 ? 58 : 80;
-        const paperB = Number(cfg?.bar?.paperWidth || cfg?.bar?.anchoPapel || 80) === 58 ? 58 : 80;
+        const paperC = normalizePaperWidthMm(cfg?.cocina?.anchoPapel ?? cfg?.cocina?.paperWidth ?? 80);
+        const paperB = normalizePaperWidthMm(cfg?.bar?.anchoPapel ?? cfg?.bar?.paperWidth ?? 80);
         const takeout = orderSnapshot ? orderHasTakeoutNote(orderSnapshot) : false;
         const waiter = String(orderSnapshot?.created_by_user_name || user?.full_name || '').trim();
         const kitchenTicketItems = rows.filter((r) => !r.isBar).map((r) => r.ticketItem);

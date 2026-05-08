@@ -31,7 +31,9 @@ function charsPerLine(paperWidth) {
   const n = Number(paperWidth);
   const cl = thermalLayout.charsPerLine;
   if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 54;
-  return n <= 58 ? Number(cl['58']) || 32 : Number(cl['80']) || 54;
+  if (n <= 58) return Number(cl['58']) || 32;
+  if (n <= 75) return Number(cl['75']) || 48;
+  return Number(cl['80']) || 54;
 }
 
 function center(text, width) {

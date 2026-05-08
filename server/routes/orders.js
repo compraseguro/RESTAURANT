@@ -54,14 +54,21 @@ function isBarOnlyOrder(items = []) {
   return items.every(isBarItemRow);
 }
 
+function normalizePaperWidthMm(value) {
+  const n = Number(value);
+  if (n === 58) return 58;
+  if (n === 75) return 75;
+  return 80;
+}
+
 async function autoPrintKitchenBar(order) {
   try {
     const cfg = loadConfig();
     const items = Array.isArray(order?.items) ? order.items : [];
     const barItems = items.filter(isBarItemRow);
     const kitchenItems = items.filter((it) => !isBarItemRow(it));
-    const paperC = Number(cfg.cocina?.paperWidth || cfg.cocina?.anchoPapel || 80) === 58 ? 58 : 80;
-    const paperB = Number(cfg.bar?.paperWidth || cfg.bar?.anchoPapel || 80) === 58 ? 58 : 80;
+    const paperC = normalizePaperWidthMm(cfg.cocina?.anchoPapel ?? cfg.cocina?.paperWidth ?? 80);
+    const paperB = normalizePaperWidthMm(cfg.bar?.anchoPapel ?? cfg.bar?.paperWidth ?? 80);
     if (cfg.cocina?.autoPrint && kitchenItems.length > 0) {
       const text = buildPedidoMesaTicketPlainTextServer(order, kitchenItems, paperC);
       await print('cocina', { text, preformatted: true });

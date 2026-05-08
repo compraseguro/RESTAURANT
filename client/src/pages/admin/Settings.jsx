@@ -1554,16 +1554,21 @@ export default function Settings() {
                       <select
                         className="input-field"
                         value={Number(cfg.anchoPapel ?? cfg.paperWidth ?? 80)}
-                        onChange={(e) => setPrintingConfig((prev) => ({
-                          ...prev,
-                          [moduleKey]: {
-                            ...(prev[moduleKey] || {}),
-                            anchoPapel: Number(e.target.value) === 58 ? 58 : 80,
-                            paperWidth: Number(e.target.value) === 58 ? 58 : 80,
-                          },
-                        }))}
+                        onChange={(e) => setPrintingConfig((prev) => {
+                          const selected = Number(e.target.value);
+                          const width = selected === 58 ? 58 : selected === 75 ? 75 : 80;
+                          return {
+                            ...prev,
+                            [moduleKey]: {
+                              ...(prev[moduleKey] || {}),
+                              anchoPapel: width,
+                              paperWidth: width,
+                            },
+                          };
+                        })}
                       >
                         <option value={58}>58 mm</option>
+                        <option value={75}>75 mm</option>
                         <option value={80}>80 mm</option>
                       </select>
                     </div>

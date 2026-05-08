@@ -22,6 +22,13 @@ function isBarItem(item = {}) {
   return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some((t) => text.includes(t));
 }
 
+function normalizePaperWidthMm(value) {
+  const n = Number(value);
+  if (n === 58) return 58;
+  if (n === 75) return 75;
+  return 80;
+}
+
 export default function KitchenPanel({ station = 'cocina' }) {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
@@ -94,13 +101,9 @@ export default function KitchenPanel({ station = 'cocina' }) {
         return false;
       }
       const cfg = await api.printing.get('/printing/config');
-      const paper =
-        Number(
-          (isBar ? cfg?.bar?.paperWidth ?? cfg?.bar?.anchoPapel : cfg?.cocina?.paperWidth ?? cfg?.cocina?.anchoPapel)
-            || 80,
-        ) === 58
-          ? 58
-          : 80;
+      const paper = normalizePaperWidthMm(
+        isBar ? cfg?.bar?.anchoPapel ?? cfg?.bar?.paperWidth : cfg?.cocina?.anchoPapel ?? cfg?.cocina?.paperWidth,
+      );
       const takeout = orderHasTakeoutNote(payloadOrder);
       const waiter = String(payloadOrder?.created_by_user_name || '').trim();
       const tableLbl =

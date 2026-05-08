@@ -1,7 +1,8 @@
 {
-  "revision": "thermal-v6-center-localname",
+  "revision": "thermal-v7-75mm-dedupe",
   "charsPerLine": {
     "58": 32,
+    "75": 48,
     "80": 54
   }
 }

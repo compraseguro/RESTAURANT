@@ -1,4 +1,4 @@
-/** Texto plano monoespaciado para tickets (ancho tipo rollo 58/80 mm). */
+/** Texto plano monoespaciado para tickets (ancho tipo rollo 58/75/80 mm). */
 
 import { formatDateTime, formatPeDateTimeParts, labelDeliveryPaymentModality } from './api';
 import thermalLayout from '@thermalPrintLayout';
@@ -21,13 +21,15 @@ export function orderHasTakeoutNote(order) {
 
 /** Anchos de carácter típicos para papel 58 mm vs 80 mm. */
 export function thermalPaperMetrics(widthMm) {
-  const narrow = Number(widthMm) <= 58;
+  const n = Number(widthMm);
+  const narrow = n <= 58;
+  const medium = n > 58 && n <= 75;
   const wideChars = thermalCharWidth(widthMm);
   return {
-    clip: narrow ? 32 : 42,
+    clip: narrow ? 32 : medium ? 38 : 42,
     itemLine: narrow ? 32 : wideChars,
-    nameInQtyRow: narrow ? 24 : 34,
-    phoneClip: narrow ? 24 : 32,
+    nameInQtyRow: narrow ? 24 : medium ? 30 : 34,
+    phoneClip: narrow ? 24 : medium ? 28 : 32,
   };
 }
 
@@ -36,7 +38,9 @@ export function thermalCharWidth(widthMm) {
   const n = Number(widthMm);
   const cl = thermalLayout.charsPerLine;
   if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 54;
-  return n <= 58 ? Number(cl['58']) || 32 : Number(cl['80']) || 54;
+  if (n <= 58) return Number(cl['58']) || 32;
+  if (n <= 75) return Number(cl['75']) || 48;
+  return Number(cl['80']) || 54;
 }
 
 /** Alinea `izq` y `der` en una sola línea de ancho fijo. */

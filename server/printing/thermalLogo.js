@@ -26,7 +26,10 @@ function resolveLogoFsPath(logoUrl) {
 }
 
 function maxLogoWidthDots(paperWidthMm) {
-  return Number(paperWidthMm) <= 58 ? 384 : 576;
+  const w = Number(paperWidthMm);
+  if (w <= 58) return 384;
+  if (w <= 75) return 512;
+  return 576;
 }
 
 /** GS v 0 m=0: bitmap 1 bit, filas = heightDots, ancho en bytes = ceil(widthDots/8). */

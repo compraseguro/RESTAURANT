@@ -82,6 +82,29 @@ const CAJA_OPTIONS = [
   { id: 'consulta_precios', label: 'Consulta de precios' },
   { id: 'impresora', label: 'Impresora' },
 ];
+const POS_RECENT_AUTOPRINT_KEY = 'resto_pos_recent_kitchen_autoprint';
+
+function normalizePaperWidthMm(value) {
+  const n = Number(value);
+  if (n === 58) return 58;
+  if (n === 75) return 75;
+  return 80;
+}
+
+function markRecentKitchenAutoprint(orderId) {
+  if (!orderId || typeof window === 'undefined') return;
+  try {
+    const raw = window.sessionStorage.getItem(POS_RECENT_AUTOPRINT_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    data[String(orderId)] = Date.now();
+    Object.keys(data).forEach((k) => {
+      if (Date.now() - Number(data[k] || 0) > 20000) delete data[k];
+    });
+    window.sessionStorage.setItem(POS_RECENT_AUTOPRINT_KEY, JSON.stringify(data));
+  } catch (_) {
+    // noop
+  }
+}
 
 async function printCajaTicket(payload) {
   try {
@@ -278,8 +301,7 @@ export default function POSPanel() {
   const [activeCajaOption, setActiveCajaOption] = useState(searchParams.get('view') || 'cobrar');
   const [printingConfig, setPrintingConfig] = useState(DEFAULT_PRINTING_CONFIG);
   const cajaPaperWidthMm = useMemo(() => {
-    const raw = Number(printingConfig?.caja?.anchoPapel ?? printingConfig?.caja?.paperWidth ?? 80);
-    return raw === 58 ? 58 : 80;
+    return normalizePaperWidthMm(printingConfig?.caja?.anchoPapel ?? printingConfig?.caja?.paperWidth ?? 80);
   }, [printingConfig?.caja?.anchoPapel, printingConfig?.caja?.paperWidth]);
   const [detectedPrinters, setDetectedPrinters] = useState([]);
   const [printingBusy, setPrintingBusy] = useState(false);
@@ -1349,7 +1371,7 @@ export default function POSPanel() {
       const txt = String(fallbackName || product?.name || '').toLowerCase();
       return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some((t) => txt.includes(t));
     };
-    const autoPrintKitchenBarFromLines = async ({ orderNumber, tableNumber, lines, orderSnapshot }) => {
+    const autoPrintKitchenBarFromLines = async ({ orderId, orderNumber, tableNumber, lines, orderSnapshot }) => {
       try {
         const cfg = await api.printing.get('/printing/config');
         const modMap = new Map((modifiers || []).map((m) => [m.id, m]));
@@ -1360,8 +1382,8 @@ export default function POSPanel() {
             isBar: isBarProduct(p, line.name || line.product_name),
           };
         });
-        const paperC = Number(cfg?.cocina?.anchoPapel ?? cfg?.cocina?.paperWidth ?? 80) === 58 ? 58 : 80;
-        const paperB = Number(cfg?.bar?.anchoPapel ?? cfg?.bar?.paperWidth ?? 80) === 58 ? 58 : 80;
+        const paperC = normalizePaperWidthMm(cfg?.cocina?.anchoPapel ?? cfg?.cocina?.paperWidth ?? 80);
+        const paperB = normalizePaperWidthMm(cfg?.bar?.anchoPapel ?? cfg?.bar?.paperWidth ?? 80);
         const takeout = orderSnapshot ? orderHasTakeoutNote(orderSnapshot) : false;
         const waiter = String(orderSnapshot?.created_by_user_name || user?.full_name || '').trim();
         const kitchenTicketItems = rows.filter((r) => !r.isBar).map((r) => r.ticketItem);
@@ -1390,6 +1412,7 @@ export default function POSPanel() {
           });
           await api.printing.post('/printing/print/bar', { text, preformatted: true });
         }
+        markRecentKitchenAutoprint(orderId);
       } catch (err) {
         console.warn('[printing] auto en envio de pedido:', err?.message || err);
       }
@@ -1429,6 +1452,7 @@ export default function POSPanel() {
             const sourceOrder = (selectedTable?.orders || []).find((o) => o.id === oid);
             const currentOrderNumber = String(sourceOrder?.order_number || '');
             await autoPrintKitchenBarFromLines({
+              orderId: oid,
               orderNumber: currentOrderNumber,
               tableNumber: selectedTable?.number ? `Mesa ${selectedTable.number}` : '',
               lines,
@@ -1463,6 +1487,7 @@ export default function POSPanel() {
         notes: !quickSaleMode && paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
       });
       await autoPrintKitchenBarFromLines({
+        orderId: createdOrder?.id || '',
         orderNumber: createdOrder?.order_number || '',
         tableNumber: quickSaleMode ? '' : `Mesa ${selectedTable?.number || ''}`.trim(),
         lines: cart,

@@ -20,7 +20,9 @@ function resolveTipo(raw) {
 function resolveAnchoPapel(moduleConfig) {
   const fromPaper = moduleConfig?.anchoPapel ?? moduleConfig?.paperWidth;
   const n = Number(fromPaper || 80);
-  return n === 58 ? 58 : 80;
+  if (n === 58) return 58;
+  if (n === 75) return 75;
+  return 80;
 }
 
 function normalizePuerto(moduleConfig) {

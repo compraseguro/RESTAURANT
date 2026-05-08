@@ -3,6 +3,31 @@ import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
 import { orderHasTakeoutNote, buildPedidoMesaTicketPlainText } from '../utils/ticketPlainText';
+const POS_RECENT_AUTOPRINT_KEY = 'resto_pos_recent_kitchen_autoprint';
+
+function normalizePaperWidthMm(value) {
+  const n = Number(value);
+  if (n === 58) return 58;
+  if (n === 75) return 75;
+  return 80;
+}
+
+function wasRecentlyAutoPrintedByPos(orderId) {
+  if (!orderId || typeof window === 'undefined') return false;
+  try {
+    const raw = window.sessionStorage.getItem(POS_RECENT_AUTOPRINT_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    const ts = Number(data[String(orderId)] || 0);
+    if (!ts) return false;
+    const recent = Date.now() - ts < 12000;
+    if (recent) return true;
+    delete data[String(orderId)];
+    window.sessionStorage.setItem(POS_RECENT_AUTOPRINT_KEY, JSON.stringify(data));
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
 
 function isBarItem(item = {}) {
   const area = String(item?.production_area || '').toLowerCase();
@@ -22,6 +47,7 @@ export default function BackgroundKitchenAutoPrinter() {
 
     const orderId = incomingOrder?.id;
     if (!orderId) return;
+    if (wasRecentlyAutoPrintedByPos(orderId)) return;
     const dedupeKey = `${orderId}:${incomingOrder?.updated_at || incomingOrder?.created_at || 'x'}`;
     if (printedKeysRef.current.has(dedupeKey)) return;
     printedKeysRef.current.add(dedupeKey);
@@ -39,8 +65,8 @@ export default function BackgroundKitchenAutoPrinter() {
 
       const kitchenItems = items.filter((it) => !isBarItem(it));
       const barItems = items.filter((it) => isBarItem(it));
-      const paperC = Number(cfg?.cocina?.paperWidth || cfg?.cocina?.anchoPapel || 80) === 58 ? 58 : 80;
-      const paperB = Number(cfg?.bar?.paperWidth || cfg?.bar?.anchoPapel || 80) === 58 ? 58 : 80;
+      const paperC = normalizePaperWidthMm(cfg?.cocina?.anchoPapel ?? cfg?.cocina?.paperWidth ?? 80);
+      const paperB = normalizePaperWidthMm(cfg?.bar?.anchoPapel ?? cfg?.bar?.paperWidth ?? 80);
       const takeout = orderHasTakeoutNote(fullOrder);
       const waiter = String(fullOrder?.created_by_user_name || '').trim();
       const tableLbl =
