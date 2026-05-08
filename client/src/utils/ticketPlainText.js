@@ -180,8 +180,8 @@ export function buildRestaurantTicketHeaderLines(restaurant = {}, widthMm = 80) 
   const w = thermalCharWidth(widthMm);
   const r = restaurant || {};
   const brand =
-    String(r.name || '').trim()
-    || String(r.billing_nombre_comercial || '').trim()
+    String(r.billing_nombre_comercial || '').trim()
+    || String(r.name || '').trim()
     || 'RESTAURANTE';
   const legal = String(r.legal_name || '').trim();
   const ruc = String(r.company_ruc || '').trim();

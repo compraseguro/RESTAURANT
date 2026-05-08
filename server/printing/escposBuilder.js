@@ -20,6 +20,7 @@ function stripDebugLinesFromPreformattedText(raw) {
       if (!t) return true;
       if (/^m[oó]dulo\b/i.test(t)) return false;
       if (/^module\s*:/i.test(t)) return false;
+      if (/\bm[oó]dulo\s*:?\s*[a-záéíóúñ0-9_-]*/i.test(t)) return false;
       return true;
     })
     .join('\n');
@@ -107,7 +108,7 @@ async function buildTicket(moduleName, data = {}, options = {}) {
       }
     }
 
-    chunks.push(Buffer.from('\x1B\x61\x00', 'binary'));
+    chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
     chunks.push(body);
     chunks.push(Buffer.from('\n\x1B\x61\x00', 'binary'));
     chunks.push(Buffer.from('\x1D\x56\x41', 'binary'));
