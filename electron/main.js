@@ -114,9 +114,7 @@ function saveConfig(input) {
     .filter((k) => Object.prototype.hasOwnProperty.call(incoming, k))
     .forEach((k) => {
       const cfg = normalized[k];
-      if (cfg.tipo === 'usb') {
-        if (!cfg.nombre) throw new Error(`Seleccione impresora USB en ${k}`);
-      } else {
+      if (cfg.tipo !== 'usb') {
         if (!isValidIp(cfg.ip)) throw new Error(`IP inválida en ${k}`);
       }
     });

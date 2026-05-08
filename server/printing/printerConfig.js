@@ -43,13 +43,10 @@ function normalizeModuleLenient(moduleConfig, moduleName) {
   };
 }
 
-/** Guardado: USB solo exige nombre; red exige IP y puerto válidos. */
+/** Guardado: red exige IP/puerto válidos; en USB se permite nombre vacío para guardar ancho/config general. */
 function normalizeModuleStrict(moduleConfig, moduleName) {
   const base = normalizeModuleLenient(moduleConfig, moduleName);
   if (base.tipo === 'usb') {
-    if (!String(base.nombre || '').trim()) {
-      throw new Error(`Seleccione el nombre de la impresora USB en ${moduleName}`);
-    }
     return {
       ...base,
       ip: '',

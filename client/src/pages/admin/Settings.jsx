@@ -513,6 +513,8 @@ export default function Settings() {
     const invalidUsb = ['caja', 'cocina', 'bar'].find((moduleKey) => {
       const cfg = printingConfig?.[moduleKey] || {};
       if (String(cfg.tipo || 'usb').toLowerCase() === 'red') return false;
+      /** Solo exigir USB en módulos con autoimpresión activa; permite guardar ancho/config general. */
+      if (moduleKey !== 'caja' && !Boolean(cfg.autoPrint)) return false;
       return !String(cfg.nombre || '').trim();
     });
     if (invalidUsb) {
