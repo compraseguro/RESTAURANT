@@ -16,7 +16,7 @@ try {
 
 const MODULE_KEYS = ['caja', 'cocina', 'bar'];
 const LOCAL_ASSISTANT_BASE_PORT = Number(process.env.RESTO_ASSISTANT_PORT || 3001);
-const ASSISTANT_PORT_TRY_COUNT = 15;
+const ASSISTANT_PORT_TRY_COUNT = 25;
 /** Puerto donde quedó escuchando el asistente (3001… o siguiente libre). */
 let assistantListenPort = null;
 let mainWindow = null; // Ventana oculta auxiliar para APIs de impresión del sistema.

@@ -200,8 +200,37 @@ function printingUnreachableMessage() {
   return 'No se encontró el programa de impresión Resto FADEY en esta computadora. Instálelo, manténgalo abierto junto al reloj y pulse «Verificar vínculo».';
 }
 
-/** Puertos estándar del asistente (3001 + alternativas si el primero está ocupado). */
-const ASSISTANT_STANDARD_PORTS = Array.from({ length: 15 }, (_, i) => 3001 + i);
+/** Puertos del asistente Electron (3001 + alternativas). Ampliable por build sin tocar código. */
+function parseAssistantPortsFromEnv() {
+  const raw = String(import.meta.env.VITE_PRINTING_ASSISTANT_PORTS || '').trim();
+  if (raw) {
+    const parts = raw
+      .split(/[\s,;]+/)
+      .map((s) => parseInt(s, 10))
+      .filter((n) => Number.isFinite(n) && n > 0 && n <= 65535);
+    if (parts.length) return [...new Set(parts)].sort((a, b) => a - b);
+  }
+  const countRaw = Number(import.meta.env.VITE_PRINTING_ASSISTANT_PORT_COUNT);
+  const count = Number.isFinite(countRaw) && countRaw > 0
+    ? Math.min(40, Math.max(5, Math.floor(countRaw)))
+    : 25;
+  return Array.from({ length: count }, (_, i) => 3001 + i);
+}
+
+const ASSISTANT_STANDARD_PORTS = parseAssistantPortsFromEnv();
+
+/** Hosts locales a probar (mismo asistente; útil si el navegador resuelve distinto). */
+const ASSISTANT_LOCAL_HOSTS = (() => {
+  const set = new Set(['127.0.0.1', 'localhost']);
+  const extra = String(import.meta.env.VITE_PRINTING_ASSISTANT_HOSTS || '').trim();
+  if (extra) {
+    extra.split(/[\s,;]+/).forEach((h) => {
+      const t = h.trim();
+      if (t) set.add(t);
+    });
+  }
+  return [...set];
+})();
 
 /** Origen guardado por el usuario o por descubrimiento automático (sin `/api`). */
 export function getPersistedPrintingBridgeOrigin() {
@@ -252,30 +281,56 @@ async function probeOriginHealth(originBase, timeoutMs) {
 }
 
 /**
- * Escanea 127.0.0.1:3001…3015 en paralelo y guarda la URL del asistente Electron (`mode: 'assistant'`).
- * No usa otros servicios con `/health` OK para no pisar la URL manual ni elegir el API Node equivocado.
+ * Escanea localhost en varios hosts/puertos y guarda `resto_local_printing_api` para **este** origen (cada
+ * dominio Vercel tiene su propio localStorage; el mismo .exe del asistente sirve para todos los clientes).
+ * Solo acepta respuestas con `mode: 'assistant'` para no confundir con otro Node en el mismo puerto.
  */
 async function discoverAssistantAndPersist() {
-  const timeoutMs = 1800;
-  const rows = await Promise.all(
-    ASSISTANT_STANDARD_PORTS.map(async (port) => {
-      const origin = `http://127.0.0.1:${port}`;
-      const row = await probeOriginHealth(origin, timeoutMs);
-      return { port, origin: row.origin || origin, ok: row.ok, assistant: row.assistant };
-    }),
-  );
+  const timeoutMs = 2400;
+  const tasks = [];
+  for (const host of ASSISTANT_LOCAL_HOSTS) {
+    for (const port of ASSISTANT_STANDARD_PORTS) {
+      const origin = `http://${host}:${port}`;
+      tasks.push(
+        probeOriginHealth(origin, timeoutMs).then((row) => ({
+          port,
+          host,
+          origin: row.origin || origin,
+          ok: row.ok,
+          assistant: row.assistant,
+        })),
+      );
+    }
+  }
+  const rows = await Promise.all(tasks);
   const assistants = rows.filter((r) => r.ok && r.assistant);
   if (!assistants.length) return false;
 
-  assistants.sort((a, b) => a.port - b.port);
+  assistants.sort((a, b) => {
+    if (a.port !== b.port) return a.port - b.port;
+    const rank = (h) => (h === '127.0.0.1' ? 0 : 1);
+    return rank(a.host) - rank(b.host);
+  });
   const pick = assistants[0];
   try {
     window.localStorage?.setItem('resto_local_printing_api', pick.origin);
   } catch (_) {
     /* noop */
   }
-  console.info('[printing] Asistente Electron detectado en', pick.origin);
+  console.info('[printing] Asistente Electron detectado en', pick.origin, '(repo/dominio independiente)');
   return true;
+}
+
+/**
+ * Ejecuta el descubrimiento del asistente local (mismo instalador para cualquier cliente / URL).
+ * No lanza error; útil tras login o si el asistente tardó en abrir.
+ */
+export async function ensureLocalPrintingAssistantDiscovered() {
+  if (typeof window === 'undefined') return false;
+  if (hasElectronPrinting()) return true;
+  if (await discoverAssistantAndPersist()) return true;
+  await new Promise((r) => setTimeout(r, 600));
+  return discoverAssistantAndPersist();
 }
 
 /** Origen del bridge sin sufijo `/api` (ej. `http://127.0.0.1:3001`). */

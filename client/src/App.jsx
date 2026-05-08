@@ -33,6 +33,7 @@ import OrderTracking from './pages/customer/OrderTracking';
 import MasterAdmin from './pages/master/MasterAdmin';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 import BackgroundKitchenAutoPrinter from './components/BackgroundKitchenAutoPrinter';
+import PrintingAssistantAutoDiscover from './components/PrintingAssistantAutoDiscover';
 
 const ADMIN_MODULE_PATHS = [
   { path: '/admin', moduleId: 'escritorio', roles: ['admin', 'cajero'] },
@@ -202,7 +203,12 @@ export default function App() {
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-      {user && user.type === 'staff' ? <BackgroundKitchenAutoPrinter /> : null}
+      {user && user.type === 'staff' ? (
+        <>
+          <PrintingAssistantAutoDiscover />
+          <BackgroundKitchenAutoPrinter />
+        </>
+      ) : null}
       <PwaInstallPrompt />
     </>
   );
