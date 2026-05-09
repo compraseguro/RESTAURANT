@@ -20,6 +20,7 @@ function resolveTipo(raw) {
 function resolveAnchoPapel(moduleConfig) {
   const fromPaper = moduleConfig?.anchoPapel ?? moduleConfig?.paperWidth;
   const n = Number(fromPaper || 80);
+  if (n === 50) return 50;
   if (n === 58) return 58;
   if (n === 75) return 75;
   return 80;

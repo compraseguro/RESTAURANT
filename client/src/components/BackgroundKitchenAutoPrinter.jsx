@@ -2,15 +2,14 @@ import { useRef } from 'react';
 import { api } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
-import { orderHasTakeoutNote, buildPedidoMesaTicketPlainText } from '../utils/ticketPlainText';
+import {
+  orderHasTakeoutNote,
+  buildPedidoMesaTicketPlainText,
+  normalizeThermalPaperWidthMm,
+} from '../utils/ticketPlainText';
 const POS_RECENT_AUTOPRINT_KEY = 'resto_pos_recent_kitchen_autoprint';
 
-function normalizePaperWidthMm(value) {
-  const n = Number(value);
-  if (n === 58) return 58;
-  if (n === 75) return 75;
-  return 80;
-}
+const normalizePaperWidthMm = normalizeThermalPaperWidthMm;
 
 function wasRecentlyAutoPrintedByPos(orderId) {
   if (!orderId || typeof window === 'undefined') return false;

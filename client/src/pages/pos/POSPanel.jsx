@@ -21,6 +21,7 @@ import {
   buildNotaVentaPlainText,
   buildBoletaFacturaPlainText,
   getThermalPrintRevision,
+  normalizeThermalPaperWidthMm,
 } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import {
@@ -81,12 +82,7 @@ const CAJA_OPTIONS = [
   { id: 'consulta_precios', label: 'Consulta de precios' },
   { id: 'impresora', label: 'Impresora' },
 ];
-function normalizePaperWidthMm(value) {
-  const n = Number(value);
-  if (n === 58) return 58;
-  if (n === 75) return 75;
-  return 80;
-}
+const normalizePaperWidthMm = normalizeThermalPaperWidthMm;
 
 async function printCajaTicket(payload) {
   try {
@@ -2394,6 +2390,7 @@ export default function POSPanel() {
                         }));
                       }}
                     >
+                      <option value={50}>50 mm</option>
                       <option value={58}>58 mm</option>
                       <option value={75}>75 mm</option>
                       <option value={80}>80 mm</option>

@@ -57,7 +57,8 @@ function defaultConfig() {
 function normalizeModule(raw = {}, moduleKey) {
   const tipo = String(raw.tipo || 'usb').toLowerCase() === 'red' ? 'red' : 'usb';
   const paperRaw = Number(raw.anchoPapel ?? raw.paperWidth ?? 80);
-  const paper = paperRaw === 58 ? 58 : paperRaw === 75 ? 75 : 80;
+  const paper =
+    paperRaw === 50 ? 50 : paperRaw === 58 ? 58 : paperRaw === 75 ? 75 : 80;
   const puerto = Number(raw.puerto ?? 9100);
   return {
     tipo,

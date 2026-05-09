@@ -8,7 +8,11 @@ import EndShiftModal from '../../components/EndShiftModal';
 import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime, MdPrint } from 'react-icons/md';
 import toast from 'react-hot-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { orderHasTakeoutNote, buildPedidoMesaTicketPlainText } from '../../utils/ticketPlainText';
+import {
+  orderHasTakeoutNote,
+  buildPedidoMesaTicketPlainText,
+  normalizeThermalPaperWidthMm,
+} from '../../utils/ticketPlainText';
 
 /** Pedido auto-pedido con cuenta de cliente (sin mesa física). */
 function isCuentaClienteSelfOrder(order) {
@@ -22,12 +26,7 @@ function isBarItem(item = {}) {
   return ['bar', 'bebida', 'bebidas', 'trago', 'tragos', 'coctel', 'cocteles', 'cocktail', 'cocktails'].some((t) => text.includes(t));
 }
 
-function normalizePaperWidthMm(value) {
-  const n = Number(value);
-  if (n === 58) return 58;
-  if (n === 75) return 75;
-  return 80;
-}
+const normalizePaperWidthMm = normalizeThermalPaperWidthMm;
 
 export default function KitchenPanel({ station = 'cocina' }) {
   const [orders, setOrders] = useState([]);

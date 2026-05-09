@@ -1,7 +1,16 @@
-/** Texto plano monoespaciado para tickets (ancho tipo rollo 58/75/80 mm). */
+/** Texto plano monoespaciado para tickets (ancho tipo rollo 50/58/75/80 mm). */
 
 import { formatDateTime, formatPeDateTimeParts, labelDeliveryPaymentModality } from './api';
 import thermalLayout from '@thermalPrintLayout';
+
+/** Valores de ancho de papel admitidos por el asistente y el layout térmico. */
+export function normalizeThermalPaperWidthMm(value) {
+  const n = Number(value);
+  if (n === 50) return 50;
+  if (n === 58) return 58;
+  if (n === 75) return 75;
+  return 80;
+}
 
 function computeEscposFactorsFromLayout() {
   const ex = thermalLayout.escposMagnification;
@@ -54,10 +63,18 @@ export function thermalPaperMetrics(widthMm) {
   const medium = n > 58 && n <= 75;
   const wideChars = thermalCharWidth(widthMm);
   return {
-    clip: narrow ? 32 : medium ? Math.min(38, wideChars + 6) : wideChars,
-    itemLine: narrow ? 32 : wideChars,
-    nameInQtyRow: narrow ? 24 : medium ? Math.min(30, wideChars - 4) : Math.min(34, Math.max(8, wideChars - 6)),
-    phoneClip: narrow ? 24 : medium ? Math.min(28, wideChars - 2) : Math.min(32, Math.max(8, wideChars - 4)),
+    clip: narrow ? Math.min(32, wideChars) : medium ? Math.min(38, wideChars + 6) : wideChars,
+    itemLine: narrow ? Math.min(32, wideChars) : wideChars,
+    nameInQtyRow: narrow
+      ? Math.min(24, Math.max(8, wideChars - 4))
+      : medium
+        ? Math.min(30, wideChars - 4)
+        : Math.min(34, Math.max(8, wideChars - 6)),
+    phoneClip: narrow
+      ? Math.min(24, Math.max(8, wideChars - 2))
+      : medium
+        ? Math.min(28, wideChars - 2)
+        : Math.min(32, Math.max(8, wideChars - 4)),
   };
 }
 
@@ -70,6 +87,7 @@ export function thermalCharWidth(widthMm) {
   const cl = thermalLayout.charsPerLine;
   let base;
   if (!Number.isFinite(n) || n <= 0) base = Number(cl['80']) || 48;
+  else if (n <= 50) base = Number(cl['50']) || 28;
   else if (n <= 58) base = Number(cl['58']) || 32;
   else if (n <= 75) base = Number(cl['75']) || 42;
   else base = Number(cl['80']) || 48;

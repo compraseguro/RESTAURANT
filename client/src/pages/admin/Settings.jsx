@@ -1484,7 +1484,7 @@ export default function Settings() {
                 {getThermalPrintRevision()} · web {typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '—'}
               </p>
               <p className="mt-2 text-amber-900/90 leading-snug">
-                El texto del ticket (precuenta) sale del sitio en la nube (Vercel), no solo del .exe. Si imprimes y el papel sigue como antes pero aquí NO ves la revisión térmica actual (p. ej. <strong>thermal-v23-gdi-font-moderate-strip-sync</strong>), el navegador usa JS viejo:
+                El texto del ticket (precuenta) sale del sitio en la nube (Vercel), no solo del .exe. Si imprimes y el papel sigue como antes pero aquí NO ves la revisión térmica actual (p. ej. <strong>thermal-v24-paper-50mm</strong>), el navegador usa JS viejo:
                 prueba <kbd className="px-1 bg-white rounded border border-amber-300">Ctrl+Shift+R</kbd>, borrar datos del sitio para tu dominio Vercel, o Chrome → F12 → pestaña <strong>Application</strong> → <strong>Service Workers</strong> → <strong>Unregister</strong>, y recarga.
               </p>
             </div>
@@ -1556,7 +1556,8 @@ export default function Settings() {
                         value={Number(cfg.anchoPapel ?? cfg.paperWidth ?? 80)}
                         onChange={(e) => setPrintingConfig((prev) => {
                           const selected = Number(e.target.value);
-                          const width = selected === 58 ? 58 : selected === 75 ? 75 : 80;
+                          const width =
+                            selected === 50 ? 50 : selected === 58 ? 58 : selected === 75 ? 75 : 80;
                           return {
                             ...prev,
                             [moduleKey]: {
@@ -1567,6 +1568,7 @@ export default function Settings() {
                           };
                         })}
                       >
+                        <option value={50}>50 mm</option>
                         <option value={58}>58 mm</option>
                         <option value={75}>75 mm</option>
                         <option value={80}>80 mm</option>

@@ -1,10 +1,11 @@
 {
-  "revision": "thermal-v23-gdi-font-moderate-strip-sync",
+  "revision": "thermal-v24-paper-50mm",
   "fontSizeScale": 1.25,
   "gdiFontDuplicateFactor": 1,
   "useEscposCharacterMagnify": false,
   "useEscposCharacterMagnifyNetwork": false,
   "charsPerLine": {
+    "50": 28,
     "58": 32,
     "75": 42,
     "80": 48
