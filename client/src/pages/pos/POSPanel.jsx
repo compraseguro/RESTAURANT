@@ -1676,7 +1676,6 @@ export default function POSPanel() {
       : (table.orders || []);
     if (payableOrders.length === 0) return toast.error('No hay pedidos para precuenta');
     const groupedPrecuenta = groupItemsByProductNameForBill(payableOrders.flatMap((o) => o.items || []));
-    const precuentaParaLlevar = payableOrders.some((o) => orderHasTakeoutNote(o));
     const mozoName =
       [...new Set(payableOrders.map((o) => String(o.created_by_user_name || '').trim()).filter(Boolean))].join(', ')
       || String(user?.full_name || '').trim()
@@ -1699,7 +1698,6 @@ export default function POSPanel() {
       restaurant: printRestaurantInfo,
       tableName: table.name,
       mozoName,
-      takeoutLine: precuentaParaLlevar ? KITCHEN_TAKEOUT_NOTE : '',
       customerLines,
       groupedRows: groupedPrecuenta,
       formatCurrencyFn: formatCurrency,
@@ -1911,7 +1909,6 @@ export default function POSPanel() {
     if (!table) return;
     const groupedTable = mergedProductsOnTable(table);
     if (!groupedTable.length) return toast.error('La mesa no tiene pedidos para precuenta');
-    const precuentaParaLlevar = (table.orders || []).some((o) => orderHasTakeoutNote(o));
     const tableTotal = (table.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
     const mozoNameTbl =
       [...new Set((table.orders || []).map((o) => String(o.created_by_user_name || '').trim()).filter(Boolean))].join(', ')
@@ -1928,7 +1925,6 @@ export default function POSPanel() {
       restaurant: printRestaurantInfo,
       tableName: table.name,
       mozoName: mozoNameTbl,
-      takeoutLine: precuentaParaLlevar ? KITCHEN_TAKEOUT_NOTE : '',
       customerLines,
       groupedRows: groupedTable,
       formatCurrencyFn: formatCurrency,

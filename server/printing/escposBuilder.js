@@ -74,6 +74,55 @@ function wrapLine(text, width) {
   return out.length ? out : [''];
 }
 
+/** Títulos / cabeceras: doble alto y ancho + centrado hardware (ESC a 1, ESC ! 0x30). */
+function encodeEmphasizedLine(text, paperWidthChars) {
+  const t = String(text || '').trim();
+  if (!t) return Buffer.from('\n', 'utf8');
+  const maxChars = Math.max(8, Math.floor(Number(paperWidthChars) / 2));
+  const slice = t.length > maxChars ? `${t.slice(0, maxChars - 1)}…` : t;
+  return Buffer.concat([
+    Buffer.from('\x1B\x61\x01\x1B!\x30', 'binary'),
+    Buffer.from(`${slice}\n`, 'utf8'),
+    Buffer.from('\x1B!\x00\x1B\x61\x00', 'binary'),
+  ]);
+}
+
+function shouldEmphasizeThermalLine(trimmed, moduleKey) {
+  const t = String(trimmed || '').trim();
+  if (!t) return false;
+  const k = String(moduleKey || '').toLowerCase();
+  if (k === 'cocina' || k === 'bar') {
+    if (/^MESA\s/i.test(t)) return true;
+    if (/^DELIVERY$/i.test(t)) return true;
+    if (/^RECOJO$/i.test(t)) return true;
+    if (/^PEDIDO/i.test(t)) return true;
+    return false;
+  }
+  if (/^PRE\s*CUENTA$/i.test(t)) return true;
+  if (/^NOTA\s+DE\s+VENTA$/i.test(t)) return true;
+  if (/^PRODUCTOS$/i.test(t)) return true;
+  if (/^BOLETA\s+DE\s+VENTA/i.test(t)) return true;
+  if (/^FACTURA\s+ELECTR/i.test(t)) return true;
+  if (/^DATOS\s+DEL\s+CLIENTE$/i.test(t)) return true;
+  if (/^GRACIAS\s+POR\s+SU\s+PREFERENCIA$/i.test(t)) return true;
+  if (/^Nº\s+/i.test(t)) return true;
+  /** Nombre comercial / razón en mayúsculas (cabecera), sin filas de dos columnas ni montos. */
+  if (
+    t.length >= 4 &&
+    t.length <= 38 &&
+    t === t.toUpperCase() &&
+    !/^(SUBTOTAL|TOTAL|DESCUENTO|FECHA|HORA|MESA|MOZO|CLIENTE|DOC|DIR|TEL|MÉTODO|METHOD|IMPORTE|OP\.|IGV|HASH|REPRESENTACIÓN|RUC|RAZ|DIRECCI|CORREO|TEL:)/i.test(t) &&
+    !/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(t) &&
+    !/S\/?\s*\d/.test(t) &&
+    !/^-{3,}/.test(t) &&
+    /^[A-ZÁÉÍÓÚÑ0-9 .,'&\-]+$/u.test(t)
+  ) {
+    if (/\s{3,}/.test(t)) return false;
+    return true;
+  }
+  return false;
+}
+
 /**
  * @param {string} moduleName
  * @param {object} data
@@ -89,24 +138,32 @@ async function buildTicket(moduleName, data = {}, options = {}) {
    */
   let contentWidth = width;
   if (key === 'caja') {
-    contentWidth = Math.max(28, width - (paperW <= 58 ? 2 : paperW <= 75 ? 6 : 8));
+    contentWidth = Math.max(28, width - (paperW <= 58 ? 2 : paperW <= 75 ? 4 : 8));
   } else if (paperW <= 75) {
-    contentWidth = Math.max(26, width - 4);
+    contentWidth = Math.max(28, width - 2);
   }
 
-  /** Cuerpo ya formateado en cliente; recorte con wrap y centrado en ancho de papel (ESC a 0 + espacios). */
+  /** Cuerpo ya formateado en cliente; títulos con doble tamaño y centrado hardware. */
   const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
   if (data.preformatted && cleanedPreformatted) {
-    const lines = [];
-    cleanedPreformatted
-      .split('\n')
-      .forEach((part) => {
-        wrapLine(part, contentWidth).forEach((line) => {
-          lines.push(center(line, width));
-        });
+    const parts = [];
+    cleanedPreformatted.split('\n').forEach((rawPart) => {
+      wrapLine(rawPart, contentWidth).forEach((line) => {
+        const row = center(line, width);
+        const trim = row.replace(/\n$/, '').trim();
+        if (!trim) {
+          parts.push(Buffer.from('\n', 'utf8'));
+          return;
+        }
+        if (shouldEmphasizeThermalLine(trim, key)) {
+          parts.push(encodeEmphasizedLine(trim, width));
+        } else {
+          parts.push(Buffer.from(row, 'utf8'));
+        }
       });
-    lines.push('\n');
-    const body = Buffer.from(lines.join(''), 'utf8');
+    });
+    parts.push(Buffer.from('\n', 'utf8'));
+    const body = Buffer.concat(parts);
 
     /**
      * Logo: centrado hardware (ESC a 1). Cuerpo precuenta/caja: ESC a 0 (izquierda).

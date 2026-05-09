@@ -43,11 +43,11 @@ export function thermalCharWidth(widthMm) {
   return Number(cl['80']) || 54;
 }
 
-/** Ancho útil con margen lateral (efecto «recuadro» en 75 mm). */
+/** Ancho útil con margen lateral (efecto «recuadro»; 75 mm un poco más ancho para legibilidad). */
 export function thermalInnerWidth(widthMm) {
   const base = thermalCharWidth(widthMm);
   const n = Number(widthMm);
-  const inset = !Number.isFinite(n) || n <= 0 ? 4 : n <= 58 ? 2 : n <= 75 ? 4 : 4;
+  const inset = !Number.isFinite(n) || n <= 0 ? 4 : n <= 58 ? 2 : n <= 75 ? 2 : 4;
   return Math.max(24, base - inset);
 }
 
@@ -408,11 +408,11 @@ export function buildKitchenTicketPlainText({
 }
 
 /** Texto plano para precuenta de caja. */
+/** Precuenta: «PARA LLEVAR» no se imprime aquí (solo en comanda cocina/bar). */
 export function buildPrecuentaPlainText({
   restaurant = {},
   tableName = '',
   mozoName = '',
-  takeoutLine = '',
   customerLines = [],
   groupedRows = [],
   formatCurrencyFn = (n) => String(n),
@@ -455,7 +455,6 @@ export function buildPrecuentaPlainText({
   const mesaLbl = tableName ? `Mesa: ${tableName}` : 'Mesa: —';
   const mozoLbl = mozoName ? `Mozo: ${mozoName}` : 'Mozo: —';
   lines.push(padLeftRight(mesaLbl, mozoLbl, w));
-  if (takeoutLine) lines.push(centerThermalLine(String(takeoutLine).toUpperCase(), w));
   for (const l of customerLines) {
     if (l) lines.push(centerThermalLine(String(l).slice(0, inner), w));
   }
@@ -468,7 +467,7 @@ export function buildPrecuentaPlainText({
   }
   lines.push(padLeftRight('TOTAL A PAGAR:', formatCurrencyFn(payableTotal), w));
   lines.push(sep);
-  lines.push(centerThermalLine('Gracias por su preferencia', w));
+  lines.push(centerThermalLine('GRACIAS POR SU PREFERENCIA', w));
   lines.push('');
   return stripThermalDebugFooter(lines.join('\n'));
 }
@@ -524,7 +523,7 @@ export function buildNotaVentaPlainText({
   }
   lines.push(padLeftRight('TOTAL:', formatCurrencyFn(total), w));
   lines.push(sep);
-  lines.push(centerThermalLine('Gracias por su preferencia', w));
+  lines.push(centerThermalLine('GRACIAS POR SU PREFERENCIA', w));
   lines.push('');
   return stripThermalDebugFooter(lines.join('\n'));
 }
@@ -591,7 +590,7 @@ export function buildBoletaFacturaPlainText({
   }
   lines.push(sep);
   lines.push(centerThermalLine('Representación impresa. Conserve su comprobante.', w));
-  lines.push(centerThermalLine('Gracias por su preferencia', w));
+  lines.push(centerThermalLine('GRACIAS POR SU PREFERENCIA', w));
   lines.push('');
   return stripThermalDebugFooter(lines.join('\n'));
 }
