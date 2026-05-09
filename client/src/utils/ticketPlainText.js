@@ -108,7 +108,7 @@ export function thermalInnerWidth(widthMm) {
       ? 2
       : n <= 75
         ? 4
-        : 5;
+        : 3;
   return Math.max(24, base - inset);
 }
 
@@ -238,10 +238,10 @@ export function restaurantDisplayNameUpper(restaurant = {}) {
 function columnProductDims(contentW) {
   const inner = Math.max(16, Number(contentW) || 32);
   const qW = 4;
-  const spacesBetween = 3;
-  const fixed = qW + spacesBetween;
-  let uW = inner <= 32 ? 6 : 8;
-  let tW = inner <= 32 ? 6 : 8;
+  /** Presupuesto sin espacios entre columnas (`rowProduct4Col` concatena; más ancho para nombre). */
+  const fixed = qW;
+  let uW = inner <= 32 ? 6 : 6;
+  let tW = inner <= 32 ? 6 : 7;
   let nameW = inner - fixed - uW - tW;
   if (nameW < 8) {
     nameW = 8;
@@ -267,7 +267,7 @@ function rowProduct4Col(name, qty, uStr, tStr, dims) {
   const b = String(qty).slice(0, qW).padStart(qW);
   const c = String(uStr).slice(0, uW).padStart(uW);
   const d = String(tStr).slice(0, tW).padStart(tW);
-  const row = `${a} ${b} ${c} ${d}`;
+  const row = `${a}${b}${c}${d}`;
   return row.length <= w ? row : row.slice(0, w);
 }
 

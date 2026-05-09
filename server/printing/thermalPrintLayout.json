@@ -1,8 +1,8 @@
 {
-  "revision": "thermal-v27-gdi-pre-no-wrap",
+  "revision": "thermal-v28-table-columns-tight",
   "fontSizeScale": 1.25,
   "gdiFontDuplicateFactor": 1,
-  "gdiPrintFitFudge": 0.88,
+  "gdiPrintFitFudge": 0.84,
   "useEscposCharacterMagnify": false,
   "useEscposCharacterMagnifyNetwork": false,
   "charsPerLine": {
