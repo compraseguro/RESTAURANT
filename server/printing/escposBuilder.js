@@ -88,14 +88,17 @@ function escPosAsciiLine(s) {
     .replace(/[^\x20-\x7E]/g, '?');
 }
 
-/** Títulos / cabeceras: doble alto y ancho + centrado hardware (ESC a 1, ESC ! 0x30). */
+/**
+ * Títulos: solo doble ALTO (ESC ! 0x10), no doble ancho — 0x30 recorta por la derecha en muchas térmicas.
+ * Centrado hardware ESC a 1 (no depende de espacios en la cadena).
+ */
 function encodeEmphasizedLine(text, paperWidthChars) {
   const t = escPosAsciiLine(String(text || '').trim());
   if (!t) return Buffer.from('\n', 'latin1');
-  const maxChars = Math.max(8, Math.floor(Number(paperWidthChars) / 2));
-  const slice = t.length > maxChars ? `${t.slice(0, maxChars - 1)}...` : t;
+  const maxChars = Math.max(10, Number(paperWidthChars) || 42);
+  const slice = t.length > maxChars ? `${t.slice(0, maxChars - 3)}...` : t;
   return Buffer.concat([
-    Buffer.from('\x1B\x61\x01\x1B!\x30', 'binary'),
+    Buffer.from('\x1B\x61\x01\x1B!\x10', 'binary'),
     Buffer.from(`${slice}\n`, 'latin1'),
     Buffer.from('\x1B!\x00\x1B\x61\x00', 'binary'),
   ]);
@@ -148,23 +151,19 @@ async function buildTicket(moduleName, data = {}, options = {}) {
   const width = charsPerLine(paperW);
   const key = String(moduleName || '').toLowerCase();
   /**
-   * Márgenes tipo «recuadro»: en caja más fuerte; en cocina/bar también en 75 mm.
+   * Mismo ancho útil en caja / cocina / bar para que el texto y las tablas ocupen todo el rollo configurado.
    */
-  let contentWidth = width;
-  if (key === 'caja') {
-    contentWidth = Math.max(28, width - (paperW <= 58 ? 2 : paperW <= 75 ? 4 : 8));
-  } else if (paperW <= 75) {
-    contentWidth = Math.max(28, width - 2);
-  }
+  const contentWidth = Math.max(24, width - (paperW <= 58 ? 2 : 4));
 
-  /** Cuerpo ya formateado en cliente; títulos con doble tamaño y centrado hardware. */
+  /** Cuerpo ya formateado en cliente; títulos resaltados con doble alto + ESC centrar. */
   const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
   if (data.preformatted && cleanedPreformatted) {
     const parts = [];
     cleanedPreformatted.split('\n').forEach((rawPart) => {
       wrapLine(rawPart, contentWidth).forEach((line) => {
         const row = center(line, width);
-        const trim = row.replace(/\n$/, '').trim();
+        const visual = row.replace(/\n$/, '');
+        const trim = visual.trim();
         if (!trim) {
           parts.push(Buffer.from('\n', 'utf8'));
           return;
@@ -172,7 +171,7 @@ async function buildTicket(moduleName, data = {}, options = {}) {
         if (shouldEmphasizeThermalLine(trim, key)) {
           parts.push(encodeEmphasizedLine(trim, width));
         } else {
-          parts.push(Buffer.from(row, 'utf8'));
+          parts.push(Buffer.from(`${visual}\n`, 'utf8'));
         }
       });
     });

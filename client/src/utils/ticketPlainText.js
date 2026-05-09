@@ -43,11 +43,13 @@ export function thermalCharWidth(widthMm) {
   return Number(cl['80']) || 54;
 }
 
-/** Ancho útil con margen lateral (efecto «recuadro»; 75 mm un poco más ancho para legibilidad). */
+/**
+ * Ancho útil para tablas y texto (debe coincidir con `contentWidth` en `server/printing/escposBuilder.js`).
+ */
 export function thermalInnerWidth(widthMm) {
   const base = thermalCharWidth(widthMm);
   const n = Number(widthMm);
-  const inset = !Number.isFinite(n) || n <= 0 ? 4 : n <= 58 ? 2 : n <= 75 ? 2 : 4;
+  const inset = !Number.isFinite(n) || n <= 0 ? 4 : n <= 58 ? 2 : 4;
   return Math.max(24, base - inset);
 }
 
