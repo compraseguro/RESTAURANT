@@ -300,16 +300,37 @@ function printUSB(printerName, buffer) {
   return new Promise((resolve, reject) => {
     const safeText = escPosBufferToHtmlSafeText(buffer) || '—';
     const fontPx = getThermalGdiFontPx();
-    const html = `<!DOCTYPE html><meta charset="utf-8"><style>body{margin:0;padding:0;-webkit-print-color-adjust:exact}pre{font-family:Consolas,'Courier New',monospace;white-space:pre-wrap;margin:0;padding:0;font-size:${fontPx}px!important;font-weight:600;line-height:1.15;text-align:left;width:100%;box-sizing:border-box}</style><pre>${safeText}</pre>`;
+    const html = `<!DOCTYPE html><meta charset="utf-8"><style>body{margin:0;padding:0;-webkit-print-color-adjust:exact}pre{font-family:Consolas,'Courier New',monospace;white-space:pre-wrap;margin:0;padding:0;font-size:${fontPx}px!important;font-weight:500;line-height:1.2;text-align:left;width:100%;box-sizing:border-box}</style><pre>${safeText}</pre>`;
     const printWin = new BrowserWindow({
       show: false,
       webPreferences: { offscreen: true },
     });
-    printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    const cleanup = (tmpPath) => {
+      if (!tmpPath) return;
+      try {
+        fs.unlinkSync(tmpPath);
+      } catch (_) {
+        /* noop */
+      }
+    };
+    let tmpHtml = null;
+    if (html.length > 60000) {
+      tmpHtml = path.join(app.getPath('temp'), `resto-gdi-print-${Date.now()}.html`);
+      fs.writeFileSync(tmpHtml, html, 'utf8');
+      printWin.loadFile(tmpHtml);
+    } else {
+      printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    }
+    printWin.webContents.on('did-fail-load', (_e, code, desc) => {
+      cleanup(tmpHtml);
+      printWin.close();
+      reject(new Error(desc || `fallo al cargar vista de impresión (${code})`));
+    });
     printWin.webContents.on('did-finish-load', () => {
       printWin.webContents.print(
         { silent: true, deviceName: printerName, printBackground: false },
         (success, failureReason) => {
+          cleanup(tmpHtml);
           if (!success) {
             console.error('[electron-printing] fallo print (USB):', failureReason);
             reject(new Error(failureReason || 'Error al imprimir'));

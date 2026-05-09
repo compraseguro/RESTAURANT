@@ -1,7 +1,7 @@
 {
-  "revision": "thermal-v22-network-no-gs-default-stable",
-  "fontSizeScale": 2,
-  "gdiFontDuplicateFactor": 2,
+  "revision": "thermal-v23-gdi-font-moderate-strip-sync",
+  "fontSizeScale": 1.25,
+  "gdiFontDuplicateFactor": 1,
   "useEscposCharacterMagnify": false,
   "useEscposCharacterMagnifyNetwork": false,
   "charsPerLine": {

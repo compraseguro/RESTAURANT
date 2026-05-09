@@ -21,9 +21,9 @@ function stripDebugLinesFromPreformattedText(raw) {
     .filter((line) => {
       const t = String(line || '').trim();
       if (!t) return true;
+      /** Mismo criterio que `stripThermalDebugFooter` en el cliente (no borrar líneas con «modulo» en medio). */
       if (/^m[oó]dulo\b/i.test(t)) return false;
       if (/^module\s*:/i.test(t)) return false;
-      if (/\bm[oó]dulo\s*:?\s*[a-záéíóúñ0-9_-]*/i.test(t)) return false;
       return true;
     })
     .join('\n');

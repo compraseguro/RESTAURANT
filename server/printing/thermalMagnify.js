@@ -16,7 +16,7 @@ function getThermalGdiFontPx() {
   const mult = Number.isFinite(dup) && dup > 0 ? Math.min(4, dup) : 2;
   const base = 11;
   const s = getThermalDisplayFontScale();
-  return Math.max(18, Math.min(72, Math.round(base * mult * s)));
+  return Math.max(11, Math.min(36, Math.round(base * mult * s)));
 }
 
 function computeEscposMagnificationFactors() {
