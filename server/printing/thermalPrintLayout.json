@@ -1,5 +1,5 @@
 {
-  "revision": "thermal-v25-preformatted-width-gdi-esc",
+  "revision": "thermal-v26-gdi-font-by-roll-mm",
   "fontSizeScale": 1.25,
   "gdiFontDuplicateFactor": 1,
   "useEscposCharacterMagnify": false,

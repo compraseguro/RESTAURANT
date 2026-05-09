@@ -9,14 +9,26 @@ function getThermalDisplayFontScale() {
 
 /**
  * Tamaño del <pre> en impresión USB vía GDI (texto sin bytes ESC/POS).
- * Base 11 px × factor duplicado (pedido explícito) × `fontSizeScale` del JSON.
+ * Base 11 px × factor duplicado × `fontSizeScale`; luego escala según rollo y columnas
+ * para que ~`charsPerLine` quepan en el ancho físico (50 mm referencia; 80 mm sin desborde).
+ *
+ * @param {number} [paperWidthMm=80]
+ * @param {{ viaNetwork?: boolean }} [opts] — mismo criterio que `thermalEffectiveCharsPerLine`
  */
-function getThermalGdiFontPx() {
+function getThermalGdiFontPx(paperWidthMm = 80, opts = {}) {
   const dup = Number(thermalLayout.gdiFontDuplicateFactor);
   const mult = Number.isFinite(dup) && dup > 0 ? Math.min(4, dup) : 2;
   const base = 11;
   const s = getThermalDisplayFontScale();
-  return Math.max(11, Math.min(36, Math.round(base * mult * s)));
+  let px = Math.max(11, Math.min(36, Math.round(base * mult * s)));
+  const pw = Number(paperWidthMm);
+  if (!Number.isFinite(pw) || pw <= 0) return px;
+  const refPaper = 50;
+  const refChars = thermalEffectiveCharsPerLine(refPaper, opts);
+  const charsHere = thermalEffectiveCharsPerLine(pw, opts);
+  const scale = (refChars / Math.max(8, charsHere)) * (pw / refPaper);
+  px = Math.round(px * scale);
+  return Math.max(9, Math.min(36, px));
 }
 
 function computeEscposMagnificationFactors() {

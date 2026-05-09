@@ -286,7 +286,7 @@ function escPosBufferToHtmlSafeText(buffer) {
     .replace(/>/g, '&gt;');
 }
 
-function printUSB(printerName, buffer) {
+function printUSB(printerName, buffer, paperWidthMm = 80) {
   if (printerLib && typeof printerLib.printDirect === 'function') {
     return new Promise((resolve, reject) => {
       try {
@@ -305,9 +305,17 @@ function printUSB(printerName, buffer) {
   const win = mainWindow || BrowserWindow.getAllWindows()[0];
   if (!win) throw new Error('no hay ventana principal para imprimir');
   return new Promise((resolve, reject) => {
+    const paperMm = (() => {
+      const n = Number(paperWidthMm);
+      if (n === 50 || n === 58 || n === 75 || n === 80) return n;
+      if (Number.isFinite(n) && n > 0) return Math.min(80, Math.max(50, Math.round(n)));
+      return 80;
+    })();
     const safeText = escPosBufferToHtmlSafeText(buffer) || '—';
-    const fontPx = getThermalGdiFontPx();
-    const html = `<!DOCTYPE html><meta charset="utf-8"><style>body{margin:0;padding:0;-webkit-print-color-adjust:exact}pre{font-family:Consolas,'Courier New',monospace;white-space:pre-wrap;margin:0;padding:0;font-size:${fontPx}px!important;font-weight:500;line-height:1.2;text-align:left;width:100%;box-sizing:border-box}</style><pre>${safeText}</pre>`;
+    const fontPx = getThermalGdiFontPx(paperMm, { viaNetwork: false });
+    /** Micrómetros (1 mm = 1000) para `pageSize`; ancho = rollo configurado. */
+    const pageW = Math.round(paperMm * 1000);
+    const html = `<!DOCTYPE html><meta charset="utf-8"><style>@page{margin:0}html,body{margin:0;padding:0;-webkit-print-color-adjust:exact}body{width:${paperMm}mm;max-width:${paperMm}mm;margin:0 auto;box-sizing:border-box}pre{font-family:Consolas,'Courier New',monospace;white-space:pre-wrap;margin:0;padding:0;font-size:${fontPx}px!important;font-weight:500;line-height:1.2;text-align:left;width:100%;box-sizing:border-box}</style><pre>${safeText}</pre>`;
     const printWin = new BrowserWindow({
       show: false,
       webPreferences: { offscreen: true },
@@ -335,7 +343,13 @@ function printUSB(printerName, buffer) {
     });
     printWin.webContents.on('did-finish-load', () => {
       printWin.webContents.print(
-        { silent: true, deviceName: printerName, printBackground: false },
+        {
+          silent: true,
+          deviceName: printerName,
+          printBackground: false,
+          margins: { marginType: 'none' },
+          pageSize: { width: pageW, height: 297000 },
+        },
         (success, failureReason) => {
           cleanup(tmpHtml);
           if (!success) {
@@ -383,7 +397,7 @@ async function printByModule(moduleKey, payload = {}) {
   if (cfg.tipo === 'usb') {
     if (!cfg.nombre) throw new Error(`impresora USB no configurada en ${key}`);
     console.log(`[electron-printing] imprimir ${key} usb (Electron driver): ${cfg.nombre}`);
-    return printUSB(cfg.nombre, ticket);
+    return printUSB(cfg.nombre, ticket, pw);
   }
   if (!isValidIp(cfg.ip)) throw new Error(`IP inválida en ${key}`);
   console.log(`[electron-printing] imprimir ${key} red: ${cfg.ip}:${cfg.puerto}`);

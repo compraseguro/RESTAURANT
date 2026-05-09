@@ -93,7 +93,12 @@ export default function BackgroundKitchenAutoPrinter() {
           printedAt: new Date(),
           orderType: fullOrder?.type || 'dine_in',
         });
-        await api.printing.post('/printing/print/cocina', { text, preformatted: true });
+        await api.printing.post('/printing/print/cocina', {
+          text,
+          preformatted: true,
+          paperWidth: paperC,
+          anchoPapel: paperC,
+        });
       }
       if (cfg?.bar?.autoPrint && barItems.length > 0) {
         const text = buildPedidoMesaTicketPlainText({
@@ -106,7 +111,12 @@ export default function BackgroundKitchenAutoPrinter() {
           printedAt: new Date(),
           orderType: fullOrder?.type || 'dine_in',
         });
-        await api.printing.post('/printing/print/bar', { text, preformatted: true });
+        await api.printing.post('/printing/print/bar', {
+          text,
+          preformatted: true,
+          paperWidth: paperB,
+          anchoPapel: paperB,
+        });
       }
     } catch (err) {
       console.warn('[printing] auto background cocina/bar:', err?.message || err);
