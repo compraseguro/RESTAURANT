@@ -36,23 +36,6 @@ function charsPerLine(paperWidth) {
   return Number(cl['80']) || 48;
 }
 
-function center(text, width) {
-  const value = String(text || '').trim();
-  const w = Math.max(1, Number(width) || 1);
-  if (!value) return `${' '.repeat(w)}\n`;
-  /** Vista térmica monoespaciada: la línea debe tener exactamente `w` caracteres (relleno izq + texto + der). */
-  let vis = value.length > w ? value.slice(0, w) : value;
-  if (vis.length >= w) return `${vis}\n`;
-  const pad = w - vis.length;
-  const left = Math.floor(pad / 2);
-  const right = pad - left;
-  return `${' '.repeat(left)}${vis}${' '.repeat(right)}\n`;
-}
-
-function sep(width) {
-  return `${'-'.repeat(width)}\n`;
-}
-
 function wrapLine(text, width) {
   const raw = String(text || '').trim();
   if (!raw) return [''];
@@ -198,36 +181,49 @@ async function buildTicket(moduleName, data = {}, options = {}) {
     return Buffer.concat(chunks);
   }
 
-  const body = [];
-  const header =
+  /**
+   * Prueba de impresión / tickets sin preformatted: mismo criterio que preformatted —
+   * ESC a 1 y líneas SIN relleno de espacios. center()+ESC a 1 «recentra» y desplaza todo a la derecha.
+   */
+  const lineArr = [];
+  const addLine = (s) => {
+    const t = escPosAsciiLine(String(s ?? '').trim());
+    if (t) lineArr.push(t);
+  };
+
+  const headerRaw =
     String(data.restaurantHeader || data.restaurantName || 'RESTAURANTE').trim() || 'RESTAURANTE';
-  body.push(center(header.toUpperCase(), width));
-  if (data.title) body.push(center(String(data.title).toUpperCase(), width));
-  if (data.mesa) body.push(...wrapLine(`Mesa: ${data.mesa}`, width).map((v) => `${v}\n`));
-  if (data.orderNumber != null) {
-    body.push(...wrapLine(`Pedido: #${data.orderNumber}`, width).map((v) => `${v}\n`));
+  addLine(headerRaw.toUpperCase());
+  if (data.title) addLine(String(data.title).toUpperCase());
+  if (data.mesa) {
+    wrapLine(`Mesa: ${data.mesa}`, width).forEach((ln) => addLine(ln));
   }
-  body.push(sep(width));
+  if (data.orderNumber != null) {
+    wrapLine(`Pedido: #${data.orderNumber}`, width).forEach((ln) => addLine(ln));
+  }
+  lineArr.push('-'.repeat(width));
 
   const items = Array.isArray(data.items) ? data.items : [];
   items.forEach((item) => {
     const qty = Number(item.quantity || item.qty || 0);
     const name = String(item.product_name || item.name || '').trim() || 'Producto';
-    wrapLine(`${qty || 1} ${name}`, width).forEach((line) => body.push(`${line}\n`));
+    wrapLine(`${qty || 1} ${name}`, width).forEach((ln) => addLine(ln));
   });
 
   if (items.length === 0 && data.text) {
     String(data.text)
       .split('\n')
-      .forEach((part) => wrapLine(part, width).forEach((line) => body.push(`${line}\n`)));
+      .forEach((part) => wrapLine(part, width).forEach((ln) => addLine(ln)));
   }
 
-  body.push('\n');
-  body.push(sep(width));
+  lineArr.push('');
+  lineArr.push('-'.repeat(width));
+
+  const bodyStr = `${lineArr.map((ln) => `${ln}\n`).join('')}\n`;
 
   return Buffer.concat([
     Buffer.from('\x1B\x40\x1B\x74\x02\x1B\x52\x00\x1B\x20\x00\x1B\x61\x01', 'binary'),
-    Buffer.from(body.join(''), 'utf8'),
+    Buffer.from(bodyStr, 'latin1'),
     Buffer.from('\x1B\x61\x00\n\n\x1D\x56\x41', 'binary'),
   ]);
 }
