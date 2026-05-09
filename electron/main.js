@@ -270,6 +270,12 @@ function escPosBufferToHtmlSafeText(buffer) {
   let s = Buffer.from(buffer || []).toString('latin1');
   /** Comando ESC @ (init): si queda en el flujo, la impresión GDI suele mostrar «@». Quitar todas las apariciones en vista texto. */
   s = s.replace(/\x1B\x40/g, '');
+  /** ESC a n (alineación): si solo se borra 0x1B, queda «a» impreso. */
+  s = s.replace(/\x1B\x61[\x00-\x02]/g, '');
+  /** GS ! n (tamaño carácter). */
+  s = s.replace(/\x1D\x21[\x00-\xFF]/g, '');
+  /** Otros ESC + un byte de comando (evita letras sueltas). */
+  s = s.replace(/\x1B[\x20-\x7F]/g, '');
   /** Corte GS V (p. ej. \\x1D\\x56\\x41): bytes imprimibles quedan como «VA». */
   s = s.replace(/[\r\n\x1A]*\x1D\x56[\x00\x01\x30\x31\x41][\s\S]*$/g, '');
   s = s.replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '');

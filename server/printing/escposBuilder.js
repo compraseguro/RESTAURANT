@@ -33,6 +33,22 @@ function charsPerLine(paperWidth, options = {}) {
   return thermalEffectiveCharsPerLine(paperWidth, options);
 }
 
+/**
+ * Líneas ya maquetadas por el cliente (espacios laterales importan). Sin `.trim()`;
+ * si pasan de `width`, se parte en trozos fijos (no word-wrap).
+ */
+function wrapPreformattedPhysicalLine(line, width) {
+  const raw = String(line ?? '').replace(/\r/g, '');
+  const w = Math.max(1, Number(width) || 1);
+  if (!raw) return [''];
+  if (raw.length <= w) return [raw];
+  const out = [];
+  for (let i = 0; i < raw.length; i += w) {
+    out.push(raw.slice(i, i + w));
+  }
+  return out;
+}
+
 function wrapLine(text, width) {
   const raw = String(text || '').trim();
   if (!raw) return [''];
@@ -84,6 +100,19 @@ function centerLine(text, w) {
   return `${' '.repeat(left)}${vis}${' '.repeat(right)}\n`;
 }
 
+/**
+ * Texto preformateado del cliente (ya centrado / tabulado). Sin `.trim()` para no romper espacios.
+ * Solo ASCII térmico y ancho fijo `w` (mismo que `thermalCharWidth`).
+ */
+function preformattedLineOut(line, w) {
+  const width = Math.max(1, Number(w) || 1);
+  const raw = String(line ?? '').replace(/\r/g, '');
+  const value = escPosAsciiLine(raw);
+  let vis = value.length > width ? value.slice(0, width) : value;
+  if (vis.length < width) vis += ' '.repeat(width - vis.length);
+  return `${vis}\n`;
+}
+
 /** Reinicio + alineación izquierda (sin tamaño; el GS ! va tras el logo si hay). */
 const INIT_LEFT = Buffer.from('\x1B\x40\x1B\x61\x00', 'binary');
 const CUT_PARTIAL = Buffer.from('\x1D\x56\x41', 'binary');
@@ -108,16 +137,14 @@ function tailAfterBody() {
 async function buildTicket(moduleName, data = {}, options = {}) {
   const paperW = Number(data.paperWidth) || Number(options.paperWidth) || 80;
   const width = charsPerLine(paperW, options);
-  const inset = paperW <= 58 ? 2 : paperW <= 75 ? 4 : 5;
-  const contentWidth = Math.min(width, Math.max(8, width - inset));
 
   const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
   if (data.preformatted && cleanedPreformatted) {
     const parts = [];
     cleanedPreformatted.split('\n').forEach((rawPart) => {
-      wrapLine(rawPart, contentWidth).forEach((line) => {
-        const row = centerLine(line, width);
-        parts.push(Buffer.from(row, 'latin1'));
+      /** Conservar espacios de centrado/inset del cliente (`wrapLine` hace trim y desplaza el bloque). */
+      wrapPreformattedPhysicalLine(rawPart, width).forEach((line) => {
+        parts.push(Buffer.from(preformattedLineOut(line, width), 'latin1'));
       });
     });
     parts.push(Buffer.from('\n', 'latin1'));
