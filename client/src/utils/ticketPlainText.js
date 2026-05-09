@@ -3,10 +3,7 @@
 import { formatDateTime, formatPeDateTimeParts, labelDeliveryPaymentModality } from './api';
 import thermalLayout from '@thermalPrintLayout';
 
-function getEscposMagnificationFromLayout() {
-  if (thermalLayout.useEscposCharacterMagnify !== true) {
-    return { width: 1, height: 1 };
-  }
+function computeEscposFactorsFromLayout() {
   const ex = thermalLayout.escposMagnification;
   if (ex && typeof ex === 'object') {
     return {
@@ -19,6 +16,17 @@ function getEscposMagnificationFromLayout() {
     const k = Math.min(8, Math.max(1, Math.round(s)));
     if (k <= 1) return { width: 1, height: 1 };
     return { width: k, height: k };
+  }
+  return { width: 1, height: 1 };
+}
+
+/** Misma lógica que el servidor: texto estrecho si hay GS en red o magnify global. */
+function getEscposMagnificationFromLayout() {
+  if (thermalLayout.useEscposCharacterMagnify === true) {
+    return computeEscposFactorsFromLayout();
+  }
+  if (thermalLayout.useEscposCharacterMagnifyNetwork !== false) {
+    return computeEscposFactorsFromLayout();
   }
   return { width: 1, height: 1 };
 }

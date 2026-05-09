@@ -19,14 +19,7 @@ function getThermalGdiFontPx() {
   return Math.max(18, Math.min(72, Math.round(base * mult * s)));
 }
 
-/**
- * Factores de tamaño de carácter ESC/POS (Epson: GS ! n).
- * Solo si `useEscposCharacterMagnify: true` (red térmica RAW); si no, 1× para no romper impresoras ni el fallback GDI.
- */
-function getEscposMagnification() {
-  if (thermalLayout.useEscposCharacterMagnify !== true) {
-    return { width: 1, height: 1 };
-  }
+function computeEscposMagnificationFactors() {
   const ex = thermalLayout.escposMagnification;
   if (ex && typeof ex === 'object') {
     return {
@@ -43,6 +36,28 @@ function getEscposMagnification() {
   return { width: 1, height: 1 };
 }
 
+/**
+ * @param {{ viaNetwork?: boolean }} opts — `viaNetwork: true` = impresora por IP:9100 (RAW).
+ */
+function shouldApplyEscposCharacterMagnify(opts = {}) {
+  if (thermalLayout.useEscposCharacterMagnify === true) return true;
+  if (opts.viaNetwork === true && thermalLayout.useEscposCharacterMagnifyNetwork !== false) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Factores GS ! (Epson). En red suele ser RAW real; en USB GDI no se usan (se ve solo texto).
+ * @param {{ viaNetwork?: boolean }} opts
+ */
+function getEscposMagnification(opts = {}) {
+  if (!shouldApplyEscposCharacterMagnify(opts)) {
+    return { width: 1, height: 1 };
+  }
+  return computeEscposMagnificationFactors();
+}
+
 function thermalBaseCharsPerLine(widthMm) {
   const n = Number(widthMm);
   const cl = thermalLayout.charsPerLine;
@@ -52,10 +67,10 @@ function thermalBaseCharsPerLine(widthMm) {
   return Number(cl['80']) || 48;
 }
 
-/** Columnas por línea teniendo en cuenta GS ! ancho (cada carácter ocupa `width` veces el ancho normal). */
-function thermalEffectiveCharsPerLine(widthMm) {
+/** Columnas por línea según GS ! ancho (mismo criterio en cliente y servidor). */
+function thermalEffectiveCharsPerLine(widthMm, opts = {}) {
   const base = thermalBaseCharsPerLine(widthMm);
-  const { width: mw } = getEscposMagnification();
+  const { width: mw } = getEscposMagnification(opts);
   const m = Math.max(1, mw);
   return Math.max(8, Math.floor(base / m));
 }
@@ -73,6 +88,7 @@ const GS_BANG_NORMAL = Buffer.from([0x1d, 0x21, 0x00]);
 
 module.exports = {
   getEscposMagnification,
+  shouldApplyEscposCharacterMagnify,
   getThermalDisplayFontScale,
   getThermalGdiFontPx,
   thermalBaseCharsPerLine,

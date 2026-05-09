@@ -8,7 +8,7 @@ const thermalLayout = require('./thermalPrintLayout.json');
 const { thermalEffectiveCharsPerLine } = require('./thermalMagnify');
 
 function thermalCharWidth(widthMm) {
-  return thermalEffectiveCharsPerLine(widthMm);
+  return thermalEffectiveCharsPerLine(widthMm, { viaNetwork: true });
 }
 
 function thermalInnerWidth(widthMm) {

@@ -1,8 +1,9 @@
 {
-  "revision": "thermal-v20-gdi-font-double-scale2",
+  "revision": "thermal-v21-network-escpos-match-gdi",
   "fontSizeScale": 2,
   "gdiFontDuplicateFactor": 2,
   "useEscposCharacterMagnify": false,
+  "useEscposCharacterMagnifyNetwork": true,
   "charsPerLine": {
     "58": 32,
     "75": 42,

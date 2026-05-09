@@ -1484,7 +1484,7 @@ export default function Settings() {
                 {getThermalPrintRevision()} · web {typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '—'}
               </p>
               <p className="mt-2 text-amber-900/90 leading-snug">
-                El texto del ticket (precuenta) sale del sitio en la nube (Vercel), no solo del .exe. Si imprimes y el papel sigue como antes pero aquí NO ves la revisión térmica actual (p. ej. <strong>thermal-v20-gdi-font-double-scale2</strong>), el navegador usa JS viejo:
+                El texto del ticket (precuenta) sale del sitio en la nube (Vercel), no solo del .exe. Si imprimes y el papel sigue como antes pero aquí NO ves la revisión térmica actual (p. ej. <strong>thermal-v21-network-escpos-match-gdi</strong>), el navegador usa JS viejo:
                 prueba <kbd className="px-1 bg-white rounded border border-amber-300">Ctrl+Shift+R</kbd>, borrar datos del sitio para tu dominio Vercel, o Chrome → F12 → pestaña <strong>Application</strong> → <strong>Service Workers</strong> → <strong>Unregister</strong>, y recarga.
               </p>
             </div>

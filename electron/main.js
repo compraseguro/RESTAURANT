@@ -11,9 +11,10 @@ const { getThermalGdiFontPx } = require('../server/printing/thermalMagnify');
 try {
   const tl = require('../server/printing/thermalPrintLayout.json');
   const { getEscposMagnification } = require('../server/printing/thermalMagnify');
-  const mag = getEscposMagnification();
+  const magRed = getEscposMagnification({ viaNetwork: true });
+  const magUsb = getEscposMagnification({ viaNetwork: false });
   console.log(
-    `[electron] Ticket térmico ${tl.revision} · base ${tl.charsPerLine['80']} cols (80 mm) · GS ${mag.width}×${mag.height}`,
+    `[electron] Ticket térmico ${tl.revision} · base ${tl.charsPerLine['80']} cols (80 mm) · GS red ${magRed.width}×${magRed.height} · usb ${magUsb.width}×${magUsb.height}`,
   );
 } catch (e) {
   console.warn('[electron] thermalPrintLayout:', e.message);
@@ -349,7 +350,8 @@ async function printByModule(moduleKey, payload = {}) {
     Number(cfg.paperWidth) ||
     Number(cfg.anchoPapel) ||
     80;
-  const ticket = await buildTicket(key, { ...payload, paperWidth: pw }, { paperWidth: pw });
+  const viaNetwork = cfg.tipo !== 'usb';
+  const ticket = await buildTicket(key, { ...payload, paperWidth: pw }, { paperWidth: pw, viaNetwork });
   if (cfg.tipo === 'usb') {
     if (!cfg.nombre) throw new Error(`impresora USB no configurada en ${key}`);
     console.log(`[electron-printing] imprimir ${key} usb (Electron driver): ${cfg.nombre}`);

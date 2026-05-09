@@ -29,8 +29,8 @@ function stripDebugLinesFromPreformattedText(raw) {
     .join('\n');
 }
 
-function charsPerLine(paperWidth) {
-  return thermalEffectiveCharsPerLine(paperWidth);
+function charsPerLine(paperWidth, options = {}) {
+  return thermalEffectiveCharsPerLine(paperWidth, options);
 }
 
 function wrapLine(text, width) {
@@ -88,8 +88,9 @@ function centerLine(text, w) {
 const INIT_LEFT = Buffer.from('\x1B\x40\x1B\x61\x00', 'binary');
 const CUT_PARTIAL = Buffer.from('\x1D\x56\x41', 'binary');
 
-function magnifyStartBuffer() {
-  const { width: mw, height: mh } = getEscposMagnification();
+function magnifyStartBuffer(options = {}) {
+  const viaNetwork = options.viaNetwork === true;
+  const { width: mw, height: mh } = getEscposMagnification({ viaNetwork });
   const mag = gsBangMagnificationBuffer(mw, mh);
   return mag || Buffer.alloc(0);
 }
@@ -101,12 +102,12 @@ function tailAfterBody() {
 /**
  * @param {string} moduleName
  * @param {object} data
- * @param {object} options — { paperWidth: 58|80 }
+ * @param {object} options — { paperWidth: 58|80, viaNetwork?: boolean }
  * @returns {Promise<Buffer>}
  */
 async function buildTicket(moduleName, data = {}, options = {}) {
   const paperW = Number(data.paperWidth) || Number(options.paperWidth) || 80;
-  const width = charsPerLine(paperW);
+  const width = charsPerLine(paperW, options);
   const inset = paperW <= 58 ? 2 : paperW <= 75 ? 4 : 5;
   const contentWidth = Math.min(width, Math.max(8, width - inset));
 
@@ -137,7 +138,7 @@ async function buildTicket(moduleName, data = {}, options = {}) {
       }
     }
 
-    const magBuf = magnifyStartBuffer();
+    const magBuf = magnifyStartBuffer(options);
     if (magBuf.length) chunks.push(magBuf);
 
     chunks.push(body);
@@ -179,7 +180,7 @@ async function buildTicket(moduleName, data = {}, options = {}) {
 
   const body = Buffer.concat(bodyParts);
 
-  const magBuf = magnifyStartBuffer();
+  const magBuf = magnifyStartBuffer(options);
   const head = magBuf.length ? Buffer.concat([INIT_LEFT, magBuf]) : INIT_LEFT;
   return Buffer.concat([head, body, tailAfterBody()]);
 }

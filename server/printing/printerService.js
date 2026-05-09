@@ -128,7 +128,8 @@ async function print(moduleName, data = {}) {
     Number(moduleCfg.anchoPapel) ||
     Number(moduleCfg.paperWidth) ||
     80;
-  const ticket = await buildTicket(moduleKey, { ...data, paperWidth: pw }, { paperWidth: pw });
+  const viaNetwork = moduleCfg.tipo !== 'usb';
+  const ticket = await buildTicket(moduleKey, { ...data, paperWidth: pw }, { paperWidth: pw, viaNetwork });
   const target = moduleCfg.tipo === 'usb'
     ? moduleCfg.nombre
     : `${moduleCfg.ip}:${moduleCfg.puerto}`;
