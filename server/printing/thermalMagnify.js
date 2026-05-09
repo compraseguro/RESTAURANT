@@ -8,6 +8,18 @@ function getThermalDisplayFontScale() {
 }
 
 /**
+ * Tamaño del <pre> en impresión USB vía GDI (texto sin bytes ESC/POS).
+ * Base 11 px × factor duplicado (pedido explícito) × `fontSizeScale` del JSON.
+ */
+function getThermalGdiFontPx() {
+  const dup = Number(thermalLayout.gdiFontDuplicateFactor);
+  const mult = Number.isFinite(dup) && dup > 0 ? Math.min(4, dup) : 2;
+  const base = 11;
+  const s = getThermalDisplayFontScale();
+  return Math.max(18, Math.min(72, Math.round(base * mult * s)));
+}
+
+/**
  * Factores de tamaño de carácter ESC/POS (Epson: GS ! n).
  * Solo si `useEscposCharacterMagnify: true` (red térmica RAW); si no, 1× para no romper impresoras ni el fallback GDI.
  */
@@ -62,6 +74,7 @@ const GS_BANG_NORMAL = Buffer.from([0x1d, 0x21, 0x00]);
 module.exports = {
   getEscposMagnification,
   getThermalDisplayFontScale,
+  getThermalGdiFontPx,
   thermalBaseCharsPerLine,
   thermalEffectiveCharsPerLine,
   gsBangMagnificationBuffer,
