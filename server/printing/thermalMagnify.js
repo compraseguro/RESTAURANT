@@ -1,10 +1,20 @@
 const thermalLayout = require('./thermalPrintLayout.json');
 
+/** Escala solo visual en impresión USB por GDI (fallback sin módulo RAW «printer»). */
+function getThermalDisplayFontScale() {
+  const s = Number(thermalLayout.fontSizeScale);
+  if (!Number.isFinite(s) || s < 1) return 1;
+  return Math.min(3, s);
+}
+
 /**
  * Factores de tamaño de carácter ESC/POS (Epson: GS ! n).
- * No existe 1,5× estándar; `fontSizeScale: 1.5` → redondeo a 2 en ancho y alto.
+ * Solo si `useEscposCharacterMagnify: true` (red térmica RAW); si no, 1× para no romper impresoras ni el fallback GDI.
  */
 function getEscposMagnification() {
+  if (thermalLayout.useEscposCharacterMagnify !== true) {
+    return { width: 1, height: 1 };
+  }
   const ex = thermalLayout.escposMagnification;
   if (ex && typeof ex === 'object') {
     return {
@@ -51,6 +61,7 @@ const GS_BANG_NORMAL = Buffer.from([0x1d, 0x21, 0x00]);
 
 module.exports = {
   getEscposMagnification,
+  getThermalDisplayFontScale,
   thermalBaseCharsPerLine,
   thermalEffectiveCharsPerLine,
   gsBangMagnificationBuffer,

@@ -1,6 +1,7 @@
 {
-  "revision": "thermal-v18-fontscale-15-escpos-gs-bang",
+  "revision": "thermal-v19-gdi-fontscale-escpos-magnify-optin",
   "fontSizeScale": 1.5,
+  "useEscposCharacterMagnify": false,
   "charsPerLine": {
     "58": 32,
     "75": 42,

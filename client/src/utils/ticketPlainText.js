@@ -4,6 +4,9 @@ import { formatDateTime, formatPeDateTimeParts, labelDeliveryPaymentModality } f
 import thermalLayout from '@thermalPrintLayout';
 
 function getEscposMagnificationFromLayout() {
+  if (thermalLayout.useEscposCharacterMagnify !== true) {
+    return { width: 1, height: 1 };
+  }
   const ex = thermalLayout.escposMagnification;
   if (ex && typeof ex === 'object') {
     return {
@@ -173,19 +176,28 @@ export function restaurantDisplayNameUpper(restaurant = {}) {
 }
 
 function columnProductDims(contentW) {
-  const inner = Math.max(20, Number(contentW) || 32);
+  const inner = Math.max(16, Number(contentW) || 32);
   const qW = 4;
-  /** uW/tW deben albergar «P. unit.» (8) y «Total»/importes sin desbordar la línea útil. */
-  const uW = inner <= 32 ? 6 : 8;
-  const tW = inner <= 32 ? 6 : 8;
-  let nameW = inner - qW - uW - tW - 3;
+  const spacesBetween = 3;
+  const fixed = qW + spacesBetween;
+  let uW = inner <= 32 ? 6 : 8;
+  let tW = inner <= 32 ? 6 : 8;
+  let nameW = inner - fixed - uW - tW;
   if (nameW < 8) {
     nameW = 8;
-    const rem = inner - nameW - qW - 3;
-    const u2 = Math.min(uW, Math.max(5, Math.floor(rem / 2)));
-    const t2 = rem - u2;
-    return { nameW, qW, uW: u2, tW: Math.max(5, t2), w: inner };
+    const rem2 = inner - nameW - fixed;
+    tW = Math.min(8, Math.max(4, Math.ceil(rem2 / 2)));
+    uW = rem2 - tW;
+    if (uW < 4) {
+      uW = 4;
+      tW = Math.max(4, rem2 - uW);
+    }
+    if (tW < 4) {
+      tW = 4;
+      uW = Math.max(4, rem2 - tW);
+    }
   }
+  nameW = Math.max(4, inner - fixed - uW - tW);
   return { nameW, qW, uW, tW, w: inner };
 }
 

@@ -107,7 +107,8 @@ function tailAfterBody() {
 async function buildTicket(moduleName, data = {}, options = {}) {
   const paperW = Number(data.paperWidth) || Number(options.paperWidth) || 80;
   const width = charsPerLine(paperW);
-  const contentWidth = Math.max(24, width - (paperW <= 58 ? 2 : paperW <= 75 ? 4 : 5));
+  const inset = paperW <= 58 ? 2 : paperW <= 75 ? 4 : 5;
+  const contentWidth = Math.min(width, Math.max(8, width - inset));
 
   const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
   if (data.preformatted && cleanedPreformatted) {

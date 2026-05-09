@@ -6,6 +6,7 @@ const express = require('express');
 const cors = require('cors');
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification } = require('electron');
 const { buildTicket } = require('../server/printing/escposBuilder');
+const { getThermalDisplayFontScale } = require('../server/printing/thermalMagnify');
 
 try {
   const tl = require('../server/printing/thermalPrintLayout.json');
@@ -297,7 +298,8 @@ function printUSB(printerName, buffer) {
   if (!win) throw new Error('no hay ventana principal para imprimir');
   return new Promise((resolve, reject) => {
     const safeText = escPosBufferToHtmlSafeText(buffer) || '—';
-    const html = `<!DOCTYPE html><meta charset="utf-8"><style>body{margin:0;padding:0}pre{font-family:Consolas,'Courier New',monospace;white-space:pre;margin:0;padding:0;font-size:11px;text-align:left;width:100%;box-sizing:border-box}</style><pre>${safeText}</pre>`;
+    const fontPx = Math.max(9, Math.round(11 * getThermalDisplayFontScale()));
+    const html = `<!DOCTYPE html><meta charset="utf-8"><style>body{margin:0;padding:0}pre{font-family:Consolas,'Courier New',monospace;white-space:pre;margin:0;padding:0;font-size:${fontPx}px;text-align:left;width:100%;box-sizing:border-box}</style><pre>${safeText}</pre>`;
     const printWin = new BrowserWindow({
       show: false,
       webPreferences: { offscreen: true },
