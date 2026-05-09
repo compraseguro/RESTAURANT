@@ -38,10 +38,15 @@ function charsPerLine(paperWidth) {
 
 function center(text, width) {
   const value = String(text || '').trim();
-  if (!value) return '\n';
-  if (value.length >= width) return `${value}\n`;
-  const left = Math.floor((width - value.length) / 2);
-  return `${' '.repeat(left)}${value}\n`;
+  const w = Math.max(1, Number(width) || 1);
+  if (!value) return `${' '.repeat(w)}\n`;
+  /** Vista térmica monoespaciada: la línea debe tener exactamente `w` caracteres (relleno izq + texto + der). */
+  let vis = value.length > w ? value.slice(0, w) : value;
+  if (vis.length >= w) return `${vis}\n`;
+  const pad = w - vis.length;
+  const left = Math.floor(pad / 2);
+  const right = pad - left;
+  return `${' '.repeat(left)}${vis}${' '.repeat(right)}\n`;
 }
 
 function sep(width) {
@@ -74,15 +79,24 @@ function wrapLine(text, width) {
   return out.length ? out : [''];
 }
 
+/** Sin acentos en bytes: las térmicas en modo ESC/POS suelen usar página única; UTF-8 puede imprimir basura. */
+function escPosAsciiLine(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/…/g, '...')
+    .replace(/[^\x20-\x7E]/g, '?');
+}
+
 /** Títulos / cabeceras: doble alto y ancho + centrado hardware (ESC a 1, ESC ! 0x30). */
 function encodeEmphasizedLine(text, paperWidthChars) {
-  const t = String(text || '').trim();
-  if (!t) return Buffer.from('\n', 'utf8');
+  const t = escPosAsciiLine(String(text || '').trim());
+  if (!t) return Buffer.from('\n', 'latin1');
   const maxChars = Math.max(8, Math.floor(Number(paperWidthChars) / 2));
-  const slice = t.length > maxChars ? `${t.slice(0, maxChars - 1)}…` : t;
+  const slice = t.length > maxChars ? `${t.slice(0, maxChars - 1)}...` : t;
   return Buffer.concat([
     Buffer.from('\x1B\x61\x01\x1B!\x30', 'binary'),
-    Buffer.from(`${slice}\n`, 'utf8'),
+    Buffer.from(`${slice}\n`, 'latin1'),
     Buffer.from('\x1B!\x00\x1B\x61\x00', 'binary'),
   ]);
 }

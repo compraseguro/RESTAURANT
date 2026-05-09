@@ -91,10 +91,13 @@ export function padLeftRight(left, right, width) {
 export function centerThermalLine(text, width) {
   const w = Math.max(8, Number(width) || defaultThermalPrintWidthChars());
   const s = String(text || '').trim();
-  if (!s) return '';
-  if (s.length >= w) return s.slice(0, w);
-  const pad = Math.floor((w - s.length) / 2);
-  return `${' '.repeat(pad)}${s}`;
+  if (!s) return ' '.repeat(w);
+  const core = s.length > w ? s.slice(0, w) : s;
+  if (core.length >= w) return core.slice(0, w);
+  const pad = w - core.length;
+  const left = Math.floor(pad / 2);
+  const right = pad - left;
+  return `${' '.repeat(left)}${core}${' '.repeat(right)}`;
 }
 
 /** Quita pies que no deben imprimirse (p. ej. «Modulo: caja»). */
@@ -220,7 +223,7 @@ export function buildRestaurantTicketHeaderLines(restaurant = {}, widthMm = 80) 
   const lines = [];
   lines.push(centerThermalLine(brand.toUpperCase(), w));
   if (legal) {
-    for (const seg of wrapThermalLine(`Razón social: ${legal}`, inner)) lines.push(centerThermalLine(seg, w));
+    for (const seg of wrapThermalLine(`Razon social: ${legal}`, inner)) lines.push(centerThermalLine(seg, w));
   }
   if (ruc) lines.push(centerThermalLine(`RUC: ${ruc}`.slice(0, inner), w));
   if (addr) {
@@ -510,7 +513,8 @@ export function buildNotaVentaPlainText({
     }
   }
 
-  lines.push(padLeftRight('Método de pago:', paymentMethodDisplayLabel(paymentMethod), w));
+  /** ASCII: muchas térmicas en raw no interpretan UTF-8 (p. ej. 'Método' → 'Mtdo'). */
+  lines.push(padLeftRight('Metodo de pago:', paymentMethodDisplayLabel(paymentMethod), w));
 
   lines.push(sep);
   pushProductTableSection(lines, groupedRows, formatCurrencyFn, widthMm);
@@ -571,7 +575,8 @@ export function buildBoletaFacturaPlainText({
     }
     if (cDoc) lines.push(centerThermalLine(`Doc: ${cDoc}`, w));
   }
-  lines.push(padLeftRight('Método de pago:', paymentMethodDisplayLabel(paymentMethod), w));
+  /** ASCII: muchas térmicas en raw no interpretan UTF-8 (p. ej. 'Método' → 'Mtdo'). */
+  lines.push(padLeftRight('Metodo de pago:', paymentMethodDisplayLabel(paymentMethod), w));
   lines.push(sep);
   pushProductTableSection(lines, groupedRows, formatCurrencyFn, widthMm);
   lines.push(sep);
@@ -589,7 +594,7 @@ export function buildBoletaFacturaPlainText({
     lines.push(centerThermalLine('Estado: aceptada (ver PDF/XML en sistema)', w));
   }
   lines.push(sep);
-  lines.push(centerThermalLine('Representación impresa. Conserve su comprobante.', w));
+  lines.push(centerThermalLine('Representacion impresa. Conserve su comprobante.', w));
   lines.push(centerThermalLine('GRACIAS POR SU PREFERENCIA', w));
   lines.push('');
   return stripThermalDebugFooter(lines.join('\n'));

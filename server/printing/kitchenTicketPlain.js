@@ -47,10 +47,13 @@ function centerThermalLine(text, width) {
   const fallback = Number(thermalLayout.charsPerLine['80']) || 54;
   const w = Math.max(8, Number(width) || fallback);
   const s = String(text || '').trim();
-  if (!s) return '';
-  if (s.length >= w) return s.slice(0, w);
-  const pad = Math.floor((w - s.length) / 2);
-  return `${' '.repeat(pad)}${s}`;
+  if (!s) return ' '.repeat(w);
+  const core = s.length > w ? s.slice(0, w) : s;
+  if (core.length >= w) return core.slice(0, w);
+  const pad = w - core.length;
+  const left = Math.floor(pad / 2);
+  const right = pad - left;
+  return `${' '.repeat(left)}${core}${' '.repeat(right)}`;
 }
 
 function wrapThermalLine(text, maxLen) {
