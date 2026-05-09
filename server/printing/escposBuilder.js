@@ -30,10 +30,10 @@ function stripDebugLinesFromPreformattedText(raw) {
 function charsPerLine(paperWidth) {
   const n = Number(paperWidth);
   const cl = thermalLayout.charsPerLine;
-  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 54;
+  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 48;
   if (n <= 58) return Number(cl['58']) || 32;
   if (n <= 75) return Number(cl['75']) || 42;
-  return Number(cl['80']) || 54;
+  return Number(cl['80']) || 48;
 }
 
 function center(text, width) {
@@ -183,7 +183,12 @@ async function buildTicket(moduleName, data = {}, options = {}) {
      * El texto ya viene centrado con espacios en ancho fijo (`center()`); si además se envía ESC a 1,
      * muchas térmicas «recentran» la línea y el ticket parece descuadrado.
      */
-    const chunks = [Buffer.from('\x1B\x40', 'binary')];
+    /**
+     * Inicialización compatible con la mayoría de térmicas 80 mm:
+     * ESC @ reinicio; ESC t 2 tabla PC850; ESC R 0 juego USA; ESC SP 0 sin espacio extra a la derecha del carácter.
+     * 48 columnas (no 54) evita que el bloque “se salga” y parezca corrido a la derecha en Font A.
+     */
+    const chunks = [Buffer.from('\x1B\x40\x1B\x74\x02\x1B\x52\x00\x1B\x20\x00', 'binary')];
 
     const logoUrl = data.logoUrl || data.logo;
     if (logoUrl) {
@@ -230,7 +235,7 @@ async function buildTicket(moduleName, data = {}, options = {}) {
   body.push(sep(width));
 
   return Buffer.concat([
-    Buffer.from('\x1B\x40\x1B\x61\x01', 'binary'),
+    Buffer.from('\x1B\x40\x1B\x74\x02\x1B\x52\x00\x1B\x20\x00\x1B\x61\x01', 'binary'),
     Buffer.from(body.join(''), 'utf8'),
     Buffer.from('\x1B\x61\x00\n\n\x1D\x56\x41', 'binary'),
   ]);

@@ -9,10 +9,10 @@ const thermalLayout = require('./thermalPrintLayout.json');
 function thermalCharWidth(widthMm) {
   const n = Number(widthMm);
   const cl = thermalLayout.charsPerLine;
-  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 54;
+  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 48;
   if (n <= 58) return Number(cl['58']) || 32;
   if (n <= 75) return Number(cl['75']) || 42;
-  return Number(cl['80']) || 54;
+  return Number(cl['80']) || 48;
 }
 
 function thermalInnerWidth(widthMm) {
@@ -32,7 +32,7 @@ function insetSeparator(widthMm) {
 }
 
 function padLeftRight(left, right, width) {
-  const fallback = Number(thermalLayout.charsPerLine['80']) || 54;
+  const fallback = Number(thermalLayout.charsPerLine['80']) || 48;
   const w = Math.max(8, Number(width) || fallback);
   const L = String(left ?? '');
   const R = String(right ?? '');
@@ -44,7 +44,7 @@ function padLeftRight(left, right, width) {
 }
 
 function centerThermalLine(text, width) {
-  const fallback = Number(thermalLayout.charsPerLine['80']) || 54;
+  const fallback = Number(thermalLayout.charsPerLine['80']) || 48;
   const w = Math.max(8, Number(width) || fallback);
   const s = String(text || '').trim();
   if (!s) return ' '.repeat(w);

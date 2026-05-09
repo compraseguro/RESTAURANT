@@ -1,8 +1,8 @@
 {
-  "revision": "thermal-v12-unified-modules-double-height",
+  "revision": "thermal-v13-80mm-48cols",
   "charsPerLine": {
     "58": 32,
     "75": 42,
-    "80": 54
+    "80": 48
   }
 }

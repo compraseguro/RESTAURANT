@@ -4,7 +4,7 @@ import { formatDateTime, formatPeDateTimeParts, labelDeliveryPaymentModality } f
 import thermalLayout from '@thermalPrintLayout';
 
 function defaultThermalPrintWidthChars() {
-  return Number(thermalLayout.charsPerLine['80']) || 54;
+  return Number(thermalLayout.charsPerLine['80']) || 48;
 }
 
 /** Indica si el bundle JS actual incluye el layout térmico (diagnosticar caché de Vercel/navegador). */
@@ -37,10 +37,10 @@ export function thermalPaperMetrics(widthMm) {
 export function thermalCharWidth(widthMm) {
   const n = Number(widthMm);
   const cl = thermalLayout.charsPerLine;
-  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 54;
+  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 48;
   if (n <= 58) return Number(cl['58']) || 32;
   if (n <= 75) return Number(cl['75']) || 42;
-  return Number(cl['80']) || 54;
+  return Number(cl['80']) || 48;
 }
 
 /**
