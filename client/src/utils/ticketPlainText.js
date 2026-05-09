@@ -727,7 +727,7 @@ export function buildPedidoMesaTicketPlainText({
   lines.push(sep);
   lines.push(padLeftRight('PEDIDO', takeout ? 'PARA LLEVAR' : '', w));
   if (orderNumber !== '' && orderNumber != null) {
-    lines.push(padLeftRight(`Nº pedido`, `#${orderNumber}`, w));
+    lines.push(padLeftRight('Nro:', `#${orderNumber}`, w));
   }
   lines.push(sep);
 
