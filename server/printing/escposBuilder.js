@@ -8,9 +8,7 @@ function stripDebugLinesFromPreformattedText(raw) {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .trim();
-  /** Cualquier «modulo: xxx» pegado o en línea (builds antiguos / drivers). */
   s = s.replace(/\s*m[oó]dulo\s*:\s*[a-záéíóúñ0-9_-]+\b/gi, '');
-  /** Fecha/hora tipo inglés que suele ir tras ese pie */
   s = s.replace(/\n\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[ap]\.?\s*m\.?\s*$/i, '');
   return s
     .split('\n')
@@ -26,7 +24,6 @@ function stripDebugLinesFromPreformattedText(raw) {
     .join('\n');
 }
 
-/** Misma tabla que `thermalPrintLayout.json` y `thermalCharWidth()` en el cliente. */
 function charsPerLine(paperWidth) {
   const n = Number(paperWidth);
   const cl = thermalLayout.charsPerLine;
@@ -62,7 +59,7 @@ function wrapLine(text, width) {
   return out.length ? out : [''];
 }
 
-/** Sin acentos en bytes: las térmicas en modo ESC/POS suelen usar página única; UTF-8 puede imprimir basura. */
+/** ASCII imprimible para bytes que muchas térmicas tratan como texto plano. */
 function escPosAsciiLine(s) {
   return String(s || '')
     .normalize('NFD')
@@ -72,56 +69,27 @@ function escPosAsciiLine(s) {
 }
 
 /**
- * Títulos: doble alto (ESC ! 0x10). Debe enviarse con ESC a 1 (centrar) ya activo en la impresora.
- * No alternar ESC a 0 aquí: antes se dejaba en izquierda y el ticket salía corrido.
+ * Centrado solo con espacios, línea exactamente `w` caracteres.
+ * Con ESC a 0 (izquierda) la impresora no «re-centra» y no sale corrido.
  */
-function encodeEmphasizedLine(text, paperWidthChars) {
-  const t = escPosAsciiLine(String(text || '').trim());
-  if (!t) return Buffer.from('\n', 'latin1');
-  const maxChars = Math.max(10, Number(paperWidthChars) || 42);
-  const slice = t.length > maxChars ? `${t.slice(0, maxChars - 3)}...` : t;
-  return Buffer.concat([
-    Buffer.from('\x1B!\x10', 'binary'),
-    Buffer.from(`${slice}\n`, 'latin1'),
-    Buffer.from('\x1B!\x00', 'binary'),
-  ]);
+function centerLine(text, w) {
+  const value = escPosAsciiLine(String(text || '').trim());
+  const width = Math.max(1, Number(w) || 1);
+  if (!value) return `${' '.repeat(width)}\n`;
+  let vis = value.length > width ? value.slice(0, width) : value;
+  if (vis.length >= width) return `${vis}\n`;
+  const pad = width - vis.length;
+  const left = Math.floor(pad / 2);
+  const right = pad - left;
+  return `${' '.repeat(left)}${vis}${' '.repeat(right)}\n`;
 }
 
-function shouldEmphasizeThermalLine(trimmed, moduleKey) {
-  const t = String(trimmed || '').trim();
-  if (!t) return false;
-  const k = String(moduleKey || '').toLowerCase();
-  if (k === 'cocina' || k === 'bar') {
-    if (/^MESA\s/i.test(t)) return true;
-    if (/^DELIVERY$/i.test(t)) return true;
-    if (/^RECOJO$/i.test(t)) return true;
-    if (/^PEDIDO/i.test(t)) return true;
-    return false;
-  }
-  if (/^PRE\s*CUENTA$/i.test(t)) return true;
-  if (/^NOTA\s+DE\s+VENTA$/i.test(t)) return true;
-  if (/^PRODUCTOS$/i.test(t)) return true;
-  if (/^BOLETA\s+DE\s+VENTA/i.test(t)) return true;
-  if (/^FACTURA\s+ELECTR/i.test(t)) return true;
-  if (/^DATOS\s+DEL\s+CLIENTE$/i.test(t)) return true;
-  if (/^GRACIAS\s+POR\s+SU\s+PREFERENCIA$/i.test(t)) return true;
-  if (/^Nº\s+/i.test(t)) return true;
-  /** Nombre comercial / razón en mayúsculas (cabecera), sin filas de dos columnas ni montos. */
-  if (
-    t.length >= 4 &&
-    t.length <= 38 &&
-    t === t.toUpperCase() &&
-    !/^(SUBTOTAL|TOTAL|DESCUENTO|FECHA|HORA|MESA|MOZO|CLIENTE|DOC|DIR|TEL|MÉTODO|METHOD|IMPORTE|OP\.|IGV|HASH|REPRESENTACIÓN|RUC|RAZ|DIRECCI|CORREO|TEL:)/i.test(t) &&
-    !/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(t) &&
-    !/S\/?\s*\d/.test(t) &&
-    !/^-{3,}/.test(t) &&
-    /^[A-ZÁÉÍÓÚÑ0-9 .,'&\-]+$/u.test(t)
-  ) {
-    if (/\s{3,}/.test(t)) return false;
-    return true;
-  }
-  return false;
-}
+/**
+ * Mínimo ESC/POS: muchas impresoras / drivers en «texto» imprimen ESC t, ESC !, ESC a como caracteres basura.
+ * Solo: reinicio, alineación izquierda, texto (centrado por espacios), corte.
+ */
+const INIT_LEFT = Buffer.from('\x1B\x40\x1B\x61\x00', 'binary');
+const CUT_PARTIAL = Buffer.from('\x1D\x56\x41', 'binary');
 
 /**
  * @param {string} moduleName
@@ -132,100 +100,73 @@ function shouldEmphasizeThermalLine(trimmed, moduleKey) {
 async function buildTicket(moduleName, data = {}, options = {}) {
   const paperW = Number(data.paperWidth) || Number(options.paperWidth) || 80;
   const width = charsPerLine(paperW);
-  const key = String(moduleName || '').toLowerCase();
-  /**
-   * Mismo ancho útil en caja / cocina / bar para que el texto y las tablas ocupen todo el rollo configurado.
-   */
   const contentWidth = Math.max(24, width - (paperW <= 58 ? 2 : 4));
 
-  /**
-   * Cuerpo preformateado: centrado por HARDWARE (ESC a 1), sin rellenar con espacios en servidor.
-   * Antes: ESC a 0 + líneas con espacios → la térmica imprimía desde la izquierda y sobraba “marco” falso.
-   */
   const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
   if (data.preformatted && cleanedPreformatted) {
     const parts = [];
     cleanedPreformatted.split('\n').forEach((rawPart) => {
       wrapLine(rawPart, contentWidth).forEach((line) => {
-        const trimmed = String(line || '').trim();
-        if (!trimmed) {
-          parts.push(Buffer.from('\n', 'utf8'));
-          return;
-        }
-        if (shouldEmphasizeThermalLine(trimmed, key)) {
-          parts.push(encodeEmphasizedLine(trimmed, width));
-        } else {
-          parts.push(Buffer.from(`${trimmed}\n`, 'utf8'));
-        }
+        const row = centerLine(line, width);
+        parts.push(Buffer.from(row, 'latin1'));
       });
     });
-    parts.push(Buffer.from('\n', 'utf8'));
+    parts.push(Buffer.from('\n', 'latin1'));
     const body = Buffer.concat(parts);
 
-    const chunks = [Buffer.from('\x1B\x40\x1B\x74\x02\x1B\x52\x00\x1B\x20\x00', 'binary')];
+    const chunks = [INIT_LEFT];
 
     const logoUrl = data.logoUrl || data.logo;
-    if (logoUrl) {
+    const skipLogo = data.skipThermalLogo === true || String(process.env.RESTO_THERMAL_NO_LOGO || '') === '1';
+    if (logoUrl && !skipLogo) {
       const raster = await logoToEscPosRaster(String(logoUrl).trim(), paperW);
       if (raster && raster.length) {
-        chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
         chunks.push(raster);
-        chunks.push(Buffer.from('\n', 'binary'));
+        chunks.push(Buffer.from('\n', 'latin1'));
       }
     }
 
-    chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
     chunks.push(body);
-    chunks.push(Buffer.from('\x1B\x61\x00\n', 'binary'));
-    chunks.push(Buffer.from('\x1D\x56\x41', 'binary'));
+    chunks.push(Buffer.from('\n', 'latin1'));
+    chunks.push(CUT_PARTIAL);
     return Buffer.concat(chunks);
   }
 
-  /**
-   * Prueba de impresión / tickets sin preformatted: mismo criterio que preformatted —
-   * ESC a 1 y líneas SIN relleno de espacios. center()+ESC a 1 «recentra» y desplaza todo a la derecha.
-   */
-  const lineArr = [];
-  const addLine = (s) => {
-    const t = escPosAsciiLine(String(s ?? '').trim());
-    if (t) lineArr.push(t);
+  const bodyParts = [];
+  const pushCentered = (raw) => {
+    wrapLine(raw, width).forEach((ln) => {
+      bodyParts.push(Buffer.from(centerLine(ln, width), 'latin1'));
+    });
   };
 
   const headerRaw =
     String(data.restaurantHeader || data.restaurantName || 'RESTAURANTE').trim() || 'RESTAURANTE';
-  addLine(headerRaw.toUpperCase());
-  if (data.title) addLine(String(data.title).toUpperCase());
-  if (data.mesa) {
-    wrapLine(`Mesa: ${data.mesa}`, width).forEach((ln) => addLine(ln));
-  }
-  if (data.orderNumber != null) {
-    wrapLine(`Pedido: #${data.orderNumber}`, width).forEach((ln) => addLine(ln));
-  }
-  lineArr.push('-'.repeat(width));
+  pushCentered(headerRaw.toUpperCase());
+  if (data.title) pushCentered(String(data.title).toUpperCase());
+  if (data.mesa) pushCentered(`Mesa: ${data.mesa}`);
+  if (data.orderNumber != null) pushCentered(`Pedido: #${data.orderNumber}`);
+  bodyParts.push(Buffer.from(centerLine('-'.repeat(width), width), 'latin1'));
 
   const items = Array.isArray(data.items) ? data.items : [];
   items.forEach((item) => {
     const qty = Number(item.quantity || item.qty || 0);
     const name = String(item.product_name || item.name || '').trim() || 'Producto';
-    wrapLine(`${qty || 1} ${name}`, width).forEach((ln) => addLine(ln));
+    pushCentered(`${qty || 1} ${name}`);
   });
 
   if (items.length === 0 && data.text) {
     String(data.text)
       .split('\n')
-      .forEach((part) => wrapLine(part, width).forEach((ln) => addLine(ln)));
+      .forEach((part) => pushCentered(part));
   }
 
-  lineArr.push('');
-  lineArr.push('-'.repeat(width));
+  bodyParts.push(Buffer.from('\n', 'latin1'));
+  bodyParts.push(Buffer.from(centerLine('-'.repeat(width), width), 'latin1'));
+  bodyParts.push(Buffer.from('\n', 'latin1'));
 
-  const bodyStr = `${lineArr.map((ln) => `${ln}\n`).join('')}\n`;
+  const body = Buffer.concat(bodyParts);
 
-  return Buffer.concat([
-    Buffer.from('\x1B\x40\x1B\x74\x02\x1B\x52\x00\x1B\x20\x00\x1B\x61\x01', 'binary'),
-    Buffer.from(bodyStr, 'latin1'),
-    Buffer.from('\x1B\x61\x00\n\n\x1D\x56\x41', 'binary'),
-  ]);
+  return Buffer.concat([INIT_LEFT, body, CUT_PARTIAL]);
 }
 
 module.exports = { buildTicket, charsPerLine };

@@ -1,5 +1,5 @@
 {
-  "revision": "thermal-v15-test-print-no-double-center",
+  "revision": "thermal-v16-text-only-esc-minimal",
   "charsPerLine": {
     "58": 32,
     "75": 42,
