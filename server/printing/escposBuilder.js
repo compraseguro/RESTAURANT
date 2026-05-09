@@ -129,8 +129,11 @@ function magnifyStartBuffer(options = {}) {
   return mag || Buffer.alloc(0);
 }
 
+/** Avance antes del corte para que el último renglón no quede pegado al borde del papel. */
+const FEED_BEFORE_CUT = Buffer.from('\n\n\n\n\n', 'latin1');
+
 function tailAfterBody() {
-  return Buffer.concat([Buffer.from('\n', 'latin1'), GS_BANG_NORMAL, CUT_PARTIAL]);
+  return Buffer.concat([FEED_BEFORE_CUT, GS_BANG_NORMAL, CUT_PARTIAL]);
 }
 
 /**
@@ -143,7 +146,8 @@ async function buildTicket(moduleName, data = {}, options = {}) {
   const paperW = Number(data.paperWidth) || Number(options.paperWidth) || 80;
   const width = charsPerLine(paperW, options);
 
-  const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
+  /** Sin `.trim()` global: borra espacios de centrado de la 1.ª línea. */
+  const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text ?? ''));
   if (data.preformatted && cleanedPreformatted) {
     const parts = [];
     cleanedPreformatted.split('\n').forEach((rawPart) => {
@@ -157,12 +161,21 @@ async function buildTicket(moduleName, data = {}, options = {}) {
 
     const chunks = [INIT_LEFT];
 
+    const modKey = String(moduleName || '').toLowerCase();
     const logoUrl = data.logoUrl || data.logo;
     const skipLogo = data.skipThermalLogo === true || String(process.env.RESTO_THERMAL_NO_LOGO || '') === '1';
-    /** Logo raster = bytes binarios; en drivers «texto» sale basura. Solo con opt-in o RESTO_THERMAL_LOGO=1. */
+    /**
+     * Caja (precuenta, nota, boleta/factura): logo por defecto si hay URL.
+     * Raster no se incrusta si `omitRasterForGdi` (Electron imprime `<img>` en HTML).
+     */
     const wantLogo =
-      data.includeThermalLogo === true || String(process.env.RESTO_THERMAL_LOGO || '') === '1';
-    if (logoUrl && wantLogo && !skipLogo) {
+      Boolean(logoUrl) &&
+      !skipLogo &&
+      (data.includeThermalLogo === true ||
+        (data.includeThermalLogo !== false && modKey === 'caja') ||
+        String(process.env.RESTO_THERMAL_LOGO || '') === '1');
+    const embedRaster = wantLogo && !data.omitRasterForGdi;
+    if (embedRaster) {
       const raster = await logoToEscPosRaster(String(logoUrl).trim(), paperW);
       if (raster && raster.length) {
         chunks.push(raster);

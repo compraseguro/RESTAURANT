@@ -22,6 +22,7 @@ import {
   buildBoletaFacturaPlainText,
   getThermalPrintRevision,
   normalizeThermalPaperWidthMm,
+  restaurantThermalBrandLine,
 } from '../../utils/ticketPlainText';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import {
@@ -828,6 +829,7 @@ export default function POSPanel() {
       text: textForPrint,
       preformatted: true,
       logoUrl: String(printRestaurantInfo.logo || '').trim() || undefined,
+      restaurantBrand: restaurantThermalBrandLine(printRestaurantInfo) || undefined,
       paperWidth: cajaPaperWidthMm,
     });
     if (r.ok) toast.success('Acción completada');
@@ -1157,6 +1159,7 @@ export default function POSPanel() {
               text: plain,
               preformatted: true,
               logoUrl,
+              restaurantBrand: restaurantThermalBrandLine(printRestaurantInfo) || undefined,
               paperWidth: pw,
             });
             if (!r.ok) toast.error(r.error || 'No se pudo imprimir comprobante SUNAT');
@@ -1707,6 +1710,7 @@ export default function POSPanel() {
       text: plain,
       preformatted: true,
       logoUrl: String(printRestaurantInfo.logo || '').trim() || undefined,
+      restaurantBrand: restaurantThermalBrandLine(printRestaurantInfo) || undefined,
       paperWidth: widthMm,
     });
     if (r.ok) {
@@ -1751,6 +1755,7 @@ export default function POSPanel() {
       text: plain,
       preformatted: true,
       logoUrl: String(printRestaurantInfo.logo || '').trim() || undefined,
+      restaurantBrand: restaurantThermalBrandLine(printRestaurantInfo) || undefined,
       paperWidth: widthMm,
     });
     if (r.ok) {
@@ -1934,6 +1939,7 @@ export default function POSPanel() {
       text: plain,
       preformatted: true,
       logoUrl: String(printRestaurantInfo.logo || '').trim() || undefined,
+      restaurantBrand: restaurantThermalBrandLine(printRestaurantInfo) || undefined,
       paperWidth: widthMm,
     });
     if (r.ok) toast.success('Acción completada');

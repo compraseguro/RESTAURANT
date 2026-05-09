@@ -520,6 +520,16 @@ export function buildKitchenTicketPlainText({
   return blocks.join('\n');
 }
 
+/** Marca en mayúsculas para banner térmico / payload GDI (debe coincidir con la 1.ª línea centrada del ticket). */
+export function restaurantThermalBrandLine(restaurant = {}) {
+  const tradeRaw = String(
+    restaurant?.billing_nombre_comercial || restaurant?.name || '',
+  )
+    .trim()
+    .replace(/^@+\s*/u, '');
+  return tradeRaw ? tradeRaw.toUpperCase() : '';
+}
+
 /** Texto plano para precuenta de caja. */
 /** Precuenta: «PARA LLEVAR» no se imprime aquí (solo en comanda cocina/bar). */
 export function buildPrecuentaPlainText({
@@ -539,15 +549,8 @@ export function buildPrecuentaPlainText({
   const inner = thermalInnerWidth(widthMm);
   const sep = insetSeparator(widthMm);
   const lines = [];
-  /**
-   * Cabecera texto: nombre grande. Logo raster solo si el cliente envía `includeThermalLogo: true` (modo RAW).
-   */
-  const tradeRaw = String(
-    restaurant?.billing_nombre_comercial || restaurant?.name || '',
-  )
-    .trim()
-    .replace(/^@+\s*/u, '');
-  const trade = tradeRaw ? tradeRaw.toUpperCase() : '';
+  /** Cabecera: nombre centrado; logo lo añade el servidor (caja) o GDI en Electron con `logoUrl`. */
+  const trade = restaurantThermalBrandLine(restaurant);
   if (trade) {
     lines.push(centerThermalLine(trade, w));
     const addr =

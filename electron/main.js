@@ -7,6 +7,7 @@ const cors = require('cors');
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification } = require('electron');
 const { buildTicket } = require('../server/printing/escposBuilder');
 const { getThermalGdiFontPx } = require('../server/printing/thermalMagnify');
+const thermalPrintLayoutJson = require('../server/printing/thermalPrintLayout.json');
 
 try {
   const tl = require('../server/printing/thermalPrintLayout.json');
@@ -266,27 +267,50 @@ function getNetworkPrintersFromWindows() {
   });
 }
 
-function escPosBufferToHtmlSafeText(buffer) {
+function bufferToThermalPlain(buffer) {
   let s = Buffer.from(buffer || []).toString('latin1');
-  /** Comando ESC @ (init): si queda en el flujo, la impresión GDI suele mostrar «@». Quitar todas las apariciones en vista texto. */
   s = s.replace(/\x1B\x40/g, '');
-  /** ESC a n (alineación): si solo se borra 0x1B, queda «a» impreso. */
   s = s.replace(/\x1B\x61[\x00-\x02]/g, '');
-  /** GS ! n (tamaño carácter). */
   s = s.replace(/\x1D\x21[\x00-\xFF]/g, '');
-  /** Otros ESC + un byte de comando (evita letras sueltas). */
   s = s.replace(/\x1B[\x20-\x7F]/g, '');
-  /** Corte GS V (p. ej. \\x1D\\x56\\x41): bytes imprimibles quedan como «VA». */
   s = s.replace(/[\r\n\x1A]*\x1D\x56[\x00\x01\x30\x31\x41][\s\S]*$/g, '');
   s = s.replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '');
   s = s.replace(/\n{3,}/g, '\n\n').trimEnd();
-  return s
+  return s;
+}
+
+function escapeHtmlPre(plain) {
+  return String(plain || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
 
-function printUSB(printerName, buffer, paperWidthMm = 80) {
+function compactThermalLine(s) {
+  return String(s || '').replace(/\s+/g, '').toUpperCase();
+}
+
+/** Quita la 1.ª línea si coincide con la marca (centrada con espacios) para repetirla como banner grande. */
+function splitBrandFromThermalPlain(plain, brandRaw) {
+  const brand = String(brandRaw || '').trim();
+  if (!brand || !plain) return { banner: '', body: plain };
+  const lines = plain.split(/\n/);
+  if (!lines.length) return { banner: brand.toUpperCase(), body: plain };
+  if (compactThermalLine(lines[0]) !== compactThermalLine(brand)) {
+    return { banner: '', body: plain };
+  }
+  lines.shift();
+  return { banner: brand.toUpperCase(), body: lines.join('\n') };
+}
+
+function escapeHtmlAttr(u) {
+  return String(u || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function printUSB(printerName, buffer, paperWidthMm = 80, gdiOpts = {}) {
   if (printerLib && typeof printerLib.printDirect === 'function') {
     return new Promise((resolve, reject) => {
       try {
@@ -311,11 +335,26 @@ function printUSB(printerName, buffer, paperWidthMm = 80) {
       if (Number.isFinite(n) && n > 0) return Math.min(80, Math.max(50, Math.round(n)));
       return 80;
     })();
-    const safeText = escPosBufferToHtmlSafeText(buffer) || '—';
+    const logoUrl = String(gdiOpts.logoUrl || '').trim();
+    const restaurantBrand = String(gdiOpts.restaurantBrand || '').trim();
+    const plain = bufferToThermalPlain(buffer);
+    const { banner, body } = splitBrandFromThermalPlain(plain, restaurantBrand);
+    const safeBody = escapeHtmlPre(body.length ? body : '—');
     const fontPx = getThermalGdiFontPx(paperMm, { viaNetwork: false });
+    const brandScale = Number(thermalPrintLayoutJson.gdiBrandFontScale);
+    const brandMult =
+      Number.isFinite(brandScale) && brandScale > 1 ? Math.min(2.25, brandScale) : 1.38;
+    const brandPx = Math.min(42, Math.round(fontPx * brandMult));
     /** Micrómetros (1 mm = 1000) para `pageSize`; ancho = rollo configurado. */
     const pageW = Math.round(paperMm * 1000);
-    const html = `<!DOCTYPE html><meta charset="utf-8"><style>@page{margin:0}html,body{margin:0;padding:0;-webkit-print-color-adjust:exact;overflow:visible}body{width:${paperMm}mm;max-width:${paperMm}mm;margin:0 auto;box-sizing:border-box;overflow:visible}pre{font-family:Consolas,'Courier New',monospace;white-space:pre!important;word-break:keep-all;overflow-wrap:normal;margin:0;padding:0;font-size:${fontPx}px!important;font-weight:500;line-height:1.2;text-align:left;width:100%;box-sizing:border-box;overflow:visible}</style><pre>${safeText}</pre>`;
+    const logoBlock = logoUrl
+      ? `<div style="text-align:center;margin:0 auto 5px"><img src="${escapeHtmlAttr(logoUrl)}" alt="" style="max-width:100%;max-height:24mm;object-fit:contain"/></div>`
+      : '';
+    const brandBlock = banner
+      ? `<div style="text-align:center;font-weight:700;font-size:${brandPx}px;line-height:1.2;margin:0 auto 6px;padding:0;font-family:Consolas,'Courier New',monospace">${escapeHtmlPre(banner)}</div>`
+      : '';
+    const footSpacer = '<div style="height:8mm" aria-hidden="true"></div>';
+    const html = `<!DOCTYPE html><meta charset="utf-8"><style>@page{margin:0}html,body{margin:0;padding:0;-webkit-print-color-adjust:exact;overflow:visible}body{width:${paperMm}mm;max-width:${paperMm}mm;margin:0 auto;box-sizing:border-box;overflow:visible}pre{font-family:Consolas,'Courier New',monospace;white-space:pre!important;word-break:keep-all;overflow-wrap:normal;margin:0;padding:0;font-size:${fontPx}px!important;font-weight:500;line-height:1.2;text-align:left;width:100%;box-sizing:border-box;overflow:visible}</style>${logoBlock}${brandBlock}<pre>${safeBody}</pre>${footSpacer}`;
     const printWin = new BrowserWindow({
       show: false,
       webPreferences: { offscreen: true },
@@ -393,11 +432,20 @@ async function printByModule(moduleKey, payload = {}) {
     Number(cfg.anchoPapel) ||
     80;
   const viaNetwork = cfg.tipo !== 'usb';
-  const ticket = await buildTicket(key, { ...payload, paperWidth: pw }, { paperWidth: pw, viaNetwork });
+  const useGdiUsbFallback =
+    cfg.tipo === 'usb' && (!printerLib || typeof printerLib.printDirect !== 'function');
+  const ticket = await buildTicket(
+    key,
+    { ...payload, paperWidth: pw, omitRasterForGdi: useGdiUsbFallback },
+    { paperWidth: pw, viaNetwork },
+  );
   if (cfg.tipo === 'usb') {
     if (!cfg.nombre) throw new Error(`impresora USB no configurada en ${key}`);
     console.log(`[electron-printing] imprimir ${key} usb (Electron driver): ${cfg.nombre}`);
-    return printUSB(cfg.nombre, ticket, pw);
+    return printUSB(cfg.nombre, ticket, pw, {
+      logoUrl: useGdiUsbFallback ? String(payload.logoUrl || payload.logo || '').trim() : '',
+      restaurantBrand: String(payload.restaurantBrand || '').trim(),
+    });
   }
   if (!isValidIp(cfg.ip)) throw new Error(`IP inválida en ${key}`);
   console.log(`[electron-printing] imprimir ${key} red: ${cfg.ip}:${cfg.puerto}`);

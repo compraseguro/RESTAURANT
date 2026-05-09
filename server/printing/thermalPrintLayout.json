@@ -1,7 +1,8 @@
 {
-  "revision": "thermal-v29-precuenta-center-trimend",
+  "revision": "thermal-v30-caja-logo-brand-gdi",
   "fontSizeScale": 1.25,
   "gdiFontDuplicateFactor": 1,
+  "gdiBrandFontScale": 1.38,
   "gdiPrintFitFudge": 0.84,
   "useEscposCharacterMagnify": false,
   "useEscposCharacterMagnifyNetwork": false,
