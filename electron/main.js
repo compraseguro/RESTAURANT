@@ -9,7 +9,11 @@ const { buildTicket } = require('../server/printing/escposBuilder');
 
 try {
   const tl = require('../server/printing/thermalPrintLayout.json');
-  console.log(`[electron] Ticket térmico ${tl.revision} · ${tl.charsPerLine['80']} columnas (80 mm)`);
+  const { getEscposMagnification } = require('../server/printing/thermalMagnify');
+  const mag = getEscposMagnification();
+  console.log(
+    `[electron] Ticket térmico ${tl.revision} · base ${tl.charsPerLine['80']} cols (80 mm) · GS ${mag.width}×${mag.height}`,
+  );
 } catch (e) {
   console.warn('[electron] thermalPrintLayout:', e.message);
 }

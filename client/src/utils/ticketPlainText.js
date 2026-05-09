@@ -3,8 +3,25 @@
 import { formatDateTime, formatPeDateTimeParts, labelDeliveryPaymentModality } from './api';
 import thermalLayout from '@thermalPrintLayout';
 
+function getEscposMagnificationFromLayout() {
+  const ex = thermalLayout.escposMagnification;
+  if (ex && typeof ex === 'object') {
+    return {
+      width: Math.max(1, Math.min(8, Number(ex.width) || 1)),
+      height: Math.max(1, Math.min(8, Number(ex.height) || 1)),
+    };
+  }
+  const s = Number(thermalLayout.fontSizeScale);
+  if (Number.isFinite(s) && s > 1) {
+    const k = Math.min(8, Math.max(1, Math.round(s)));
+    if (k <= 1) return { width: 1, height: 1 };
+    return { width: k, height: k };
+  }
+  return { width: 1, height: 1 };
+}
+
 function defaultThermalPrintWidthChars() {
-  return Number(thermalLayout.charsPerLine['80']) || 48;
+  return thermalCharWidth(80);
 }
 
 /** Indica si el bundle JS actual incluye el layout térmico (diagnosticar caché de Vercel/navegador). */
@@ -26,21 +43,28 @@ export function thermalPaperMetrics(widthMm) {
   const medium = n > 58 && n <= 75;
   const wideChars = thermalCharWidth(widthMm);
   return {
-    clip: narrow ? 32 : medium ? 38 : 42,
+    clip: narrow ? 32 : medium ? Math.min(38, wideChars + 6) : wideChars,
     itemLine: narrow ? 32 : wideChars,
-    nameInQtyRow: narrow ? 24 : medium ? 30 : 34,
-    phoneClip: narrow ? 24 : medium ? 28 : 32,
+    nameInQtyRow: narrow ? 24 : medium ? Math.min(30, wideChars - 4) : Math.min(34, Math.max(8, wideChars - 6)),
+    phoneClip: narrow ? 24 : medium ? Math.min(28, wideChars - 2) : Math.min(32, Math.max(8, wideChars - 4)),
   };
 }
 
-/** Ancho en caracteres (misma fuente que `server/printing/thermalPrintLayout.json` + escposBuilder). */
+/**
+ * Ancho en caracteres para maquetar el texto (tras `GS !` ancho, caben menos columnas por línea).
+ * Debe coincidir con `thermalEffectiveCharsPerLine` en el servidor.
+ */
 export function thermalCharWidth(widthMm) {
   const n = Number(widthMm);
   const cl = thermalLayout.charsPerLine;
-  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 48;
-  if (n <= 58) return Number(cl['58']) || 32;
-  if (n <= 75) return Number(cl['75']) || 42;
-  return Number(cl['80']) || 48;
+  let base;
+  if (!Number.isFinite(n) || n <= 0) base = Number(cl['80']) || 48;
+  else if (n <= 58) base = Number(cl['58']) || 32;
+  else if (n <= 75) base = Number(cl['75']) || 42;
+  else base = Number(cl['80']) || 48;
+  const { width: mw } = getEscposMagnificationFromLayout();
+  const m = Math.max(1, mw);
+  return Math.max(8, Math.floor(base / m));
 }
 
 /**

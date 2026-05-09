@@ -1,5 +1,6 @@
 {
-  "revision": "thermal-v17-table-width-no-logo-default",
+  "revision": "thermal-v18-fontscale-15-escpos-gs-bang",
+  "fontSizeScale": 1.5,
   "charsPerLine": {
     "58": 32,
     "75": 42,

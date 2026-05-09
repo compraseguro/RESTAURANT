@@ -5,14 +5,10 @@
 
 const KITCHEN_TAKEOUT_NOTE = 'PARA LLEVAR';
 const thermalLayout = require('./thermalPrintLayout.json');
+const { thermalEffectiveCharsPerLine } = require('./thermalMagnify');
 
 function thermalCharWidth(widthMm) {
-  const n = Number(widthMm);
-  const cl = thermalLayout.charsPerLine;
-  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 48;
-  if (n <= 58) return Number(cl['58']) || 32;
-  if (n <= 75) return Number(cl['75']) || 42;
-  return Number(cl['80']) || 48;
+  return thermalEffectiveCharsPerLine(widthMm);
 }
 
 function thermalInnerWidth(widthMm) {

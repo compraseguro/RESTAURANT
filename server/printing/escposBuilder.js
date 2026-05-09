@@ -1,5 +1,10 @@
 const { logoToEscPosRaster } = require('./thermalLogo');
-const thermalLayout = require('./thermalPrintLayout.json');
+const {
+  getEscposMagnification,
+  thermalEffectiveCharsPerLine,
+  gsBangMagnificationBuffer,
+  GS_BANG_NORMAL,
+} = require('./thermalMagnify');
 
 /** Quita pies de depuración que no deben salir en papel (p. ej. «Modulo: caja»). */
 function stripDebugLinesFromPreformattedText(raw) {
@@ -25,12 +30,7 @@ function stripDebugLinesFromPreformattedText(raw) {
 }
 
 function charsPerLine(paperWidth) {
-  const n = Number(paperWidth);
-  const cl = thermalLayout.charsPerLine;
-  if (!Number.isFinite(n) || n <= 0) return Number(cl['80']) || 48;
-  if (n <= 58) return Number(cl['58']) || 32;
-  if (n <= 75) return Number(cl['75']) || 42;
-  return Number(cl['80']) || 48;
+  return thermalEffectiveCharsPerLine(paperWidth);
 }
 
 function wrapLine(text, width) {
@@ -84,12 +84,19 @@ function centerLine(text, w) {
   return `${' '.repeat(left)}${vis}${' '.repeat(right)}\n`;
 }
 
-/**
- * Mínimo ESC/POS: muchas impresoras / drivers en «texto» imprimen ESC t, ESC !, ESC a como caracteres basura.
- * Solo: reinicio, alineación izquierda, texto (centrado por espacios), corte.
- */
+/** Reinicio + alineación izquierda (sin tamaño; el GS ! va tras el logo si hay). */
 const INIT_LEFT = Buffer.from('\x1B\x40\x1B\x61\x00', 'binary');
 const CUT_PARTIAL = Buffer.from('\x1D\x56\x41', 'binary');
+
+function magnifyStartBuffer() {
+  const { width: mw, height: mh } = getEscposMagnification();
+  const mag = gsBangMagnificationBuffer(mw, mh);
+  return mag || Buffer.alloc(0);
+}
+
+function tailAfterBody() {
+  return Buffer.concat([Buffer.from('\n', 'latin1'), GS_BANG_NORMAL, CUT_PARTIAL]);
+}
 
 /**
  * @param {string} moduleName
@@ -129,9 +136,11 @@ async function buildTicket(moduleName, data = {}, options = {}) {
       }
     }
 
+    const magBuf = magnifyStartBuffer();
+    if (magBuf.length) chunks.push(magBuf);
+
     chunks.push(body);
-    chunks.push(Buffer.from('\n', 'latin1'));
-    chunks.push(CUT_PARTIAL);
+    chunks.push(tailAfterBody());
     return Buffer.concat(chunks);
   }
 
@@ -169,7 +178,9 @@ async function buildTicket(moduleName, data = {}, options = {}) {
 
   const body = Buffer.concat(bodyParts);
 
-  return Buffer.concat([INIT_LEFT, body, CUT_PARTIAL]);
+  const magBuf = magnifyStartBuffer();
+  const head = magBuf.length ? Buffer.concat([INIT_LEFT, magBuf]) : INIT_LEFT;
+  return Buffer.concat([head, body, tailAfterBody()]);
 }
 
 module.exports = { buildTicket, charsPerLine };
