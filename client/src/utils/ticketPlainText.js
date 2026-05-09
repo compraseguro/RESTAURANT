@@ -201,7 +201,8 @@ export function stripThermalDebugFooter(text) {
     .normalize('NFKC')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
-    .trim();
+    /** Solo final: `.trim()` comía espacios del inicio de la 1.ª línea y descentraba nombre/cabecera. */
+    .trimEnd();
   s = s.replace(/\s*m[oó]dulo\s*:\s*[a-záéíóúñ0-9_-]+\b/gi, '');
   s = s.replace(/\n\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[ap]\.?\s*m\.?\s*$/i, '');
   return s

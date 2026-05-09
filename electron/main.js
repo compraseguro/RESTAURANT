@@ -279,7 +279,7 @@ function escPosBufferToHtmlSafeText(buffer) {
   /** Corte GS V (p. ej. \\x1D\\x56\\x41): bytes imprimibles quedan como «VA». */
   s = s.replace(/[\r\n\x1A]*\x1D\x56[\x00\x01\x30\x31\x41][\s\S]*$/g, '');
   s = s.replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '');
-  s = s.replace(/\n{3,}/g, '\n\n').trim();
+  s = s.replace(/\n{3,}/g, '\n\n').trimEnd();
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
