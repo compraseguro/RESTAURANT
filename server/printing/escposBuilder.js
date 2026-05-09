@@ -100,7 +100,7 @@ const CUT_PARTIAL = Buffer.from('\x1D\x56\x41', 'binary');
 async function buildTicket(moduleName, data = {}, options = {}) {
   const paperW = Number(data.paperWidth) || Number(options.paperWidth) || 80;
   const width = charsPerLine(paperW);
-  const contentWidth = Math.max(24, width - (paperW <= 58 ? 2 : 4));
+  const contentWidth = Math.max(24, width - (paperW <= 58 ? 2 : paperW <= 75 ? 4 : 5));
 
   const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
   if (data.preformatted && cleanedPreformatted) {
@@ -118,7 +118,10 @@ async function buildTicket(moduleName, data = {}, options = {}) {
 
     const logoUrl = data.logoUrl || data.logo;
     const skipLogo = data.skipThermalLogo === true || String(process.env.RESTO_THERMAL_NO_LOGO || '') === '1';
-    if (logoUrl && !skipLogo) {
+    /** Logo raster = bytes binarios; en drivers «texto» sale basura. Solo con opt-in o RESTO_THERMAL_LOGO=1. */
+    const wantLogo =
+      data.includeThermalLogo === true || String(process.env.RESTO_THERMAL_LOGO || '') === '1';
+    if (logoUrl && wantLogo && !skipLogo) {
       const raster = await logoToEscPosRaster(String(logoUrl).trim(), paperW);
       if (raster && raster.length) {
         chunks.push(raster);

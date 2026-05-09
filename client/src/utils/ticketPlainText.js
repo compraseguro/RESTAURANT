@@ -49,7 +49,13 @@ export function thermalCharWidth(widthMm) {
 export function thermalInnerWidth(widthMm) {
   const base = thermalCharWidth(widthMm);
   const n = Number(widthMm);
-  const inset = !Number.isFinite(n) || n <= 0 ? 4 : n <= 58 ? 2 : 4;
+  const inset = !Number.isFinite(n) || n <= 0
+    ? 4
+    : n <= 58
+      ? 2
+      : n <= 75
+        ? 4
+        : 5;
   return Math.max(24, base - inset);
 }
 
@@ -143,31 +149,36 @@ export function restaurantDisplayNameUpper(restaurant = {}) {
 }
 
 function columnProductDims(contentW) {
-  const w = Math.max(20, Number(contentW) || 32);
-  let qW = 4;
-  let uW = 7;
-  let tW = 8;
-  let nameW = w - qW - uW - tW - 3;
+  const inner = Math.max(20, Number(contentW) || 32);
+  const qW = 4;
+  /** uW/tW deben albergar «P. unit.» (8) y «Total»/importes sin desbordar la línea útil. */
+  const uW = inner <= 32 ? 6 : 8;
+  const tW = inner <= 32 ? 6 : 8;
+  let nameW = inner - qW - uW - tW - 3;
   if (nameW < 8) {
     nameW = 8;
-    tW = Math.max(6, w - nameW - qW - uW - 3);
+    const rem = inner - nameW - qW - 3;
+    const u2 = Math.min(uW, Math.max(5, Math.floor(rem / 2)));
+    const t2 = rem - u2;
+    return { nameW, qW, uW: u2, tW: Math.max(5, t2), w: inner };
   }
-  return { nameW, qW, uW, tW, w };
+  return { nameW, qW, uW, tW, w: inner };
 }
 
 function rowProduct4Col(name, qty, uStr, tStr, dims) {
   const { nameW, qW, uW, tW, w } = dims;
   const a = String(name).slice(0, nameW).padEnd(nameW);
-  const b = String(qty).padStart(qW);
-  const c = String(uStr).padStart(uW);
-  const d = String(tStr).padStart(tW);
-  return `${a} ${b} ${c} ${d}`.slice(0, w);
+  const b = String(qty).slice(0, qW).padStart(qW);
+  const c = String(uStr).slice(0, uW).padStart(uW);
+  const d = String(tStr).slice(0, tW).padStart(tW);
+  const row = `${a} ${b} ${c} ${d}`;
+  return row.length <= w ? row : row.slice(0, w);
 }
 
 export function pushProductTableSection(lines, groupedRows, formatCurrencyFn, widthMm) {
   const inner = thermalInnerWidth(widthMm);
   const dims = columnProductDims(inner);
-  const { nameW } = dims;
+  const { nameW, uW, tW } = dims;
   const sep = insetSeparator(widthMm);
   const full = thermalCharWidth(widthMm);
 
@@ -183,8 +194,8 @@ export function pushProductTableSection(lines, groupedRows, formatCurrencyFn, wi
   lines.push(sep);
   const h0 = inner <= 30 ? 'Prod.' : 'Producto';
   const h1 = 'Cant';
-  const h2 = inner <= 30 ? 'P.u.' : 'P. unit.';
-  const h3 = 'Total';
+  const h2 = uW >= 8 ? 'P. unit.' : uW >= 7 ? 'P.unit' : 'P.u.';
+  const h3 = tW >= 5 ? 'Total' : 'Tot.';
   lines.push(padRow(rowProduct4Col(h0, h1, h2, h3, dims)));
   lines.push(sep);
 
@@ -432,7 +443,7 @@ export function buildPrecuentaPlainText({
   const sep = insetSeparator(widthMm);
   const lines = [];
   /**
-   * Cabecera texto: nombre grande (el logo raster va aparte en `logoUrl` → asistente Electron).
+   * Cabecera texto: nombre grande. Logo raster solo si el cliente envía `includeThermalLogo: true` (modo RAW).
    */
   const tradeRaw = String(
     restaurant?.billing_nombre_comercial || restaurant?.name || '',
