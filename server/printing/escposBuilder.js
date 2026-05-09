@@ -89,8 +89,8 @@ function escPosAsciiLine(s) {
 }
 
 /**
- * Títulos: solo doble ALTO (ESC ! 0x10), no doble ancho — 0x30 recorta por la derecha en muchas térmicas.
- * Centrado hardware ESC a 1 (no depende de espacios en la cadena).
+ * Títulos: doble alto (ESC ! 0x10). Debe enviarse con ESC a 1 (centrar) ya activo en la impresora.
+ * No alternar ESC a 0 aquí: antes se dejaba en izquierda y el ticket salía corrido.
  */
 function encodeEmphasizedLine(text, paperWidthChars) {
   const t = escPosAsciiLine(String(text || '').trim());
@@ -98,9 +98,9 @@ function encodeEmphasizedLine(text, paperWidthChars) {
   const maxChars = Math.max(10, Number(paperWidthChars) || 42);
   const slice = t.length > maxChars ? `${t.slice(0, maxChars - 3)}...` : t;
   return Buffer.concat([
-    Buffer.from('\x1B\x61\x01\x1B!\x10', 'binary'),
+    Buffer.from('\x1B!\x10', 'binary'),
     Buffer.from(`${slice}\n`, 'latin1'),
-    Buffer.from('\x1B!\x00\x1B\x61\x00', 'binary'),
+    Buffer.from('\x1B!\x00', 'binary'),
   ]);
 }
 
@@ -155,39 +155,30 @@ async function buildTicket(moduleName, data = {}, options = {}) {
    */
   const contentWidth = Math.max(24, width - (paperW <= 58 ? 2 : 4));
 
-  /** Cuerpo ya formateado en cliente; títulos resaltados con doble alto + ESC centrar. */
+  /**
+   * Cuerpo preformateado: centrado por HARDWARE (ESC a 1), sin rellenar con espacios en servidor.
+   * Antes: ESC a 0 + líneas con espacios → la térmica imprimía desde la izquierda y sobraba “marco” falso.
+   */
   const cleanedPreformatted = stripDebugLinesFromPreformattedText(String(data.text || '').trim());
   if (data.preformatted && cleanedPreformatted) {
     const parts = [];
     cleanedPreformatted.split('\n').forEach((rawPart) => {
       wrapLine(rawPart, contentWidth).forEach((line) => {
-        const row = center(line, width);
-        const visual = row.replace(/\n$/, '');
-        const trim = visual.trim();
-        if (!trim) {
+        const trimmed = String(line || '').trim();
+        if (!trimmed) {
           parts.push(Buffer.from('\n', 'utf8'));
           return;
         }
-        if (shouldEmphasizeThermalLine(trim, key)) {
-          parts.push(encodeEmphasizedLine(trim, width));
+        if (shouldEmphasizeThermalLine(trimmed, key)) {
+          parts.push(encodeEmphasizedLine(trimmed, width));
         } else {
-          parts.push(Buffer.from(`${visual}\n`, 'utf8'));
+          parts.push(Buffer.from(`${trimmed}\n`, 'utf8'));
         }
       });
     });
     parts.push(Buffer.from('\n', 'utf8'));
     const body = Buffer.concat(parts);
 
-    /**
-     * Logo: centrado hardware (ESC a 1). Cuerpo precuenta/caja: ESC a 0 (izquierda).
-     * El texto ya viene centrado con espacios en ancho fijo (`center()`); si además se envía ESC a 1,
-     * muchas térmicas «recentran» la línea y el ticket parece descuadrado.
-     */
-    /**
-     * Inicialización compatible con la mayoría de térmicas 80 mm:
-     * ESC @ reinicio; ESC t 2 tabla PC850; ESC R 0 juego USA; ESC SP 0 sin espacio extra a la derecha del carácter.
-     * 48 columnas (no 54) evita que el bloque “se salga” y parezca corrido a la derecha en Font A.
-     */
     const chunks = [Buffer.from('\x1B\x40\x1B\x74\x02\x1B\x52\x00\x1B\x20\x00', 'binary')];
 
     const logoUrl = data.logoUrl || data.logo;
@@ -196,13 +187,13 @@ async function buildTicket(moduleName, data = {}, options = {}) {
       if (raster && raster.length) {
         chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
         chunks.push(raster);
-        chunks.push(Buffer.from('\n\x1B\x61\x00', 'binary'));
+        chunks.push(Buffer.from('\n', 'binary'));
       }
     }
 
-    chunks.push(Buffer.from('\x1B\x61\x00', 'binary'));
+    chunks.push(Buffer.from('\x1B\x61\x01', 'binary'));
     chunks.push(body);
-    chunks.push(Buffer.from('\n\x1B\x61\x00', 'binary'));
+    chunks.push(Buffer.from('\x1B\x61\x00\n', 'binary'));
     chunks.push(Buffer.from('\x1D\x56\x41', 'binary'));
     return Buffer.concat(chunks);
   }
