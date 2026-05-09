@@ -1,7 +1,8 @@
 {
-  "revision": "thermal-v26-gdi-font-by-roll-mm",
+  "revision": "thermal-v27-gdi-pre-no-wrap",
   "fontSizeScale": 1.25,
   "gdiFontDuplicateFactor": 1,
+  "gdiPrintFitFudge": 0.88,
   "useEscposCharacterMagnify": false,
   "useEscposCharacterMagnifyNetwork": false,
   "charsPerLine": {

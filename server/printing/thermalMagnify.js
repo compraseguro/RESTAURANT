@@ -26,7 +26,12 @@ function getThermalGdiFontPx(paperWidthMm = 80, opts = {}) {
   const refPaper = 50;
   const refChars = thermalEffectiveCharsPerLine(refPaper, opts);
   const charsHere = thermalEffectiveCharsPerLine(pw, opts);
-  const scale = (refChars / Math.max(8, charsHere)) * (pw / refPaper);
+  let scale = (refChars / Math.max(8, charsHere)) * (pw / refPaper);
+  /** Monoespaciado en Chromium suele ocupar más que el cálculo teórico; en 58–80 mm evita cortes con `pre-wrap`. */
+  if (pw > 50) {
+    const fudge = Number(thermalLayout.gdiPrintFitFudge);
+    scale *= Number.isFinite(fudge) && fudge > 0 && fudge <= 1 ? fudge : 0.88;
+  }
   px = Math.round(px * scale);
   return Math.max(9, Math.min(36, px));
 }

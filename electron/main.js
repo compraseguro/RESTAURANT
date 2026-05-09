@@ -315,7 +315,7 @@ function printUSB(printerName, buffer, paperWidthMm = 80) {
     const fontPx = getThermalGdiFontPx(paperMm, { viaNetwork: false });
     /** Micrómetros (1 mm = 1000) para `pageSize`; ancho = rollo configurado. */
     const pageW = Math.round(paperMm * 1000);
-    const html = `<!DOCTYPE html><meta charset="utf-8"><style>@page{margin:0}html,body{margin:0;padding:0;-webkit-print-color-adjust:exact}body{width:${paperMm}mm;max-width:${paperMm}mm;margin:0 auto;box-sizing:border-box}pre{font-family:Consolas,'Courier New',monospace;white-space:pre-wrap;margin:0;padding:0;font-size:${fontPx}px!important;font-weight:500;line-height:1.2;text-align:left;width:100%;box-sizing:border-box}</style><pre>${safeText}</pre>`;
+    const html = `<!DOCTYPE html><meta charset="utf-8"><style>@page{margin:0}html,body{margin:0;padding:0;-webkit-print-color-adjust:exact;overflow:visible}body{width:${paperMm}mm;max-width:${paperMm}mm;margin:0 auto;box-sizing:border-box;overflow:visible}pre{font-family:Consolas,'Courier New',monospace;white-space:pre!important;word-break:keep-all;overflow-wrap:normal;margin:0;padding:0;font-size:${fontPx}px!important;font-weight:500;line-height:1.2;text-align:left;width:100%;box-sizing:border-box;overflow:visible}</style><pre>${safeText}</pre>`;
     const printWin = new BrowserWindow({
       show: false,
       webPreferences: { offscreen: true },
