@@ -144,9 +144,43 @@ export function padLeftRight(left, right, width) {
   const R = String(right ?? '');
   const space = w - L.length - R.length;
   if (space >= 1) return `${L}${' '.repeat(space)}${R}`;
-  const maxR = Math.min(R.length, Math.floor(w / 2));
-  const maxL = w - maxR - 1;
-  return `${L.slice(0, maxL)} ${R.slice(R.length - maxR)}`;
+  const minGap = 1;
+  /** Cabe la derecha completa: recortar solo la izquierda (evita «ra:» al comer el inicio de «Hora:»). */
+  if (R.length + minGap <= w) {
+    const maxL = w - R.length - minGap;
+    const leftShown = L.length <= maxL ? L : L.slice(0, Math.max(0, maxL));
+    const gap = w - leftShown.length - R.length;
+    return `${leftShown}${' '.repeat(Math.max(minGap, gap))}${R}`;
+  }
+  /** Cabe la izquierda completa: recortar la derecha por el final (mantiene etiquetas al inicio). */
+  if (L.length + minGap <= w) {
+    const maxR = w - L.length - minGap;
+    const rightShown = R.length <= maxR ? R : R.slice(0, Math.max(0, maxR));
+    const gap = w - L.length - rightShown.length;
+    return `${L}${' '.repeat(Math.max(minGap, gap))}${rightShown}`;
+  }
+  const maxL = Math.max(1, Math.floor((w - minGap) / 2));
+  const maxR = w - minGap - maxL;
+  const lShown = L.slice(0, maxL);
+  const rShown = R.slice(0, maxR);
+  const gap = w - lShown.length - rShown.length;
+  return `${lShown}${' '.repeat(Math.max(minGap, gap))}${rShown}`;
+}
+
+/**
+ * Fecha y hora: una línea si cabe; si no, dos (50 mm / ancho reducido sin cortar «Hora:»).
+ */
+export function pushThermalFechaHoraPair(lines, printedAt, widthMm) {
+  const w = thermalCharWidth(widthMm);
+  const { date, time } = formatPeDateTimeParts(printedAt);
+  const left = `Fecha: ${date}`;
+  const right = `Hora: ${time}`;
+  if (left.length + 1 + right.length <= w) {
+    lines.push(padLeftRight(left, right, w));
+    return;
+  }
+  lines.push(padLeftRight(left, '', w));
+  lines.push(padLeftRight(right, '', w));
 }
 
 export function centerThermalLine(text, width) {
@@ -528,8 +562,7 @@ export function buildPrecuentaPlainText({
     lines.push(sep);
   }
   lines.push(centerThermalLine('PRE CUENTA', w));
-  const { date, time } = formatPeDateTimeParts(printedAt);
-  lines.push(padLeftRight(`Fecha: ${date}`, `Hora: ${time}`, w));
+  pushThermalFechaHoraPair(lines, printedAt, widthMm);
   const mesaLbl = tableName ? `Mesa: ${tableName}` : 'Mesa: —';
   const mozoLbl = mozoName ? `Mozo: ${mozoName}` : 'Mozo: —';
   lines.push(padLeftRight(mesaLbl, mozoLbl, w));
@@ -571,9 +604,8 @@ export function buildNotaVentaPlainText({
   const lines = [];
   lines.push(...buildRestaurantTicketHeaderLines(restaurant, widthMm));
   lines.push(centerThermalLine('NOTA DE VENTA', w));
-  const { date, time } = formatPeDateTimeParts(printedAt);
   const numLine = docLine ? `Nº ${docLine}` : 'Nº —';
-  lines.push(padLeftRight(`Fecha: ${date}`, `Hora: ${time}`, w));
+  pushThermalFechaHoraPair(lines, printedAt, widthMm);
   lines.push(centerThermalLine(numLine, w));
   if (tableName) lines.push(centerThermalLine(`Mesa: ${String(tableName).slice(0, inner)}`, w));
 
@@ -635,8 +667,7 @@ export function buildBoletaFacturaPlainText({
   const lines = [];
   lines.push(...buildRestaurantTicketHeaderLines(restaurant, widthMm));
   lines.push(centerThermalLine(title, w));
-  const { date, time } = formatPeDateTimeParts(printedAt);
-  lines.push(padLeftRight(`Fecha: ${date}`, `Hora: ${time}`, w));
+  pushThermalFechaHoraPair(lines, printedAt, widthMm);
   lines.push(centerThermalLine(`Nº ${fullNum}`, w));
   if (String(doc?.hash_code || '').trim()) {
     lines.push(centerThermalLine(`Hash: ${String(doc.hash_code).slice(0, inner)}`, w));
@@ -722,8 +753,7 @@ export function buildPedidoMesaTicketPlainText({
   }
 
   lines.push(centerThermalLine(title, w));
-  const { date, time } = formatPeDateTimeParts(printedAt);
-  lines.push(padLeftRight(`Fecha: ${date}`, `Hora: ${time}`, w));
+  pushThermalFechaHoraPair(lines, printedAt, widthMm);
   lines.push(sep);
   lines.push(padLeftRight('PEDIDO', takeout ? 'PARA LLEVAR' : '', w));
   if (orderNumber !== '' && orderNumber != null) {
