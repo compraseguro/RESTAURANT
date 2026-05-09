@@ -84,6 +84,9 @@ function escPosAsciiLine(s) {
     .replace(/[^\x20-\x7E]/g, '?');
 }
 
+/** Espacios tras cada línea de texto: margen derecho para que no se recorte el último carácter en la térmica. */
+const THERMAL_LINE_TRAILING_MARGIN = 2;
+
 /**
  * Centrado solo con espacios, línea exactamente `w` caracteres.
  * Con ESC a 0 (izquierda) la impresora no «re-centra» y no sale corrido.
@@ -91,13 +94,14 @@ function escPosAsciiLine(s) {
 function centerLine(text, w) {
   const value = escPosAsciiLine(String(text || '').trim());
   const width = Math.max(1, Number(w) || 1);
-  if (!value) return `${' '.repeat(width)}\n`;
+  const tail = ' '.repeat(THERMAL_LINE_TRAILING_MARGIN);
+  if (!value) return `${' '.repeat(width)}${tail}\n`;
   let vis = value.length > width ? value.slice(0, width) : value;
-  if (vis.length >= width) return `${vis}\n`;
+  if (vis.length >= width) return `${vis}${tail}\n`;
   const pad = width - vis.length;
   const left = Math.floor(pad / 2);
   const right = pad - left;
-  return `${' '.repeat(left)}${vis}${' '.repeat(right)}\n`;
+  return `${' '.repeat(left)}${vis}${' '.repeat(right)}${tail}\n`;
 }
 
 /**
@@ -110,7 +114,7 @@ function preformattedLineOut(line, w) {
   const value = escPosAsciiLine(raw);
   let vis = value.length > width ? value.slice(0, width) : value;
   if (vis.length < width) vis += ' '.repeat(width - vis.length);
-  return `${vis}\n`;
+  return `${vis}${' '.repeat(THERMAL_LINE_TRAILING_MARGIN)}\n`;
 }
 
 /** Reinicio + alineación izquierda (sin tamaño; el GS ! va tras el logo si hay). */
