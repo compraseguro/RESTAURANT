@@ -556,9 +556,48 @@ html[data-ui-theme='light'] #root .badge-cancelled {
     z-index: 1;
   }
 
+  /* Portada normalizada (data-contract-cover): anula dimensiones inline de mammoth/Word */
+  .contract-mammoth-preview--image-under-text > [data-contract-cover] {
+    position: absolute;
+    inset: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 0;
+    pointer-events: none;
+    max-width: none !important;
+    border: 0;
+  }
+
+  .contract-mammoth-preview--image-under-text > [data-contract-cover] img {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 297mm !important;
+    max-width: none !important;
+    object-fit: cover;
+    display: block;
+    margin: 0 !important;
+    vertical-align: middle;
+  }
+
+  .contract-mammoth-preview--image-under-text > img[data-contract-cover] {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    pointer-events: none;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 297mm !important;
+    max-width: none !important;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Fallback si el HTML no pasó por normalize (p. ej. pruebas): primera imagen aislada */
   .contract-mammoth-preview--image-under-text > p:first-of-type:has(> img:only-child),
   .contract-mammoth-preview--image-under-text > figure:first-of-type:has(img),
-  .contract-mammoth-preview--image-under-text > img:first-child {
+  .contract-mammoth-preview--image-under-text > img:first-child:not([data-contract-cover]) {
     position: absolute;
     inset: 0;
     margin: 0 !important;
@@ -570,10 +609,10 @@ html[data-ui-theme='light'] #root .badge-cancelled {
 
   .contract-mammoth-preview--image-under-text > p:first-of-type:has(> img:only-child) img,
   .contract-mammoth-preview--image-under-text > figure:first-of-type img,
-  .contract-mammoth-preview--image-under-text > img:first-child {
-    width: 100%;
-    height: 100%;
-    min-height: 297mm;
+  .contract-mammoth-preview--image-under-text > img:first-child:not([data-contract-cover]) {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 297mm !important;
     object-fit: cover;
     display: block;
     margin: 0 !important;

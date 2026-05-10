@@ -12,14 +12,91 @@ const EMPTY_CONTRATO = {
   firma_vendedor_url: '',
 };
 
-/** HTML de mammoth: imagen de portada al inicio → fondo con texto encima (como en Word). */
-function htmlHasLeadingFullBleedImage(html) {
-  const s = String(html || '').trim();
-  if (!s) return false;
-  if (/^<p\b[^>]*>\s*<img\b/i.test(s)) return true;
-  if (/^<img\b/i.test(s)) return true;
-  if (/^<figure\b[^>]*>\s*<img\b/i.test(s)) return true;
+/** Bloque vacío al inicio (Word/mammoth suelen dejar <p><br></p>). */
+function isEmptyLeadingBlock(el) {
+  if (!el || el.nodeType !== 1 || !['P', 'DIV'].includes(el.tagName)) return false;
+  if (el.querySelector('img')) return false;
+  const text = el.textContent.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+  return text.length === 0;
+}
+
+/** Párrafo solo con imagen, <img> suelto o <figure> con img (sin texto mezclado en el <p>). */
+function isCoverImageBlock(el) {
+  if (!el || el.nodeType !== 1) return false;
+  const tag = el.tagName;
+  if (tag === 'IMG') return true;
+  if (tag === 'FIGURE' && el.querySelector('img')) return true;
+  if (tag === 'P') {
+    const imgs = el.querySelectorAll('img');
+    if (imgs.length !== 1) return false;
+    const text = el.textContent.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+    return text.length === 0;
+  }
   return false;
+}
+
+function scoreCoverCandidate(el) {
+  const img = el.tagName === 'IMG' ? el : el.querySelector('img');
+  if (!img) return 0;
+  const w = parseInt(img.getAttribute('width'), 10) || 0;
+  const h = parseInt(img.getAttribute('height'), 10) || 0;
+  if (w > 0 && h > 0) return w * h;
+  return 0;
+}
+
+/**
+ * Word a veces exporta la imagen de fondo al final del HTML o con párrafos vacíos delante.
+ * Elegimos la imagen "principal" (mayor área declarada; si empate, la más abajo en el doc)
+ * y la colocamos al inicio con data-contract-cover para el layout tipo Word.
+ */
+function normalizeMammothContractHtml(html) {
+  const raw = String(html || '').trim();
+  if (!raw || typeof document === 'undefined') return raw;
+
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = raw;
+
+  while (wrapper.firstElementChild && isEmptyLeadingBlock(wrapper.firstElementChild)) {
+    wrapper.removeChild(wrapper.firstElementChild);
+  }
+
+  wrapper.querySelectorAll('[data-contract-cover]').forEach((n) => n.removeAttribute('data-contract-cover'));
+
+  const children = Array.from(wrapper.children);
+  const candidates = [];
+  for (let i = 0; i < children.length; i += 1) {
+    if (isCoverImageBlock(children[i])) candidates.push({ index: i, el: children[i], score: scoreCoverCandidate(children[i]) });
+  }
+  if (candidates.length === 0) return wrapper.innerHTML;
+
+  candidates.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return b.index - a.index;
+  });
+
+  const best = candidates[0];
+  let coverEl = best.el;
+  if (best.index > 0) {
+    coverEl = wrapper.removeChild(coverEl);
+    wrapper.insertBefore(coverEl, wrapper.firstChild);
+  }
+
+  coverEl.setAttribute('data-contract-cover', '');
+
+  const img = coverEl.tagName === 'IMG' ? coverEl : coverEl.querySelector('img');
+  if (img) {
+    img.removeAttribute('width');
+    img.removeAttribute('height');
+    img.style.removeProperty('width');
+    img.style.removeProperty('height');
+    img.style.removeProperty('max-width');
+  }
+
+  return wrapper.innerHTML;
+}
+
+function htmlHasContractCoverLayer(html) {
+  return String(html || '').includes('data-contract-cover');
 }
 
 function wordFileKind(url, nombre) {
@@ -59,7 +136,7 @@ export default function RestaurantServiceContractForm({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewNote, setPreviewNote] = useState('');
 
-  const imageUnderTextLayout = useMemo(() => htmlHasLeadingFullBleedImage(previewHtml), [previewHtml]);
+  const imageUnderTextLayout = useMemo(() => htmlHasContractCoverLayer(previewHtml), [previewHtml]);
 
   const patch = (partial) => onChange({ ...merged, ...partial });
 
@@ -103,7 +180,8 @@ export default function RestaurantServiceContractForm({
         const buf = await res.arrayBuffer();
         const { value: html } = await mammoth.convertToHtml({ arrayBuffer: buf });
         if (!cancelled) {
-          setPreviewHtml(html || '<p>(Documento sin texto reconocible)</p>');
+          const base = html || '<p>(Documento sin texto reconocible)</p>';
+          setPreviewHtml(normalizeMammothContractHtml(base));
         }
       } catch (e) {
         if (!cancelled) {
