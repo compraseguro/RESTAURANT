@@ -456,6 +456,41 @@ html[data-ui-theme='light'] #root .badge-cancelled {
     background-color: rgb(224 242 254 / 0.85);
   }
 
+  /* Vista previa HTML del contrato Word (mammoth) */
+  .contract-mammoth-preview p {
+    margin: 0.5em 0;
+  }
+  .contract-mammoth-preview h1,
+  .contract-mammoth-preview h2,
+  .contract-mammoth-preview h3 {
+    font-weight: 700;
+    margin: 0.75em 0 0.35em;
+    color: var(--ui-body-text);
+  }
+  .contract-mammoth-preview h1 {
+    font-size: 1.15rem;
+  }
+  .contract-mammoth-preview h2 {
+    font-size: 1.05rem;
+  }
+  .contract-mammoth-preview ul,
+  .contract-mammoth-preview ol {
+    margin: 0.5em 0;
+    padding-left: 1.35em;
+  }
+  .contract-mammoth-preview table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.75em 0;
+    font-size: 0.9em;
+  }
+  .contract-mammoth-preview td,
+  .contract-mammoth-preview th {
+    border: 1px solid color-mix(in srgb, var(--ui-border) 80%, transparent);
+    padding: 0.35em 0.5em;
+    vertical-align: top;
+  }
+
   html:not([data-ui-theme='light']) .bg-white .text-slate-900,
   html:not([data-ui-theme='light']) .bg-white .text-slate-800,
   html:not([data-ui-theme='light']) .bg-white .text-slate-700 {
