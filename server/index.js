@@ -113,9 +113,10 @@ const storage = multer.diskStorage({
   }
 });
 const uploadImageExtOk = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.heic', '.heif', '.avif', '.bmp']);
+const uploadWordExtOk = new Set(['.doc', '.docx']);
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 15 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const mime = String(file.mimetype || '').toLowerCase();
     const ext = path.extname(file.originalname || '').toLowerCase();
@@ -123,10 +124,13 @@ const upload = multer({
       'image/jpeg', 'image/jpg', 'image/pjpeg', 'image/png', 'image/webp', 'image/gif',
       'image/svg+xml', 'image/heic', 'image/heif', 'image/avif', 'image/bmp', 'image/x-ms-bmp',
       'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ]);
     if (allowedMime.has(mime)) return cb(null, true);
     if ((mime === 'application/octet-stream' || !mime) && uploadImageExtOk.has(ext)) return cb(null, true);
-    return cb(new Error('Tipo de archivo no permitido (use JPG, PNG, WEBP, GIF, HEIC o PDF)'));
+    if ((mime === 'application/octet-stream' || !mime) && uploadWordExtOk.has(ext)) return cb(null, true);
+    return cb(new Error('Tipo de archivo no permitido (imagen, PDF o Word .doc / .docx)'));
   },
 });
 
@@ -134,7 +138,7 @@ app.post('/api/upload', authenticateToken, requireRole('admin', 'cajero', 'mozo'
   upload.single('image')(req, res, (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ error: 'El archivo supera el límite de 5 MB' });
+        return res.status(400).json({ error: 'El archivo supera el límite de 15 MB' });
       }
       return res.status(400).json({ error: err.message || 'No se pudo subir el archivo' });
     }

@@ -106,6 +106,8 @@ export default function MasterAdmin() {
     const c = serviceContrato || {};
     const payload = {
       texto_contrato: String(c.texto_contrato || ''),
+      documento_word_url: String(c.documento_word_url || '').trim(),
+      documento_word_nombre: String(c.documento_word_nombre || '').trim(),
       firma_comprador_url: String(c.firma_comprador_url || '').trim(),
       firma_vendedor_url: String(c.firma_vendedor_url || '').trim(),
     };

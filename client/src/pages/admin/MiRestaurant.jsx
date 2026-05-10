@@ -78,7 +78,13 @@ export default function MiRestaurant() {
       texto_politica_cobro: 'Todo crédito debe regularizarse dentro del plazo acordado.',
     },
     series_contingencia: { boleta: 'BC01', factura: 'FC01', enabled: 1 },
-    contrato: { texto_contrato: '', firma_comprador_url: '', firma_vendedor_url: '' },
+    contrato: {
+      texto_contrato: '',
+      documento_word_url: '',
+      documento_word_nombre: '',
+      firma_comprador_url: '',
+      firma_vendedor_url: '',
+    },
     pago_uso_sistema: {
       periodo_facturacion: 'mensual',
       fecha_proxima_facturacion: '',
@@ -330,6 +336,8 @@ export default function MiRestaurant() {
           const c = appConfig.contrato || {};
           const payload = {
             texto_contrato: String(c.texto_contrato || ''),
+            documento_word_url: String(c.documento_word_url || '').trim(),
+            documento_word_nombre: String(c.documento_word_nombre || '').trim(),
             firma_comprador_url: String(c.firma_comprador_url || '').trim(),
             firma_vendedor_url: String(c.firma_vendedor_url || '').trim(),
           };

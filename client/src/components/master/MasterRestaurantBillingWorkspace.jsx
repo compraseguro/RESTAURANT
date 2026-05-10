@@ -22,7 +22,13 @@ const defaultBillingConfig = () => ({
 
 const defaultAppConfig = () => ({
   series_contingencia: { boleta: 'BC01', factura: 'FC01', enabled: 1 },
-  contrato: { texto_contrato: '', firma_comprador_url: '', firma_vendedor_url: '' },
+  contrato: {
+    texto_contrato: '',
+    documento_word_url: '',
+    documento_word_nombre: '',
+    firma_comprador_url: '',
+    firma_vendedor_url: '',
+  },
   pago_uso_sistema: {
     periodo_facturacion: 'mensual',
     fecha_proxima_facturacion: '',
