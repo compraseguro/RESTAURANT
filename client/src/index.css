@@ -594,8 +594,9 @@ html[data-ui-theme='light'] #root .badge-cancelled {
     display: block;
   }
 
-  /* Fallback si el HTML no pasó por normalize (p. ej. pruebas): primera imagen aislada */
+  /* Fallback si el HTML no pasó por normalize: mammoth a veces envuelve la img en <span> */
   .contract-mammoth-preview--image-under-text > p:first-of-type:has(> img:only-child),
+  .contract-mammoth-preview--image-under-text > p:first-of-type:has(img):not(:has(*:not(img):not(span))),
   .contract-mammoth-preview--image-under-text > figure:first-of-type:has(img),
   .contract-mammoth-preview--image-under-text > img:first-child:not([data-contract-cover]) {
     position: absolute;
@@ -608,6 +609,7 @@ html[data-ui-theme='light'] #root .badge-cancelled {
   }
 
   .contract-mammoth-preview--image-under-text > p:first-of-type:has(> img:only-child) img,
+  .contract-mammoth-preview--image-under-text > p:first-of-type:has(img):not(:has(*:not(img):not(span))) img,
   .contract-mammoth-preview--image-under-text > figure:first-of-type img,
   .contract-mammoth-preview--image-under-text > img:first-child:not([data-contract-cover]) {
     width: 100% !important;

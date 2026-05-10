@@ -12,6 +12,22 @@ const EMPTY_CONTRATO = {
   firma_vendedor_url: '',
 };
 
+const MAMMOTH_HOIST_TAGS = new Set(['DIV', 'SECTION', 'ARTICLE', 'MAIN', 'CENTER']);
+
+/** Mammoth suele devolver todo dentro de un único <div>; lo aplanamos para ver hermanos reales. */
+function flattenSingleContainerWrappers(root) {
+  let guard = 0;
+  while (root.children.length === 1 && guard < 64) {
+    guard += 1;
+    const only = root.firstElementChild;
+    if (!only || !MAMMOTH_HOIST_TAGS.has(only.tagName)) break;
+    while (only.firstChild) {
+      root.insertBefore(only.firstChild, only);
+    }
+    root.removeChild(only);
+  }
+}
+
 /** Bloque vacío al inicio (Word/mammoth suelen dejar <p><br></p>). */
 function isEmptyLeadingBlock(el) {
   if (!el || el.nodeType !== 1 || !['P', 'DIV'].includes(el.tagName)) return false;
@@ -20,17 +36,30 @@ function isEmptyLeadingBlock(el) {
   return text.length === 0;
 }
 
-/** Párrafo solo con imagen, <img> suelto o <figure> con img (sin texto mezclado en el <p>). */
+/** Texto visible del nodo sin contar <img> (evita alt ni texto mezclado mal detectado). */
+function textWithoutImages(el) {
+  const c = el.cloneNode(true);
+  c.querySelectorAll('img').forEach((img) => img.remove());
+  return c.textContent.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Párrafo solo con imagen (aunque venga en <span>), <img> suelto, <figure> con img, o <div> solo imagen. */
 function isCoverImageBlock(el) {
   if (!el || el.nodeType !== 1) return false;
   const tag = el.tagName;
   if (tag === 'IMG') return true;
-  if (tag === 'FIGURE' && el.querySelector('img')) return true;
+  if (tag === 'FIGURE' && el.querySelector('img')) {
+    return textWithoutImages(el).length === 0;
+  }
   if (tag === 'P') {
     const imgs = el.querySelectorAll('img');
     if (imgs.length !== 1) return false;
-    const text = el.textContent.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
-    return text.length === 0;
+    return textWithoutImages(el).length === 0;
+  }
+  if (tag === 'DIV') {
+    const imgs = el.querySelectorAll('img');
+    if (imgs.length !== 1) return false;
+    return textWithoutImages(el).length === 0;
   }
   return false;
 }
@@ -55,6 +84,8 @@ function normalizeMammothContractHtml(html) {
 
   const wrapper = document.createElement('div');
   wrapper.innerHTML = raw;
+
+  flattenSingleContainerWrappers(wrapper);
 
   while (wrapper.firstElementChild && isEmptyLeadingBlock(wrapper.firstElementChild)) {
     wrapper.removeChild(wrapper.firstElementChild);
