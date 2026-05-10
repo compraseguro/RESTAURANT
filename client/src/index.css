@@ -456,39 +456,126 @@ html[data-ui-theme='light'] #root .badge-cancelled {
     background-color: rgb(224 242 254 / 0.85);
   }
 
-  /* Vista previa HTML del contrato Word (mammoth) */
-  .contract-mammoth-preview p {
-    margin: 0.5em 0;
+  /* Vista previa contrato Word: lienzo tamaño A4 (como página Word) + scroll */
+  .contract-page-scroll {
+    max-height: min(88vh, 1200px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 1rem 0.75rem 1.25rem;
+    background: color-mix(in srgb, var(--ui-surface-2) 88%, #0f172a);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  .contract-mammoth-preview h1,
-  .contract-mammoth-preview h2,
-  .contract-mammoth-preview h3 {
+
+  .contract-page-canvas {
+    width: 210mm;
+    max-width: min(210mm, calc(100vw - 2.5rem));
+    flex-shrink: 0;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid color-mix(in srgb, var(--ui-border) 65%, transparent);
+    background: #ffffff;
+    box-sizing: border-box;
+  }
+
+  html[data-ui-theme='light'] .contract-page-scroll {
+    background: #e8ecf1;
+  }
+
+  /* Tipografía base tipo Word (cuerpo ~12pt) */
+  .contract-mammoth-preview--page {
+    font-family: Calibri, 'Segoe UI', system-ui, sans-serif;
+    font-size: 12pt;
+    line-height: 1.35;
+    color: #0f172a;
+    box-sizing: border-box;
+    padding: 15mm 18mm 20mm;
+    min-height: 297mm;
+  }
+
+  .contract-mammoth-preview--page p {
+    margin: 0.45em 0;
+  }
+  .contract-mammoth-preview--page h1,
+  .contract-mammoth-preview--page h2,
+  .contract-mammoth-preview--page h3 {
     font-weight: 700;
-    margin: 0.75em 0 0.35em;
-    color: var(--ui-body-text);
+    margin: 0.65em 0 0.3em;
   }
-  .contract-mammoth-preview h1 {
-    font-size: 1.15rem;
-  }
-  .contract-mammoth-preview h2 {
+  .contract-mammoth-preview--page h1 {
     font-size: 1.05rem;
   }
-  .contract-mammoth-preview ul,
-  .contract-mammoth-preview ol {
-    margin: 0.5em 0;
+  .contract-mammoth-preview--page h2 {
+    font-size: 1rem;
+  }
+  .contract-mammoth-preview--page ul,
+  .contract-mammoth-preview--page ol {
+    margin: 0.45em 0;
     padding-left: 1.35em;
   }
-  .contract-mammoth-preview table {
+  .contract-mammoth-preview--page table {
     border-collapse: collapse;
     width: 100%;
-    margin: 0.75em 0;
-    font-size: 0.9em;
+    margin: 0.65em 0;
+    font-size: 0.95em;
   }
-  .contract-mammoth-preview td,
-  .contract-mammoth-preview th {
-    border: 1px solid color-mix(in srgb, var(--ui-border) 80%, transparent);
-    padding: 0.35em 0.5em;
+  .contract-mammoth-preview--page td,
+  .contract-mammoth-preview--page th {
+    border: 1px solid #cbd5e1;
+    padding: 0.3em 0.45em;
     vertical-align: top;
+  }
+
+  /* Imagen de portada como fondo; texto encima (layout tipo Word con marca de agua / fondo) */
+  .contract-mammoth-preview--image-under-text {
+    color: #f8fafc !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 1px rgba(0, 0, 0, 1);
+  }
+  .contract-mammoth-preview--image-under-text h1,
+  .contract-mammoth-preview--image-under-text h2,
+  .contract-mammoth-preview--image-under-text h3,
+  .contract-mammoth-preview--image-under-text p,
+  .contract-mammoth-preview--image-under-text li,
+  .contract-mammoth-preview--image-under-text td,
+  .contract-mammoth-preview--image-under-text th {
+    color: #f8fafc !important;
+  }
+  .contract-mammoth-preview--image-under-text table,
+  .contract-mammoth-preview--image-under-text td,
+  .contract-mammoth-preview--image-under-text th {
+    border-color: rgba(248, 250, 252, 0.35) !important;
+  }
+
+  .contract-mammoth-preview--image-under-text > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .contract-mammoth-preview--image-under-text > p:first-of-type:has(> img:only-child),
+  .contract-mammoth-preview--image-under-text > figure:first-of-type:has(img),
+  .contract-mammoth-preview--image-under-text > img:first-child {
+    position: absolute;
+    inset: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 0;
+    pointer-events: none;
+    max-width: none !important;
+  }
+
+  .contract-mammoth-preview--image-under-text > p:first-of-type:has(> img:only-child) img,
+  .contract-mammoth-preview--image-under-text > figure:first-of-type img,
+  .contract-mammoth-preview--image-under-text > img:first-child {
+    width: 100%;
+    height: 100%;
+    min-height: 297mm;
+    object-fit: cover;
+    display: block;
+    margin: 0 !important;
+  }
+
+  .contract-mammoth-preview--image-under-text > figure:first-of-type {
+    border: 0;
   }
 
   html:not([data-ui-theme='light']) .bg-white .text-slate-900,

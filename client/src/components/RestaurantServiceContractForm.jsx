@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import mammoth from 'mammoth';
 import { MdUploadFile, MdDownload, MdDescription } from 'react-icons/md';
 import { api, resolveMediaUrl } from '../utils/api';
@@ -11,6 +11,16 @@ const EMPTY_CONTRATO = {
   firma_comprador_url: '',
   firma_vendedor_url: '',
 };
+
+/** HTML de mammoth: imagen de portada al inicio → fondo con texto encima (como en Word). */
+function htmlHasLeadingFullBleedImage(html) {
+  const s = String(html || '').trim();
+  if (!s) return false;
+  if (/^<p\b[^>]*>\s*<img\b/i.test(s)) return true;
+  if (/^<img\b/i.test(s)) return true;
+  if (/^<figure\b[^>]*>\s*<img\b/i.test(s)) return true;
+  return false;
+}
 
 function wordFileKind(url, nombre) {
   const n = String(nombre || '').toLowerCase();
@@ -48,6 +58,8 @@ export default function RestaurantServiceContractForm({
   const [previewHtml, setPreviewHtml] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewNote, setPreviewNote] = useState('');
+
+  const imageUnderTextLayout = useMemo(() => htmlHasLeadingFullBleedImage(previewHtml), [previewHtml]);
 
   const patch = (partial) => onChange({ ...merged, ...partial });
 
@@ -214,9 +226,9 @@ export default function RestaurantServiceContractForm({
           </div>
         </div>
 
-        <div className="min-h-[280px] max-h-[min(65vh,560px)] overflow-y-auto px-4 py-4 border-t border-[color:var(--ui-border)] bg-[var(--ui-surface)]">
+        <div className="contract-page-scroll border-t border-[color:var(--ui-border)]">
           {!merged.documento_word_url ? (
-            <div className="flex flex-col items-center justify-center min-h-[240px] text-center text-[var(--ui-muted)] text-sm gap-2">
+            <div className="flex flex-col items-center justify-center min-h-[240px] text-center text-[var(--ui-muted)] text-sm gap-2 px-4 py-8">
               <p>No hay documento cargado.</p>
               {canEdit ? (
                 <p className="text-xs">Use <strong className="text-[var(--ui-body-text)]">Cargar Word</strong> arriba (.doc / .docx, hasta 15 MB).</p>
@@ -225,15 +237,18 @@ export default function RestaurantServiceContractForm({
           ) : previewLoading ? (
             <div className="flex justify-center py-16 text-[var(--ui-muted)] text-sm">Generando vista previa…</div>
           ) : previewNote && !previewHtml ? (
-            <p className="text-sm text-[var(--ui-muted)] leading-relaxed">{previewNote}</p>
+            <p className="text-sm text-[var(--ui-muted)] leading-relaxed px-4 py-6">{previewNote}</p>
           ) : (
             <>
-              {previewNote ? <p className="text-xs text-amber-500/90 mb-3">{previewNote}</p> : null}
-              <div
-                className="contract-mammoth-preview text-[var(--ui-body-text)] text-sm leading-relaxed"
-                // mammoth output is sanitized by library; still from trusted admin upload
-                dangerouslySetInnerHTML={{ __html: previewHtml }}
-              />
+              {previewNote ? (
+                <p className="text-xs text-amber-500/90 px-4 pt-3 max-w-[210mm] mx-auto">{previewNote}</p>
+              ) : null}
+              <div className="contract-page-canvas">
+                <div
+                  className={`contract-mammoth-preview contract-mammoth-preview--page ${imageUnderTextLayout ? 'contract-mammoth-preview--image-under-text' : ''}`}
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                />
+              </div>
             </>
           )}
         </div>
