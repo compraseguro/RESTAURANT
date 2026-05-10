@@ -476,6 +476,8 @@ html[data-ui-theme='light'] #root .badge-cancelled {
     border: 1px solid color-mix(in srgb, var(--ui-border) 65%, transparent);
     background: #ffffff;
     box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
   }
 
   html[data-ui-theme='light'] .contract-page-scroll {
@@ -491,6 +493,9 @@ html[data-ui-theme='light'] #root .badge-cancelled {
     box-sizing: border-box;
     padding: 15mm 18mm 20mm;
     min-height: 297mm;
+    /* Ancla el fondo absoluto de portada: sin esto, inset:0 usa el viewport y la imagen llena la pantalla */
+    position: relative;
+    overflow: hidden;
   }
 
   .contract-mammoth-preview--page p {
