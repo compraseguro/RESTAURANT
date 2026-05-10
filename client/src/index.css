@@ -445,6 +445,17 @@ html[data-ui-theme='light'] #root .badge-cancelled {
     color: #262626 !important;
   }
 
+  /* Informe de productos (lista de cierres): sin filas blancas en tema oscuro */
+  html:not([data-ui-theme='light']) .informe-productos-table tbody tr {
+    background-color: transparent;
+  }
+  html:not([data-ui-theme='light']) .informe-productos-table tbody tr.informe-productos-row-selected {
+    background-color: color-mix(in srgb, var(--ui-accent-muted) 22%, transparent);
+  }
+  html[data-ui-theme='light'] .informe-productos-table tbody tr.informe-productos-row-selected {
+    background-color: rgb(224 242 254 / 0.85);
+  }
+
   html:not([data-ui-theme='light']) .bg-white .text-slate-900,
   html:not([data-ui-theme='light']) .bg-white .text-slate-800,
   html:not([data-ui-theme='light']) .bg-white .text-slate-700 {

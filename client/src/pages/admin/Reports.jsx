@@ -47,6 +47,7 @@ export default function Reports() {
   const [productoInformeDetail, setProductoInformeDetail] = useState(null);
   const [productoInformeLoading, setProductoInformeLoading] = useState(false);
   const [productoInformeRegisterId, setProductoInformeRegisterId] = useState('');
+  const [productoInformeModalOpen, setProductoInformeModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadDaily = () => api.get('/reports/daily').then(setDailyData).catch(console.error);
@@ -118,8 +119,16 @@ export default function Reports() {
       setRetryingFailed(false);
     }
   };
-  const loadProductoInforme = async (register) => {
+  const closeProductoInformeModal = () => {
+    setProductoInformeModalOpen(false);
+    setProductoInformeDetail(null);
+    setProductoInformeRegisterId('');
+    setProductoInformeLoading(false);
+  };
+
+  const openProductoInforme = async (register) => {
     if (!register?.id) return;
+    setProductoInformeModalOpen(true);
     setProductoInformeRegisterId(register.id);
     setProductoInformeLoading(true);
     setProductoInformeDetail(null);
@@ -588,38 +597,36 @@ export default function Reports() {
                 <MdRefresh className="text-sm" /> Actualizar lista
               </button>
             </div>
-            <p className="text-sm text-slate-500 mb-4">
-              Cada fila es un cierre: al cerrar caja se delimita el periodo. Pulsa <strong>Ver productos</strong> para el detalle
-              (producto, cantidad, precio unitario, importe). Los datos provienen de los pedidos pagados entre apertura y cierre.
-            </p>
             {!(monthlyData?.closedRegisters || []).length ? (
               <p className="text-slate-500">Aún no hay cierres de caja. Tras un cierre, aparecerá aquí y podrás abrir el informe.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="informe-productos-table w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Fecha cierre</th>
-                      <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Cajero</th>
-                      <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Apertura</th>
-                      <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Venta turno</th>
-                      <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase" />
+                    <tr className="border-b border-[color:var(--ui-border)]">
+                      <th className="text-left py-2 px-3 text-xs text-[color:var(--ui-muted)] uppercase">Fecha cierre</th>
+                      <th className="text-left py-2 px-3 text-xs text-[color:var(--ui-muted)] uppercase">Cajero</th>
+                      <th className="text-left py-2 px-3 text-xs text-[color:var(--ui-muted)] uppercase">Apertura</th>
+                      <th className="text-right py-2 px-3 text-xs text-[color:var(--ui-muted)] uppercase">Venta turno</th>
+                      <th className="text-right py-2 px-3 text-xs text-[color:var(--ui-muted)] uppercase" />
                     </tr>
                   </thead>
                   <tbody>
                     {(monthlyData.closedRegisters || []).map((r) => (
                       <tr
                         key={r.id}
-                        className={`border-b border-slate-50 ${productoInformeRegisterId === r.id ? 'bg-sky-50/80' : ''}`}
+                        className={`border-b border-[color:var(--ui-border)] ${
+                          productoInformeModalOpen && productoInformeRegisterId === r.id ? 'informe-productos-row-selected' : ''
+                        }`}
                       >
-                        <td className="py-2 px-3 text-slate-600">{formatDateTime(r.closed_at)}</td>
-                        <td className="py-2 px-3 font-medium">{r.user_name || '-'}</td>
-                        <td className="py-2 px-3 text-slate-500 text-xs">{formatDateTime(r.opened_at)}</td>
-                        <td className="py-2 px-3 text-right font-semibold text-emerald-700">{formatCurrency(r.total_sales || 0)}</td>
+                        <td className="py-2 px-3 text-[color:var(--ui-body-text)]">{formatDateTime(r.closed_at)}</td>
+                        <td className="py-2 px-3 font-medium text-[color:var(--ui-body-text)]">{r.user_name || '-'}</td>
+                        <td className="py-2 px-3 text-[color:var(--ui-muted)] text-xs">{formatDateTime(r.opened_at)}</td>
+                        <td className="py-2 px-3 text-right font-semibold text-emerald-600">{formatCurrency(r.total_sales || 0)}</td>
                         <td className="py-2 px-3 text-right">
                           <button
                             type="button"
-                            onClick={() => loadProductoInforme(r)}
+                            onClick={() => openProductoInforme(r)}
                             className="text-xs px-3 py-1.5 bg-[#3B82F6] text-white rounded-lg hover:bg-[#2563EB] inline-flex items-center gap-1"
                           >
                             <MdVisibility /> Ver productos
@@ -633,90 +640,100 @@ export default function Reports() {
             )}
           </div>
 
-          {productoInformeLoading && (
-            <div className="flex items-center justify-center py-10 text-slate-500 text-sm">Cargando detalle de productos…</div>
-          )}
-
-          {!productoInformeLoading && productoInformeDetail && (
-            <div className="card border border-slate-200">
-              <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
-                <div>
-                  <h4 className="font-bold text-slate-800">Productos vendidos en este cierre</h4>
-                  <p className="text-xs text-slate-500 mt-1">
+          <Modal
+            isOpen={productoInformeModalOpen}
+            onClose={closeProductoInformeModal}
+            title="Productos vendidos en este cierre"
+            size="lg"
+          >
+            {productoInformeLoading && (
+              <div className="flex items-center justify-center py-12 text-[color:var(--ui-muted)] text-sm">
+                Cargando detalle de productos…
+              </div>
+            )}
+            {!productoInformeLoading && !productoInformeDetail && (
+              <p className="text-center py-10 text-[color:var(--ui-muted)] text-sm">
+                No hay datos para mostrar o hubo un error al cargar.
+              </p>
+            )}
+            {!productoInformeLoading && productoInformeDetail && (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="text-sm text-[color:var(--ui-muted)]">
                     Cierre: {formatDateTime(productoInformeDetail.closed_at)} · {productoInformeDetail.user_name || '—'}
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const lines = (productoInformeDetail.sold_products || [])
+                        .map(
+                          (row) =>
+                            `${row.product_name}\t${Number(row.total_qty || 0)}\t${formatCurrency(row.unit_price || 0)}\t${formatCurrency(row.total_amount || 0)}`
+                        )
+                        .join('\n');
+                      const head = 'Producto\tCantidad\tP. unit.\tTotal\n';
+                      const tot = `TOTAL\t\t\t${formatCurrency(productoInformeDetail.product_sales_total ?? 0)}`;
+                      const blob = new Blob([`${head}${lines}\n${tot}`], { type: 'text/plain;charset=utf-8' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `informe-productos-${String(productoInformeDetail.id || 'cierre').slice(0, 8)}.txt`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="text-xs px-3 py-1.5 border border-[color:var(--ui-border)] rounded-lg text-[color:var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] inline-flex items-center gap-1 shrink-0"
+                  >
+                    <MdDownload /> Copiar / guardar
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const lines = (productoInformeDetail.sold_products || [])
-                      .map(
-                        (row) =>
-                          `${row.product_name}\t${Number(row.total_qty || 0)}\t${formatCurrency(row.unit_price || 0)}\t${formatCurrency(row.total_amount || 0)}`
-                      )
-                      .join('\n');
-                    const head = 'Producto\tCantidad\tP. unit.\tTotal\n';
-                    const tot = `TOTAL\t\t\t${formatCurrency(productoInformeDetail.product_sales_total ?? 0)}`;
-                    const blob = new Blob([`${head}${lines}\n${tot}`], { type: 'text/plain;charset=utf-8' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `informe-productos-${String(productoInformeDetail.id || 'cierre').slice(0, 8)}.txt`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1"
-                >
-                  <MdDownload /> Copiar / guardar
-                </button>
-              </div>
-              {!(productoInformeDetail.sold_products || []).length ? (
-                <p className="text-slate-500 py-4">No hay líneas de producto en el periodo de este cierre.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50/80">
-                        <th className="text-left py-2.5 px-3 text-xs font-semibold text-slate-600 uppercase">Producto</th>
-                        <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-600 uppercase">Cantidad</th>
-                        <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-600 uppercase">Precio unit.</th>
-                        <th className="text-right py-2.5 px-3 text-xs font-semibold text-slate-600 uppercase">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(productoInformeDetail.sold_products || []).map((row) => (
-                        <tr key={`${row.product_id}-${row.product_name}`} className="border-b border-slate-100">
-                          <td className="py-2 px-3 font-medium text-slate-800">{row.product_name}</td>
-                          <td className="py-2 px-3 text-right tabular-nums">{Number(row.total_qty || 0)}</td>
-                          <td className="py-2 px-3 text-right tabular-nums text-slate-600">{formatCurrency(row.unit_price || 0)}</td>
-                          <td className="py-2 px-3 text-right font-medium text-slate-800 tabular-nums">
-                            {formatCurrency(row.total_amount || 0)}
+                {!(productoInformeDetail.sold_products || []).length ? (
+                  <p className="text-[color:var(--ui-muted)] py-4">No hay líneas de producto en el periodo de este cierre.</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-[color:var(--ui-border)]">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
+                          <th className="text-left py-2.5 px-3 text-xs font-semibold text-[color:var(--ui-muted)] uppercase">Producto</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-[color:var(--ui-muted)] uppercase">Cantidad</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-[color:var(--ui-muted)] uppercase">Precio unit.</th>
+                          <th className="text-right py-2.5 px-3 text-xs font-semibold text-[color:var(--ui-muted)] uppercase">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(productoInformeDetail.sold_products || []).map((row) => (
+                          <tr key={`${row.product_id}-${row.product_name}`} className="border-b border-[color:var(--ui-border)]">
+                            <td className="py-2 px-3 font-medium text-[color:var(--ui-body-text)]">{row.product_name}</td>
+                            <td className="py-2 px-3 text-right tabular-nums text-[color:var(--ui-body-text)]">{Number(row.total_qty || 0)}</td>
+                            <td className="py-2 px-3 text-right tabular-nums text-[color:var(--ui-muted)]">{formatCurrency(row.unit_price || 0)}</td>
+                            <td className="py-2 px-3 text-right font-medium tabular-nums text-[color:var(--ui-body-text)]">
+                              {formatCurrency(row.total_amount || 0)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-[var(--ui-surface-2)] font-bold border-t border-[color:var(--ui-border)]">
+                          <td colSpan={3} className="py-3 px-3 text-right text-[color:var(--ui-body-text)]">
+                            Total ventas (productos)
+                          </td>
+                          <td className="py-3 px-3 text-right text-emerald-500 tabular-nums">
+                            {formatCurrency(
+                              productoInformeDetail.product_sales_total != null
+                                ? productoInformeDetail.product_sales_total
+                                : (productoInformeDetail.sold_products || []).reduce(
+                                    (s, r) => s + (Number(r.total_amount) || 0),
+                                    0
+                                  )
+                            )}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-slate-50 font-bold">
-                        <td colSpan={3} className="py-3 px-3 text-right text-slate-700">
-                          Total ventas (productos)
-                        </td>
-                        <td className="py-3 px-3 text-right text-emerald-700 tabular-nums">
-                          {formatCurrency(
-                            productoInformeDetail.product_sales_total != null
-                              ? productoInformeDetail.product_sales_total
-                              : (productoInformeDetail.sold_products || []).reduce(
-                                  (s, r) => s + (Number(r.total_amount) || 0),
-                                  0
-                                )
-                          )}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </Modal>
         </div>
       )}
 
