@@ -1,4 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+
+/** Redondeo a céntimos en soles; evita errores de coma flotante en arqueo vs esperado. */
+function roundMoneySoles(n) {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import {
   api,
@@ -746,27 +751,30 @@ export default function POSPanel() {
   };
 
   const calculateDenominationTotal = () => {
-    return denomDefs.reduce((sum, d) => sum + (parseFloat(denominations[d.key]) || 0) * d.value, 0);
+    const raw = denomDefs.reduce((sum, d) => sum + (parseFloat(denominations[d.key]) || 0) * d.value, 0);
+    return roundMoneySoles(raw);
   };
 
   const updateDenomination = (key, value) => {
     const safeValue = value === '' ? '' : Math.max(0, parseFloat(value) || 0);
     const updated = { ...denominations, [key]: safeValue };
     setDenominations(updated);
-    const total = denomDefs.reduce((sum, d) => sum + (parseFloat(updated[d.key]) || 0) * d.value, 0);
+    const total = roundMoneySoles(
+      denomDefs.reduce((sum, d) => sum + (parseFloat(updated[d.key]) || 0) * d.value, 0)
+    );
     setClosingAmount(total.toFixed(2));
   };
 
   const closeRegister = async () => {
     if (closingAmount === '') return toast.error('Ingresa el efectivo contado para cerrar caja');
-    const amount = parseFloat(closingAmount);
+    const amount = roundMoneySoles(parseFloat(closingAmount));
     if (Number.isNaN(amount) || amount < 0) return toast.error('El efectivo contado no es válido');
     try {
       await api.post('/pos/close-register', {
         closing_amount: amount,
         notes: closingNotes,
         arqueo: {
-          expected_cash: expectedCash,
+          expected_cash: expectedRounded,
           counted_cash: amount,
           difference,
           denominations,
@@ -790,7 +798,7 @@ export default function POSPanel() {
   };
   const sendCloseByEmail = async () => {
     if (closingAmount === '') return toast.error('Ingresa el efectivo contado para enviar el reporte');
-    const amount = parseFloat(closingAmount);
+    const amount = roundMoneySoles(parseFloat(closingAmount));
     if (Number.isNaN(amount) || amount < 0) return toast.error('El efectivo contado no es válido');
     try {
       setSendingCloseMail(true);
@@ -799,7 +807,7 @@ export default function POSPanel() {
         closing_amount: amount,
         notes: closingNotes,
         arqueo: {
-          expected_cash: expectedCash,
+          expected_cash: expectedRounded,
           counted_cash: amount,
           difference,
           denominations,
@@ -1573,9 +1581,17 @@ export default function POSPanel() {
   const totalIncome = register?.total_income || 0;
   const totalExpense = register?.total_expense || 0;
   const expectedCash = register?.expected_cash ?? (openingAmt + totalCash + totalIncome - totalExpense);
+  const expectedRounded = roundMoneySoles(expectedCash);
 
-  const closingAmt = parseFloat(closingAmount) || 0;
-  const difference = closingAmt - expectedCash;
+  const closingAmt =
+    closingAmount === '' ? 0 : roundMoneySoles(parseFloat(closingAmount) || 0);
+  const difference =
+    closingAmount === '' ? 0 : roundMoneySoles(closingAmt - expectedRounded);
+  const denomTotalRounded = calculateDenominationTotal();
+  const denominationMismatch =
+    closingAmount !== '' &&
+    denomTotalRounded > 0 &&
+    Math.abs(denomTotalRounded - closingAmt) >= 0.02;
 
   /**
    * Totales por método (API) alineados con gestión: mismos ids que pedidos pagados del turno.
@@ -2247,7 +2263,7 @@ export default function POSPanel() {
           <h3 className="font-bold text-slate-800 mb-4">Apertura y cierre</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Apertura</p><p className="font-bold">{formatCurrency(openingAmt)}</p></div>
-            <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Efectivo esperado</p><p className="font-bold">{formatCurrency(expectedCash)}</p></div>
+            <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Efectivo esperado</p><p className="font-bold">{formatCurrency(expectedRounded)}</p></div>
             <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Ventas del turno</p><p className="font-bold">{formatCurrency(registerSales)}</p></div>
           </div>
           <button onClick={prepareClose} className="btn-primary">Ir al cierre de caja</button>
@@ -3406,7 +3422,7 @@ export default function POSPanel() {
               <div className="row total-row"><span>TOTAL VENTAS</span><span>{formatCurrency(registerSales)}</span></div>
               <div className="row bold"><span>N° de operaciones</span><span>{closingData.order_count || 0}</span></div>
               <div className="sep"></div>
-              <div className="row bold"><span>EFECTIVO ESPERADO</span><span>{formatCurrency(expectedCash)}</span></div>
+              <div className="row bold"><span>EFECTIVO ESPERADO</span><span>{formatCurrency(expectedRounded)}</span></div>
               <div className="row"><span style={{ fontSize: '10px', color: '#94a3b8' }}>(Apertura + ventas en efectivo del turno)</span></div>
               <div className="sep"></div>
               <div className="row bold"><span>DETALLE ARQUEO</span><span></span></div>
@@ -3474,7 +3490,7 @@ export default function POSPanel() {
                   <div>
                     <label className="block text-xs font-medium text-[#cbd5e1] mb-1">Efectivo esperado en caja</label>
                     <div className="rounded-lg p-3 border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
-                      <p className="font-bold text-lg text-[#f9fafb] tabular-nums">{formatCurrency(expectedCash)}</p>
+                      <p className="font-bold text-lg text-[#f9fafb] tabular-nums">{formatCurrency(expectedRounded)}</p>
                     </div>
                   </div>
                   <div>
@@ -3493,6 +3509,12 @@ export default function POSPanel() {
                     </div>
                   </div>
                 </div>
+
+                {denominationMismatch && (
+                  <p className="text-sm text-amber-300 mb-3 px-1 rounded-lg border border-amber-600/40 bg-amber-950/30 py-2">
+                    El total por denominación ({formatCurrency(denomTotalRounded)}) no coincide con el efectivo contado ingresado ({formatCurrency(closingAmt)}). La diferencia se calcula respecto al esperado usando el importe contado que escribió.
+                  </p>
+                )}
 
                 {closingAmount !== '' && (
                   <div className={`flex items-center justify-between p-3 rounded-lg border ${

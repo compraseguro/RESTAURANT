@@ -9,6 +9,10 @@ const { print } = require('../printing/printerService');
 
 const router = express.Router();
 
+function roundMoneySoles(n) {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
 /** Formspree por defecto; sobrescribe con CASH_CLOSE_FORM_URL en .env */
 const DEFAULT_CASH_CLOSE_FORM_URL = 'https://formspree.io/f/mlgpdblo';
 
@@ -338,10 +342,12 @@ router.get('/current-register', authenticateToken, requireRole('admin', 'cajero'
   const sales = queryRegisterSessionSales(register.opened_at);
 
   const movements = getMovementTotals(register.id);
-  const expectedCash = Number(register.opening_amount || 0)
-    + Number(sales.total_cash || 0)
-    + Number(movements.total_income || 0)
-    - Number(movements.total_expense || 0);
+  const expectedCash = roundMoneySoles(
+    Number(register.opening_amount || 0)
+      + Number(sales.total_cash || 0)
+      + Number(movements.total_income || 0)
+      - Number(movements.total_expense || 0)
+  );
 
   res.json({ ...register, ...sales, ...movements, expected_cash: expectedCash });
 });
@@ -360,12 +366,14 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
   const sales = queryRegisterSessionSales(register.opened_at);
 
   const movements = getMovementTotals(register.id);
-  const expectedCash = Number(register.opening_amount || 0)
-    + Number(sales.total_cash || 0)
-    + Number(movements.total_income || 0)
-    - Number(movements.total_expense || 0);
-  const countedCash = Number(closing_amount);
-  const diff = countedCash - expectedCash;
+  const expectedCash = roundMoneySoles(
+    Number(register.opening_amount || 0)
+      + Number(sales.total_cash || 0)
+      + Number(movements.total_income || 0)
+      - Number(movements.total_expense || 0)
+  );
+  const countedCash = roundMoneySoles(Number(closing_amount));
+  const diff = roundMoneySoles(countedCash - expectedCash);
   const closedAtIso = new Date().toISOString();
   const denominationSummary = arqueo?.denominations || {};
   const arqueoData = JSON.stringify({
@@ -440,12 +448,14 @@ router.post('/send-close-email', authenticateToken, requireRole('admin', 'cajero
 
   const sales = queryRegisterSessionSales(register.opened_at);
   const movements = getMovementTotals(register.id);
-  const expectedCash = Number(register.opening_amount || 0)
-    + Number(sales.total_cash || 0)
-    + Number(movements.total_income || 0)
-    - Number(movements.total_expense || 0);
-  const countedCash = Number(closing_amount);
-  const diff = countedCash - expectedCash;
+  const expectedCash = roundMoneySoles(
+    Number(register.opening_amount || 0)
+      + Number(sales.total_cash || 0)
+      + Number(movements.total_income || 0)
+      - Number(movements.total_expense || 0)
+  );
+  const countedCash = roundMoneySoles(Number(closing_amount));
+  const diff = roundMoneySoles(countedCash - expectedCash);
 
   try {
     await sendCashCloseNotification({
