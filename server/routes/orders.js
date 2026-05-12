@@ -2,9 +2,11 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql, withTransaction, logAudit } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { assertPaymentMethodAllowed } = require('../businessRules');
+const { assertPaymentMethodAllowed, normalizePaymentMethod } = require('../businessRules');
+const { parsePaymentBreakdown, dominantPaymentMethod, round2 } = require('../utils/paymentBreakdown');
 const { getOrderWithItems, createOrderInTransaction, replaceOrderLinesInTransaction, actorFromRequest } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
+const kardexInventory = require('../services/kardexInventoryService');
 const router = express.Router();
 const ORDER_TRANSITIONS = {
   pending: ['preparing', 'cancelled'],
@@ -360,19 +362,41 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'moz
     if (mustReason && reason.length < 3) {
       return res.status(400).json({ error: 'Indique el motivo de anulación (mínimo 3 caracteres).' });
     }
+    try {
+      withTransaction((tx) => {
+        kardexInventory.revertirSalidasVentaPedido(tx, order.id, req.user.id);
+      });
+    } catch (err) {
+      return res.status(400).json({ error: err.message || 'No se pudo revertir el kardex de esta venta' });
+    }
     restoreNonTransformedStockForOrder(order.id);
     runSql(
       "UPDATE orders SET status = 'cancelled', cancellation_reason = ?, updated_at = datetime('now') WHERE id = ?",
       [reason, req.params.id]
     );
+  } else if (status === 'delivered' && String(order.payment_status || '') === 'paid') {
+    try {
+      withTransaction((tx) => {
+        tx.run("UPDATE orders SET status = 'delivered', updated_at = datetime('now') WHERE id = ?", [req.params.id]);
+        if (order.type === 'delivery') {
+          tx.run(
+            "UPDATE delivery_assignments SET status = 'delivered', delivered_at = datetime('now') WHERE order_id = ? AND status != 'delivered'",
+            [order.id]
+          );
+        }
+        kardexInventory.aplicarSalidasVentaPedido(tx, order.id, req.user.id);
+      });
+    } catch (err) {
+      return res.status(400).json({ error: err.message || 'No se pudo aplicar salidas de kardex' });
+    }
   } else {
     runSql("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, req.params.id]);
-  }
-  if (order.type === 'delivery' && status === 'delivered') {
-    runSql(
-      "UPDATE delivery_assignments SET status = 'delivered', delivered_at = datetime('now') WHERE order_id = ? AND status != 'delivered'",
-      [order.id]
-    );
+    if (order.type === 'delivery' && status === 'delivered') {
+      runSql(
+        "UPDATE delivery_assignments SET status = 'delivered', delivered_at = datetime('now') WHERE order_id = ? AND status != 'delivered'",
+        [order.id]
+      );
+    }
   }
   logAudit({
     actorUserId: req.user.id,
@@ -396,26 +420,104 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'moz
 });
 
 router.put('/:id/payment', authenticateToken, requireRole('admin', 'cajero', 'mozo'), (req, res) => {
-  const { payment_method, payment_status } = req.body;
+  const { payment_method, payment_status, payment_breakdown: paymentBreakdownBody } = req.body || {};
   const order = queryOne('SELECT * FROM orders WHERE id = ?', [req.params.id]);
   if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
-  const nextPaymentMethod = payment_method ? normalizePaymentMethod(payment_method, { allowOnline: true, fallback: order.payment_method || 'efectivo' }) : null;
-  if (payment_method) {
+
+  let paymentBreakdownObj = null;
+  if (paymentBreakdownBody != null && typeof paymentBreakdownBody === 'object' && !Array.isArray(paymentBreakdownBody)) {
+    paymentBreakdownObj = parsePaymentBreakdown(JSON.stringify(paymentBreakdownBody));
+  } else if (typeof paymentBreakdownBody === 'string' && paymentBreakdownBody.trim()) {
+    paymentBreakdownObj = parsePaymentBreakdown(paymentBreakdownBody);
+  }
+
+  if (payment_status && !['pending', 'paid', 'refunded'].includes(String(payment_status))) {
+    return res.status(400).json({ error: 'Estado de pago inválido' });
+  }
+
+  let nextPaymentMethod = null;
+  let nextBreakdown = undefined;
+
+  if (paymentBreakdownObj) {
+    try {
+      for (const k of Object.keys(paymentBreakdownObj)) {
+        assertPaymentMethodAllowed(k, { allowOnline: true });
+      }
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    const orderTotal = round2(Number(order.total || 0));
+    const splitSum = round2(
+      Object.values(paymentBreakdownObj).reduce((acc, v) => acc + round2(Number(v) || 0), 0)
+    );
+    if (Math.abs(splitSum - orderTotal) > 0.05) {
+      return res.status(400).json({
+        error: `El multipago (S/ ${splitSum.toFixed(2)}) debe coincidir con el total del pedido (S/ ${orderTotal.toFixed(2)})`,
+      });
+    }
+    nextPaymentMethod = dominantPaymentMethod(paymentBreakdownObj);
+    nextBreakdown = JSON.stringify(paymentBreakdownObj);
+  } else if (payment_method) {
+    nextPaymentMethod = normalizePaymentMethod(payment_method, { allowOnline: true, fallback: order.payment_method || 'efectivo' });
     try {
       assertPaymentMethodAllowed(nextPaymentMethod, { allowOnline: true });
     } catch (err) {
       return res.status(400).json({ error: err.message });
     }
+    nextBreakdown = null;
   }
-  if (payment_status && !['pending', 'paid', 'refunded'].includes(String(payment_status))) {
-    return res.status(400).json({ error: 'Estado de pago inválido' });
+
+  if (nextPaymentMethod === null && nextBreakdown === undefined && (payment_status === undefined || payment_status === null)) {
+    return res.status(400).json({ error: 'Sin cambios de pago' });
   }
-  runSql("UPDATE orders SET payment_method = COALESCE(?, payment_method), payment_status = COALESCE(?, payment_status), updated_at = datetime('now') WHERE id = ?", [nextPaymentMethod, payment_status, req.params.id]);
-  if (payment_method) {
-    runSql(
-      "UPDATE electronic_documents SET payment_method = ?, updated_at = datetime('now') WHERE order_id = ?",
-      [nextPaymentMethod, req.params.id]
-    );
+
+  const setParts = [];
+  const params = [];
+  if (nextPaymentMethod !== null) {
+    setParts.push('payment_method = ?');
+    params.push(nextPaymentMethod);
+  }
+  if (nextBreakdown !== undefined) {
+    setParts.push('payment_breakdown = ?');
+    params.push(nextBreakdown);
+  }
+  if (payment_status !== undefined && payment_status !== null) {
+    setParts.push('payment_status = ?');
+    params.push(payment_status);
+  }
+  setParts.push("updated_at = datetime('now')");
+  params.push(req.params.id);
+
+  const docPm = nextPaymentMethod !== null ? nextPaymentMethod : order.payment_method;
+  const nextPayEffective =
+    payment_status !== undefined && payment_status !== null
+      ? String(payment_status)
+      : String(order.payment_status || '');
+  const applyKardexAfter = nextPayEffective === 'paid' && String(order.status || '') === 'delivered';
+
+  if (applyKardexAfter) {
+    try {
+      withTransaction((tx) => {
+        tx.run(`UPDATE orders SET ${setParts.join(', ')} WHERE id = ?`, params);
+        if (nextPaymentMethod !== null || nextBreakdown !== undefined) {
+          tx.run(
+            "UPDATE electronic_documents SET payment_method = ?, updated_at = datetime('now') WHERE order_id = ?",
+            [docPm, req.params.id]
+          );
+        }
+        kardexInventory.aplicarSalidasVentaPedido(tx, req.params.id, req.user.id);
+      });
+    } catch (err) {
+      return res.status(400).json({ error: err.message || 'No se pudo aplicar salidas de kardex' });
+    }
+  } else {
+    runSql(`UPDATE orders SET ${setParts.join(', ')} WHERE id = ?`, params);
+    if (nextPaymentMethod !== null || nextBreakdown !== undefined) {
+      runSql(
+        "UPDATE electronic_documents SET payment_method = ?, updated_at = datetime('now') WHERE order_id = ?",
+        [docPm, req.params.id]
+      );
+    }
   }
   res.json(getOrderWithItems(req.params.id));
 });

@@ -124,7 +124,9 @@ function normalizeCajaStationId(role, rawCajaId, { excludeUserId = '' } = {}) {
 router.get('/', authenticateToken, requireRole('admin'), (req, res) => {
   res.json(
     queryAll(
-      'SELECT id, username, email, full_name, role, is_active, phone, avatar, caja_station_id, created_at FROM users ORDER BY created_at DESC'
+      `SELECT id, username, email, full_name, role, is_active, phone, avatar, caja_station_id,
+        payroll_pay_mode, payroll_amount, payroll_schedule_note, payroll_payment_day, created_at
+       FROM users ORDER BY created_at DESC`
     )
   );
 });
@@ -223,14 +225,91 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       'UPDATE users SET username = ?, email = ?, full_name = ?, role = ?, phone = ?, is_active = ?, caja_station_id = ? WHERE id = ?',
       [username, email, fullName, role, phone, isActive, cajaStationId, req.params.id]
     );
+
+    const payrollPatch = {};
+    if (req.body?.payroll_pay_mode !== undefined) {
+      const m = String(req.body.payroll_pay_mode || '').trim().toLowerCase();
+      if (!['', 'hora', 'jornada'].includes(m)) {
+        return res.status(400).json({ error: 'Modo de nómina inválido (hora o jornada)' });
+      }
+      payrollPatch.payroll_pay_mode = m;
+    }
+    if (req.body?.payroll_amount !== undefined) {
+      const pa = Number(req.body.payroll_amount);
+      if (!Number.isFinite(pa) || pa < 0) {
+        return res.status(400).json({ error: 'Monto de nómina inválido' });
+      }
+      payrollPatch.payroll_amount = pa;
+    }
+    if (req.body?.payroll_schedule_note !== undefined) {
+      payrollPatch.payroll_schedule_note = String(req.body.payroll_schedule_note || '');
+    }
+    if (req.body?.payroll_payment_day !== undefined) {
+      const d = parseInt(req.body.payroll_payment_day, 10);
+      if (!Number.isFinite(d) || d < 0 || d > 31) {
+        return res.status(400).json({ error: 'Día de pago inválido (0–31)' });
+      }
+      payrollPatch.payroll_payment_day = d;
+    }
+    if (Object.keys(payrollPatch).length) {
+      const cols = Object.keys(payrollPatch);
+      runSql(
+        `UPDATE users SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
+        [...cols.map((c) => payrollPatch[c]), req.params.id]
+      );
+    }
+
     return res.json(
       queryOne(
-        'SELECT id, username, email, full_name, role, is_active, phone, caja_station_id, created_at FROM users WHERE id = ?',
+        `SELECT id, username, email, full_name, role, is_active, phone, caja_station_id,
+          payroll_pay_mode, payroll_amount, payroll_schedule_note, payroll_payment_day, created_at
+         FROM users WHERE id = ?`,
         [req.params.id]
       )
     );
   } catch (err) {
     return res.status(400).json({ error: err.message || 'No se pudo actualizar el usuario' });
+  }
+});
+
+router.post('/:id/payroll-investment', authenticateToken, requireRole('admin'), (req, res) => {
+  try {
+    const user = queryOne(
+      'SELECT id, full_name, payroll_pay_mode, payroll_amount FROM users WHERE id = ?',
+      [req.params.id]
+    );
+    if (!user?.id) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const mode = String(user.payroll_pay_mode || '').toLowerCase();
+    let amount = Number(req.body?.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      if (mode === 'hora') {
+        const hours = Number(req.body?.hours);
+        const rate = Number(user.payroll_amount || 0);
+        if (!Number.isFinite(hours) || hours <= 0) {
+          return res.status(400).json({ error: 'Indica las horas trabajadas para pago por hora' });
+        }
+        if (!Number.isFinite(rate) || rate <= 0) {
+          return res.status(400).json({ error: 'Define la tarifa por hora en el perfil del usuario' });
+        }
+        amount = Math.round(hours * rate * 100) / 100;
+      } else {
+        amount = Math.round(Number(user.payroll_amount || 0) * 100) / 100;
+      }
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'El monto de nómina debe ser mayor a cero' });
+    }
+    const concept = String(req.body?.concept || '').trim() || `Nómina: ${user.full_name || 'personal'}`.trim();
+    const id = uuidv4();
+    runSql(
+      `INSERT INTO investment_movements (id, amount, concept, user_id, source, created_at)
+       VALUES (?, ?, ?, ?, 'payroll', datetime('now'))`,
+      [id, amount, concept, user.id]
+    );
+    const row = queryOne('SELECT * FROM investment_movements WHERE id = ?', [id]);
+    res.status(201).json(row);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'No se pudo registrar el pago' });
   }
 });
 

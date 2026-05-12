@@ -1,5 +1,6 @@
 const express = require('express');
-const { queryAll, queryOne } = require('../database');
+const { v4: uuidv4 } = require('uuid');
+const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { FINANCIAL_FILTER_SQL } = require('../businessRules');
 
@@ -207,6 +208,152 @@ router.get('/products', authenticateToken, requireRole('admin', 'cajero'), (req,
 router.get('/payment-methods', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
   const { start_date, end_date } = req.query;
   res.json(queryAll(`SELECT payment_method, COUNT(*) as count, SUM(total) as total FROM orders WHERE ${FINANCIAL_FILTER} AND ${SALES_EVENT_DATE_SQL} BETWEEN COALESCE(?, DATE('now', 'localtime', '-30 days')) AND COALESCE(?, DATE('now', 'localtime')) GROUP BY payment_method ORDER BY total DESC`, [start_date || null, end_date || null]));
+});
+
+const LOSS_CATEGORIES = new Set(['salida_efectivo', 'gasto_extra', 'merma', 'danio_propiedad', 'reembolso', 'otro']);
+
+function parseYmd(input) {
+  const v = String(input || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+}
+
+function defaultFinanceRange() {
+  const today = new Date();
+  const to = today.toISOString().split('T')[0];
+  const from = new Date(today);
+  from.setDate(from.getDate() - 30);
+  return { from: from.toISOString().split('T')[0], to };
+}
+
+router.get('/finance-overview', authenticateToken, requireRole('admin'), (req, res) => {
+  const def = defaultFinanceRange();
+  const from = parseYmd(req.query.from) || def.from;
+  const to = parseYmd(req.query.to) || def.to;
+  const dateSales = SALES_EVENT_DATE_SQL;
+  const salesRow = queryOne(
+    `SELECT COUNT(*) as orders, COALESCE(SUM(total), 0) as total_sales FROM orders WHERE ${FINANCIAL_FILTER} AND ${dateSales} BETWEEN date(?) AND date(?)`,
+    [from, to]
+  );
+  const investmentRow = queryOne(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM investment_movements
+     WHERE date(datetime(created_at, 'localtime')) BETWEEN date(?) AND date(?)`,
+    [from, to]
+  );
+  const purchasesRow = queryOne(
+    `SELECT COALESCE(SUM(total_cost), 0) as total FROM inventory_expenses
+     WHERE date(datetime(created_at, 'localtime')) BETWEEN date(?) AND date(?)`,
+    [from, to]
+  );
+  const cashExpensesRow = queryOne(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM cash_movements
+     WHERE type = 'expense'
+       AND date(datetime(created_at, 'localtime')) BETWEEN date(?) AND date(?)`,
+    [from, to]
+  );
+  const lossEventsRow = queryOne(
+    `SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as n FROM finance_loss_events
+     WHERE date(datetime(occurred_at, 'localtime')) BETWEEN date(?) AND date(?)`,
+    [from, to]
+  );
+  const lossByCat = queryAll(
+    `SELECT category, COALESCE(SUM(amount), 0) as total, COUNT(*) as event_count FROM finance_loss_events
+     WHERE date(datetime(occurred_at, 'localtime')) BETWEEN date(?) AND date(?)
+     GROUP BY category ORDER BY total DESC`,
+    [from, to]
+  );
+  const totalSales = Number(salesRow?.total_sales || 0);
+  const totalInvestment = Number(investmentRow?.total || 0);
+  const totalPurchases = Number(purchasesRow?.total || 0);
+  const cashExpenses = Number(cashExpensesRow?.total || 0);
+  const lossEventsTotal = Number(lossEventsRow?.total || 0);
+  const lossesCombined = lossEventsTotal + cashExpenses;
+  const approxGross = totalSales - totalPurchases;
+  const approxProfit = totalSales - totalPurchases - lossEventsTotal - cashExpenses;
+
+  res.json({
+    filters: { from, to },
+    sales: { total: totalSales, orders: Number(salesRow?.orders || 0) },
+    investment: { total: totalInvestment },
+    purchases: { total: totalPurchases },
+    cash_expenses: { total: cashExpenses },
+    loss_events: { total: lossEventsTotal, count: Number(lossEventsRow?.n || 0) },
+    loss_by_category: lossByCat.map((r) => ({
+      category: r.category,
+      total: Number(r.total || 0),
+      event_count: Number(r.event_count || 0),
+    })),
+    losses_combined_total: lossesCombined,
+    approx_gross_margin: approxGross,
+    approx_profit: approxProfit,
+  });
+});
+
+router.get('/finance-loss-events', authenticateToken, requireRole('admin'), (req, res) => {
+  const def = defaultFinanceRange();
+  const from = parseYmd(req.query.from) || def.from;
+  const to = parseYmd(req.query.to) || def.to;
+  const category = String(req.query.category || '').trim();
+  const clauses = ["date(datetime(occurred_at, 'localtime')) BETWEEN date(?) AND date(?)"];
+  const params = [from, to];
+  if (category && LOSS_CATEGORIES.has(category)) {
+    clauses.push('category = ?');
+    params.push(category);
+  }
+  const whereSql = clauses.join(' AND ');
+  const rows = queryAll(
+    `SELECT * FROM finance_loss_events WHERE ${whereSql} ORDER BY datetime(occurred_at) DESC LIMIT 500`,
+    params
+  );
+  const parsed = rows.map((row) => {
+    let items = null;
+    if (row.items_json) {
+      try {
+        items = JSON.parse(row.items_json);
+      } catch (_) {
+        items = row.items_json;
+      }
+    }
+    return { ...row, items_json_parsed: items };
+  });
+  const totalRow = queryOne(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM finance_loss_events WHERE ${whereSql}`,
+    params
+  );
+  res.json({
+    filters: { from, to, category: category || 'all' },
+    events: parsed,
+    loss_events_total: Number(totalRow?.total || 0),
+  });
+});
+
+router.post('/finance-loss-events', authenticateToken, requireRole('admin'), (req, res) => {
+  try {
+    const category = String(req.body?.category || '').trim();
+    if (!LOSS_CATEGORIES.has(category)) return res.status(400).json({ error: 'Categoría de pérdida inválida' });
+    const amount = Number(req.body?.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Monto inválido' });
+    const concept = String(req.body?.concept || '').trim();
+    const orderId = String(req.body?.order_id || '').trim();
+    let itemsJson = '';
+    if (req.body?.items != null) {
+      itemsJson = typeof req.body.items === 'string' ? req.body.items : JSON.stringify(req.body.items);
+    }
+    let occurredAt = String(req.body?.occurred_at || '').trim();
+    if (occurredAt && !/^\d{4}-\d{2}-\d{2}/.test(occurredAt)) {
+      return res.status(400).json({ error: 'Fecha occurred_at inválida' });
+    }
+    if (!occurredAt) occurredAt = new Date().toISOString();
+    const id = uuidv4();
+    runSql(
+      `INSERT INTO finance_loss_events (id, category, amount, concept, order_id, items_json, occurred_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      [id, category, amount, concept, orderId || null, itemsJson || '', occurredAt]
+    );
+    const created = queryOne('SELECT * FROM finance_loss_events WHERE id = ?', [id]);
+    res.status(201).json(created);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'No se pudo registrar la pérdida' });
+  }
 });
 
 module.exports = router;

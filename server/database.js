@@ -1072,6 +1072,7 @@ async function initDatabase() {
       'cancellation_reason',
       "ALTER TABLE orders ADD COLUMN cancellation_reason TEXT DEFAULT ''"
     );
+    addOrderColIfMissing('payment_breakdown', "ALTER TABLE orders ADD COLUMN payment_breakdown TEXT DEFAULT NULL");
     try {
       db.run(
         "UPDATE orders SET delivery_payment_modality = 'contra_entrega' WHERE type = 'delivery' AND (delivery_payment_modality IS NULL OR TRIM(delivery_payment_modality) = '')"
@@ -1248,6 +1249,14 @@ async function initDatabase() {
     if (!userColNamesCaja.has('caja_station_id')) {
       db.run("ALTER TABLE users ADD COLUMN caja_station_id TEXT DEFAULT ''");
     }
+    const addUserColIfMissing = (colName, ddl) => {
+      const cols = queryAll('PRAGMA table_info(users)');
+      if (!cols.some((c) => c.name === colName)) db.run(ddl);
+    };
+    addUserColIfMissing('payroll_pay_mode', "ALTER TABLE users ADD COLUMN payroll_pay_mode TEXT DEFAULT ''");
+    addUserColIfMissing('payroll_amount', 'ALTER TABLE users ADD COLUMN payroll_amount REAL DEFAULT 0');
+    addUserColIfMissing('payroll_schedule_note', "ALTER TABLE users ADD COLUMN payroll_schedule_note TEXT DEFAULT ''");
+    addUserColIfMissing('payroll_payment_day', 'ALTER TABLE users ADD COLUMN payroll_payment_day INTEGER DEFAULT 0');
     db.run(
       `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_caja_station_unique
        ON users(caja_station_id)
@@ -1270,6 +1279,29 @@ async function initDatabase() {
     db.run('CREATE INDEX IF NOT EXISTS idx_delivery_assignments_driver ON delivery_assignments(driver_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_inventory_logs_product_created ON inventory_logs(product_id, created_at)');
     db.run('CREATE INDEX IF NOT EXISTS idx_documents_order ON electronic_documents(order_id)');
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS investment_movements (
+        id TEXT PRIMARY KEY,
+        amount REAL NOT NULL,
+        concept TEXT DEFAULT '',
+        user_id TEXT,
+        source TEXT DEFAULT 'payroll',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS finance_loss_events (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        amount REAL NOT NULL,
+        concept TEXT DEFAULT '',
+        order_id TEXT,
+        items_json TEXT DEFAULT '',
+        occurred_at TEXT DEFAULT (datetime('now')),
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
 
     const electronicDocCols = queryAll('PRAGMA table_info(electronic_documents)');
     const electronicDocColNames = new Set((electronicDocCols || []).map((c) => c.name));

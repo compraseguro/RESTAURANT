@@ -41,6 +41,7 @@ export default function Delivery() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryPaymentModality, setDeliveryPaymentModality] = useState('contra_entrega');
+  const [restaurantAddress, setRestaurantAddress] = useState('');
 
   const load = () => {
     api.get('/orders').then(data => {
@@ -60,6 +61,7 @@ export default function Delivery() {
 
   useEffect(() => {
     loadProducts();
+    api.get('/restaurant').then((r) => setRestaurantAddress(String(r?.address || '').trim())).catch(() => {});
     if (isMozo) {
       setLoading(false);
       return;
@@ -217,7 +219,7 @@ export default function Delivery() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {displayed.map((o) => {
-                const mapsUrl = buildGoogleMapsSearchUrl(o.delivery_address);
+                const mapsUrl = buildGoogleMapsSearchUrl(o.delivery_address, { restaurantAddress });
                 return (
                 <div key={o.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
                   <div className="flex items-center justify-between mb-3">

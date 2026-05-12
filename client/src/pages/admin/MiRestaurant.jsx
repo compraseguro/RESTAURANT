@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import BillingSunatManualForm from '../../components/billing/BillingSunatManualForm';
 import { defaultBillingPanel } from '../../data/sunat47Catalog';
-import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt } from 'react-icons/md';
+import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt, MdPeople } from 'react-icons/md';
 
 const DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
 const DAY_NAMES = { lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo' };
@@ -103,6 +103,12 @@ export default function MiRestaurant() {
   /** Ventana de carga del comprobante (servidor): enlazada a fecha_proxima_facturación y días de gracia. */
   const [pagoUsoComprobanteUi, setPagoUsoComprobanteUi] = useState(null);
   const [billingPanel, setBillingPanel] = useState(() => defaultBillingPanel());
+  const [staffUsers, setStaffUsers] = useState([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [payrollInvestModal, setPayrollInvestModal] = useState(null);
+  const [payrollHours, setPayrollHours] = useState('');
+  const [payrollConcept, setPayrollConcept] = useState('');
+  const [payrollInvestBusy, setPayrollInvestBusy] = useState(false);
 
   const canReadBillingConfig = user?.role === 'admin' || user?.role === 'master_admin';
 
@@ -367,6 +373,78 @@ export default function MiRestaurant() {
   const updateSchedule = (day, field, value) => setRestaurant(prev => ({
     ...prev, schedule: { ...prev.schedule, [day]: { ...prev.schedule[day], [field]: value } }
   }));
+
+  const patchStaffUser = (id, partial) => {
+    setStaffUsers((prev) => prev.map((x) => (x.id === id ? { ...x, ...partial } : x)));
+  };
+
+  useEffect(() => {
+    if (activeView !== 'mi_empresa' || tab !== 'schedule' || !isRestaurantAdmin) return undefined;
+    let cancelled = false;
+    setStaffLoading(true);
+    api
+      .get('/users')
+      .then((data) => {
+        if (!cancelled) setStaffUsers(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setStaffUsers([]);
+      })
+      .finally(() => {
+        if (!cancelled) setStaffLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView, tab, isRestaurantAdmin]);
+
+  const saveStaffPayroll = async (u) => {
+    try {
+      await api.put(`/users/${u.id}`, {
+        username: u.username,
+        email: u.email,
+        full_name: u.full_name,
+        role: u.role,
+        phone: u.phone || '',
+        is_active: u.is_active,
+        caja_station_id: u.caja_station_id || '',
+        payroll_pay_mode: u.payroll_pay_mode || '',
+        payroll_amount: Number(u.payroll_amount) || 0,
+        payroll_schedule_note: u.payroll_schedule_note || '',
+        payroll_payment_day: parseInt(u.payroll_payment_day, 10) || 0,
+      });
+      toast.success(`Nómina guardada · ${u.full_name}`);
+    } catch (e) {
+      toast.error(e.message || 'No se pudo guardar');
+    }
+  };
+
+  const submitPayrollInvestment = async () => {
+    if (!payrollInvestModal?.id) return;
+    try {
+      setPayrollInvestBusy(true);
+      const body = {};
+      if (payrollConcept.trim()) body.concept = payrollConcept.trim();
+      if (String(payrollInvestModal.payroll_pay_mode || '').toLowerCase() === 'hora') {
+        const h = parseFloat(payrollHours);
+        if (!Number.isFinite(h) || h <= 0) {
+          toast.error('Indica horas válidas');
+          return;
+        }
+        body.hours = h;
+      }
+      await api.post(`/users/${payrollInvestModal.id}/payroll-investment`, body);
+      toast.success('Pago de nómina sumado a inversión');
+      setPayrollInvestModal(null);
+      setPayrollHours('');
+      setPayrollConcept('');
+    } catch (e) {
+      toast.error(e.message || 'No se pudo registrar');
+    } finally {
+      setPayrollInvestBusy(false);
+    }
+  };
+
   const uploadLogo = async (file) => {
     if (!file) return;
     try {
@@ -547,20 +625,113 @@ export default function MiRestaurant() {
           )}
 
           {tab === 'schedule' && (
-        <div className="card">
-          <h3 className="font-bold text-[var(--ui-body-text)] mb-4">Horario de Atención</h3>
-          <div className="space-y-3">
-            {DAYS.map(day => (
-              <div key={day} className="flex items-center gap-4 py-2 border-b border-[color:var(--ui-border)] last:border-0">
-                <label className="flex items-center gap-2 w-32">
-                  <input type="checkbox" checked={restaurant.schedule[day]?.enabled} onChange={e => updateSchedule(day, 'enabled', e.target.checked)} className="rounded text-gold-600" />
-                  <span className="font-medium text-sm">{DAY_NAMES[day]}</span>
-                </label>
-                <input type="time" value={restaurant.schedule[day]?.open || '11:00'} onChange={e => updateSchedule(day, 'open', e.target.value)} className="input-field w-auto" disabled={!restaurant.schedule[day]?.enabled} />
-                <span className="text-[var(--ui-muted)]">a</span>
-                <input type="time" value={restaurant.schedule[day]?.close || '23:00'} onChange={e => updateSchedule(day, 'close', e.target.value)} className="input-field w-auto" disabled={!restaurant.schedule[day]?.enabled} />
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+          <div className="card">
+            <h3 className="font-bold text-[var(--ui-body-text)] mb-4">Horario de Atención</h3>
+            <div className="space-y-3">
+              {DAYS.map(day => (
+                <div key={day} className="flex items-center gap-4 py-2 border-b border-[color:var(--ui-border)] last:border-0 flex-wrap">
+                  <label className="flex items-center gap-2 w-32">
+                    <input type="checkbox" checked={restaurant.schedule[day]?.enabled} onChange={e => updateSchedule(day, 'enabled', e.target.checked)} className="rounded text-gold-600" />
+                    <span className="font-medium text-sm">{DAY_NAMES[day]}</span>
+                  </label>
+                  <input type="time" value={restaurant.schedule[day]?.open || '11:00'} onChange={e => updateSchedule(day, 'open', e.target.value)} className="input-field w-auto" disabled={!restaurant.schedule[day]?.enabled} />
+                  <span className="text-[var(--ui-muted)]">a</span>
+                  <input type="time" value={restaurant.schedule[day]?.close || '23:00'} onChange={e => updateSchedule(day, 'close', e.target.value)} className="input-field w-auto" disabled={!restaurant.schedule[day]?.enabled} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card min-h-[200px]">
+            <h3 className="font-bold text-[var(--ui-body-text)] mb-4 flex items-center gap-2">
+              <MdPeople className="text-gold-600 shrink-0" /> Personal y nómina
+            </h3>
+            {!isRestaurantAdmin ? (
+              <p className="text-sm text-[var(--ui-muted)]">Solo el administrador del restaurante gestiona la nómina aquí.</p>
+            ) : staffLoading ? (
+              <p className="text-sm text-[var(--ui-muted)]">Cargando usuarios…</p>
+            ) : staffUsers.length === 0 ? (
+              <p className="text-sm text-[var(--ui-muted)]">No hay usuarios. Créalos en Configuración → Usuarios.</p>
+            ) : (
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                {staffUsers.map((u) => (
+                  <div key={u.id} className="border border-[color:var(--ui-border)] rounded-lg p-3 space-y-2">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-[var(--ui-body-text)]">{u.full_name}</p>
+                        <p className="text-xs text-[var(--ui-muted)]">{u.role} · {u.username}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void saveStaffPayroll(u)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gold-600 text-white hover:bg-gold-500"
+                        >
+                          Guardar nómina
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPayrollHours('');
+                            setPayrollConcept('');
+                            setPayrollInvestModal(u);
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
+                        >
+                          Pago → inversión
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Sueldo por</label>
+                        <select
+                          className="input-field text-sm"
+                          value={u.payroll_pay_mode || ''}
+                          onChange={(e) => patchStaffUser(u.id, { payroll_pay_mode: e.target.value })}
+                        >
+                          <option value="">—</option>
+                          <option value="hora">Hora</option>
+                          <option value="jornada">Jornada</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Monto (S/ por hora o por jornada)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="input-field text-sm"
+                          value={Number.isFinite(Number(u.payroll_amount)) ? u.payroll_amount : ''}
+                          onChange={(e) => patchStaffUser(u.id, { payroll_amount: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Horario de trabajo</label>
+                        <input
+                          className="input-field text-sm"
+                          placeholder="Ej. Lun–Sab 9:00–18:00"
+                          value={u.payroll_schedule_note || ''}
+                          onChange={(e) => patchStaffUser(u.id, { payroll_schedule_note: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-[var(--ui-muted)] mb-0.5">Día de pago del mes (0 = no definido)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="31"
+                          className="input-field text-sm"
+                          value={u.payroll_payment_day ?? 0}
+                          onChange={(e) => patchStaffUser(u.id, { payroll_payment_day: parseInt(e.target.value, 10) || 0 })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         </div>
           )}
@@ -994,6 +1165,61 @@ export default function MiRestaurant() {
           )}
         </>
       )}
+
+      <Modal
+        variant="light"
+        isOpen={Boolean(payrollInvestModal)}
+        onClose={() => !payrollInvestBusy && setPayrollInvestModal(null)}
+        title={payrollInvestModal ? `Registrar pago — ${payrollInvestModal.full_name}` : ''}
+        size="md"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-[var(--ui-muted)]">
+            Se registra un movimiento en <strong>inversión</strong> según el monto de nómina (jornada completa o horas × tarifa).
+          </p>
+          {payrollInvestModal && String(payrollInvestModal.payroll_pay_mode || '').toLowerCase() === 'hora' ? (
+            <div>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Horas a pagar</label>
+              <input
+                type="number"
+                min="0.25"
+                step="0.25"
+                className="input-field w-full"
+                value={payrollHours}
+                onChange={(e) => setPayrollHours(e.target.value)}
+                placeholder="Ej. 8"
+              />
+            </div>
+          ) : null}
+          <div>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Concepto (opcional)</label>
+            <input
+              className="input-field w-full"
+              value={payrollConcept}
+              onChange={(e) => setPayrollConcept(e.target.value)}
+              placeholder="Quincena, fin de mes…"
+            />
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={payrollInvestBusy}
+              onClick={() => setPayrollInvestModal(null)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={payrollInvestBusy}
+              onClick={() => void submitPayrollInvestment()}
+            >
+              {payrollInvestBusy ? 'Registrando…' : 'Registrar'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         variant="light"

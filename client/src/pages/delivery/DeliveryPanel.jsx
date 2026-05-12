@@ -63,6 +63,7 @@ export default function DeliveryPanel() {
   const { user } = useAuth();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
   const [reportGateOpen, setReportGateOpen] = useState(false);
+  const [restaurantAddress, setRestaurantAddress] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const canReturnToAdmin = user?.role === 'admin' && !location.pathname.startsWith('/admin');
@@ -79,6 +80,9 @@ export default function DeliveryPanel() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+  useEffect(() => {
+    api.get('/restaurant').then((r) => setRestaurantAddress(String(r?.address || '').trim())).catch(() => {});
+  }, []);
   useActiveInterval(loadData, 10000);
 
   useSocket('new-order', loadData);
@@ -141,7 +145,7 @@ export default function DeliveryPanel() {
   };
 
   const renderCard = (o, { showIniciar, showListo }) => {
-    const mapsUrl = buildGoogleMapsSearchUrl(o.delivery_address);
+    const mapsUrl = buildGoogleMapsSearchUrl(o.delivery_address, { restaurantAddress });
     return (
     <div
       key={o.id}

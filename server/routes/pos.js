@@ -6,6 +6,13 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { assertPaymentMethodAllowed, normalizePaymentMethod } = require('../businessRules');
 const { getActiveCajaById, listCajasWithIds } = require('../cajaSettings');
 const { print } = require('../printing/printerService');
+const {
+  parsePaymentBreakdown,
+  splitBreakdownAcrossOrders,
+  addOrderToSalesTotals,
+  dominantPaymentMethod,
+  round2,
+} = require('../utils/paymentBreakdown');
 
 const router = express.Router();
 
@@ -72,7 +79,7 @@ function getMovementTotals(registerId) {
 }
 const SALES_EVENT_AT_SQL = 'COALESCE(updated_at, created_at)';
 
-/** Ventas del turno de caja (pedidos pagados desde apertura): totales y desglose por método (incl. online). */
+/** Ventas del turno de caja (pedidos pagados desde apertura): totales y desglose por método (incl. online y multipago). */
 function queryRegisterSessionSales(openedAt) {
   if (!openedAt) {
     return {
@@ -85,26 +92,36 @@ function queryRegisterSessionSales(openedAt) {
       order_count: 0,
     };
   }
-  const row =
-    queryOne(
-      `SELECT COALESCE(SUM(total), 0) as total_sales,
-        COALESCE(SUM(CASE WHEN payment_method = 'efectivo' THEN total ELSE 0 END), 0) as total_cash,
-        COALESCE(SUM(CASE WHEN payment_method = 'yape' THEN total ELSE 0 END), 0) as total_yape,
-        COALESCE(SUM(CASE WHEN payment_method = 'plin' THEN total ELSE 0 END), 0) as total_plin,
-        COALESCE(SUM(CASE WHEN payment_method = 'tarjeta' THEN total ELSE 0 END), 0) as total_card,
-        COALESCE(SUM(CASE WHEN payment_method = 'online' THEN total ELSE 0 END), 0) as total_online,
-        COUNT(*) as order_count
-      FROM orders WHERE ${SALES_EVENT_AT_SQL} >= ? AND status != 'cancelled' AND payment_status = 'paid'`,
+  const rows =
+    queryAll(
+      `SELECT total, payment_method, payment_breakdown
+       FROM orders
+       WHERE ${SALES_EVENT_AT_SQL} >= ?
+         AND status != 'cancelled'
+         AND payment_status = 'paid'`,
       [openedAt]
-    ) || {};
+    ) || [];
+  const totals = {
+    total_sales: 0,
+    total_cash: 0,
+    total_yape: 0,
+    total_plin: 0,
+    total_card: 0,
+    total_online: 0,
+    order_count: 0,
+  };
+  rows.forEach((row) => {
+    totals.order_count += 1;
+    addOrderToSalesTotals(row, totals);
+  });
   return {
-    total_sales: Number(row.total_sales || 0),
-    total_cash: Number(row.total_cash || 0),
-    total_yape: Number(row.total_yape || 0),
-    total_plin: Number(row.total_plin || 0),
-    total_card: Number(row.total_card || 0),
-    total_online: Number(row.total_online || 0),
-    order_count: Number(row.order_count || 0),
+    total_sales: round2(totals.total_sales),
+    total_cash: round2(totals.total_cash),
+    total_yape: round2(totals.total_yape),
+    total_plin: round2(totals.total_plin),
+    total_card: round2(totals.total_card),
+    total_online: round2(totals.total_online),
+    order_count: Number(totals.order_count || 0),
   };
 }
 
@@ -475,21 +492,50 @@ router.post('/send-close-email', authenticateToken, requireRole('admin', 'cajero
 });
 
 router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
-  const { order_ids: orderIdsRaw, payment_method: paymentMethodRaw, discount_reason: discountReason = '', discounts_by_order: discountsByOrder = {} } = req.body || {};
+  const {
+    order_ids: orderIdsRaw,
+    payment_method: paymentMethodRaw,
+    payment_breakdown: paymentBreakdownBody,
+    discount_reason: discountReason = '',
+    discounts_by_order: discountsByOrder = {},
+  } = req.body || {};
   const orderIds = Array.isArray(orderIdsRaw) ? orderIdsRaw.filter(Boolean) : [];
   if (!orderIds.length) return res.status(400).json({ error: 'Debes enviar al menos un pedido para cobrar' });
+
+  let paymentBreakdownObj = null;
+  if (paymentBreakdownBody != null && typeof paymentBreakdownBody === 'object' && !Array.isArray(paymentBreakdownBody)) {
+    paymentBreakdownObj = parsePaymentBreakdown(JSON.stringify(paymentBreakdownBody));
+  } else if (typeof paymentBreakdownBody === 'string' && paymentBreakdownBody.trim()) {
+    paymentBreakdownObj = parsePaymentBreakdown(paymentBreakdownBody);
+  }
+
   const paymentMethod = normalizePaymentMethod(paymentMethodRaw, { allowOnline: true, fallback: 'efectivo' });
   const register = resolvePosRegister(req);
   if (!register) return res.status(400).json({ error: 'No tienes una caja abierta para cobrar' });
-  try {
-    assertPaymentMethodAllowed(paymentMethod, { allowOnline: true });
-  } catch (err) {
-    return res.status(400).json({ error: err.message });
+
+  const formatCheckoutSoles = (n) => `S/ ${Number(n || 0).toFixed(2)}`;
+
+  if (paymentBreakdownObj) {
+    try {
+      for (const k of Object.keys(paymentBreakdownObj)) {
+        assertPaymentMethodAllowed(k, { allowOnline: true });
+      }
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  } else {
+    try {
+      assertPaymentMethodAllowed(paymentMethod, { allowOnline: true });
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
   }
 
   try {
     const result = withTransaction((tx) => {
       const updated = [];
+      const chargedRows = [];
+
       orderIds.forEach((orderId) => {
         const order = tx.queryOne('SELECT * FROM orders WHERE id = ?', [orderId]);
         if (!order) throw new Error(`Pedido no encontrado: ${orderId}`);
@@ -509,28 +555,64 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
             [nextDiscount, nextTotal, note, order.id]
           );
         }
+        const refreshed = tx.queryOne('SELECT * FROM orders WHERE id = ?', [orderId]);
+        chargedRows.push({ id: orderId, total: round2(Number(refreshed?.total || 0)) });
+        updated.push(order.id);
+      });
+
+      const toCharge = chargedRows.filter((r) => orderIds.includes(r.id) && updated.includes(r.id));
+      const batchTotal = round2(toCharge.reduce((s, r) => s + r.total, 0));
+
+      let primaryMethod = paymentMethod;
+      let perOrderBreakdown = null;
+
+      if (paymentBreakdownObj) {
+        const splitSum = round2(
+          Object.values(paymentBreakdownObj).reduce((acc, v) => acc + round2(Number(v) || 0), 0)
+        );
+        if (Math.abs(splitSum - batchTotal) > 0.05) {
+          throw new Error(
+            `El multipago (${formatCheckoutSoles(splitSum)}) debe coincidir con el total a cobrar (${formatCheckoutSoles(batchTotal)})`
+          );
+        }
+        primaryMethod = dominantPaymentMethod(paymentBreakdownObj);
+        perOrderBreakdown = splitBreakdownAcrossOrders(
+          paymentBreakdownObj,
+          toCharge.map((r) => r.total),
+          batchTotal
+        );
+      }
+
+      toCharge.forEach((row, idx) => {
+        const br = perOrderBreakdown ? perOrderBreakdown[idx] : null;
         tx.run(
-          "UPDATE orders SET payment_method = ?, payment_status = 'paid', status = 'delivered', updated_at = datetime('now') WHERE id = ?",
-          [paymentMethod, order.id]
+          `UPDATE orders SET payment_method = ?, payment_status = 'paid', status = 'delivered',
+            payment_breakdown = ?, updated_at = datetime('now') WHERE id = ?`,
+          [primaryMethod, br, row.id]
         );
         tx.run(
           "UPDATE electronic_documents SET payment_method = ?, updated_at = datetime('now') WHERE order_id = ?",
-          [paymentMethod, order.id]
+          [primaryMethod, row.id]
         );
-        kardexInventory.aplicarSalidasVentaPedido(tx, order.id, req.user.id);
-        updated.push(order.id);
+        kardexInventory.aplicarSalidasVentaPedido(tx, row.id, req.user.id);
       });
+
       return updated;
     });
 
     const paidOrders = result.map((id) => queryOne('SELECT * FROM orders WHERE id = ?', [id])).filter(Boolean);
+    const primaryForAudit = paymentBreakdownObj ? dominantPaymentMethod(paymentBreakdownObj) : paymentMethod;
     logAudit({
       actorUserId: req.user.id,
       actorName: req.user.full_name || req.user.username || '',
       action: 'table.checkout',
       resourceType: 'order_batch',
-      resourceId: paidOrders.map(o => o.id).join(','),
-      details: { order_count: paidOrders.length, payment_method: paymentMethod },
+      resourceId: paidOrders.map((o) => o.id).join(','),
+      details: {
+        order_count: paidOrders.length,
+        payment_method: primaryForAudit,
+        payment_breakdown: paymentBreakdownObj || null,
+      },
     });
     const paidItems = paidOrders.flatMap((o) => (Array.isArray(o.items) ? o.items : []));
     print('caja', {

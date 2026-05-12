@@ -23,7 +23,7 @@ function saveDismissedAvisoIds(ids) {
 }
 
 /**
- * Campana de notificaciones: pestaña Chat (grupo/privado) por defecto y avisos del maestro (admin).
+ * Campana de notificaciones: chat del equipo y avisos (maestro + recordatorios de nómina solo para admin del restaurante).
  */
 export default function NotificationCenter({ className = '' }) {
   const { user } = useAuth();

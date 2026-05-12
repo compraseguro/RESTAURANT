@@ -7,6 +7,14 @@ import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 
 const COLORS = ['#f04438', '#ffa520', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316'];
+const FINANCE_LOSS_LABELS = {
+  salida_efectivo: 'Salida de efectivo',
+  gasto_extra: 'Gasto extra',
+  merma: 'Merma',
+  danio_propiedad: 'Daño en propiedad',
+  reembolso: 'Reembolso',
+  otro: 'Otro',
+};
 const DENOMINATION_LABELS = {
   b200: 'Billete S/200',
   b100: 'Billete S/100',
@@ -50,6 +58,24 @@ export default function Reports() {
   const [productoInformeModalOpen, setProductoInformeModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [financeFrom, setFinanceFrom] = useState(() => {
+    const t = new Date();
+    t.setDate(t.getDate() - 30);
+    return t.toISOString().split('T')[0];
+  });
+  const [financeTo, setFinanceTo] = useState(() => new Date().toISOString().split('T')[0]);
+  const [financeOverview, setFinanceOverview] = useState(null);
+  const [financeLoading, setFinanceLoading] = useState(false);
+  const [lossEvents, setLossEvents] = useState(null);
+  const [lossCategoryFilter, setLossCategoryFilter] = useState('all');
+  const [lossForm, setLossForm] = useState({
+    category: 'gasto_extra',
+    amount: '',
+    concept: '',
+    itemsText: '',
+    occurred_at: '',
+  });
+
   const loadDaily = () => api.get('/reports/daily').then(setDailyData).catch(console.error);
   const loadMonthly = () => api.get('/reports/monthly').then(setMonthlyData).catch(console.error);
   const loadRanking = (period) => api.get(`/reports/ranking?period=${period}`).then(setRanking).catch(console.error);
@@ -89,6 +115,35 @@ export default function Reports() {
   }, [searchParams]);
 
   useEffect(() => { loadRanking(rankingPeriod); }, [rankingPeriod]);
+  useEffect(() => {
+    if (reportSection !== 'finanzas') return undefined;
+    let cancelled = false;
+    setFinanceLoading(true);
+    const q1 = new URLSearchParams({ from: financeFrom, to: financeTo });
+    const q2 = new URLSearchParams({ from: financeFrom, to: financeTo });
+    if (lossCategoryFilter !== 'all') q2.set('category', lossCategoryFilter);
+    Promise.all([
+      api.get(`/reports/finance-overview?${q1}`),
+      api.get(`/reports/finance-loss-events?${q2}`),
+    ])
+      .then(([ov, ev]) => {
+        if (cancelled) return;
+        setFinanceOverview(ov);
+        setLossEvents(ev);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFinanceOverview(null);
+          setLossEvents(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setFinanceLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reportSection, financeFrom, financeTo, lossCategoryFilter]);
   useEffect(() => {
     if (reportSection !== 'facturacion') return;
     loadBillingDocuments().catch(() => setBillingDocuments([]));
@@ -154,6 +209,42 @@ export default function Reports() {
       setSelectedClosedRegister(register);
     } finally {
       setLoadingClosedRegister(false);
+    }
+  };
+
+  const submitFinanceLoss = async () => {
+    const amt = parseFloat(lossForm.amount);
+    if (!Number.isFinite(amt) || amt <= 0) return toast.error('Monto inválido');
+    let items = null;
+    const raw = lossForm.itemsText.trim();
+    if (raw) {
+      try {
+        items = JSON.parse(raw);
+      } catch {
+        return toast.error('Detalle de ítems: JSON inválido (usa un array, p. ej. [{"name":"Producto","qty":2}])');
+      }
+    }
+    try {
+      await api.post('/reports/finance-loss-events', {
+        category: lossForm.category,
+        amount: amt,
+        concept: lossForm.concept.trim(),
+        items,
+        occurred_at: lossForm.occurred_at.trim() || undefined,
+      });
+      toast.success('Pérdida registrada');
+      setLossForm((p) => ({ ...p, amount: '', concept: '', itemsText: '', occurred_at: '' }));
+      const q1 = new URLSearchParams({ from: financeFrom, to: financeTo });
+      const q2 = new URLSearchParams({ from: financeFrom, to: financeTo });
+      if (lossCategoryFilter !== 'all') q2.set('category', lossCategoryFilter);
+      const [ov, ev] = await Promise.all([
+        api.get(`/reports/finance-overview?${q1}`),
+        api.get(`/reports/finance-loss-events?${q2}`),
+      ]);
+      setFinanceOverview(ov);
+      setLossEvents(ev);
+    } catch (e) {
+      toast.error(e.message || 'No se pudo registrar');
     }
   };
   const buildClosedRegisterReportText = (register) => {
@@ -823,23 +914,194 @@ export default function Reports() {
       )}
 
       {reportSection === 'finanzas' && (
-        <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Flujo de caja</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-emerald-50 rounded-lg p-3">
-              <p className="text-xs text-emerald-600">Ventas mes</p>
-              <p className="text-xl font-bold text-emerald-700">{formatCurrency(monthlyData?.totalMonth?.total)}</p>
+        <div className="space-y-6">
+          <div className="card">
+            <h3 className="font-bold text-slate-800 mb-4">Resumen financiero</h3>
+            <div className="flex flex-wrap gap-3 mb-4 items-end">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Desde</label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={financeFrom}
+                  onChange={(e) => setFinanceFrom(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Hasta</label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={financeTo}
+                  onChange={(e) => setFinanceTo(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="bg-red-50 rounded-lg p-3">
-              <p className="text-xs text-red-600">Compras registradas</p>
-              <p className="text-xl font-bold text-red-700">
-                {formatCurrency((purchaseExpenses || []).reduce((s, e) => s + Number(e.total_cost || 0), 0))}
-              </p>
+            {financeLoading ? (
+              <p className="text-slate-500">Cargando…</p>
+            ) : !financeOverview ? (
+              <p className="text-slate-500">No se pudo cargar el resumen.</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                  <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
+                    <p className="text-xs text-amber-800">Inversión (nómina y otros movimientos)</p>
+                    <p className="text-xl font-bold text-amber-900">{formatCurrency(financeOverview.investment?.total)}</p>
+                  </div>
+                  <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
+                    <p className="text-xs text-emerald-700">Ventas (pedidos pagados)</p>
+                    <p className="text-xl font-bold text-emerald-800">{formatCurrency(financeOverview.sales?.total)}</p>
+                    <p className="text-xs text-emerald-600 mt-1">{financeOverview.sales?.orders || 0} pedidos</p>
+                  </div>
+                  <div className="bg-sky-50 rounded-lg p-3 border border-sky-100">
+                    <p className="text-xs text-sky-700">Ganancia aproximada</p>
+                    <p className="text-xl font-bold text-sky-900">{formatCurrency(financeOverview.approx_profit)}</p>
+                    <p className="text-[11px] text-sky-700 mt-1">
+                      Ventas − compras − pérdidas registradas − egresos de caja en el rango
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                    <p className="text-xs text-slate-600">Compras (inventario)</p>
+                    <p className="text-lg font-bold text-slate-800">{formatCurrency(financeOverview.purchases?.total)}</p>
+                  </div>
+                  <div className="bg-red-50 rounded-lg p-3 border border-red-100">
+                    <p className="text-xs text-red-700">Pérdidas (eventos + egresos caja)</p>
+                    <p className="text-xl font-bold text-red-800">{formatCurrency(financeOverview.losses_combined_total)}</p>
+                    <p className="text-[11px] text-red-600 mt-1">
+                      Eventos: {formatCurrency(financeOverview.loss_events?.total)} · Egresos caja:{' '}
+                      {formatCurrency(financeOverview.cash_expenses?.total)}
+                    </p>
+                  </div>
+                  <div className="bg-violet-50 rounded-lg p-3 border border-violet-100">
+                    <p className="text-xs text-violet-700">Margen bruto aprox.</p>
+                    <p className="text-lg font-bold text-violet-900">{formatCurrency(financeOverview.approx_gross_margin)}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Rango: {financeOverview.filters?.from} — {financeOverview.filters?.to}. Los totales usan fecha local del servidor.
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="card">
+            <h3 className="font-bold text-slate-800 mb-2">Registrar pérdida</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Incluye mermas, daños, reembolsos y gastos extra. Opcional: detalle en JSON (productos y cantidades).
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Categoría</label>
+                <select
+                  className="input-field"
+                  value={lossForm.category}
+                  onChange={(e) => setLossForm((p) => ({ ...p, category: e.target.value }))}
+                >
+                  {Object.entries(FINANCE_LOSS_LABELS).map(([k, lab]) => (
+                    <option key={k} value={k}>{lab}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Monto (S/)</label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  className="input-field"
+                  value={lossForm.amount}
+                  onChange={(e) => setLossForm((p) => ({ ...p, amount: e.target.value }))}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs text-slate-500 mb-1">Concepto</label>
+                <input
+                  className="input-field"
+                  value={lossForm.concept}
+                  onChange={(e) => setLossForm((p) => ({ ...p, concept: e.target.value }))}
+                  placeholder="Descripción breve"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Fecha (opcional, ISO)</label>
+                <input
+                  className="input-field"
+                  value={lossForm.occurred_at}
+                  onChange={(e) => setLossForm((p) => ({ ...p, occurred_at: e.target.value }))}
+                  placeholder="2026-05-10 o 2026-05-10T12:00"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs text-slate-500 mb-1">Detalle ítems (JSON opcional)</label>
+                <textarea
+                  className="input-field min-h-[72px] font-mono text-xs"
+                  value={lossForm.itemsText}
+                  onChange={(e) => setLossForm((p) => ({ ...p, itemsText: e.target.value }))}
+                  placeholder='[{"name":"Insumo X","qty":2,"unit":15.5}]'
+                />
+              </div>
             </div>
-            <div className="bg-sky-50 rounded-lg p-3">
-              <p className="text-xs text-sky-600">Cierres de caja</p>
-              <p className="text-xl font-bold text-sky-700">{monthlyData?.closedRegisters?.length || 0}</p>
+            <button type="button" className="btn-primary mt-4" onClick={() => void submitFinanceLoss()}>
+              Guardar pérdida
+            </button>
+          </div>
+
+          <div className="card">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h3 className="font-bold text-slate-800">Detalle de pérdidas</h3>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-slate-500">Filtrar categoría</label>
+                <select
+                  className="input-field w-auto text-sm"
+                  value={lossCategoryFilter}
+                  onChange={(e) => setLossCategoryFilter(e.target.value)}
+                >
+                  <option value="all">Todas</option>
+                  {Object.entries(FINANCE_LOSS_LABELS).map(([k, lab]) => (
+                    <option key={k} value={k}>{lab}</option>
+                  ))}
+                </select>
+              </div>
             </div>
+            <p className="text-sm font-semibold text-slate-700 mb-3">
+              Total pérdidas (eventos en rango): {formatCurrency(lossEvents?.loss_events_total)}
+            </p>
+            {!lossEvents?.events?.length ? (
+              <p className="text-slate-500">No hay eventos en este rango.</p>
+            ) : (
+              <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="text-left p-2">Fecha</th>
+                      <th className="text-left p-2">Categoría</th>
+                      <th className="text-left p-2">Concepto</th>
+                      <th className="text-right p-2">Monto</th>
+                      <th className="text-left p-2">Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lossEvents.events.map((ev) => (
+                      <tr key={ev.id} className="border-t border-slate-100">
+                        <td className="p-2 whitespace-nowrap">{formatDateTime(ev.occurred_at)}</td>
+                        <td className="p-2">{FINANCE_LOSS_LABELS[ev.category] || ev.category}</td>
+                        <td className="p-2 max-w-[200px] truncate" title={ev.concept}>{ev.concept || '—'}</td>
+                        <td className="p-2 text-right font-semibold">{formatCurrency(ev.amount)}</td>
+                        <td className="p-2 text-xs text-slate-600 max-w-xs">
+                          {Array.isArray(ev.items_json_parsed)
+                            ? ev.items_json_parsed.map((it, i) => (
+                              <span key={i} className="inline-block mr-2">
+                                {it.name || it.product_name || 'Ítem'}: {it.qty ?? it.quantity ?? '—'}
+                              </span>
+                            ))
+                            : (ev.items_json ? String(ev.items_json).slice(0, 80) : '—')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

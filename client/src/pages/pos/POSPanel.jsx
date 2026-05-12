@@ -4,6 +4,23 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 function roundMoneySoles(n) {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 }
+
+function emptyMultiPaymentAmounts() {
+  return { efectivo: '', yape: '', plin: '', tarjeta: '', online: '' };
+}
+
+function dominantPaymentFromBreakdown(obj) {
+  let best = 'efectivo';
+  let bestAmt = -1;
+  for (const [k, v] of Object.entries(obj || {})) {
+    const a = roundMoneySoles(Number(v) || 0);
+    if (a > bestAmt) {
+      bestAmt = a;
+      best = k;
+    }
+  }
+  return bestAmt > 0 ? best : 'efectivo';
+}
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import {
   api,
@@ -249,6 +266,8 @@ export default function POSPanel() {
   const [selectedCat, setSelectedCat] = useState('all');
   const [paymentMethod, setPaymentMethod] = useState('efectivo');
   const [paymentOptions, setPaymentOptions] = useState(getPaymentMethodOptions(null, { includeOnline: false }));
+  const [multiPayEnabled, setMultiPayEnabled] = useState(false);
+  const [multiPayAmounts, setMultiPayAmounts] = useState(() => emptyMultiPaymentAmounts());
   const [amountReceived, setAmountReceived] = useState('');
   const [billingForm, setBillingForm] = useState(DEFAULT_BILLING_FORM);
   const [billingResult, setBillingResult] = useState(null);
@@ -542,6 +561,12 @@ export default function POSPanel() {
       setPaymentMethod(paymentOptions[0]?.value || 'efectivo');
     }
   }, [paymentOptions, paymentMethod]);
+
+  useEffect(() => {
+    if (!showBill) return;
+    setMultiPayEnabled(false);
+    setMultiPayAmounts(emptyMultiPaymentAmounts());
+  }, [showBill, selectedTable?.id]);
 
   useEffect(() => {
     const requestedView = searchParams.get('view');
@@ -1061,7 +1086,27 @@ export default function POSPanel() {
       ? (selectedTable.orders || []).filter(o => selectedOrderIds.includes(o.id))
       : (selectedTable.orders || []);
     if (payableOrders.length === 0) return toast.error('Selecciona al menos un pedido para cobrar');
-    if (paymentMethod === 'efectivo' && receivedAmount < payableTotal) {
+
+    let checkoutPaymentMethod = paymentMethod;
+    let checkoutPaymentBreakdown = null;
+    if (multiPayEnabled) {
+      const o = {};
+      for (const opt of paymentOptions) {
+        const raw = multiPayAmounts[opt.value];
+        if (raw === undefined || raw === '' || String(raw).trim() === '') continue;
+        const v = roundMoneySoles(parseFloat(raw));
+        if (v > 0) o[opt.value] = v;
+      }
+      if (Object.keys(o).length < 2) {
+        return toast.error('En multimétodo indica al menos dos métodos con monto mayor a cero.');
+      }
+      const sum = roundMoneySoles(Object.values(o).reduce((s, x) => s + x, 0));
+      if (Math.abs(sum - payableTotal) > 0.05) {
+        return toast.error(`La suma (${formatCurrency(sum)}) debe coincidir con el total (${formatCurrency(payableTotal)})`);
+      }
+      checkoutPaymentBreakdown = o;
+      checkoutPaymentMethod = dominantPaymentFromBreakdown(o);
+    } else if (paymentMethod === 'efectivo' && receivedAmount < payableTotal) {
       return toast.error(`Monto insuficiente. Falta ${formatCurrency(payableTotal - receivedAmount)}`);
     }
     const billingError = validateBillingData();
@@ -1101,13 +1146,15 @@ export default function POSPanel() {
         }
       }
 
-      await api.post('/pos/checkout-table', {
+      const checkoutBody = {
         ...posRegisterBody(),
         order_ids: payableOrders.map(o => o.id),
-        payment_method: paymentMethod,
+        payment_method: checkoutPaymentMethod,
         discount_reason: discountConfig.reason,
         discounts_by_order: discountsByOrder,
-      });
+      };
+      if (checkoutPaymentBreakdown) checkoutBody.payment_breakdown = checkoutPaymentBreakdown;
+      await api.post('/pos/checkout-table', checkoutBody);
 
       if (!isClientCheckoutTable(selectedTable) && !isDeliveryCheckoutTable(selectedTable)) {
         const updatedTable = await api.get(`/tables/${selectedTable.id}`);
@@ -1130,7 +1177,7 @@ export default function POSPanel() {
             tableName: selectedTable?.name || '',
             orders: payableOrders,
             docs: issuedDocs,
-            paymentMethod,
+            paymentMethod: checkoutPaymentMethod,
             discountTotal: totalDiscountToApply,
             customer: {
               doc_number: billingForm.customer_doc_number,
@@ -1161,7 +1208,7 @@ export default function POSPanel() {
               },
               widthMm: pw,
               printedAt: new Date(),
-              paymentMethod,
+              paymentMethod: checkoutPaymentMethod,
             });
             const r = await printCajaTicket({
               text: plain,
@@ -1343,6 +1390,8 @@ export default function POSPanel() {
     setParaLlevarMesa(false);
     setSelectedTable(null);
     setPaymentMethod('efectivo');
+    setMultiPayEnabled(false);
+    setMultiPayAmounts(emptyMultiPaymentAmounts());
     setShowMenu(true);
     resetCart();
     setSearch('');
@@ -1387,8 +1436,29 @@ export default function POSPanel() {
       setNoteEditorLineKey(missingRequiredNote.line_key);
       return toast.error(`"${missingRequiredNote.name}" requiere una nota obligatoria`);
     }
-    if (quickSaleMode && paymentMethod === 'efectivo' && receivedAmount < cartTotal) {
-      return toast.error(`Monto insuficiente. Falta ${formatCurrency(cartTotal - receivedAmount)}`);
+    let quickPayMethod = paymentMethod;
+    let quickPayBreakdown = null;
+    if (quickSaleMode) {
+      if (multiPayEnabled) {
+        const o = {};
+        for (const opt of paymentOptions) {
+          const raw = multiPayAmounts[opt.value];
+          if (raw === undefined || raw === '' || String(raw).trim() === '') continue;
+          const v = roundMoneySoles(parseFloat(raw));
+          if (v > 0) o[opt.value] = v;
+        }
+        if (Object.keys(o).length < 2) {
+          return toast.error('En multimétodo indica al menos dos métodos con monto mayor a cero.');
+        }
+        const sum = roundMoneySoles(Object.values(o).reduce((s, x) => s + x, 0));
+        if (Math.abs(sum - cartTotal) > 0.05) {
+          return toast.error(`La suma (${formatCurrency(sum)}) debe coincidir con el total (${formatCurrency(cartTotal)})`);
+        }
+        quickPayBreakdown = o;
+        quickPayMethod = dominantPaymentFromBreakdown(o);
+      } else if (paymentMethod === 'efectivo' && receivedAmount < cartTotal) {
+        return toast.error(`Monto insuficiente. Falta ${formatCurrency(cartTotal - receivedAmount)}`);
+      }
     }
     if (quickSaleMode) {
       const billingError = validateBillingData();
@@ -1451,7 +1521,7 @@ export default function POSPanel() {
         type: quickSaleMode ? 'pickup' : 'dine_in',
         table_number: quickSaleMode ? '' : String(selectedTable.number),
         customer_name: quickSaleMode ? 'VENTA RAPIDA' : `Mesa ${selectedTable.number}`,
-        payment_method: paymentMethod,
+        payment_method: quickSaleMode ? quickPayMethod : paymentMethod,
         notes: !quickSaleMode && paraLlevarMesa ? KITCHEN_TAKEOUT_NOTE : '',
       });
       if (quickSaleMode) {
@@ -1459,10 +1529,9 @@ export default function POSPanel() {
         if (billingForm.enabled) {
           doc = await issueElectronicDocument(createdOrder.id);
         }
-        await api.put(`/orders/${createdOrder.id}/payment`, {
-          payment_method: paymentMethod,
-          payment_status: 'paid',
-        });
+        const payBody = { payment_method: quickPayMethod, payment_status: 'paid' };
+        if (quickPayBreakdown) payBody.payment_breakdown = quickPayBreakdown;
+        await api.put(`/orders/${createdOrder.id}/payment`, payBody);
         await api.put(`/orders/${createdOrder.id}/status`, { status: 'delivered' });
         if (billingForm.enabled && doc) {
           toast.success(`Venta rápida cobrada · ${billingSuccessSummary(doc)}`, { id: tid });
@@ -1664,6 +1733,16 @@ export default function POSPanel() {
       ? Math.min(selectionBaseTotal, selectionBaseTotal * (discountValue / 100))
       : Math.min(selectionBaseTotal, discountValue));
   const payableTotal = Math.max(0, selectionBaseTotal - discountPreview);
+  const multiPaySumProof = useMemo(
+    () =>
+      roundMoneySoles(
+        paymentOptions.reduce((s, o) => {
+          const v = parseFloat(multiPayAmounts[o.value] || '0');
+          return s + (Number.isFinite(v) && v > 0 ? v : 0);
+        }, 0)
+      ),
+    [paymentOptions, multiPayAmounts]
+  );
   const billLineItemsGrouped = useMemo(() => {
     const ordersForBill = !selectedTable
       ? []
@@ -2490,6 +2569,8 @@ export default function POSPanel() {
           setEditingSessionOrderIds([]);
           setParaLlevarMesa(false);
           setAmountReceived('');
+          setMultiPayEnabled(false);
+          setMultiPayAmounts(emptyMultiPaymentAmounts());
           resetBillingForm();
           resetCart();
         }}
@@ -2536,7 +2617,16 @@ export default function POSPanel() {
           sidebarTop={(
               <div className="space-y-2">
                 <div>
-                  <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Método de pago</label>
+                  <label className="flex items-center gap-2 text-xs font-medium text-[#E5E7EB] mb-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={multiPayEnabled}
+                      onChange={(e) => setMultiPayEnabled(e.target.checked)}
+                      className="rounded border-[color:var(--ui-accent)]"
+                    />
+                    Pago multimétodo
+                  </label>
+                  {!multiPayEnabled ? (
                   <select className="input-field" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
                     {paymentOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -2544,8 +2634,31 @@ export default function POSPanel() {
                       </option>
                     ))}
                   </select>
+                  ) : (
+                    <div className="space-y-2 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)]/40 p-2">
+                      {paymentOptions.map((opt) => (
+                        <div key={opt.value} className="flex items-center gap-2">
+                          <span className="text-xs text-[#E5E7EB] w-[80px] shrink-0">{opt.label}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="input-field flex-1 text-sm"
+                            placeholder="0.00"
+                            value={multiPayAmounts[opt.value] ?? ''}
+                            onChange={(e) =>
+                              setMultiPayAmounts((prev) => ({ ...prev, [opt.value]: e.target.value }))
+                            }
+                          />
+                        </div>
+                      ))}
+                      <p className={`text-xs ${Math.abs(multiPaySumProof - cartTotal) <= 0.05 ? 'text-emerald-400' : 'text-amber-300'}`}>
+                        Suma: {formatCurrency(multiPaySumProof)} · Total {formatCurrency(cartTotal)}
+                      </p>
+                    </div>
+                  )}
                 </div>
-                {paymentMethod === 'efectivo' && (
+                {!multiPayEnabled && paymentMethod === 'efectivo' && (
                   <>
                     <div>
                       <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Paga con</label>
@@ -3180,7 +3293,16 @@ export default function POSPanel() {
                       <p className="text-xs text-[#9CA3AF] mt-0.5">Total a pagar</p>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Método de pago</label>
+                      <label className="flex items-center gap-2 text-xs font-medium text-[#E5E7EB] mb-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={multiPayEnabled}
+                          onChange={(e) => setMultiPayEnabled(e.target.checked)}
+                          className="rounded border-[color:var(--ui-accent)]"
+                        />
+                        Pago multimétodo (varios métodos y montos)
+                      </label>
+                      {!multiPayEnabled ? (
                       <select
                         className="input-field w-full"
                         value={paymentMethod}
@@ -3192,6 +3314,29 @@ export default function POSPanel() {
                           </option>
                         ))}
                       </select>
+                      ) : (
+                        <div className="space-y-2 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)]/40 p-2">
+                          {paymentOptions.map((opt) => (
+                            <div key={opt.value} className="flex items-center gap-2">
+                              <span className="text-xs text-[#E5E7EB] w-[88px] shrink-0">{opt.label}</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className="input-field flex-1 text-sm"
+                                placeholder="0.00"
+                                value={multiPayAmounts[opt.value] ?? ''}
+                                onChange={(e) =>
+                                  setMultiPayAmounts((prev) => ({ ...prev, [opt.value]: e.target.value }))
+                                }
+                              />
+                            </div>
+                          ))}
+                          <p className={`text-xs ${Math.abs(multiPaySumProof - payableTotal) <= 0.05 ? 'text-emerald-400' : 'text-amber-300'}`}>
+                            Suma: {formatCurrency(multiPaySumProof)} · Debe ser {formatCurrency(payableTotal)}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
@@ -3204,17 +3349,17 @@ export default function POSPanel() {
                           value={amountReceived}
                           onChange={(e) => setAmountReceived(e.target.value)}
                           placeholder="0.00"
-                          disabled={paymentMethod !== 'efectivo'}
+                          disabled={multiPayEnabled || paymentMethod !== 'efectivo'}
                         />
                       </div>
                       <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/35 px-3 py-2 flex flex-col justify-center">
                         <p className="text-xs text-[#9CA3AF]">Vuelto</p>
                         <p className="text-lg font-bold text-emerald-300 tabular-nums">
-                          {paymentMethod === 'efectivo'
+                          {!multiPayEnabled && paymentMethod === 'efectivo'
                             ? formatCurrency(Math.max(0, receivedAmount - payableTotal))
                             : formatCurrency(0)}
                         </p>
-                        {paymentMethod === 'efectivo' && receivedAmount < payableTotal && (
+                        {!multiPayEnabled && paymentMethod === 'efectivo' && receivedAmount < payableTotal && (
                           <p className="text-xs text-red-400">Falta: {formatCurrency(payableTotal - receivedAmount)}</p>
                         )}
                       </div>

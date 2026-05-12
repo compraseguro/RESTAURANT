@@ -188,10 +188,68 @@ function registrarAjusteEntrada(tx, { insumoId, cantidad, referencia, referencia
  */
 function yaAplicoVentaEnKardex(tx, orderId) {
   const row = tx.queryOne(
-    `SELECT 1 as x FROM kardex WHERE referencia = 'venta' AND referencia_id = ? LIMIT 1`,
+    `SELECT 1 as x FROM kardex WHERE referencia IN ('venta', 'venta_masa') AND referencia_id = ? LIMIT 1`,
     [String(orderId)]
   );
   return Boolean(row);
+}
+
+function yaRevertioVentaEnKardex(tx, orderId) {
+  const row = tx.queryOne(
+    `SELECT 1 as x FROM kardex WHERE referencia = 'anulacion_venta' AND referencia_id = ? LIMIT 1`,
+    [String(orderId)]
+  );
+  return Boolean(row);
+}
+
+/**
+ * Revierte salidas kardex de un pedido cobrado (anulación). Entradas compensatorias con referencia `anulacion_venta`.
+ * Unidades: si había stock en U antes de la venta (inferido por stock_anterior kg / kg_por_unidad), se restauran; `venta_masa` solo restaura kg.
+ */
+function revertirSalidasVentaPedido(tx, orderId, userId) {
+  if (yaRevertioVentaEnKardex(tx, orderId)) return { skipped: true, reason: 'ya_revertido' };
+  const rows = tx.queryAll(
+    `SELECT * FROM kardex WHERE referencia IN ('venta', 'venta_masa') AND referencia_id = ? AND tipo_movimiento = 'salida' ORDER BY datetime(created_at) ASC`,
+    [String(orderId)]
+  );
+  if (!rows.length) return { skipped: true, reason: 'sin_salidas_venta' };
+  for (const k of rows) {
+    const ref = String(k.referencia || '');
+    const need = Number(k.cantidad) || 0;
+    if (need <= 1e-12) continue;
+    const costoU = Number(k.costo_unitario || 0);
+    const insumoId = k.id_insumo;
+    const stockAntKg = Number(k.stock_anterior) || 0;
+
+    if (ref === 'venta_masa') {
+      registrarEntrada(tx, {
+        insumoId,
+        cantidad: need,
+        costoUnitario: costoU,
+        referencia: 'anulacion_venta',
+        referenciaId: String(orderId),
+        userId,
+      });
+      continue;
+    }
+
+    const ins = tx.queryOne('SELECT * FROM insumos WHERE id = ?', [insumoId]);
+    const kpu = ins ? Number(ins.kg_por_unidad || 0) || 0 : 0;
+    const uAntBefore = kpu > 1e-12 ? stockAntKg / kpu : 0;
+    const shouldRestoreUnits = kpu > 1e-12 && uAntBefore > 1e-9;
+    const unidadesIngreso = shouldRestoreUnits ? need / kpu : undefined;
+
+    registrarEntrada(tx, {
+      insumoId,
+      cantidad: need,
+      costoUnitario: costoU,
+      referencia: 'anulacion_venta',
+      referenciaId: String(orderId),
+      userId,
+      unidadesIngreso: unidadesIngreso != null && unidadesIngreso > 1e-12 ? unidadesIngreso : undefined,
+    });
+  }
+  return { skipped: false, reverted: rows.length };
 }
 
 /**
@@ -222,7 +280,7 @@ function aplicarSalidasVentaPedido(tx, orderId, userId) {
           insumoId: directInsumo,
           cantidad: needKg,
           soloMasa: true,
-          referencia: 'venta',
+          referencia: 'venta_masa',
           referenciaId: orderId,
           userId,
         });
@@ -368,8 +426,10 @@ module.exports = {
   registrarAjusteSalida,
   registrarAjusteEntrada,
   yaAplicoVentaEnKardex,
+  yaRevertioVentaEnKardex,
   aplicarSalidasVentaPedido,
   aplicarSalidasVentasEnTransaccion,
+  revertirSalidasVentaPedido,
   registrarCompraInsumos,
   cerrarInventarioFisico,
 };
