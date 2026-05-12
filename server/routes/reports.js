@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { FINANCIAL_FILTER_SQL } = require('../businessRules');
+const { getEffectiveFlat } = require('../services/businessConfigService');
 
 const router = express.Router();
 const FINANCIAL_FILTER = FINANCIAL_FILTER_SQL;
@@ -270,6 +271,13 @@ router.get('/finance-overview', authenticateToken, requireRole('admin'), (req, r
   const approxGross = totalSales - totalPurchases;
   const approxProfit = totalSales - totalPurchases - lossEventsTotal - cashExpenses;
 
+  let business_intel = null;
+  try {
+    business_intel = getEffectiveFlat();
+  } catch (_) {
+    business_intel = null;
+  }
+
   res.json({
     filters: { from, to },
     sales: { total: totalSales, orders: Number(salesRow?.orders || 0) },
@@ -285,6 +293,7 @@ router.get('/finance-overview', authenticateToken, requireRole('admin'), (req, r
     losses_combined_total: lossesCombined,
     approx_gross_margin: approxGross,
     approx_profit: approxProfit,
+    business_intel,
   });
 });
 

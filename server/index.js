@@ -210,6 +210,7 @@ app.use('/api/pos', require('./routes/pos'));
 app.use('/api/delivery', require('./routes/delivery'));
 app.use('/api/tables', require('./routes/tables'));
 app.use('/api/admin-modules', require('./routes/adminModules'));
+app.use('/api/business-config', require('./routes/businessConfig'));
 const { getPrinters } = require('./printing/printerDetector');
 app.get('/printers', (req, res) => {
   try {

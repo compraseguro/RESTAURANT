@@ -4,6 +4,7 @@
  */
 
 const { v4: uuidv4 } = require('uuid');
+const { getKardexMetodoValorizacion } = require('./businessConfigService');
 
 /**
  * @param {import('../database').Tx} tx
@@ -55,7 +56,7 @@ function registrarEntrada(tx, { insumoId, cantidad, costoUnitario, referencia, r
     `INSERT INTO kardex (
       id, id_insumo, tipo_movimiento, cantidad, costo_unitario, costo_total,
       stock_anterior, stock_resultante, metodo_valorizacion, referencia, referencia_id, fecha, created_at, created_by
-    ) VALUES (?, ?, 'entrada', ?, ?, ?, ?, ?, 'promedio', ?, ?, datetime('now'), datetime('now'), ?)`,
+    ) VALUES (?, ?, 'entrada', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)`,
     [
       kid,
       insumoId,
@@ -64,6 +65,7 @@ function registrarEntrada(tx, { insumoId, cantidad, costoUnitario, referencia, r
       costoTotal,
       stockAnt,
       stockRes,
+      getKardexMetodoValorizacion(),
       String(referencia || 'compra'),
       String(referenciaId || ''),
       userId || null,
@@ -142,7 +144,7 @@ function registrarSalida(tx, { insumoId, cantidad, unidadesSalida, soloMasa, ref
     `INSERT INTO kardex (
       id, id_insumo, tipo_movimiento, cantidad, costo_unitario, costo_total,
       stock_anterior, stock_resultante, metodo_valorizacion, referencia, referencia_id, fecha, created_at, created_by
-    ) VALUES (?, ?, 'salida', ?, ?, ?, ?, ?, 'promedio', ?, ?, datetime('now'), datetime('now'), ?)`,
+    ) VALUES (?, ?, 'salida', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), ?)`,
     [
       kid,
       insumoId,
@@ -151,6 +153,7 @@ function registrarSalida(tx, { insumoId, cantidad, unidadesSalida, soloMasa, ref
       costoTotal,
       stockAnt,
       stockRes,
+      getKardexMetodoValorizacion(),
       String(referencia || 'venta'),
       String(referenciaId || ''),
       userId || null,

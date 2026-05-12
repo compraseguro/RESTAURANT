@@ -1566,6 +1566,81 @@ async function initDatabase() {
       ]);
     }
 
+    const migBusinessConfig = queryOne(
+      'SELECT 1 as ok FROM schema_migrations WHERE migration_key = ?',
+      ['2026-05-business-config-v1']
+    );
+    if (!migBusinessConfig?.ok) {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS business_config_definitions (
+          config_key TEXT PRIMARY KEY,
+          domain TEXT NOT NULL,
+          label TEXT NOT NULL,
+          value_type TEXT NOT NULL CHECK(value_type IN ('number','boolean','string','json')),
+          default_value TEXT NOT NULL,
+          constraints_json TEXT NOT NULL DEFAULT '{}',
+          description TEXT NOT NULL DEFAULT '',
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          active INTEGER NOT NULL DEFAULT 1
+        )
+      `);
+      db.run(`
+        CREATE TABLE IF NOT EXISTS business_config_values (
+          config_key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at TEXT DEFAULT (datetime('now')),
+          updated_by TEXT DEFAULT '',
+          FOREIGN KEY (config_key) REFERENCES business_config_definitions(config_key)
+        )
+      `);
+      db.run(`
+        CREATE TABLE IF NOT EXISTS business_config_history (
+          id TEXT PRIMARY KEY,
+          config_key TEXT NOT NULL,
+          value_before TEXT NOT NULL,
+          value_after TEXT NOT NULL,
+          actor_user_id TEXT DEFAULT '',
+          actor_name TEXT DEFAULT '',
+          ip TEXT DEFAULT '',
+          created_at TEXT DEFAULT (datetime('now'))
+        )
+      `);
+      db.run('CREATE INDEX IF NOT EXISTS idx_business_config_history_key ON business_config_history(config_key, created_at)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_business_config_history_created ON business_config_history(created_at)');
+
+      const bizSeeds = [
+        ['gen_currency_primary', 'general', 'Moneda principal (código ISO)', 'string', '"PEN"', '{}', 'Usada en etiquetas y reportes exportables.', 10],
+        ['gen_tip_suggested_pct', 'general', 'Propina sugerida (%)', 'number', '10', '{"min":0,"max":40}', 'Referencia para UI de cobro; no calcula propina sola.', 20],
+        ['gen_indirect_overhead_pct', 'general', 'Costos indirectos estimados (%)', 'number', '0', '{"min":0,"max":100}', 'Sobre costo de venta para análisis de margen ampliado.', 30],
+        ['prof_margin_min_pct', 'profitability', 'Margen bruto mínimo objetivo (%)', 'number', '15', '{"min":-100,"max":100}', 'Umbral de alerta en análisis de rentabilidad.', 10],
+        ['prof_margin_ideal_pct', 'profitability', 'Margen bruto ideal (%)', 'number', '35', '{"min":0,"max":100}', 'Meta de referencia para platos o categorías.', 20],
+        ['prof_margin_critical_pct', 'profitability', 'Margen crítico (%)', 'number', '5', '{"min":-100,"max":50}', 'Por debajo: producto en zona de pérdida relativa.', 30],
+        ['prof_target_net_margin_pct', 'profitability', 'Utilidad neta objetivo (%)', 'number', '12', '{"min":-100,"max":100}', 'Referencia para paneles ejecutivos.', 40],
+        ['inv_valuation_method', 'inventory', 'Método de valorización declarado', 'string', '"weighted_average"', '{"allowed":["weighted_average","fifo","last_cost"]}', 'Se registra en kardex; cálculo actual sigue siendo promedio ponderado salvo evolución futura.', 10],
+        ['inv_waste_tolerance_pct', 'inventory', 'Tolerancia de merma / variación (%)', 'number', '3', '{"min":0,"max":100}', 'Base para comparación teórico vs real.', 20],
+        ['prod_yield_factor_default', 'production', 'Factor de rendimiento por defecto', 'number', '1', '{"min":0.5,"max":1.5}', '1 = 100% de rendimiento teórico en recetas.', 10],
+        ['prod_max_waste_pct', 'production', 'Merma máxima aceptada en producción (%)', 'number', '10', '{"min":0,"max":100}', 'Para alertas y reglas de automatización.', 20],
+        ['auto_alerts_enabled', 'automation', 'Automatización de alertas activa', 'boolean', 'true', '{}', 'Habilita evaluación de reglas automáticas (extensible).', 10],
+        ['auto_slow_moving_days', 'automation', 'Días para considerar producto lento', 'number', '14', '{"min":1,"max":365}', 'Ventana para clasificación de rotación.', 20],
+        ['com_engine_enabled', 'commercial', 'Motor comercial (recomendaciones) activo', 'boolean', 'false', '{}', 'Activa heurísticas de upsell/combos cuando estén cableadas.', 10],
+        ['com_promo_sensitivity', 'commercial', 'Sensibilidad promociones (0–1)', 'number', '0.5', '{"min":0,"max":1}', 'Control fino de agresividad de sugerencias.', 20],
+        ['pred_horizon_days', 'predictive', 'Horizonte de predicción (días)', 'number', '14', '{"min":1,"max":180}', 'Para modelos de demanda y compras (fases posteriores).', 10],
+        ['var_tolerance_pct', 'variance', 'Tolerancia teórico vs real (%)', 'number', '8', '{"min":0,"max":100}', 'Desviación aceptable antes de alertar.', 10],
+        ['alert_low_margin_enabled', 'alerts', 'Alerta por margen bajo', 'boolean', 'true', '{}', 'Notificaciones cuando el margen cae bajo el mínimo.', 10],
+        ['alert_critical_stock_enabled', 'alerts', 'Alerta por stock crítico', 'boolean', 'true', '{}', 'Integración con umbrales de insumos/almacén.', 20],
+        ['dash_kpi_preset', 'dashboard', 'Preset de KPIs ejecutivos', 'string', '"basic"', '{"allowed":["basic","operations","finance"]}', 'Define conjunto de widgets por defecto (fase dashboard).', 10],
+      ];
+      for (const s of bizSeeds) {
+        db.run(
+          `INSERT OR IGNORE INTO business_config_definitions
+           (config_key, domain, label, value_type, default_value, constraints_json, description, sort_order, active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+          s
+        );
+      }
+      db.run('INSERT OR IGNORE INTO schema_migrations (migration_key) VALUES (?)', ['2026-05-business-config-v1']);
+    }
+
     db.run('CREATE INDEX IF NOT EXISTS idx_customers_doc_number ON customers(doc_number)');
     db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_doc_number_unique ON customers(doc_number) WHERE COALESCE(doc_number, '') != ''");
     db.run('CREATE INDEX IF NOT EXISTS idx_app_settings_history_created_at ON app_settings_history(created_at)');

@@ -31,6 +31,7 @@ import {
   MdSecurity, MdDashboard, MdEventSeat, MdDeliveryDining, MdPhotoCamera,
   MdAssessment, MdInsights, MdLocalOffer, MdDiscount,
   MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette,
+  MdAutoGraph,
 } from 'react-icons/md';
 import { UI_THEME_OPTIONS, applyUiTheme, getValidUiThemeId } from '../../theme/uiTheme';
 
@@ -96,6 +97,7 @@ const MENU_ITEMS = [
   { id: 'categoria_anular', label: 'Categoría Anular Venta', icon: MdDoNotDisturb },
   { id: 'formas_pago', label: 'Formas de pago', icon: MdPayment },
   { id: 'apariencia', label: 'Apariencia', icon: MdPalette },
+  { id: 'modulo_empresarial', label: 'Módulo empresarial', icon: MdAutoGraph },
   { id: 'config_historial', label: 'Historial de configuración', icon: MdHistory },
 ];
 const PARTIAL_SECTIONS = new Set([
@@ -311,6 +313,11 @@ export default function Settings() {
     bar: [],
   });
   const [printingBusy, setPrintingBusy] = useState(false);
+  const [bizEffective, setBizEffective] = useState(null);
+  const [bizDraft, setBizDraft] = useState({});
+  const [bizLoading, setBizLoading] = useState(false);
+  const [bizSaving, setBizSaving] = useState(false);
+  const [bizHistRows, setBizHistRows] = useState(null);
   const [printerStatus, setPrinterStatus] = useState({
     caja: { status: 'No disponible', connected: false },
     cocina: { status: 'No disponible', connected: false },
@@ -684,6 +691,72 @@ export default function Settings() {
       setAttendanceGallerySaving(false);
     }
   };
+
+  const loadBusinessConfigEffective = () => {
+    setBizLoading(true);
+    return api
+      .get('/business-config/effective')
+      .then((data) => {
+        setBizEffective(data);
+        const draft = {};
+        (data.domains || []).forEach((d) => {
+          (d.entries || []).forEach((e) => {
+            draft[e.key] = e.value;
+          });
+        });
+        setBizDraft(draft);
+      })
+      .catch((err) => {
+        toast.error(err.message || 'No se pudo cargar el módulo empresarial');
+      })
+      .finally(() => setBizLoading(false));
+  };
+
+  const saveBusinessModule = async () => {
+    if (!bizEffective?.domains) return;
+    const updates = {};
+    for (const d of bizEffective.domains) {
+      for (const e of d.entries || []) {
+        const next = bizDraft[e.key];
+        const same = JSON.stringify(next) === JSON.stringify(e.value);
+        if (!same) updates[e.key] = next;
+      }
+    }
+    if (!Object.keys(updates).length) {
+      toast('Sin cambios');
+      return;
+    }
+    setBizSaving(true);
+    try {
+      const data = await api.put('/business-config/values', { updates });
+      setBizEffective(data);
+      const draft = {};
+      (data.domains || []).forEach((dom) => {
+        (dom.entries || []).forEach((e) => {
+          draft[e.key] = e.value;
+        });
+      });
+      setBizDraft(draft);
+      toast.success('Parámetros empresariales guardados');
+    } catch (err) {
+      toast.error(err.message || 'No se pudo guardar');
+    } finally {
+      setBizSaving(false);
+    }
+  };
+
+  const loadBusinessConfigHistory = () => {
+    api
+      .get('/business-config/history?limit=50')
+      .then((r) => setBizHistRows(Array.isArray(r.rows) ? r.rows : []))
+      .catch((err) => toast.error(err.message || 'No se pudo cargar el historial'));
+  };
+
+  useEffect(() => {
+    if (activeSection !== 'modulo_empresarial') return undefined;
+    loadBusinessConfigEffective();
+    return undefined;
+  }, [activeSection]);
 
   useEffect(() => {
     if (activeSection !== 'config_historial') return;
@@ -2143,6 +2216,146 @@ export default function Settings() {
             <div className="flex justify-end">
               <button onClick={saveAppSettings} className="btn-primary flex items-center gap-2"><MdSave /> Guardar</button>
             </div>
+          </div>
+        )}
+
+        {activeSection === 'modulo_empresarial' && (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-4 md:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--ui-body-text)] flex items-center gap-2">
+                    <MdAutoGraph className="text-[var(--ui-accent)]" /> Módulo empresarial (Fase A)
+                  </h2>
+                  <p className="text-sm text-[var(--ui-muted)] mt-1 max-w-3xl">
+                    Parámetros de costos, rentabilidad, inventario, automatización e inteligencia comercial. Los
+                    cambios quedan versionados en historial; el método de valorización se refleja en nuevos movimientos
+                    de kardex (la contabilidad numérica sigue en promedio ponderado hasta activar FIFO/último costo en
+                    versiones futuras).
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="btn-secondary text-sm" onClick={() => loadBusinessConfigEffective()} disabled={bizLoading}>
+                    Recargar
+                  </button>
+                  <button type="button" className="btn-secondary text-sm" onClick={loadBusinessConfigHistory}>Historial</button>
+                  <button type="button" className="btn-primary text-sm" onClick={() => void saveBusinessModule()} disabled={bizLoading || bizSaving}>
+                    {bizSaving ? 'Guardando…' : 'Guardar cambios'}
+                  </button>
+                </div>
+              </div>
+              {bizLoading && !bizEffective && (
+                <p className="text-sm text-[var(--ui-muted)]">Cargando…</p>
+              )}
+              {bizEffective?.domains?.map((dom) => (
+                <div key={dom.id} className="mb-8 last:mb-0">
+                  <h3 className="text-sm font-semibold text-sky-800 mb-3 border-b border-slate-100 pb-2">{dom.label}</h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {(dom.entries || []).map((e) => (
+                      <div key={e.key} className="rounded-lg border border-slate-100 p-3 bg-slate-50/80">
+                        <label className="block text-sm font-medium text-slate-800">{e.label}</label>
+                        {e.description ? <p className="text-xs text-slate-500 mt-0.5 mb-2">{e.description}</p> : null}
+                        {e.value_type === 'boolean' && (
+                          <label className="inline-flex items-center gap-2 mt-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!bizDraft[e.key]}
+                              onChange={(ev) => setBizDraft((p) => ({ ...p, [e.key]: ev.target.checked }))}
+                              className="rounded border-slate-300"
+                            />
+                            <span className="text-sm text-slate-600">{bizDraft[e.key] ? 'Activo' : 'Inactivo'}</span>
+                          </label>
+                        )}
+                        {e.value_type === 'number' && (
+                          <input
+                            type="number"
+                            className="input-field mt-1"
+                            value={bizDraft[e.key] === undefined || bizDraft[e.key] === null ? '' : bizDraft[e.key]}
+                            min={e.constraints?.min}
+                            max={e.constraints?.max}
+                            step={e.key === 'com_promo_sensitivity' ? 0.05 : e.key === 'prod_yield_factor_default' ? 0.01 : 1}
+                            onChange={(ev) => {
+                              const raw = ev.target.value;
+                              if (raw === '') {
+                                setBizDraft((p) => ({ ...p, [e.key]: e.value }));
+                                return;
+                              }
+                              const v = Number(raw);
+                              setBizDraft((p) => ({ ...p, [e.key]: Number.isFinite(v) ? v : e.value }));
+                            }}
+                          />
+                        )}
+                        {e.value_type === 'string' && Array.isArray(e.constraints?.allowed) && (
+                          <select
+                            className="input-field mt-1"
+                            value={String(bizDraft[e.key] ?? '')}
+                            onChange={(ev) => setBizDraft((p) => ({ ...p, [e.key]: ev.target.value }))}
+                          >
+                            {e.constraints.allowed.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt === 'weighted_average'
+                                  ? 'Promedio ponderado'
+                                  : opt === 'fifo'
+                                    ? 'FIFO'
+                                    : opt === 'last_cost'
+                                      ? 'Último costo'
+                                      : opt === 'basic'
+                                        ? 'Básico'
+                                        : opt === 'operations'
+                                          ? 'Operaciones'
+                                          : opt === 'finance'
+                                            ? 'Finanzas'
+                                            : opt}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {e.value_type === 'string' && !Array.isArray(e.constraints?.allowed) && (
+                          <input
+                            type="text"
+                            className="input-field mt-1"
+                            value={String(bizDraft[e.key] ?? '')}
+                            onChange={(ev) => setBizDraft((p) => ({ ...p, [e.key]: ev.target.value }))}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {bizHistRows && (
+              <div className="card">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-medium text-sm">Últimos cambios</h3>
+                  <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setBizHistRows(null)}>Cerrar</button>
+                </div>
+                <div className="overflow-x-auto max-h-64 overflow-y-auto text-xs">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left text-slate-500 border-b">
+                        <th className="py-1 pr-2">Parámetro</th>
+                        <th className="py-1 pr-2">Antes</th>
+                        <th className="py-1 pr-2">Después</th>
+                        <th className="py-1 pr-2">Usuario</th>
+                        <th className="py-1">Fecha</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bizHistRows.map((h) => (
+                        <tr key={h.id} className="border-b border-slate-50 align-top">
+                          <td className="py-1 pr-2 font-mono">{h.config_key}</td>
+                          <td className="py-1 pr-2 break-all">{h.value_before}</td>
+                          <td className="py-1 pr-2 break-all">{h.value_after}</td>
+                          <td className="py-1 pr-2">{h.actor_name || h.actor_user_id || '—'}</td>
+                          <td className="py-1 whitespace-nowrap">{formatDateTime(h.created_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
