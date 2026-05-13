@@ -185,7 +185,7 @@ function prepareCheckoutOrderIdsFromItemLinesTx(tx, orderItemIdsRaw) {
   return [...new Set(chargeIds)];
 }
 
-function buildExtraDiscountsByOrderTx(tx, orderIds, totalExtraRaw) {
+function buildExtraDiscountsByOrderTx(tx, orderIds, totalExtraRaw, anchorOrderItemId) {
   const out = {};
   const orderList = [...new Set(orderIds)];
   orderList.forEach((id) => {
@@ -193,6 +193,18 @@ function buildExtraDiscountsByOrderTx(tx, orderIds, totalExtraRaw) {
   });
   const t = round2(Math.max(0, Number(totalExtraRaw || 0)));
   if (t <= 0 || !orderList.length) return out;
+
+  const anchor = String(anchorOrderItemId || '').trim();
+  if (anchor) {
+    const row = tx.queryOne('SELECT order_id FROM order_items WHERE id = ?', [anchor]);
+    const oid = row?.order_id ? String(row.order_id) : '';
+    if (oid && orderList.includes(oid)) {
+      const o = tx.queryOne('SELECT * FROM orders WHERE id = ?', [oid]);
+      const cap = getChargeBase(o);
+      out[oid] = Math.max(0, Math.min(t, cap));
+      return out;
+    }
+  }
 
   const weights = orderList.map((id) => {
     const o = tx.queryOne('SELECT * FROM orders WHERE id = ?', [id]);
@@ -677,6 +689,7 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
     discounts_by_order: discountsByOrderBody = {},
     order_item_ids: orderItemIdsBody,
     checkout_discount_total: checkoutDiscountTotalRaw,
+    checkout_discount_anchor_order_item_id: checkoutDiscountAnchorItemRaw,
   } = body;
   const orderItemIds = [
     ...new Set(
@@ -687,6 +700,7 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
   ];
   const orderIdsFromBody = Array.isArray(orderIdsRaw) ? orderIdsRaw.filter(Boolean) : [];
   const checkoutDiscountTotal = Math.max(0, Number(checkoutDiscountTotalRaw || 0));
+  const checkoutDiscountAnchorOrderItemId = String(checkoutDiscountAnchorItemRaw || '').trim();
   const discountsByOrderInput =
     discountsByOrderBody && typeof discountsByOrderBody === 'object' && !Array.isArray(discountsByOrderBody)
       ? { ...discountsByOrderBody }
@@ -732,7 +746,12 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
 
       if (orderItemIds.length) {
         effectiveOrderIds = prepareCheckoutOrderIdsFromItemLinesTx(tx, orderItemIds);
-        discountsByOrder = buildExtraDiscountsByOrderTx(tx, effectiveOrderIds, checkoutDiscountTotal);
+        discountsByOrder = buildExtraDiscountsByOrderTx(
+          tx,
+          effectiveOrderIds,
+          checkoutDiscountTotal,
+          checkoutDiscountAnchorOrderItemId
+        );
       } else {
         effectiveOrderIds = orderIdsFromBody;
       }

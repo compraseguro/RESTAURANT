@@ -83,6 +83,37 @@ function computeTableSplitSelectionBase(orders, selectedItemIds) {
   }
   return lineSum + deliveryExtra;
 }
+
+function getOrderItemSubtotalFromOrders(orders, itemId) {
+  const sid = String(itemId || '').trim();
+  if (!sid) return 0;
+  for (const o of orders || []) {
+    const it = (o.items || []).find((x) => String(x.id) === sid);
+    if (it) return sumOrderItemsChargeSubtotal([it]);
+  }
+  return 0;
+}
+
+function resolveAppliedDiscountBase(orders, selectedOrderItemIds, splitMode, discountConfig, fallbackTotal) {
+  if (!discountConfig?.applied) return fallbackTotal;
+  if (discountConfig.target !== 'line' || !String(discountConfig.targetOrderItemId || '').trim() || !splitMode) {
+    return fallbackTotal;
+  }
+  const sid = String(discountConfig.targetOrderItemId).trim();
+  if (!selectedOrderItemIds.includes(sid)) return fallbackTotal;
+  const lineSub = getOrderItemSubtotalFromOrders(orders, sid);
+  return lineSub > 0 ? lineSub : fallbackTotal;
+}
+
+const EMPTY_DISCOUNT_CONFIG = {
+  active: false,
+  applied: false,
+  type: 'amount',
+  value: '',
+  reason: '',
+  target: 'whole',
+  targetOrderItemId: '',
+};
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -100,6 +131,7 @@ import {
   MdAccessTime, MdPersonAdd, MdEmail, MdSearch,
   MdDeliveryDining,
   MdEdit, MdDelete, MdVisibility, MdPrint, MdSave,
+  MdSwapHoriz, MdMerge,
 } from 'react-icons/md';
 
 /** Mesa sintética al cobrar cuenta desde Clientes (no existe fila en `tables`). */
@@ -282,11 +314,21 @@ export default function POSPanel() {
   const [loading, setLoading] = useState(true);
   const [selectedTable, setSelectedTable] = useState(null);
   const [tableDetail, setTableDetail] = useState(null);
+  /** Modal mover/unir mesas (misma API que Admin → Mesas). */
+  const [mesaTableAction, setMesaTableAction] = useState(null);
   const [showBill, setShowBill] = useState(false);
   const [splitMode, setSplitMode] = useState(false);
   /** En dividir cuenta: ids de `order_items` incluidos en este cobro. */
   const [selectedOrderItemIds, setSelectedOrderItemIds] = useState([]);
-  const [discountConfig, setDiscountConfig] = useState({ active: false, applied: false, type: 'amount', value: '', reason: '' });
+  const [discountConfig, setDiscountConfig] = useState({
+    active: false,
+    applied: false,
+    type: 'amount',
+    value: '',
+    reason: '',
+    target: 'whole',
+    targetOrderItemId: '',
+  });
   const [showMenu, setShowMenu] = useState(false);
   const [viewOrdersModal, setViewOrdersModal] = useState(null);
   const [quickSaleMode, setQuickSaleMode] = useState(false);
@@ -1001,7 +1043,7 @@ export default function POSPanel() {
     setAmountReceived('');
     setSplitMode(false);
     setSelectedOrderItemIds(collectAllOrderItemIds(orders));
-    setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
+    setDiscountConfig({ ...EMPTY_DISCOUNT_CONFIG });
     resetBillingForm();
     if (payload.customerForBilling) {
       applyCustomerToBilling(payload.customerForBilling);
@@ -1147,10 +1189,31 @@ export default function POSPanel() {
     const billingError = validateBillingData();
     if (billingError) return toast.error(billingError);
     try {
+      if (discountConfig.applied && splitMode && discountConfig.target === 'line' && discountConfig.targetOrderItemId) {
+        if (!selectedOrderItemIds.includes(discountConfig.targetOrderItemId)) {
+          return toast.error('El producto con descuento debe estar incluido en el cobro.');
+        }
+      }
+
       const discountValue = Math.max(0, parseFloat(discountConfig.value) || 0);
-      const baseForDiscount = useLineSplit
+      const wholeBaseForDiscount = useLineSplit
         ? computeTableSplitSelectionBase(tableOrders, selectedOrderItemIds)
         : tableOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
+
+      const lineBaseForDiscount =
+        splitMode &&
+        discountConfig.applied &&
+        discountConfig.target === 'line' &&
+        String(discountConfig.targetOrderItemId || '').trim() &&
+        selectedOrderItemIds.includes(String(discountConfig.targetOrderItemId).trim())
+          ? getOrderItemSubtotalFromOrders(tableOrders, discountConfig.targetOrderItemId)
+          : null;
+
+      const baseForDiscount =
+        discountConfig.applied && lineBaseForDiscount != null && lineBaseForDiscount > 0
+          ? lineBaseForDiscount
+          : wholeBaseForDiscount;
+
       const totalDiscountToApply = !discountConfig.applied
         ? 0
         : (discountConfig.type === 'percent'
@@ -1159,23 +1222,21 @@ export default function POSPanel() {
 
       let remainingAmountDiscount = totalDiscountToApply;
       const discountsByOrder = {};
-      if (!useLineSplit) {
-        const totalOrdersAmount = baseForDiscount;
+      if (!useLineSplit && totalDiscountToApply > 0) {
+        const totalOrdersAmount = wholeBaseForDiscount;
         for (let idx = 0; idx < payableOrders.length; idx += 1) {
           const order = payableOrders[idx];
           const orderTotal = getOrderChargeTotal(order);
           let extraDiscount = 0;
-          if (totalDiscountToApply > 0) {
-            if (discountConfig.type === 'percent') {
-              extraDiscount = Math.min(orderTotal, orderTotal * (discountValue / 100));
-            } else if (idx === payableOrders.length - 1) {
-              extraDiscount = Math.min(orderTotal, remainingAmountDiscount);
-            } else {
-              extraDiscount = Math.min(orderTotal, (totalDiscountToApply * orderTotal) / (totalOrdersAmount || 1));
-            }
-            remainingAmountDiscount = Math.max(0, remainingAmountDiscount - extraDiscount);
-            discountsByOrder[order.id] = extraDiscount;
+          if (discountConfig.type === 'percent') {
+            extraDiscount = Math.min(orderTotal, orderTotal * (discountValue / 100));
+          } else if (idx === payableOrders.length - 1) {
+            extraDiscount = Math.min(orderTotal, remainingAmountDiscount);
+          } else {
+            extraDiscount = Math.min(orderTotal, (totalDiscountToApply * orderTotal) / (totalOrdersAmount || 1));
           }
+          remainingAmountDiscount = Math.max(0, remainingAmountDiscount - extraDiscount);
+          discountsByOrder[order.id] = extraDiscount;
         }
       }
 
@@ -1197,6 +1258,13 @@ export default function POSPanel() {
       if (useLineSplit) {
         checkoutBody.order_item_ids = selectedOrderItemIds;
         checkoutBody.checkout_discount_total = totalDiscountToApply;
+        if (
+          totalDiscountToApply > 0 &&
+          discountConfig.target === 'line' &&
+          String(discountConfig.targetOrderItemId || '').trim()
+        ) {
+          checkoutBody.checkout_discount_anchor_order_item_id = String(discountConfig.targetOrderItemId).trim();
+        }
       } else {
         checkoutBody.order_ids = payableOrders.map((o) => o.id);
         checkoutBody.discounts_by_order = discountsByOrder;
@@ -1289,7 +1357,7 @@ export default function POSPanel() {
       setShowBill(false);
       setSplitMode(false);
       setSelectedOrderItemIds([]);
-      setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
+      setDiscountConfig({ ...EMPTY_DISCOUNT_CONFIG });
       clientCheckoutOpenedKeyRef.current = '';
       setSelectedTable(null);
       setAmountReceived('');
@@ -1317,13 +1385,13 @@ export default function POSPanel() {
 
   const handleDiscountButton = () => {
     if (discountConfig.applied) {
-      setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
+      setDiscountConfig({ ...EMPTY_DISCOUNT_CONFIG });
       toast.success('Descuento anulado');
       return;
     }
 
     if (!discountConfig.active) {
-      setDiscountConfig(prev => ({ ...prev, active: true }));
+      setDiscountConfig({ ...EMPTY_DISCOUNT_CONFIG, active: true });
       return;
     }
 
@@ -1331,8 +1399,88 @@ export default function POSPanel() {
     if (Number.isNaN(value) || value <= 0) return toast.error('Ingresa un descuento válido');
     if (!discountConfig.reason.trim()) return toast.error('Ingresa el motivo del descuento');
 
-    setDiscountConfig(prev => ({ ...prev, active: false, applied: true }));
-    toast.success('Descuento aplicado a la cuenta');
+    if (splitMode && discountConfig.target === 'line' && discountConfig.targetOrderItemId) {
+      if (!selectedOrderItemIds.includes(discountConfig.targetOrderItemId)) {
+        return toast.error('El producto con descuento debe estar incluido en el cobro (marca su casilla).');
+      }
+    }
+
+    setDiscountConfig((prev) => ({ ...prev, active: false, applied: true }));
+    toast.success(
+      splitMode && discountConfig.target === 'line' && discountConfig.targetOrderItemId
+        ? 'Descuento aplicado al producto'
+        : 'Descuento aplicado a la cuenta'
+    );
+  };
+
+  const applyCourtesyDiscount = () => {
+    if (!discountConfig.active || discountConfig.applied) return;
+    const orders = selectedTable?.orders || [];
+    let base = selectionBaseTotal;
+    if (splitMode && discountConfig.target === 'line' && discountConfig.targetOrderItemId) {
+      const sid = discountConfig.targetOrderItemId;
+      if (!selectedOrderItemIds.includes(sid)) {
+        toast.error('Marca la línea en el cobro o elige ese producto para cortesía.');
+        return;
+      }
+      base = getOrderItemSubtotalFromOrders(orders, sid);
+    }
+    if (!(base > 0)) {
+      toast.error('Sin monto para cortesía');
+      return;
+    }
+    setDiscountConfig({
+      ...EMPTY_DISCOUNT_CONFIG,
+      applied: true,
+      type: 'amount',
+      value: String(roundMoneySoles(base)),
+      reason: 'Cortesía',
+      target: discountConfig.target,
+      targetOrderItemId: discountConfig.targetOrderItemId,
+    });
+    toast.success('Cortesía aplicada');
+  };
+
+  const selectDiscountTargetLine = (itemId) => {
+    if (!discountConfig.active || discountConfig.applied) return;
+    if (!splitMode) return;
+    setDiscountConfig((prev) => ({ ...prev, target: 'line', targetOrderItemId: itemId }));
+  };
+
+  const selectDiscountTargetWhole = () => {
+    if (!discountConfig.active || discountConfig.applied) return;
+    setDiscountConfig((prev) => ({ ...prev, target: 'whole', targetOrderItemId: '' }));
+  };
+
+  const openMesaTableAction = (type) => {
+    if (!tableDetail || isDeliveryCheckoutTable(tableDetail)) return;
+    setMesaTableAction({ type, sourceId: tableDetail.id, targetId: '' });
+  };
+
+  const executeMesaTableAction = async () => {
+    if (!mesaTableAction?.type) return;
+    const { type, sourceId, targetId } = mesaTableAction;
+    const src = tables.find((t) => t.id === sourceId);
+    try {
+      if (type === 'move') {
+        if (!sourceId) return toast.error('Selecciona mesa origen');
+        if (!src?.id) return toast.error('La mesa origen ya no está disponible');
+        if (!targetId) return toast.error('Selecciona mesa destino');
+        if (sourceId === targetId) return toast.error('Origen y destino deben ser diferentes');
+        await api.post('/tables/move-orders', { source_table_id: sourceId, target_table_id: targetId });
+        toast.success('Pedidos movidos correctamente');
+      } else if (type === 'merge') {
+        if (!sourceId) return toast.error('Selecciona mesa origen');
+        if (!targetId) return toast.error('Selecciona mesa destino');
+        if (sourceId === targetId) return toast.error('Origen y destino deben ser diferentes');
+        await api.post('/tables/merge', { target_table_id: targetId, source_table_ids: [sourceId] });
+        toast.success('Mesas unidas correctamente');
+      }
+      setMesaTableAction(null);
+      await loadData();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo completar la acción');
+    }
   };
 
   const openMenuForTable = (table) => {
@@ -1693,6 +1841,10 @@ export default function POSPanel() {
     }).filter((entry) => entry.linkedOrders.length > 0);
   }, [reservations, allOrders]);
   const stableTables = [...tables].sort((a, b) => Number(a.number || 0) - Number(b.number || 0));
+  const mesaPhysicalTables = useMemo(
+    () => (tables || []).filter((t) => !isDeliveryCheckoutTable(t) && !isClientCheckoutTable(t)),
+    [tables]
+  );
   const deliveryCajaSlots = useMemo(() => buildDeliveryCajaSlots(allOrders), [allOrders]);
   const filteredProducts = products.filter(p => {
     if (selectedCat !== 'all' && p.category_id !== selectedCat) return false;
@@ -1812,12 +1964,52 @@ export default function POSPanel() {
     return rows;
   }, [selectedTable, splitMode]);
 
+  const discountTargetLabel = useMemo(() => {
+    if (!discountConfig.active && !discountConfig.applied) return '';
+    if (
+      discountConfig.target !== 'line' ||
+      !String(discountConfig.targetOrderItemId || '').trim() ||
+      !splitMode
+    ) {
+      return 'Cuenta completa';
+    }
+    const line = splitBillLines.find((l) => l.id === discountConfig.targetOrderItemId);
+    return line ? line.name : 'Producto seleccionado';
+  }, [
+    discountConfig.active,
+    discountConfig.applied,
+    discountConfig.target,
+    discountConfig.targetOrderItemId,
+    splitMode,
+    splitBillLines,
+  ]);
+
+  const discountAmountBase = useMemo(
+    () =>
+      resolveAppliedDiscountBase(
+        selectedTable?.orders || [],
+        selectedOrderItemIds,
+        splitMode,
+        discountConfig,
+        selectionBaseTotal
+      ),
+    [
+      selectedTable,
+      selectedOrderItemIds,
+      splitMode,
+      discountConfig.applied,
+      discountConfig.target,
+      discountConfig.targetOrderItemId,
+      selectionBaseTotal,
+    ]
+  );
+
   const discountValue = Math.max(0, parseFloat(discountConfig.value) || 0);
   const discountPreview = !discountConfig.applied
     ? 0
     : (discountConfig.type === 'percent'
-      ? Math.min(selectionBaseTotal, selectionBaseTotal * (discountValue / 100))
-      : Math.min(selectionBaseTotal, discountValue));
+      ? Math.min(discountAmountBase, discountAmountBase * (discountValue / 100))
+      : Math.min(discountAmountBase, discountValue));
   const payableTotal = Math.max(0, selectionBaseTotal - discountPreview);
   const multiPaySumProof = useMemo(
     () =>
@@ -1891,11 +2083,18 @@ export default function POSPanel() {
     const ordersSubtotal = useSplit
       ? computeTableSplitSelectionBase(table.orders, selectedOrderItemIds)
       : payableOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
+    const discBase = resolveAppliedDiscountBase(
+      table.orders || [],
+      useSplit ? selectedOrderItemIds : [],
+      useSplit,
+      discountConfig,
+      ordersSubtotal
+    );
     const discountForPrecuenta = !discountConfig.applied
       ? 0
       : (discountConfig.type === 'percent'
-        ? Math.min(ordersSubtotal, ordersSubtotal * (discountValue / 100))
-        : Math.min(ordersSubtotal, discountValue));
+        ? Math.min(discBase, discBase * (discountValue / 100))
+        : Math.min(discBase, discountValue));
     const payableForPrecuenta = Math.max(0, ordersSubtotal - discountForPrecuenta);
     const widthMm = cajaPaperWidthMm;
     const plain = buildPrecuentaPlainText({
@@ -2207,157 +2406,242 @@ export default function POSPanel() {
           </button>
         </div>
       </div>
-      <h2 className="font-semibold text-slate-700 mb-4 flex items-center gap-2"><MdTableRestaurant /> Mapa de mesas</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        {stableTables.map(table => {
-          const isOccupied = Boolean(table.orders && table.orders.length > 0);
-          const isSelected = tableDetail?.id === table.id;
-          return (
-            <button
-              key={table.id}
-              onClick={() => setTableDetail(table)}
-              className={`card text-left transition-all border-l-4 hover:shadow-lg ${
-                isOccupied ? 'border-l-red-500' : 'border-l-lime-500'
-              } ${isSelected ? 'ring-2 ring-gold-400' : ''}`}
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isOccupied ? 'bg-red-100' : 'bg-emerald-100'}`}>
-                  <MdTableRestaurant className={`${isOccupied ? 'text-red-600' : 'text-emerald-600'} text-xl`} />
-                </div>
-                <div>
-                  <p className="font-bold text-slate-800">{table.name}</p>
-                  <p className="text-xs text-slate-500">{isOccupied ? `${table.orders.length} pedido(s)` : 'Sin pedidos activos'}</p>
-                </div>
-              </div>
-              <p className={`text-xs font-semibold ${isOccupied ? 'text-red-700' : 'text-emerald-700'}`}>
-                {isOccupied ? 'Ocupada' : 'Libre'}
-              </p>
-            </button>
-          );
-        })}
-      </div>
-
-      {deliveryCajaSlots.length > 0 && (
-        <>
-          <h2 id="pos-delivery-caja" className="font-semibold text-slate-700 mb-4 flex items-center gap-2 scroll-mt-4"><MdDeliveryDining /> Delivery en caja</h2>
-          <p className="text-sm text-slate-500 mb-3">Un recuadro por pedido delivery pendiente de cobro. Al cobrar, desaparece de esta lista.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            {deliveryCajaSlots.map((slot) => {
-              const isSelected = tableDetail?.id === slot.id;
+      <h2 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
+        <MdTableRestaurant /> Mapa de mesas
+      </h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6 items-start">
+        <div className="min-w-0 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            {stableTables.map((table) => {
+              const isOccupied = Boolean(table.orders && table.orders.length > 0);
+              const isSelected = tableDetail?.id === table.id;
               return (
                 <button
-                  key={slot.id}
+                  key={table.id}
                   type="button"
-                  onClick={() => setTableDetail(slot)}
-                  className={`card text-left transition-all border-l-4 border-l-sky-500 hover:shadow-lg bg-slate-50/80 ${isSelected ? 'ring-2 ring-gold-400' : ''}`}
+                  onClick={() => setTableDetail(table)}
+                  className={`card text-left transition-all border-l-4 hover:shadow-lg ${
+                    isOccupied ? 'border-l-red-500' : 'border-l-lime-500'
+                  } ${isSelected ? 'ring-2 ring-gold-400' : ''}`}
                 >
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-sky-100">
-                      <MdDeliveryDining className="text-sky-700 text-xl" />
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        isOccupied ? 'bg-red-100' : 'bg-emerald-100'
+                      }`}
+                    >
+                      <MdTableRestaurant className={`${isOccupied ? 'text-red-600' : 'text-emerald-600'} text-xl`} />
                     </div>
                     <div>
-                      <p className="font-bold text-slate-800">{slot.name}</p>
-                      <p className="text-xs text-slate-500">Pedido #{slot.orders?.[0]?.order_number ?? '—'}</p>
+                      <p className="font-bold text-slate-800">{table.name}</p>
+                      <p className="text-xs text-slate-500">
+                        {isOccupied ? `${table.orders.length} pedido(s)` : 'Sin pedidos activos'}
+                      </p>
                     </div>
                   </div>
-                  <p className="text-xs font-semibold text-sky-800">Por cobrar · {formatCurrency((slot.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0))}</p>
+                  <p className={`text-xs font-semibold ${isOccupied ? 'text-red-700' : 'text-emerald-700'}`}>
+                    {isOccupied ? 'Ocupada' : 'Libre'}
+                  </p>
                 </button>
               );
             })}
           </div>
-        </>
-      )}
 
-      {tableDetail && (
-        <div className="card mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="font-bold text-slate-800">{tableDetail.name}</h3>
-              <p className="text-xs text-slate-500">
-                {isDeliveryCheckoutTable(tableDetail)
-                  ? (() => {
-                      const o = tableDetail.orders?.[0];
-                      if (!o) return 'Sin pedido';
-                      return [o.customer_name, o.delivery_address].filter(Boolean).join(' · ') || 'Delivery';
-                    })()
-                  : tableDetail.orders?.length
-                    ? `${tableDetail.orders.length} pedido(s) activo(s)`
-                    : 'Sin pedidos activos'}
+          {deliveryCajaSlots.length > 0 && (
+            <>
+              <h2
+                id="pos-delivery-caja"
+                className="font-semibold text-slate-700 mb-2 flex items-center gap-2 scroll-mt-4"
+              >
+                <MdDeliveryDining /> Delivery en caja
+              </h2>
+              <p className="text-sm text-slate-500 mb-3">
+                Un recuadro por pedido delivery pendiente de cobro. Al cobrar, desaparece de esta lista.
               </p>
-            </div>
-            <p className="text-xl font-bold text-gold-600">{formatCurrency((tableDetail.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}</p>
-          </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {deliveryCajaSlots.map((slot) => {
+                  const isSelected = tableDetail?.id === slot.id;
+                  return (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      onClick={() => setTableDetail(slot)}
+                      className={`card text-left transition-all border-l-4 border-l-sky-500 hover:shadow-lg bg-slate-50/80 ${
+                        isSelected ? 'ring-2 ring-gold-400' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-sky-100">
+                          <MdDeliveryDining className="text-sky-700 text-xl" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800">{slot.name}</p>
+                          <p className="text-xs text-slate-500">Pedido #{slot.orders?.[0]?.order_number ?? '—'}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs font-semibold text-sky-800">
+                        Por cobrar · {formatCurrency((slot.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0))}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
 
-          <div className="flex flex-col gap-3">
-            <div
-              className={`flex flex-wrap gap-2 items-stretch ${
-                isDeliveryCheckoutTable(tableDetail) ? '' : ''
-              }`}
-            >
-              {!isDeliveryCheckoutTable(tableDetail) && (
-                <button
-                  type="button"
-                  onClick={() => openMenuForTable(tableDetail)}
-                  className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
-                >
-                  <MdRestaurantMenu /> Tomar Pedido
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedTable(tableDetail);
-                  setShowBill(true);
-                  setPaymentMethod('efectivo');
-                  setAmountReceived('');
-                  setSplitMode(false);
-                  setSelectedOrderItemIds(collectAllOrderItemIds(tableDetail.orders));
-                  setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
-                }}
-                disabled={!tableDetail.orders?.length}
-                className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
-              >
-                <MdAttachMoney /> {isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar Mesa'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedTable(tableDetail);
-                  void printPrecuenta(tableDetail);
-                }}
-                disabled={!tableDetail.orders?.length}
-                className="flex-1 min-w-[140px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
-              >
-                <MdPrint /> Imprimir precuenta
-              </button>
-              <div className="flex flex-1 min-w-[200px] gap-2">
-                <button
-                  type="button"
-                  title="Ver pedido"
-                  onClick={() => setViewOrdersModal({ table: tableDetail, orderId: null })}
-                  disabled={!tableDetail.orders?.length}
-                  className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
-                >
-                  <MdVisibility className="text-xl" />
-                </button>
-                <button
-                  type="button"
-                  title="Modificar pedido"
-                  onClick={openEditOrderFromToolbar}
-                  disabled={
-                    !tableDetail.orders?.length ||
-                    isClientCheckoutTable(tableDetail) ||
-                    !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
+        <div className="min-w-0">
+          {tableDetail ? (
+            <div className="card flex flex-col max-h-[min(72vh,calc(100vh-10rem))] lg:max-h-[calc(100vh-12rem)] lg:sticky lg:top-2 shadow-md border-slate-200/80">
+              <div className="flex items-start justify-between gap-3 mb-3 shrink-0 border-b border-slate-100 pb-3">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-slate-800">{tableDetail.name}</h3>
+                  <p className="text-xs text-slate-500">
+                    {isDeliveryCheckoutTable(tableDetail)
+                      ? (() => {
+                          const o = tableDetail.orders?.[0];
+                          if (!o) return 'Sin pedido';
+                          return [o.customer_name, o.delivery_address].filter(Boolean).join(' · ') || 'Delivery';
+                        })()
+                      : tableDetail.orders?.length
+                        ? `${tableDetail.orders.length} pedido(s) activo(s)`
+                        : 'Sin pedidos activos'}
+                  </p>
+                </div>
+                <p className="text-xl font-bold text-gold-600 shrink-0 tabular-nums">
+                  {formatCurrency((tableDetail.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}
+                </p>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/70 p-3 mb-3 text-slate-700">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Productos en la mesa</p>
+                {(() => {
+                  const lines = mergedProductsOnTable(tableDetail);
+                  const totalMesa = (tableDetail.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0);
+                  if (!lines.length) {
+                    return <p className="text-center text-slate-400 py-6 text-sm">No hay productos para mostrar.</p>;
                   }
-                  className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
-                >
-                  <MdEdit className="text-xl" />
-                </button>
+                  return (
+                    <>
+                      <ul className="space-y-1.5 text-sm">
+                        {lines.map((row) => (
+                          <li
+                            key={row.key}
+                            className="flex justify-between gap-2 border-b border-slate-200/90 pb-1.5 last:border-0 last:pb-0"
+                          >
+                            <span className="min-w-0">
+                              <span className="font-medium text-slate-900">{row.name}</span>
+                              <span className="text-slate-500"> × {row.qty}</span>
+                            </span>
+                            <span className="shrink-0 tabular-nums font-medium text-sky-700">
+                              {formatCurrency(row.subtotal)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex justify-between border-t border-slate-200 pt-3 mt-3 text-base font-bold text-slate-900">
+                        <span>Total</span>
+                        <span className="text-gold-600">{formatCurrency(totalMesa)}</span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              <div className="flex flex-col gap-3 shrink-0">
+                <div className="flex flex-wrap gap-2 items-stretch">
+                  {!isDeliveryCheckoutTable(tableDetail) && (
+                    <button
+                      type="button"
+                      onClick={() => openMenuForTable(tableDetail)}
+                      className="flex-1 min-w-[120px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                    >
+                      <MdRestaurantMenu /> Tomar Pedido
+                    </button>
+                  )}
+                  {!isDeliveryCheckoutTable(tableDetail) && (
+                    <button
+                      type="button"
+                      onClick={() => openMesaTableAction('move')}
+                      className="flex-1 min-w-[120px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                    >
+                      <MdSwapHoriz /> Mover pedidos
+                    </button>
+                  )}
+                  {!isDeliveryCheckoutTable(tableDetail) && (
+                    <button
+                      type="button"
+                      onClick={() => openMesaTableAction('merge')}
+                      className="flex-1 min-w-[120px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                    >
+                      <MdMerge /> Unir mesas
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTable(tableDetail);
+                      setShowBill(true);
+                      setPaymentMethod('efectivo');
+                      setAmountReceived('');
+                      setSplitMode(false);
+                      setSelectedOrderItemIds(collectAllOrderItemIds(tableDetail.orders));
+                      setDiscountConfig({ ...EMPTY_DISCOUNT_CONFIG });
+                    }}
+                    disabled={!tableDetail.orders?.length}
+                    className="flex-1 min-w-[120px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                  >
+                    <MdAttachMoney /> {isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar Mesa'}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 items-stretch">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTable(tableDetail);
+                      void printPrecuenta(tableDetail);
+                    }}
+                    disabled={!tableDetail.orders?.length}
+                    className="flex-1 min-w-[120px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                  >
+                    <MdPrint /> Imprimir precuenta
+                  </button>
+                  <div className="flex flex-1 min-w-[120px] gap-2">
+                    <button
+                      type="button"
+                      title="Ver pedido"
+                      onClick={() => setViewOrdersModal({ table: tableDetail, orderId: null })}
+                      disabled={!tableDetail.orders?.length}
+                      className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                    >
+                      <MdVisibility className="text-xl" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Modificar pedido"
+                      onClick={openEditOrderFromToolbar}
+                      disabled={
+                        !tableDetail.orders?.length ||
+                        isClientCheckoutTable(tableDetail) ||
+                        !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
+                      }
+                      className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                    >
+                      <MdEdit className="text-xl" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="card flex flex-col items-center justify-center text-center py-14 px-4 text-slate-500 border-dashed border-2 border-slate-200 bg-slate-50/60 min-h-[220px] lg:sticky lg:top-2">
+              <MdTableRestaurant className="text-4xl text-slate-300 mb-2" />
+              <p className="font-medium text-slate-600">Selecciona una mesa</p>
+              <p className="text-sm mt-1 max-w-xs">El detalle, pedidos y acciones aparecerán aquí a la derecha.</p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <button
@@ -3083,6 +3367,72 @@ export default function POSPanel() {
       </Modal>
 
       <Modal
+        isOpen={Boolean(mesaTableAction?.type)}
+        onClose={() => setMesaTableAction(null)}
+        title={mesaTableAction?.type === 'merge' ? 'Unir mesas' : 'Mover pedidos'}
+        size="md"
+      >
+        <div className="space-y-3">
+          {mesaTableAction?.type && (mesaTableAction.type === 'move' || mesaTableAction.type === 'merge') && (
+            <div>
+              <label className="block text-sm text-slate-700 mb-1">
+                {mesaTableAction.type === 'merge' ? 'Primera mesa' : 'Mesa origen'}
+              </label>
+              <select
+                value={mesaTableAction.sourceId || ''}
+                onChange={(e) => {
+                  const nextSource = e.target.value;
+                  setMesaTableAction((prev) => {
+                    if (!prev) return prev;
+                    let { targetId } = prev;
+                    if (targetId === nextSource) targetId = '';
+                    return { ...prev, sourceId: nextSource, targetId };
+                  });
+                }}
+                className="input-field"
+              >
+                <option value="">Seleccionar...</option>
+                {mesaPhysicalTables.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {mesaTableAction?.type && (mesaTableAction.type === 'merge' || mesaTableAction.type === 'move') && (
+            <div>
+              <label className="block text-sm text-slate-700 mb-1">
+                {mesaTableAction.type === 'merge' ? 'Segunda mesa' : 'Mesa destino'}
+              </label>
+              <select
+                value={mesaTableAction.targetId || ''}
+                onChange={(e) => setMesaTableAction((prev) => (prev ? { ...prev, targetId: e.target.value } : prev))}
+                className="input-field"
+              >
+                <option value="">Seleccionar...</option>
+                {mesaPhysicalTables
+                  .filter((t) => t.id !== mesaTableAction.sourceId)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={() => setMesaTableAction(null)} className="btn-secondary flex-1">
+              Cancelar
+            </button>
+            <button type="button" onClick={() => void executeMesaTableAction()} className="btn-primary flex-1">
+              Ejecutar
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
         isOpen={Boolean(viewOrdersModal?.table)}
         onClose={() => setViewOrdersModal(null)}
         title={(() => {
@@ -3194,21 +3544,36 @@ export default function POSPanel() {
                                 ) : (
                                   splitBillLines.map((line) => {
                                     const sel = selectedOrderItemIds.includes(line.id);
+                                    const discountRowFocus =
+                                      discountConfig.active &&
+                                      !discountConfig.applied &&
+                                      discountConfig.target === 'line' &&
+                                      discountConfig.targetOrderItemId === line.id;
                                     return (
-                                      <label
+                                      <div
                                         key={line.id}
-                                        className={`grid cursor-pointer grid-cols-[1.75rem_2rem_minmax(0,1fr)_2.5rem_3.75rem_3.75rem] gap-1.5 items-center rounded-md border px-1 py-1.5 text-sm ${
-                                          sel
-                                            ? 'border-[color:var(--ui-accent)]/80 bg-[var(--ui-sidebar-active-bg)]/25 text-[#E5E7EB]'
-                                            : 'border-transparent text-[#9CA3AF]'
-                                        }`}
+                                        role="presentation"
+                                        onClick={() => {
+                                          if (discountConfig.active && !discountConfig.applied) {
+                                            selectDiscountTargetLine(line.id);
+                                          }
+                                        }}
+                                        className={`grid grid-cols-[1.75rem_2rem_minmax(0,1fr)_2.5rem_3.75rem_3.75rem] gap-1.5 items-center rounded-md border px-1 py-1.5 text-sm transition-colors ${
+                                          discountRowFocus
+                                            ? 'border-amber-400/70 bg-amber-950/35 ring-1 ring-amber-400/50'
+                                            : sel
+                                              ? 'border-[color:var(--ui-accent)]/80 bg-[var(--ui-sidebar-active-bg)]/25 text-[#E5E7EB]'
+                                              : 'border-transparent text-[#9CA3AF]'
+                                        } ${discountConfig.active && !discountConfig.applied ? 'cursor-pointer' : ''}`}
                                       >
-                                        <input
-                                          type="checkbox"
-                                          checked={sel}
-                                          onChange={() => toggleOrderItemSelection(line.id)}
-                                          className="mx-auto rounded border-[color:var(--ui-accent)]"
-                                        />
+                                        <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
+                                          <input
+                                            type="checkbox"
+                                            checked={sel}
+                                            onChange={() => toggleOrderItemSelection(line.id)}
+                                            className="rounded border-[color:var(--ui-accent)]"
+                                          />
+                                        </div>
                                         <span className="text-center text-[10px] font-bold text-[#BFDBFE] tabular-nums">
                                           #{line.orderNumber}
                                         </span>
@@ -3216,7 +3581,7 @@ export default function POSPanel() {
                                         <span className="text-center tabular-nums text-[#F9FAFB]">{line.qty}</span>
                                         <span className="text-right tabular-nums text-[#D1D5DB]">{formatCurrency(line.unit)}</span>
                                         <span className="text-right tabular-nums font-medium text-[#F9FAFB]">{formatCurrency(line.sub)}</span>
-                                      </label>
+                                      </div>
                                     );
                                   })
                                 )}
@@ -3224,6 +3589,11 @@ export default function POSPanel() {
                               <p className="text-[11px] text-[#9CA3AF] shrink-0">
                                 Desmarca las líneas que no vas a cobrar en esta operación.
                               </p>
+                              {discountConfig.applied && (
+                                <p className="text-[11px] text-amber-200/90 shrink-0">
+                                  <span className="font-semibold">Descuento aplicado a:</span> {discountTargetLabel}
+                                </p>
+                              )}
                             </>
                           ) : (
                             <>
@@ -3250,6 +3620,11 @@ export default function POSPanel() {
                                   ))
                                 )}
                               </div>
+                              {discountConfig.applied && (
+                                <p className="text-[11px] text-amber-200/90 shrink-0 pt-1">
+                                  <span className="font-semibold">Descuento aplicado a:</span> {discountTargetLabel}
+                                </p>
+                              )}
                             </>
                           )}
                         </>
@@ -3391,7 +3766,33 @@ export default function POSPanel() {
                             value={discountConfig.reason}
                             onChange={(e) => setDiscountConfig((prev) => ({ ...prev, reason: e.target.value }))}
                           />
-                          <div className="flex gap-2">
+                          <div className="rounded-md border border-amber-500/25 bg-black/20 px-2 py-1.5 space-y-1">
+                            <p className="text-[11px] text-amber-100/90">
+                              <span className="font-semibold text-amber-200">Aplicando a: </span>
+                              {discountTargetLabel}
+                            </p>
+                            {splitMode ? (
+                              <p className="text-[10px] text-[#9CA3AF] leading-snug">
+                                Pulsa una línea de la lista de productos para descontar solo ese ítem. Por defecto: cuenta
+                                completa.
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-[#9CA3AF] leading-snug">
+                                El descuento afecta a toda la cuenta. Activa «Dividir cuentas» para elegir un solo
+                                producto.
+                              </p>
+                            )}
+                            {splitMode && (
+                              <button
+                                type="button"
+                                onClick={selectDiscountTargetWhole}
+                                className="text-[11px] font-medium text-sky-300 hover:text-sky-200 underline-offset-2 hover:underline"
+                              >
+                                Volver a cuenta completa
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <button
                               type="button"
                               onClick={handleDiscountButton}
@@ -3401,8 +3802,15 @@ export default function POSPanel() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setDiscountConfig((prev) => ({ ...prev, active: false, value: '', reason: '' }))}
-                              className="px-3 py-2 rounded-lg border border-[color:var(--ui-border)] text-[#BFDBFE] text-xs"
+                              onClick={applyCourtesyDiscount}
+                              className="flex-1 py-2 rounded-lg border border-amber-400/60 text-amber-100 text-xs font-semibold hover:bg-amber-500/15"
+                            >
+                              Cortesía
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDiscountConfig({ ...EMPTY_DISCOUNT_CONFIG })}
+                              className="px-3 py-2 rounded-lg border border-[color:var(--ui-border)] text-[#BFDBFE] text-xs shrink-0"
                             >
                               Cancelar
                             </button>
