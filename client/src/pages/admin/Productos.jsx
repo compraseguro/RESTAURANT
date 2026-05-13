@@ -663,7 +663,12 @@ export default function Productos() {
                         className="input-field text-sm"
                       >
                         <option value="">— Elija insumo —</option>
-                        {insumosKardex.filter((i) => Number(i.activo) !== 0).map((i) => {
+                        {insumosKardex.filter((i) => {
+                          if (Number(i.activo) === 0) return false;
+                          const area = String(i.insumo_area || 'cocina').toLowerCase() === 'bar' ? 'bar' : 'cocina';
+                          const prodArea = String(productForm.production_area || 'cocina').toLowerCase() === 'bar' ? 'bar' : 'cocina';
+                          return area === prodArea;
+                        }).map((i) => {
                           const um = String(i.unidad_medida || 'kg')
                             .replace(/[0-9]/g, '')
                             .trim() || 'kg';

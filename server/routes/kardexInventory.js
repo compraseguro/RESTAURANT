@@ -25,12 +25,24 @@ function sanitizeUnidadMasa(raw) {
   return s.length <= 8 ? s : s.slice(0, 8);
 }
 
-/** GET /insumos */
+/** Área de costeo / almacén lógico: cocina vs bar (misma tabla `insumos`, kardex compartido por id). */
+function normalizeInsumoArea(raw) {
+  const s = String(raw || '').trim().toLowerCase();
+  return s === 'bar' ? 'bar' : 'cocina';
+}
+
+/** GET /insumos — ?area=cocina|bar filtra; sin parámetro devuelve todos (orden por área y nombre). */
 router.get('/insumos', (req, res) => {
   try {
-    const rows = queryAll(
-      `SELECT * FROM insumos ORDER BY nombre ASC`
-    );
+    const areaQ = String(req.query.area || '').trim().toLowerCase();
+    let sql = 'SELECT * FROM insumos';
+    const params = [];
+    if (areaQ === 'cocina' || areaQ === 'bar') {
+      sql += ' WHERE insumo_area = ?';
+      params.push(areaQ);
+    }
+    sql += ' ORDER BY insumo_area ASC, nombre ASC';
+    const rows = queryAll(sql, params);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message || 'Error al listar insumos' });
@@ -57,6 +69,7 @@ router.post('/insumos', (req, res) => {
     } = req.body || {};
     const n = String(nombre || '').trim();
     if (!n) return res.status(400).json({ error: 'Nombre es requerido' });
+    const area = normalizeInsumoArea(req.body?.insumo_area);
     const umed = sanitizeUnidadMasa(unidad_medida);
     const pc = costo_promedio != null ? Number(costo_promedio) : precio_compra != null ? Number(precio_compra) : 0;
     const costo = !Number.isFinite(pc) || pc < 0 ? 0 : pc;
@@ -84,9 +97,9 @@ router.post('/insumos', (req, res) => {
       ) || 0
     );
     runSql(
-      `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_unidades, minimo_unidades, kg_por_unidad, stock_minimo, costo_promedio, activo, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, datetime('now'), datetime('now'))`,
-      [id, n, umed, sa, su, mu, smin, costo, activo === false || activo === 0 ? 0 : 1]
+      `INSERT INTO insumos (id, nombre, unidad_medida, stock_actual, stock_unidades, minimo_unidades, kg_por_unidad, stock_minimo, costo_promedio, activo, insumo_area, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      [id, n, umed, sa, su, mu, smin, costo, activo === false || activo === 0 ? 0 : 1, area]
     );
     logAudit({
       actorUserId: req.user.id,
@@ -94,7 +107,7 @@ router.post('/insumos', (req, res) => {
       action: 'kardex.insumo.create',
       resourceType: 'insumo',
       resourceId: id,
-      details: { nombre: n },
+      details: { nombre: n, insumo_area: area },
     });
     res.status(201).json(queryOne('SELECT * FROM insumos WHERE id = ?', [id]));
   } catch (err) {
@@ -117,13 +130,16 @@ router.put('/insumos/:id', (req, res) => {
       cantidad_inicial,
       stock_actual,
       activo,
+      insumo_area,
     } = req.body || {};
     runSql(
       `UPDATE insumos SET nombre = COALESCE(?, nombre), unidad_medida = COALESCE(?, unidad_medida),
        stock_unidades = COALESCE(?, stock_unidades), minimo_unidades = COALESCE(?, minimo_unidades),
        stock_minimo = COALESCE(?, stock_minimo), costo_promedio = COALESCE(?, costo_promedio),
        stock_actual = COALESCE(?, stock_actual),
-       activo = COALESCE(?, activo), updated_at = datetime('now') WHERE id = ?`,
+       activo = COALESCE(?, activo),
+       insumo_area = COALESCE(?, insumo_area),
+       updated_at = datetime('now') WHERE id = ?`,
       [
         nombre != null ? String(nombre).trim() : null,
         unidad_medida != null ? sanitizeUnidadMasa(unidad_medida) : null,
@@ -135,6 +151,7 @@ router.put('/insumos/:id', (req, res) => {
           ? Math.max(0, Number(cantidad_inicial))
           : (stock_actual != null ? Math.max(0, Number(stock_actual)) : null),
         activo != null ? (activo ? 1 : 0) : null,
+        insumo_area != null ? normalizeInsumoArea(insumo_area) : null,
         req.params.id,
       ]
     );
@@ -453,10 +470,10 @@ router.post('/ajustes', (req, res) => {
   }
 });
 
-/** GET /dashboard — resumen y alertas stock mínimo */
+/** GET /dashboard — resumen y alertas stock mínimo (por área cocina / bar). */
 router.get('/dashboard', (req, res) => {
   try {
-    const insumos = queryAll('SELECT * FROM insumos WHERE activo = 1 ORDER BY nombre');
+    const insumos = queryAll('SELECT * FROM insumos WHERE activo = 1 ORDER BY insumo_area ASC, nombre ASC');
     const bajo = insumos.filter((i) => {
       const uMin = Number(i.minimo_unidades) || 0;
       const uAct = Number(i.stock_unidades) || 0;
@@ -470,10 +487,24 @@ router.get('/dashboard', (req, res) => {
       (s, i) => s + Number(i.stock_actual || 0) * Number(i.costo_promedio || 0),
       0
     );
+    const byArea = (area) => {
+      const list = insumos.filter((i) => normalizeInsumoArea(i.insumo_area) === area);
+      const val = list.reduce((s, i) => s + Number(i.stock_actual || 0) * Number(i.costo_promedio || 0), 0);
+      const b = bajo.filter((i) => normalizeInsumoArea(i.insumo_area) === area);
+      return {
+        total_insumos: list.length,
+        valor_inventario: Number(val.toFixed(2)),
+        bajo_minimo_count: b.length,
+      };
+    };
     res.json({
       total_insumos: insumos.length,
       valor_inventario_total: Number(valor.toFixed(2)),
       insumos_bajo_minimo: bajo,
+      por_area: {
+        cocina: byArea('cocina'),
+        bar: byArea('bar'),
+      },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

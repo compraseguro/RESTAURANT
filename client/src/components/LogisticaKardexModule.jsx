@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   api,
   formatCurrency,
@@ -84,6 +84,11 @@ function InventarioFisicoResumenLine({ f, b, s }) {
 export default function LogisticaKardexModule() {
   const [tab, setTab] = useState('dashboard');
   const [insumos, setInsumos] = useState([]);
+  /** Área activa en pestaña Insumos (cada lista tiene su propio catálogo en BD vía `insumo_area`). */
+  const [insumoAreaTab, setInsumoAreaTab] = useState('cocina');
+  const [compraAreaTab, setCompraAreaTab] = useState('cocina');
+  const [invFisicoAreaTab, setInvFisicoAreaTab] = useState('cocina');
+  const [ajusteAreaTab, setAjusteAreaTab] = useState('cocina');
   const [dashboard, setDashboard] = useState(null);
   const [products, setProducts] = useState([]);
   const [recetas, setRecetas] = useState([]);
@@ -151,6 +156,29 @@ export default function LogisticaKardexModule() {
     })();
   }, [loadCore]);
 
+  const insumosCocina = useMemo(
+    () => insumos.filter((i) => (i.insumo_area || 'cocina') === 'cocina'),
+    [insumos]
+  );
+  const insumosBar = useMemo(
+    () => insumos.filter((i) => (i.insumo_area || 'cocina') === 'bar'),
+    [insumos]
+  );
+  const insumosListaActiva = insumoAreaTab === 'bar' ? insumosBar : insumosCocina;
+  const insumosCompraFiltrados = compraAreaTab === 'bar' ? insumosBar : insumosCocina;
+  const insumosInvFisicoFiltrados = invFisicoAreaTab === 'bar' ? insumosBar : insumosCocina;
+  const insumosAjusteFiltrados = ajusteAreaTab === 'bar' ? insumosBar : insumosCocina;
+
+  const selectedProductForReceta = useMemo(
+    () => products.find((p) => String(p.id) === String(recetaForm.product_id)),
+    [products, recetaForm.product_id]
+  );
+  const insumosParaReceta = useMemo(() => {
+    if (!recetaForm.product_id) return insumos;
+    const pa = String(selectedProductForReceta?.production_area || '').toLowerCase() === 'bar' ? 'bar' : 'cocina';
+    return insumos.filter((i) => (i.insumo_area || 'cocina') === pa);
+  }, [insumos, recetaForm.product_id, selectedProductForReceta]);
+
   const loadWhData = useCallback(async () => {
     const data = await api.get('/inventory/warehouse-stock');
     const wh = data.warehouses || [];
@@ -183,6 +211,18 @@ export default function LogisticaKardexModule() {
     if (tab !== 'inv_no_transform') return;
     loadWhData().catch((e) => toast.error(e.message || 'No se pudo cargar almacén'));
   }, [tab, loadWhData]);
+
+  useEffect(() => {
+    setCompraLines([{ insumo_id: '', cantidad: '', costo_unitario: '', unidades: '' }]);
+  }, [compraAreaTab]);
+
+  useEffect(() => {
+    setInvDetalles([{ insumo_id: '', stock_real: '' }]);
+  }, [invFisicoAreaTab]);
+
+  useEffect(() => {
+    setAjusteForm((f) => ({ ...f, insumo_id: '' }));
+  }, [ajusteAreaTab]);
 
   useEffect(() => {
     if (tab !== 'inv_no_transform') return;
@@ -241,6 +281,7 @@ export default function LogisticaKardexModule() {
         minimo_unidades: Number.isFinite(mu) && mu >= 0 ? mu : 0,
         stock_minimo: Number.isFinite(mk) && mk >= 0 ? mk : 0,
         activo: insumoForm.activo,
+        insumo_area: insumoAreaTab,
       };
       if (editingInsumoId) {
         await api.put(`${BASE}/insumos/${editingInsumoId}`, payload);
@@ -267,6 +308,7 @@ export default function LogisticaKardexModule() {
 
   const editInsumo = (row) => {
     setEditingInsumoId(row.id || '');
+    setInsumoAreaTab((row.insumo_area || 'cocina') === 'bar' ? 'bar' : 'cocina');
     setInsumoForm({
       nombre: String(row.nombre || ''),
       unidad_medida: String(row.unidad_medida || '').replace(/[0-9]/g, '').trim(),
@@ -567,7 +609,8 @@ export default function LogisticaKardexModule() {
       </div>
 
       {tab === 'dashboard' && dashboard && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
           <div className="bg-[var(--ui-surface)] rounded-xl border border-[color:var(--ui-border)] p-4">
             <p className="text-[var(--ui-muted)] text-sm">Valor total del inventario (insumos)</p>
             <p className="text-2xl font-bold text-emerald-400 mt-1">{formatCurrency(dashboard.valor_inventario_total)}</p>
@@ -589,9 +632,13 @@ export default function LogisticaKardexModule() {
                 const detail = bajoU
                   ? `${formatInsumoQty(uAct)} U / mín. ${formatInsumoQty(uMin)} U`
                   : `${formatInsumoWithUnit(sAct, um)} / mín. ${formatInsumoQty(sMin)} ${um}`;
+                const tag = (i.insumo_area || 'cocina') === 'bar' ? 'Bar' : 'Cocina';
                 return (
                   <li key={i.id} className="flex justify-between text-[var(--ui-body-text)] gap-2">
-                    <span>{i.nombre}</span>
+                    <span>
+                      <span className="text-[10px] uppercase text-sky-400/90 mr-1">{tag}</span>
+                      {i.nombre}
+                    </span>
                     <span className="text-red-400 text-right">{detail}</span>
                   </li>
                 );
@@ -601,11 +648,85 @@ export default function LogisticaKardexModule() {
               <p className="text-slate-500 text-sm mt-1">Ninguno por debajo del mínimo configurado.</p>
             )}
           </div>
+          </div>
+          {dashboard.por_area && (
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-sky-500/30 bg-[var(--ui-surface-2)] p-3 text-sm">
+                <p className="font-semibold text-sky-300 mb-1">Insumos de cocina</p>
+                <p className="text-[var(--ui-body-text)]">
+                  {dashboard.por_area.cocina?.total_insumos ?? 0} activos · valor{' '}
+                  <span className="text-emerald-400 font-medium">{formatCurrency(dashboard.por_area.cocina?.valor_inventario ?? 0)}</span>
+                  {' · '}
+                  <span className="text-amber-300">{dashboard.por_area.cocina?.bajo_minimo_count ?? 0}</span> bajo mínimo
+                </p>
+              </div>
+              <div className="rounded-xl border border-indigo-500/30 bg-[var(--ui-surface-2)] p-3 text-sm">
+                <p className="font-semibold text-indigo-300 mb-1">Insumos de bar</p>
+                <p className="text-[var(--ui-body-text)]">
+                  {dashboard.por_area.bar?.total_insumos ?? 0} activos · valor{' '}
+                  <span className="text-emerald-400 font-medium">{formatCurrency(dashboard.por_area.bar?.valor_inventario ?? 0)}</span>
+                  {' · '}
+                  <span className="text-amber-300">{dashboard.por_area.bar?.bajo_minimo_count ?? 0}</span> bajo mínimo
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {tab === 'insumos' && (
         <div className="space-y-4">
+          <div className="flex flex-wrap gap-2 border-b border-[color:var(--ui-border)] pb-2">
+            <button
+              type="button"
+              onClick={() => {
+                setInsumoAreaTab('cocina');
+                setEditingInsumoId('');
+                setInsumoForm({
+                  nombre: '',
+                  unidad_medida: '',
+                  precio_compra: '',
+                  cantidad_inicial: '0',
+                  minimo_unidades: '0',
+                  minimo_kg: '0',
+                  activo: true,
+                });
+              }}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
+                insumoAreaTab === 'cocina'
+                  ? 'bg-sky-600/90 text-white border-sky-500'
+                  : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)]'
+              }`}
+            >
+              Insumos de cocina
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInsumoAreaTab('bar');
+                setEditingInsumoId('');
+                setInsumoForm({
+                  nombre: '',
+                  unidad_medida: '',
+                  precio_compra: '',
+                  cantidad_inicial: '0',
+                  minimo_unidades: '0',
+                  minimo_kg: '0',
+                  activo: true,
+                });
+              }}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
+                insumoAreaTab === 'bar'
+                  ? 'bg-indigo-600/90 text-white border-indigo-500'
+                  : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)]'
+              }`}
+            >
+              Insumos de bar
+            </button>
+            <span className="text-[var(--ui-muted)] text-xs self-center ml-1">
+              Catálogos separados en base de datos (`insumo_area`); mismo kardex y ventas.
+            </span>
+          </div>
           <p className="text-[var(--ui-body-text)] text-xs max-w-3xl">
             <strong className="text-[var(--ui-body-text)]">Kardex y recetas usan cantidad en kg/L (o ml).</strong>{' '}
             <strong>Cant. (U)</strong> y el promedio kg/U se alimentan con la compra; las ventas por receta descontarán
@@ -749,7 +870,7 @@ export default function LogisticaKardexModule() {
                 </tr>
               </thead>
               <tbody>
-                {insumos.map((i) => {
+                {insumosListaActiva.map((i) => {
                   const uAct = Number(i.stock_unidades != null ? i.stock_unidades : 0);
                   const uMin = Number(i.minimo_unidades != null ? i.minimo_unidades : 0);
                   const sAct = Number(i.stock_actual != null ? i.stock_actual : 0);
@@ -795,6 +916,13 @@ export default function LogisticaKardexModule() {
                     </tr>
                   );
                 })}
+                {insumosListaActiva.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="p-6 text-center text-[var(--ui-muted)] text-sm">
+                      No hay insumos de {insumoAreaTab === 'bar' ? 'bar' : 'cocina'} todavía. Complete el formulario arriba y pulse Agregar.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -803,6 +931,31 @@ export default function LogisticaKardexModule() {
 
       {tab === 'compras' && (
         <div className="space-y-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs text-[var(--ui-muted)]">Comprar para:</span>
+            <button
+              type="button"
+              onClick={() => setCompraAreaTab('cocina')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${
+                compraAreaTab === 'cocina'
+                  ? 'bg-sky-600/90 text-white border-sky-500'
+                  : 'border-[color:var(--ui-border)] text-[var(--ui-body-text)]'
+              }`}
+            >
+              Cocina
+            </button>
+            <button
+              type="button"
+              onClick={() => setCompraAreaTab('bar')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${
+                compraAreaTab === 'bar'
+                  ? 'bg-indigo-600/90 text-white border-indigo-500'
+                  : 'border-[color:var(--ui-border)] text-[var(--ui-body-text)]'
+              }`}
+            >
+              Bar
+            </button>
+          </div>
           <p className="text-[var(--ui-body-text)] text-sm">
             <strong className="text-[var(--ui-body-text)]">Cant. kg / L</strong> y <strong className="text-[var(--ui-body-text)]">costo</strong> = peso/volumen comprado (S/ por kg, L, etc.).
             <strong> Unid.</strong> = pollos, cajas, bultos, etc. Si pones <strong>kg y unidades</strong>, el sistema
@@ -829,7 +982,7 @@ export default function LogisticaKardexModule() {
                   }}
                 >
                   <option value="">— Insumo —</option>
-                  {insumos.map((i) => {
+                  {insumosCompraFiltrados.map((i) => {
                     const um = String(i.unidad_medida || 'kg')
                       .replace(/[0-9]/g, '')
                       .trim() || 'kg';
@@ -930,6 +1083,13 @@ export default function LogisticaKardexModule() {
             Vincula un plato al menú. Cada <strong>cantidad usada</strong> es en la U.M. del insumo (kg, L, ml). Con pollo
             o carnes, si el insumo tiene promedio kg / U, al vender se descuentan <strong>kg y unidades en proporción</strong> (p. ej. 0,5 kg
             = 0,2 U si 1 U = 2,5 kg).
+            {recetaForm.product_id ? (
+              <span className="block mt-1 text-sky-300/90 text-xs">
+                Solo se listan insumos de{' '}
+                <strong>{String(selectedProductForReceta?.production_area || '').toLowerCase() === 'bar' ? 'bar' : 'cocina'}</strong>
+                {' '}(según el área de preparación del producto elegido).
+              </span>
+            ) : null}
           </p>
           <form onSubmit={saveReceta} className="bg-[var(--ui-surface-2)] p-4 rounded-xl border border-[color:var(--ui-border)] space-y-3">
             <div className="flex flex-wrap gap-2">
@@ -977,7 +1137,7 @@ export default function LogisticaKardexModule() {
                     }}
                   >
                     <option value="">— Insumo —</option>
-                    {insumos.map((i) => (
+                    {insumosParaReceta.map((i) => (
                       <option key={i.id} value={i.id}>{i.nombre}</option>
                     ))}
                   </select>
@@ -1058,14 +1218,30 @@ export default function LogisticaKardexModule() {
                 onChange={(e) => setKardexInsumo(e.target.value)}
               >
                 <option value="">— Seleccionar —</option>
-                {insumos.map((i) => {
-                  const umc = (String(i.unidad_medida || 'kg').replace(/[0-9]/g, '') || 'kg').trim() || 'kg';
-                  return (
-                    <option key={i.id} value={i.id}>
-                      {i.nombre} ({formatInsumoWithUnit(i.stock_actual, umc)} · {formatInsumoQty(i.stock_unidades != null ? i.stock_unidades : 0)} U)
-                    </option>
-                  );
-                })}
+                {insumosCocina.length > 0 && (
+                  <optgroup label="Insumos de cocina">
+                    {insumosCocina.map((i) => {
+                      const umc = (String(i.unidad_medida || 'kg').replace(/[0-9]/g, '') || 'kg').trim() || 'kg';
+                      return (
+                        <option key={i.id} value={i.id}>
+                          {i.nombre} ({formatInsumoWithUnit(i.stock_actual, umc)} · {formatInsumoQty(i.stock_unidades != null ? i.stock_unidades : 0)} U)
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                )}
+                {insumosBar.length > 0 && (
+                  <optgroup label="Insumos de bar">
+                    {insumosBar.map((i) => {
+                      const umc = (String(i.unidad_medida || 'kg').replace(/[0-9]/g, '') || 'kg').trim() || 'kg';
+                      return (
+                        <option key={i.id} value={i.id}>
+                          {i.nombre} ({formatInsumoWithUnit(i.stock_actual, umc)} · {formatInsumoQty(i.stock_unidades != null ? i.stock_unidades : 0)} U)
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                )}
               </select>
             </div>
             <div>
@@ -1249,6 +1425,31 @@ export default function LogisticaKardexModule() {
 
       {tab === 'inv_fisico' && (
         <div className="space-y-4">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs text-[var(--ui-muted)]">Conteo de:</span>
+            <button
+              type="button"
+              onClick={() => setInvFisicoAreaTab('cocina')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${
+                invFisicoAreaTab === 'cocina'
+                  ? 'bg-sky-600/90 text-white border-sky-500'
+                  : 'border-[color:var(--ui-border)] text-[var(--ui-body-text)]'
+              }`}
+            >
+              Cocina
+            </button>
+            <button
+              type="button"
+              onClick={() => setInvFisicoAreaTab('bar')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${
+                invFisicoAreaTab === 'bar'
+                  ? 'bg-indigo-600/90 text-white border-indigo-500'
+                  : 'border-[color:var(--ui-border)] text-[var(--ui-body-text)]'
+              }`}
+            >
+              Bar
+            </button>
+          </div>
           <p className="text-[var(--ui-muted)] text-sm">
             <strong className="text-[var(--ui-body-text)]">Inventario de transformables (insumos):</strong>{' '}
             conteo físico de materiales del kardex. Registra el conteo (pendiente) y luego <strong>cierra</strong> para generar movimientos valorizados.
@@ -1266,7 +1467,7 @@ export default function LogisticaKardexModule() {
                   }}
                 >
                   <option value="">— Insumo —</option>
-                  {insumos.map((x) => (
+                  {insumosInvFisicoFiltrados.map((x) => (
                     <option key={x.id} value={x.id}>{x.nombre}</option>
                   ))}
                 </select>
@@ -1437,6 +1638,31 @@ export default function LogisticaKardexModule() {
 
       {tab === 'ajustes' && (
         <form onSubmit={enviarAjuste} className="max-w-md space-y-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs text-[var(--ui-muted)]">Ajuste en:</span>
+            <button
+              type="button"
+              onClick={() => setAjusteAreaTab('cocina')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${
+                ajusteAreaTab === 'cocina'
+                  ? 'bg-sky-600/90 text-white border-sky-500'
+                  : 'border-[color:var(--ui-border)] text-[var(--ui-body-text)]'
+              }`}
+            >
+              Cocina
+            </button>
+            <button
+              type="button"
+              onClick={() => setAjusteAreaTab('bar')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${
+                ajusteAreaTab === 'bar'
+                  ? 'bg-indigo-600/90 text-white border-indigo-500'
+                  : 'border-[color:var(--ui-border)] text-[var(--ui-body-text)]'
+              }`}
+            >
+              Bar
+            </button>
+          </div>
           <p className="text-[var(--ui-body-text)] text-sm">Entrada manual o salida por merma (al costo promedio al salir).</p>
           <div>
             <label className="block text-xs text-slate-500">Insumo</label>
@@ -1446,7 +1672,7 @@ export default function LogisticaKardexModule() {
               onChange={(e) => setAjusteForm((f) => ({ ...f, insumo_id: e.target.value }))}
             >
               <option value="">—</option>
-              {insumos.map((i) => {
+              {insumosAjusteFiltrados.map((i) => {
                 const umc = (String(i.unidad_medida || 'kg').replace(/[0-9]/g, '') || 'kg').trim() || 'kg';
                 return (
                 <option key={i.id} value={i.id}>

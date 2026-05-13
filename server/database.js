@@ -649,6 +649,7 @@ async function initDatabase() {
         stock_minimo REAL NOT NULL DEFAULT 0,
         costo_promedio REAL NOT NULL DEFAULT 0,
         activo INTEGER NOT NULL DEFAULT 1,
+        insumo_area TEXT NOT NULL DEFAULT 'cocina',
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
       )
@@ -1027,6 +1028,15 @@ async function initDatabase() {
     addInsumoColIfMissing('minimo_unidades', 'ALTER TABLE insumos ADD COLUMN minimo_unidades REAL NOT NULL DEFAULT 0');
     addInsumoColIfMissing('kg_por_unidad', 'ALTER TABLE insumos ADD COLUMN kg_por_unidad REAL NOT NULL DEFAULT 0');
     addInsumoColIfMissing('stock_minimo', 'ALTER TABLE insumos ADD COLUMN stock_minimo REAL NOT NULL DEFAULT 0');
+    addInsumoColIfMissing('insumo_area', "ALTER TABLE insumos ADD COLUMN insumo_area TEXT NOT NULL DEFAULT 'cocina'");
+    try {
+      db.run(
+        "UPDATE insumos SET insumo_area = 'cocina' WHERE insumo_area IS NULL OR TRIM(insumo_area) NOT IN ('cocina','bar')"
+      );
+    } catch (_) {
+      /* tabla ausente */
+    }
+    db.run('CREATE INDEX IF NOT EXISTS idx_insumos_area_activo ON insumos(insumo_area, activo)');
     /* Evitar códigos tipo "kg5" en U.M. (solo letras) */
     try {
       const insM = queryAll('SELECT id, unidad_medida FROM insumos');

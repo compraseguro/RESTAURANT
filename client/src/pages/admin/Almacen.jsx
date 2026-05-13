@@ -250,6 +250,8 @@ export default function Almacen() {
   const [expenseHistory, setExpenseHistory] = useState([]);
   const [kardexBajoMin, setKardexBajoMin] = useState([]);
   const [kardexInsumos, setKardexInsumos] = useState([]);
+  /** En almacén de insumos: ver todos, solo cocina o solo bar. */
+  const [insumosVistaArea, setInsumosVistaArea] = useState('all');
   const [warehouseForm, setWarehouseForm] = useState({ name: '', description: '', linkedInsumos: false });
   const [itemForm, setItemForm] = useState({
     name: '',
@@ -440,6 +442,13 @@ export default function Almacen() {
     }
   }, [activeView, searchParams, setSearchParams, almacenViewsForPlan]);
 
+  useEffect(() => {
+    const w = warehouses.find((x) => sameWarehouseId(x.id, selectedWarehouseView));
+    if (!isInsumosWarehouse(w)) {
+      setInsumosVistaArea('all');
+    }
+  }, [selectedWarehouseView, warehouses]);
+
   const scopedProducts = products.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     return matchSearch;
@@ -485,25 +494,32 @@ export default function Almacen() {
   const selectedWarehouse = warehouses.find((w) => sameWarehouseId(w.id, selectedWarehouseView));
   const selectedIsInsumosWarehouse = isInsumosWarehouse(selectedWarehouse);
   const insumosActivos = (kardexInsumos || []).filter((i) => Number(i.activo) !== 0);
+  const insumosPorVista =
+    !selectedIsInsumosWarehouse || insumosVistaArea === 'all'
+      ? insumosActivos
+      : insumosActivos.filter((i) => {
+          const a = String(i.insumo_area || 'cocina').toLowerCase() === 'bar' ? 'bar' : 'cocina';
+          return a === insumosVistaArea;
+        });
   const insumosTablaFiltrados = selectedIsInsumosWarehouse
-    ? insumosActivos.filter((i) =>
+    ? insumosPorVista.filter((i) =>
         String(i.nombre || '')
           .toLowerCase()
           .includes(search.toLowerCase())
       )
     : [];
-  const insumosTotalValue = insumosActivos.reduce(
+  const insumosTotalValue = insumosPorVista.reduce(
     (s, i) => s + Number(i.stock_actual || 0) * Number(i.costo_promedio || 0),
     0
   );
-  const insumosLowCount = insumosActivos.filter((i) => {
+  const insumosLowCount = insumosPorVista.filter((i) => {
     const uMin = Number(i.minimo_unidades || 0);
     const uAct = Number(i.stock_unidades || 0);
     const sMin = Number(i.stock_minimo || 0);
     const sAct = Number(i.stock_actual || 0);
     return (uMin > 0 && uAct < uMin) || (sMin > 0 && sAct < sMin);
   }).length;
-  const insumosTotalUnits = insumosActivos.reduce((s, i) => s + Number(i.stock_unidades || 0), 0);
+  const insumosTotalUnits = insumosPorVista.reduce((s, i) => s + Number(i.stock_unidades || 0), 0);
   const totalValue = selectedIsInsumosWarehouse
     ? insumosTotalValue
     : productsForSelectedWarehouse.reduce((s, p) => s + (p.price * p.stock), 0);
@@ -1390,7 +1406,7 @@ export default function Almacen() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-        <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Total Ítems</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{selectedIsInsumosWarehouse ? insumosActivos.length : productsForSelectedWarehouse.length}</p></div>
+        <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Total Ítems</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{selectedIsInsumosWarehouse ? insumosPorVista.length : productsForSelectedWarehouse.length}</p></div>
         <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Valor del Inventario</p><p className="text-xl font-bold text-emerald-400">{formatCurrency(totalValue)}</p></div>
         <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Stock Bajo</p><p className="text-xl font-bold text-red-400">{selectedIsInsumosWarehouse ? insumosLowCount : lowStock.length}</p></div>
         <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Unidades Totales</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{selectedIsInsumosWarehouse ? insumosTotalUnits : productsForSelectedWarehouse.reduce((s, p) => s + p.stock, 0)}</p></div>
@@ -1416,6 +1432,29 @@ export default function Almacen() {
             className="input-field pl-9"
           />
         </div>
+        {selectedIsInsumosWarehouse && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            <span className="text-xs text-slate-500 self-center">Ver:</span>
+            {[
+              { id: 'all', label: 'Todos' },
+              { id: 'cocina', label: 'Solo cocina' },
+              { id: 'bar', label: 'Solo bar' },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setInsumosVistaArea(opt.id)}
+                className={`px-3 py-1 rounded-lg text-xs font-medium border ${
+                  insumosVistaArea === opt.id
+                    ? 'bg-sky-600 text-white border-sky-600'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-sky-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
         {selectedIsInsumosWarehouse ? (
           <table className="w-full text-sm">
             <thead>
@@ -1446,7 +1485,18 @@ export default function Almacen() {
                 const badgeLabel = est === 'normal' ? 'Normal' : est === 'bajo' ? 'Bajo' : 'Agotado';
                 return (
                   <tr key={i.id} className="border-b border-slate-600/30">
-                    <td className="py-3 font-medium text-[var(--ui-body-text)]">{i.nombre}</td>
+                    <td className="py-3 font-medium text-[var(--ui-body-text)]">
+                      <span
+                        className={`mr-2 inline-block text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                          String(i.insumo_area || 'cocina').toLowerCase() === 'bar'
+                            ? 'bg-indigo-500/15 text-indigo-300'
+                            : 'bg-sky-500/15 text-sky-300'
+                        }`}
+                      >
+                        {String(i.insumo_area || 'cocina').toLowerCase() === 'bar' ? 'Bar' : 'Cocina'}
+                      </span>
+                      {i.nombre}
+                    </td>
                     <td className="py-3 text-[var(--ui-body-text)]">{um}</td>
                     <td className="py-3 text-[var(--ui-body-text)] tabular-nums">{formatCurrency(Number(i.costo_promedio || 0))}</td>
                     <td className="py-3 text-right text-[var(--ui-body-text)] tabular-nums">
@@ -1476,7 +1526,7 @@ export default function Almacen() {
               {insumosTablaFiltrados.length === 0 && (
                 <tr>
                   <td colSpan="8" className="py-10 text-center text-[#9CA3AF]">
-                    {insumosActivos.length === 0 ? 'No hay insumos activos' : 'Sin resultados'}
+                    {insumosPorVista.length === 0 ? 'No hay insumos activos en esta vista' : 'Sin resultados'}
                   </td>
                 </tr>
               )}

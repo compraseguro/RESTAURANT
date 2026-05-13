@@ -373,7 +373,8 @@ router.post('/requirements/low-stock', authenticateToken, requireRole('admin'), 
     ).filter(p => !selectedProductIds || selectedProductIds.includes(p.id));
 
     const insumosBajo = queryAll(
-      `SELECT id, nombre, stock_unidades, minimo_unidades, stock_actual, stock_minimo, unidad_medida, costo_promedio, kg_por_unidad
+      `SELECT id, nombre, stock_unidades, minimo_unidades, stock_actual, stock_minimo, unidad_medida, costo_promedio, kg_por_unidad,
+              COALESCE(insumo_area, 'cocina') as insumo_area
        FROM insumos
        WHERE activo = 1
          AND (
