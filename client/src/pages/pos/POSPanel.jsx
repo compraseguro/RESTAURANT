@@ -52,7 +52,37 @@ import {
   billLineKey,
   groupItemsByProductNameForBill,
   getOrderChargeTotal,
+  sumOrderItemsChargeSubtotal,
 } from '../../utils/mesaOrderLines';
+
+function collectAllOrderItemIds(orders) {
+  const ids = [];
+  for (const o of orders || []) {
+    for (const it of o.items || []) {
+      if (it?.id) ids.push(it.id);
+    }
+  }
+  return ids;
+}
+
+/** Base imponible para total / descuento en modo dividir por línea (ítems marcados + delivery si el pedido queda entero). */
+function computeTableSplitSelectionBase(orders, selectedItemIds) {
+  const set = selectedItemIds instanceof Set ? selectedItemIds : new Set(selectedItemIds);
+  let lineSum = 0;
+  for (const o of orders || []) {
+    for (const it of o.items || []) {
+      if (set.has(it.id)) lineSum += sumOrderItemsChargeSubtotal([it]);
+    }
+  }
+  let deliveryExtra = 0;
+  for (const o of orders || []) {
+    const ids = (o.items || []).map((x) => x.id).filter(Boolean);
+    if (ids.length && ids.every((id) => set.has(id))) {
+      deliveryExtra += Number(o.delivery_fee || 0);
+    }
+  }
+  return lineSum + deliveryExtra;
+}
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -254,7 +284,8 @@ export default function POSPanel() {
   const [tableDetail, setTableDetail] = useState(null);
   const [showBill, setShowBill] = useState(false);
   const [splitMode, setSplitMode] = useState(false);
-  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  /** En dividir cuenta: ids de `order_items` incluidos en este cobro. */
+  const [selectedOrderItemIds, setSelectedOrderItemIds] = useState([]);
   const [discountConfig, setDiscountConfig] = useState({ active: false, applied: false, type: 'amount', value: '', reason: '' });
   const [showMenu, setShowMenu] = useState(false);
   const [viewOrdersModal, setViewOrdersModal] = useState(null);
@@ -464,7 +495,7 @@ export default function POSPanel() {
             setSelectedTable(null);
             setShowBill(false);
             setSplitMode(false);
-            setSelectedOrderIds([]);
+            setSelectedOrderItemIds([]);
           }
         } else {
           const updated = tablesData.find((t) => t.id === selectedTable.id);
@@ -969,7 +1000,7 @@ export default function POSPanel() {
     setPaymentMethod('efectivo');
     setAmountReceived('');
     setSplitMode(false);
-    setSelectedOrderIds(orders.map((o) => o.id));
+    setSelectedOrderItemIds(collectAllOrderItemIds(orders));
     setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
     resetBillingForm();
     if (payload.customerForBilling) {
@@ -1082,10 +1113,14 @@ export default function POSPanel() {
 
   const cobrarMesa = async () => {
     if (!selectedTable) return;
-    const payableOrders = splitMode
-      ? (selectedTable.orders || []).filter(o => selectedOrderIds.includes(o.id))
-      : (selectedTable.orders || []);
-    if (payableOrders.length === 0) return toast.error('Selecciona al menos un pedido para cobrar');
+    const tableOrders = selectedTable.orders || [];
+    const useLineSplit = splitMode;
+
+    if (useLineSplit && selectedOrderItemIds.length === 0) {
+      return toast.error('Selecciona al menos una línea de producto para cobrar');
+    }
+
+    const payableOrders = tableOrders;
 
     let checkoutPaymentMethod = paymentMethod;
     let checkoutPaymentBreakdown = null;
@@ -1113,33 +1148,39 @@ export default function POSPanel() {
     if (billingError) return toast.error(billingError);
     try {
       const discountValue = Math.max(0, parseFloat(discountConfig.value) || 0);
-      const totalOrdersAmount = payableOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
+      const baseForDiscount = useLineSplit
+        ? computeTableSplitSelectionBase(tableOrders, selectedOrderItemIds)
+        : tableOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
       const totalDiscountToApply = !discountConfig.applied
         ? 0
         : (discountConfig.type === 'percent'
-          ? Math.min(totalOrdersAmount, totalOrdersAmount * (discountValue / 100))
-          : Math.min(totalOrdersAmount, discountValue));
+          ? Math.min(baseForDiscount, baseForDiscount * (discountValue / 100))
+          : Math.min(baseForDiscount, discountValue));
+
       let remainingAmountDiscount = totalDiscountToApply;
       const discountsByOrder = {};
-      for (let idx = 0; idx < payableOrders.length; idx += 1) {
-        const order = payableOrders[idx];
-        const orderTotal = getOrderChargeTotal(order);
-        let extraDiscount = 0;
-        if (totalDiscountToApply > 0) {
-          if (discountConfig.type === 'percent') {
-            extraDiscount = Math.min(orderTotal, orderTotal * (discountValue / 100));
-          } else if (idx === payableOrders.length - 1) {
-            extraDiscount = Math.min(orderTotal, remainingAmountDiscount);
-          } else {
-            extraDiscount = Math.min(orderTotal, (totalDiscountToApply * orderTotal) / (totalOrdersAmount || 1));
+      if (!useLineSplit) {
+        const totalOrdersAmount = baseForDiscount;
+        for (let idx = 0; idx < payableOrders.length; idx += 1) {
+          const order = payableOrders[idx];
+          const orderTotal = getOrderChargeTotal(order);
+          let extraDiscount = 0;
+          if (totalDiscountToApply > 0) {
+            if (discountConfig.type === 'percent') {
+              extraDiscount = Math.min(orderTotal, orderTotal * (discountValue / 100));
+            } else if (idx === payableOrders.length - 1) {
+              extraDiscount = Math.min(orderTotal, remainingAmountDiscount);
+            } else {
+              extraDiscount = Math.min(orderTotal, (totalDiscountToApply * orderTotal) / (totalOrdersAmount || 1));
+            }
+            remainingAmountDiscount = Math.max(0, remainingAmountDiscount - extraDiscount);
+            discountsByOrder[order.id] = extraDiscount;
           }
-          remainingAmountDiscount = Math.max(0, remainingAmountDiscount - extraDiscount);
-          discountsByOrder[order.id] = extraDiscount;
         }
       }
 
       const issuedDocs = [];
-      if (billingForm.enabled) {
+      if (billingForm.enabled && !useLineSplit) {
         for (const order of payableOrders) {
           const doc = await issueElectronicDocument(order.id);
           issuedDocs.push(doc);
@@ -1148,13 +1189,31 @@ export default function POSPanel() {
 
       const checkoutBody = {
         ...posRegisterBody(),
-        order_ids: payableOrders.map(o => o.id),
         payment_method: checkoutPaymentMethod,
         discount_reason: discountConfig.reason,
-        discounts_by_order: discountsByOrder,
       };
       if (checkoutPaymentBreakdown) checkoutBody.payment_breakdown = checkoutPaymentBreakdown;
-      await api.post('/pos/checkout-table', checkoutBody);
+
+      if (useLineSplit) {
+        checkoutBody.order_item_ids = selectedOrderItemIds;
+        checkoutBody.checkout_discount_total = totalDiscountToApply;
+      } else {
+        checkoutBody.order_ids = payableOrders.map((o) => o.id);
+        checkoutBody.discounts_by_order = discountsByOrder;
+      }
+
+      const checkoutRes = await api.post('/pos/checkout-table', checkoutBody);
+      const postPaidOrders = Array.isArray(checkoutRes?.orders) ? checkoutRes.orders : [];
+      const printDiscountsByOrder = useLineSplit
+        ? (checkoutRes?.discounts_applied_by_order || {})
+        : discountsByOrder;
+
+      if (billingForm.enabled && useLineSplit) {
+        for (const order of postPaidOrders) {
+          const doc = await issueElectronicDocument(order.id);
+          issuedDocs.push(doc);
+        }
+      }
 
       if (!isClientCheckoutTable(selectedTable) && !isDeliveryCheckoutTable(selectedTable)) {
         const updatedTable = await api.get(`/tables/${selectedTable.id}`);
@@ -1162,9 +1221,13 @@ export default function POSPanel() {
           await api.patch(`/tables/${selectedTable.id}/status`, { status: 'available' });
         }
       }
+
+      const ordersForPrint = postPaidOrders.length > 0 ? postPaidOrders : payableOrders;
+      const chargedCount = postPaidOrders.length || payableOrders.length;
+
       if (issuedDocs.length > 0) {
         const detail = issuedDocs.map(billingSuccessSummary).join(' · ');
-        toast.success(`${payableOrders.length} pedido(s) cobrados. ${detail}`);
+        toast.success(`${chargedCount} pedido(s) cobrados. ${detail}`);
         const pdf = issuedDocs.find((d) => d?.pdf_url)?.pdf_url;
         /** Sin resolveMediaUrl, `/uploads/...` se abre en el host del front (p. ej. Vercel) y la SPA puede redirigir a /admin en lugar del PDF en la API. */
         if (pdf && billingForm.doc_type !== 'nota_venta') {
@@ -1175,7 +1238,7 @@ export default function POSPanel() {
         if (billingForm.doc_type === 'nota_venta') {
           await printNotaVenta({
             tableName: selectedTable?.name || '',
-            orders: payableOrders,
+            orders: ordersForPrint,
             docs: issuedDocs,
             paymentMethod: checkoutPaymentMethod,
             discountTotal: totalDiscountToApply,
@@ -1189,10 +1252,10 @@ export default function POSPanel() {
         } else if (billingForm.doc_type === 'boleta' || billingForm.doc_type === 'factura') {
           for (let i = 0; i < issuedDocs.length; i += 1) {
             const doc = issuedDocs[i];
-            const ord = payableOrders[i];
+            const ord = ordersForPrint[i];
             if (!doc || !ord) continue;
             const grouped = groupItemsByProductNameForBill(ord.items || []);
-            const ordDisc = Number(discountsByOrder[ord.id] || 0);
+            const ordDisc = Number(printDiscountsByOrder[ord.id] || 0);
             const plain = buildBoletaFacturaPlainText({
               restaurant: printRestaurantInfo,
               doc,
@@ -1221,11 +1284,11 @@ export default function POSPanel() {
           }
         }
       } else {
-        toast.success(`${payableOrders.length} pedido(s) cobrados en ${selectedTable.name}`);
+        toast.success(`${chargedCount} pedido(s) cobrados en ${selectedTable.name}`);
       }
       setShowBill(false);
       setSplitMode(false);
-      setSelectedOrderIds([]);
+      setSelectedOrderItemIds([]);
       setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
       clientCheckoutOpenedKeyRef.current = '';
       setSelectedTable(null);
@@ -1235,21 +1298,20 @@ export default function POSPanel() {
     } catch (err) { toast.error(err.message); }
   };
 
-  const toggleOrderSelection = (orderId) => {
-    setSelectedOrderIds(prev => prev.includes(orderId)
-      ? prev.filter(id => id !== orderId)
-      : [...prev, orderId]);
+  const toggleOrderItemSelection = (itemId) => {
+    setSelectedOrderItemIds((prev) =>
+      prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
+    );
   };
 
   const togglePartialSelection = () => {
-    const allIds = (selectedTable?.orders || []).map((o) => o.id);
+    const allItemIds = collectAllOrderItemIds(selectedTable?.orders);
     if (splitMode) {
       setSplitMode(false);
-      setSelectedOrderIds(allIds);
+      setSelectedOrderItemIds(allItemIds);
     } else {
       setSplitMode(true);
-      // Todas seleccionadas al entrar: el cajero desmarca lo que no cobra (antes quedaba 0 y el total en S/ 0.00)
-      setSelectedOrderIds(allIds);
+      setSelectedOrderItemIds(allItemIds);
     }
   };
 
@@ -1720,12 +1782,36 @@ export default function POSPanel() {
     };
   }, [closingAtPreview]);
 
-  const selectedOrders = (selectedTable?.orders || []).filter(o => selectedOrderIds.includes(o.id));
-  const selectedTotal = selectedOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
-  const selectionEnabled = splitMode;
-  const selectionBaseTotal = splitMode
-    ? selectedTotal
-    : (selectedTable?.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
+  const selectionBaseTotal = useMemo(() => {
+    if (!selectedTable) return 0;
+    const orders = selectedTable.orders || [];
+    if (!splitMode) {
+      return orders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
+    }
+    return computeTableSplitSelectionBase(orders, selectedOrderItemIds);
+  }, [selectedTable, splitMode, selectedOrderItemIds]);
+
+  const splitBillLines = useMemo(() => {
+    if (!selectedTable || !splitMode) return [];
+    const rows = [];
+    for (const o of selectedTable.orders || []) {
+      for (const it of o.items || []) {
+        const qty = Number(it.quantity || 0);
+        const unit = Number(it.unit_price ?? 0);
+        const sub = Number(it.subtotal != null ? it.subtotal : unit * qty);
+        rows.push({
+          id: it.id,
+          orderNumber: o.order_number,
+          name: billLineDisplayName(it),
+          qty,
+          unit,
+          sub,
+        });
+      }
+    }
+    return rows;
+  }, [selectedTable, splitMode]);
+
   const discountValue = Math.max(0, parseFloat(discountConfig.value) || 0);
   const discountPreview = !discountConfig.applied
     ? 0
@@ -1744,13 +1830,20 @@ export default function POSPanel() {
     [paymentOptions, multiPayAmounts]
   );
   const billLineItemsGrouped = useMemo(() => {
-    const ordersForBill = !selectedTable
-      ? []
-      : splitMode
-        ? (selectedTable.orders || []).filter((o) => selectedOrderIds.includes(o.id))
-        : (selectedTable.orders || []);
-    return groupItemsByProductNameForBill(ordersForBill.flatMap((o) => o.items || []));
-  }, [selectedTable, splitMode, selectedOrderIds]);
+    if (!selectedTable) return [];
+    const orders = selectedTable.orders || [];
+    if (splitMode) {
+      const set = new Set(selectedOrderItemIds);
+      const picked = [];
+      for (const o of orders) {
+        for (const it of o.items || []) {
+          if (set.has(it.id)) picked.push(it);
+        }
+      }
+      return groupItemsByProductNameForBill(picked);
+    }
+    return groupItemsByProductNameForBill(orders.flatMap((o) => o.items || []));
+  }, [selectedTable, splitMode, selectedOrderItemIds]);
   const occupiedHours = (() => {
     const timestamps = (selectedTable?.orders || [])
       .map(o => o.created_at)
@@ -1765,11 +1858,26 @@ export default function POSPanel() {
     const table = tableOverride || selectedTable;
     if (!table) return;
     const useSplit = !tableOverride && splitMode;
-    const payableOrders = useSplit
-      ? (table.orders || []).filter(o => selectedOrderIds.includes(o.id))
-      : (table.orders || []);
-    if (payableOrders.length === 0) return toast.error('No hay pedidos para precuenta');
-    const groupedPrecuenta = groupItemsByProductNameForBill(payableOrders.flatMap((o) => o.items || []));
+    let payableOrders;
+    let groupedPrecuenta;
+    if (useSplit) {
+      const set = new Set(selectedOrderItemIds);
+      const itemsFlat = [];
+      payableOrders = [];
+      for (const o of table.orders || []) {
+        const picks = (o.items || []).filter((it) => set.has(it.id));
+        if (picks.length) {
+          itemsFlat.push(...picks);
+          payableOrders.push(o);
+        }
+      }
+      if (!itemsFlat.length) return toast.error('Selecciona al menos una línea para la precuenta');
+      groupedPrecuenta = groupItemsByProductNameForBill(itemsFlat);
+    } else {
+      payableOrders = table.orders || [];
+      if (payableOrders.length === 0) return toast.error('No hay pedidos para precuenta');
+      groupedPrecuenta = groupItemsByProductNameForBill(payableOrders.flatMap((o) => o.items || []));
+    }
     const mozoName =
       [...new Set(payableOrders.map((o) => String(o.created_by_user_name || '').trim()).filter(Boolean))].join(', ')
       || String(user?.full_name || '').trim()
@@ -1780,7 +1888,9 @@ export default function POSPanel() {
       billingForm.customer_phone && `Tel: ${billingForm.customer_phone}`,
       billingForm.customer_address && `Dir: ${billingForm.customer_address}`,
     ].filter(Boolean);
-    const ordersSubtotal = payableOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
+    const ordersSubtotal = useSplit
+      ? computeTableSplitSelectionBase(table.orders, selectedOrderItemIds)
+      : payableOrders.reduce((sum, o) => sum + getOrderChargeTotal(o), 0);
     const discountForPrecuenta = !discountConfig.applied
       ? 0
       : (discountConfig.type === 'percent'
@@ -2201,7 +2311,7 @@ export default function POSPanel() {
                   setPaymentMethod('efectivo');
                   setAmountReceived('');
                   setSplitMode(false);
-                  setSelectedOrderIds((tableDetail.orders || []).map(o => o.id));
+                  setSelectedOrderItemIds(collectAllOrderItemIds(tableDetail.orders));
                   setDiscountConfig({ active: false, applied: false, type: 'amount', value: '', reason: '' });
                 }}
                 disabled={!tableDetail.orders?.length}
@@ -3035,6 +3145,8 @@ export default function POSPanel() {
           clientCheckoutOpenedKeyRef.current = '';
           setShowBill(false);
           setAmountReceived('');
+          setSplitMode(false);
+          setSelectedOrderItemIds([]);
           resetBillingForm();
         }}
         title={
@@ -3061,59 +3173,84 @@ export default function POSPanel() {
                       {!billingForm.enabled ? (
                         <>
                           <h3 className="text-base font-bold text-[#F9FAFB] shrink-0">Productos</h3>
-                          <div className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-[10px] sm:text-xs font-semibold text-[#9CA3AF] border-b border-[color:var(--ui-border)] pb-2 shrink-0">
-                            <span>Producto</span>
-                            <span className="text-center tabular-nums">Cant.</span>
-                            <span className="text-right tabular-nums">P. unit.</span>
-                            <span className="text-right tabular-nums">Total</span>
-                          </div>
-                          <div className="overflow-y-auto flex-1 space-y-2 max-h-[min(28vh,220px)] pr-1">
-                            {splitMode && (
-                                <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/50 px-2 py-1.5 space-y-1.5 shrink-0">
-                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#9CA3AF]">Incluir en cobro</p>
-                                  <div className="flex flex-wrap gap-2">
-                                    {(selectedTable.orders || []).map((order) => {
-                                      const sel = selectedOrderIds.includes(order.id);
-                                      return (
-                                        <label
-                                          key={order.id}
-                                          className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${
-                                            sel
-                                              ? 'border-[color:var(--ui-accent)] bg-[var(--ui-sidebar-active-bg)] text-[#BFDBFE]'
-                                              : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/40 text-[#9CA3AF]'
-                                          }`}
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={sel}
-                                            onChange={() => toggleOrderSelection(order.id)}
-                                            className="rounded border-[color:var(--ui-accent)]"
-                                          />
-                                          <span className="font-bold tabular-nums">#{order.order_number}</span>
-                                        </label>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-                            {billLineItemsGrouped.length === 0 ? (
-                              <p className="text-sm text-[#9CA3AF] text-center py-6">Sin ítems</p>
-                            ) : (
-                              billLineItemsGrouped.map((row) => (
-                                <div
-                                  key={row.key}
-                                  className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-sm text-[#D1D5DB] py-1.5 border-b border-[#3B82F6]/10 last:border-0"
-                                >
-                                  <span className="min-w-0 break-words leading-snug">{row.name}</span>
-                                  <span className="text-center tabular-nums text-[#F9FAFB]">{row.qty}</span>
-                                  <span className="text-right tabular-nums text-[#D1D5DB]">{formatCurrency(row.unitPrice)}</span>
-                                  <span className="text-right tabular-nums font-medium text-[#F9FAFB]">{formatCurrency(row.subtotal)}</span>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                          {splitMode && (
-                            <p className="text-[11px] text-[#9CA3AF] shrink-0">Desmarca los pedidos que no vas a cobrar en esta operación.</p>
+                          {splitMode ? (
+                            <>
+                              <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]/50 px-2 py-1.5 shrink-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                                  Incluir en cobro (cada línea de producto)
+                                </p>
+                              </div>
+                              <div className="grid grid-cols-[1.75rem_2rem_minmax(0,1fr)_2.5rem_3.75rem_3.75rem] gap-1.5 text-[10px] sm:text-xs font-semibold text-[#9CA3AF] border-b border-[color:var(--ui-border)] pb-2 shrink-0 items-center">
+                                <span className="sr-only">Incluir</span>
+                                <span className="text-center">Ped.</span>
+                                <span>Producto</span>
+                                <span className="text-center tabular-nums">Cant.</span>
+                                <span className="text-right tabular-nums">P. unit.</span>
+                                <span className="text-right tabular-nums">Total</span>
+                              </div>
+                              <div className="overflow-y-auto flex-1 space-y-0.5 max-h-[min(28vh,220px)] pr-1">
+                                {splitBillLines.length === 0 ? (
+                                  <p className="text-sm text-[#9CA3AF] text-center py-6">Sin ítems</p>
+                                ) : (
+                                  splitBillLines.map((line) => {
+                                    const sel = selectedOrderItemIds.includes(line.id);
+                                    return (
+                                      <label
+                                        key={line.id}
+                                        className={`grid cursor-pointer grid-cols-[1.75rem_2rem_minmax(0,1fr)_2.5rem_3.75rem_3.75rem] gap-1.5 items-center rounded-md border px-1 py-1.5 text-sm ${
+                                          sel
+                                            ? 'border-[color:var(--ui-accent)]/80 bg-[var(--ui-sidebar-active-bg)]/25 text-[#E5E7EB]'
+                                            : 'border-transparent text-[#9CA3AF]'
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={sel}
+                                          onChange={() => toggleOrderItemSelection(line.id)}
+                                          className="mx-auto rounded border-[color:var(--ui-accent)]"
+                                        />
+                                        <span className="text-center text-[10px] font-bold text-[#BFDBFE] tabular-nums">
+                                          #{line.orderNumber}
+                                        </span>
+                                        <span className="min-w-0 break-words leading-snug">{line.name}</span>
+                                        <span className="text-center tabular-nums text-[#F9FAFB]">{line.qty}</span>
+                                        <span className="text-right tabular-nums text-[#D1D5DB]">{formatCurrency(line.unit)}</span>
+                                        <span className="text-right tabular-nums font-medium text-[#F9FAFB]">{formatCurrency(line.sub)}</span>
+                                      </label>
+                                    );
+                                  })
+                                )}
+                              </div>
+                              <p className="text-[11px] text-[#9CA3AF] shrink-0">
+                                Desmarca las líneas que no vas a cobrar en esta operación.
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-[10px] sm:text-xs font-semibold text-[#9CA3AF] border-b border-[color:var(--ui-border)] pb-2 shrink-0">
+                                <span>Producto</span>
+                                <span className="text-center tabular-nums">Cant.</span>
+                                <span className="text-right tabular-nums">P. unit.</span>
+                                <span className="text-right tabular-nums">Total</span>
+                              </div>
+                              <div className="overflow-y-auto flex-1 space-y-2 max-h-[min(28vh,220px)] pr-1">
+                                {billLineItemsGrouped.length === 0 ? (
+                                  <p className="text-sm text-[#9CA3AF] text-center py-6">Sin ítems</p>
+                                ) : (
+                                  billLineItemsGrouped.map((row) => (
+                                    <div
+                                      key={row.key}
+                                      className="grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem] gap-2 text-sm text-[#D1D5DB] py-1.5 border-b border-[#3B82F6]/10 last:border-0"
+                                    >
+                                      <span className="min-w-0 break-words leading-snug">{row.name}</span>
+                                      <span className="text-center tabular-nums text-[#F9FAFB]">{row.qty}</span>
+                                      <span className="text-right tabular-nums text-[#D1D5DB]">{formatCurrency(row.unitPrice)}</span>
+                                      <span className="text-right tabular-nums font-medium text-[#F9FAFB]">{formatCurrency(row.subtotal)}</span>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </>
                           )}
                         </>
                       ) : (

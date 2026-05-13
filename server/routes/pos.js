@@ -36,6 +36,182 @@ function getChargeBase(order) {
   );
 }
 
+function lineItemSubtotal(it) {
+  const qty = Number(it.quantity || 0);
+  const unit = Number(it.unit_price ?? 0);
+  return Number(it.subtotal != null ? it.subtotal : unit * qty);
+}
+
+function sumLinesSubtotal(items) {
+  return (items || []).reduce((s, it) => s + lineItemSubtotal(it), 0);
+}
+
+function bumpOrderSequenceTx(tx) {
+  tx.run('UPDATE order_sequence SET current_number = current_number + 1 WHERE id = 1');
+  const r = tx.queryOne('SELECT current_number FROM order_sequence WHERE id = 1');
+  return Number(r?.current_number || 0);
+}
+
+/**
+ * Recalcula subtotal/total desde order_items. Si no quedan ítems, borra el pedido (y comprobantes asociados).
+ * @returns {boolean} true si el pedido sigue existiendo
+ */
+function recalcOrderMoneyTx(tx, orderId) {
+  const items = tx.queryAll('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
+  const subtotal = sumLinesSubtotal(items);
+  const o = tx.queryOne('SELECT delivery_fee, discount FROM orders WHERE id = ?', [orderId]);
+  if (!o) return false;
+  if (!items.length) {
+    tx.run('DELETE FROM electronic_documents WHERE order_id = ?', [orderId]);
+    tx.run('DELETE FROM orders WHERE id = ?', [orderId]);
+    return false;
+  }
+  const delivery = Number(o.delivery_fee || 0);
+  const base = Math.max(0, subtotal + delivery);
+  const disc = Math.min(Number(o.discount || 0), base);
+  const total = Math.max(0, base - disc);
+  tx.run(
+    `UPDATE orders SET subtotal = ?, tax = 0, discount = ?, total = ?, updated_at = datetime('now') WHERE id = ?`,
+    [subtotal, disc, total, orderId]
+  );
+  return true;
+}
+
+function cloneOrderForItemSplitTx(tx, sourceId, newOrderId, newOrderNumber, childDiscount) {
+  const saleDocumentNumber = `001-${String(newOrderNumber).padStart(8, '0')}`;
+  tx.run(
+    `INSERT INTO orders (
+      id, order_number, customer_id, customer_name, restaurant_id, type, status,
+      subtotal, tax, discount, delivery_fee, total,
+      payment_method, payment_status, table_number, delivery_address, delivery_lat, delivery_lng,
+      notes, sale_document_type, sale_document_number, created_by_user_id, created_by_user_name,
+      delivery_driver_started_at, delivery_driver_completed_at, delivery_route_driver_id,
+      delivery_payment_modality, cancellation_reason, payment_breakdown
+    )
+    SELECT
+      ?, ?, customer_id, customer_name, restaurant_id, type, status,
+      0, 0, ?, 0, 0,
+      payment_method, 'pending', table_number, delivery_address, delivery_lat, delivery_lng,
+      notes, sale_document_type, ?, created_by_user_id, created_by_user_name,
+      delivery_driver_started_at, delivery_driver_completed_at, delivery_route_driver_id,
+      delivery_payment_modality, cancellation_reason, NULL
+    FROM orders WHERE id = ?`,
+    [newOrderId, newOrderNumber, childDiscount, saleDocumentNumber, sourceId]
+  );
+}
+
+/**
+ * Mueve líneas seleccionadas a un pedido nuevo y devuelve el id del pedido a cobrar (el nuevo).
+ * Reparte el descuento previo del pedido fuente entre padre e hijo según subtotales de líneas.
+ */
+function splitOrderItemsForPartialCheckoutTx(tx, sourceOrderId, selectedItemIds) {
+  const order = tx.queryOne('SELECT * FROM orders WHERE id = ?', [sourceOrderId]);
+  if (!order) throw new Error(`Pedido no encontrado: ${sourceOrderId}`);
+  if (order.status === 'cancelled') throw new Error(`Pedido anulado: ${order.order_number}`);
+  if (order.status === 'delivered' && order.payment_status === 'paid') {
+    throw new Error(`El pedido #${order.order_number} ya está cobrado`);
+  }
+
+  const allItems = tx.queryAll('SELECT * FROM order_items WHERE order_id = ?', [sourceOrderId]);
+  const selSet = new Set(selectedItemIds);
+  const moving = allItems.filter((it) => selSet.has(it.id));
+  if (!moving.length) throw new Error('No hay líneas seleccionadas para dividir');
+  if (moving.length === allItems.length) return sourceOrderId;
+
+  const oldSub = sumLinesSubtotal(allItems);
+  const childSub = sumLinesSubtotal(moving);
+  const oldDisc = Number(order.discount || 0);
+  const childDisc = oldSub > 0 ? round2(oldDisc * (childSub / oldSub)) : 0;
+  const parentDisc = round2(Math.max(0, oldDisc - childDisc));
+
+  const newOrderId = uuidv4();
+  const newOrderNumber = bumpOrderSequenceTx(tx);
+  cloneOrderForItemSplitTx(tx, sourceOrderId, newOrderId, newOrderNumber, childDisc);
+
+  const ph = moving.map(() => '?').join(',');
+  tx.run(`UPDATE order_items SET order_id = ? WHERE id IN (${ph})`, [newOrderId, ...moving.map((m) => m.id)]);
+
+  tx.run('UPDATE orders SET discount = ? WHERE id = ?', [parentDisc, sourceOrderId]);
+  recalcOrderMoneyTx(tx, sourceOrderId);
+  recalcOrderMoneyTx(tx, newOrderId);
+
+  return newOrderId;
+}
+
+/**
+ * A partir de order_item_ids, prepara pedidos a cobrar (divide pedidos parciales en uno nuevo).
+ */
+function prepareCheckoutOrderIdsFromItemLinesTx(tx, orderItemIdsRaw) {
+  const uniq = [...new Set((orderItemIdsRaw || []).map((x) => String(x || '').trim()).filter(Boolean))];
+  if (!uniq.length) throw new Error('Debes enviar al menos una línea de producto para cobrar');
+
+  const ph = uniq.map(() => '?').join(',');
+  const rows = tx.queryAll(
+    `SELECT oi.id as item_id, oi.order_id,
+            o.status as order_status, o.payment_status, o.order_number
+     FROM order_items oi
+     JOIN orders o ON o.id = oi.order_id
+     WHERE oi.id IN (${ph})`,
+    uniq
+  );
+  if (rows.length !== uniq.length) {
+    throw new Error('Una o más líneas de pedido no existen o no coinciden');
+  }
+
+  const byOrder = new Map();
+  for (const r of rows) {
+    if (r.order_status === 'cancelled') {
+      throw new Error(`No puedes cobrar ítems del pedido anulado #${r.order_number}`);
+    }
+    if (r.order_status === 'delivered' && r.payment_status === 'paid') {
+      throw new Error(`El pedido #${r.order_number} ya está cobrado`);
+    }
+    if (!byOrder.has(r.order_id)) byOrder.set(r.order_id, []);
+    byOrder.get(r.order_id).push(r.item_id);
+  }
+
+  const chargeIds = [];
+  for (const [orderId, itemIdsForOrder] of byOrder) {
+    const allItems = tx.queryAll('SELECT id FROM order_items WHERE order_id = ?', [orderId]);
+    const allIds = allItems.map((x) => x.id);
+    const allSelected = allIds.length && allIds.every((id) => uniq.includes(id));
+    if (allSelected) {
+      chargeIds.push(orderId);
+    } else {
+      const newId = splitOrderItemsForPartialCheckoutTx(tx, orderId, itemIdsForOrder);
+      chargeIds.push(newId);
+    }
+  }
+  return [...new Set(chargeIds)];
+}
+
+function buildExtraDiscountsByOrderTx(tx, orderIds, totalExtraRaw) {
+  const out = {};
+  const orderList = [...new Set(orderIds)];
+  orderList.forEach((id) => {
+    out[id] = 0;
+  });
+  const t = round2(Math.max(0, Number(totalExtraRaw || 0)));
+  if (t <= 0 || !orderList.length) return out;
+
+  const weights = orderList.map((id) => {
+    const o = tx.queryOne('SELECT * FROM orders WHERE id = ?', [id]);
+    return { id, w: getChargeBase(o) };
+  });
+  const sumW = round2(weights.reduce((s, x) => s + x.w, 0));
+  if (sumW <= 0) return out;
+
+  let remaining = t;
+  weights.forEach((row, idx) => {
+    const isLast = idx === weights.length - 1;
+    const raw = isLast ? Math.min(row.w, remaining) : round2(t * (row.w / sumW));
+    const extra = Math.max(0, Math.min(row.w, raw));
+    out[row.id] = extra;
+    remaining = round2(remaining - extra);
+  });
+  return out;
+}
+
 function getOpenRegister(userId) {
   return queryOne('SELECT * FROM cash_registers WHERE user_id = ? AND closed_at IS NULL', [userId]);
 }
@@ -492,15 +668,33 @@ router.post('/send-close-email', authenticateToken, requireRole('admin', 'cajero
 });
 
 router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
+  const body = req.body || {};
   const {
     order_ids: orderIdsRaw,
     payment_method: paymentMethodRaw,
     payment_breakdown: paymentBreakdownBody,
     discount_reason: discountReason = '',
-    discounts_by_order: discountsByOrder = {},
-  } = req.body || {};
-  const orderIds = Array.isArray(orderIdsRaw) ? orderIdsRaw.filter(Boolean) : [];
-  if (!orderIds.length) return res.status(400).json({ error: 'Debes enviar al menos un pedido para cobrar' });
+    discounts_by_order: discountsByOrderBody = {},
+    order_item_ids: orderItemIdsBody,
+    checkout_discount_total: checkoutDiscountTotalRaw,
+  } = body;
+  const orderItemIds = [
+    ...new Set(
+      (Array.isArray(orderItemIdsBody) ? orderItemIdsBody : [])
+        .map((x) => String(x || '').trim())
+        .filter(Boolean)
+    ),
+  ];
+  const orderIdsFromBody = Array.isArray(orderIdsRaw) ? orderIdsRaw.filter(Boolean) : [];
+  const checkoutDiscountTotal = Math.max(0, Number(checkoutDiscountTotalRaw || 0));
+  const discountsByOrderInput =
+    discountsByOrderBody && typeof discountsByOrderBody === 'object' && !Array.isArray(discountsByOrderBody)
+      ? { ...discountsByOrderBody }
+      : {};
+
+  if (!orderItemIds.length && !orderIdsFromBody.length) {
+    return res.status(400).json({ error: 'Debes enviar pedidos o líneas de producto para cobrar' });
+  }
 
   let paymentBreakdownObj = null;
   if (paymentBreakdownBody != null && typeof paymentBreakdownBody === 'object' && !Array.isArray(paymentBreakdownBody)) {
@@ -532,20 +726,30 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
   }
 
   try {
-    const result = withTransaction((tx) => {
-      const updated = [];
-      const chargedRows = [];
+    const txResult = withTransaction((tx) => {
+      let effectiveOrderIds;
+      let discountsByOrder = { ...discountsByOrderInput };
 
-      orderIds.forEach((orderId) => {
+      if (orderItemIds.length) {
+        effectiveOrderIds = prepareCheckoutOrderIdsFromItemLinesTx(tx, orderItemIds);
+        discountsByOrder = buildExtraDiscountsByOrderTx(tx, effectiveOrderIds, checkoutDiscountTotal);
+      } else {
+        effectiveOrderIds = orderIdsFromBody;
+      }
+
+      const chargedRows = [];
+      const discountsAppliedByOrder = {};
+
+      [...new Set(effectiveOrderIds)].forEach((orderId) => {
         const order = tx.queryOne('SELECT * FROM orders WHERE id = ?', [orderId]);
         if (!order) throw new Error(`Pedido no encontrado: ${orderId}`);
         if (order.status === 'cancelled') throw new Error(`No puedes cobrar un pedido anulado: ${order.order_number}`);
         if (order.status === 'delivered' && order.payment_status === 'paid') {
-          updated.push(order.id);
           return;
         }
         const extraDiscount = Math.max(0, Number(discountsByOrder[orderId] || 0));
         if (extraDiscount > 0) {
+          discountsAppliedByOrder[orderId] = extraDiscount;
           const baseTotal = getChargeBase(order);
           const nextDiscount = Math.max(0, Math.min(baseTotal, Number(order.discount || 0) + extraDiscount));
           const nextTotal = Math.max(0, baseTotal - nextDiscount);
@@ -557,10 +761,9 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
         }
         const refreshed = tx.queryOne('SELECT * FROM orders WHERE id = ?', [orderId]);
         chargedRows.push({ id: orderId, total: round2(Number(refreshed?.total || 0)) });
-        updated.push(order.id);
       });
 
-      const toCharge = chargedRows.filter((r) => orderIds.includes(r.id) && updated.includes(r.id));
+      const toCharge = chargedRows;
       const batchTotal = round2(toCharge.reduce((s, r) => s + r.total, 0));
 
       let primaryMethod = paymentMethod;
@@ -583,6 +786,7 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
         );
       }
 
+      const chargedOrderIds = [];
       toCharge.forEach((row, idx) => {
         const br = perOrderBreakdown ? perOrderBreakdown[idx] : null;
         tx.run(
@@ -595,12 +799,20 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
           [primaryMethod, row.id]
         );
         kardexInventory.aplicarSalidasVentaPedido(tx, row.id, req.user.id);
+        chargedOrderIds.push(row.id);
       });
 
-      return updated;
+      return { chargedOrderIds, discountsAppliedByOrder };
     });
 
-    const paidOrders = result.map((id) => queryOne('SELECT * FROM orders WHERE id = ?', [id])).filter(Boolean);
+    const { chargedOrderIds, discountsAppliedByOrder } = txResult;
+    const paidOrders = chargedOrderIds
+      .map((id) => {
+        const o = queryOne('SELECT * FROM orders WHERE id = ?', [id]);
+        if (!o) return null;
+        return { ...o, items: queryAll('SELECT * FROM order_items WHERE order_id = ?', [id]) };
+      })
+      .filter(Boolean);
     const primaryForAudit = paymentBreakdownObj ? dominantPaymentMethod(paymentBreakdownObj) : paymentMethod;
     logAudit({
       actorUserId: req.user.id,
@@ -621,7 +833,7 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
       items: paidItems,
       text: `Pedidos cobrados: ${paidOrders.length}`,
     }).catch((err) => console.error('[printing] caja cierre:', err.message || err));
-    res.json({ success: true, orders: paidOrders });
+    res.json({ success: true, orders: paidOrders, discounts_applied_by_order: discountsAppliedByOrder });
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo cobrar la mesa' });
   }
