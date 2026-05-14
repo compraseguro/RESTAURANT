@@ -212,9 +212,14 @@ const ALMACEN_VIEWS = [
 export default function Almacen() {
   const { user } = useAuth();
   const planAllowsAlmacenAvanzado = user?.service_plan !== 'basico';
-  const almacenViewsForPlan = planAllowsAlmacenAvanzado
-    ? ALMACEN_VIEWS
-    : ALMACEN_VIEWS.filter((v) => !['requerimiento', 'recepcion'].includes(v.id));
+  const almacenViewsForPlan = useMemo(() => {
+    const subAlmacen = user?.sub_permissions?.almacen || {};
+    return ALMACEN_VIEWS.filter((v) => {
+      if (!planAllowsAlmacenAvanzado && ['requerimiento', 'recepcion'].includes(v.id)) return false;
+      if (subAlmacen[v.id] === false) return false;
+      return true;
+    });
+  }, [planAllowsAlmacenAvanzado, user?.sub_permissions?.almacen]);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
@@ -420,11 +425,11 @@ export default function Almacen() {
     setItemForm(prev => ({ ...prev, category_id: '' }));
   }, [categories]);
   useEffect(() => {
-    if (!planAllowsAlmacenAvanzado && (activeView === 'requerimiento' || activeView === 'recepcion')) {
-      setActiveView('movimiento_interno');
-      setSearchParams({ view: 'movimiento_interno' }, { replace: true });
+    if (!almacenViewsForPlan.some((v) => v.id === activeView)) {
+      setActiveView(almacenViewsForPlan[0]?.id || 'movimiento_interno');
+      setSearchParams({ view: almacenViewsForPlan[0]?.id || 'movimiento_interno' }, { replace: true });
     }
-  }, [planAllowsAlmacenAvanzado, activeView, setSearchParams]);
+  }, [almacenViewsForPlan, activeView, setSearchParams]);
 
   useEffect(() => {
     const requestedView = searchParams.get('view');

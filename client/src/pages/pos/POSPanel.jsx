@@ -130,7 +130,7 @@ import {
   MdRestaurantMenu,
   MdAccessTime, MdPersonAdd, MdEmail, MdSearch,
   MdDeliveryDining,
-  MdEdit, MdDelete, MdVisibility, MdPrint, MdSave,
+  MdEdit, MdDelete, MdPrint, MdSave,
   MdSwapHoriz, MdMerge,
 } from 'react-icons/md';
 
@@ -314,6 +314,8 @@ export default function POSPanel() {
   const [loading, setLoading] = useState(true);
   const [selectedTable, setSelectedTable] = useState(null);
   const [tableDetail, setTableDetail] = useState(null);
+  /** Mapa de mesas en ventana superpuesta (estilo ventana tipo consola). */
+  const [mesaMapModalOpen, setMesaMapModalOpen] = useState(true);
   /** Modal mover/unir mesas (misma API que Admin → Mesas). */
   const [mesaTableAction, setMesaTableAction] = useState(null);
   const [showBill, setShowBill] = useState(false);
@@ -371,6 +373,8 @@ export default function POSPanel() {
   const [matchedCustomer, setMatchedCustomer] = useState(null);
   const [searchingCustomer, setSearchingCustomer] = useState(false);
   const [consultaPadronLoading, setConsultaPadronLoading] = useState(false);
+  /** Tras una consulta exitosa con cupo, el /auth/me no se refresca al instante. */
+  const [padronUsedBump, setPadronUsedBump] = useState(0);
   const [openingAmount, setOpeningAmount] = useState('');
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [sendingCloseMail, setSendingCloseMail] = useState(false);
@@ -427,6 +431,21 @@ export default function POSPanel() {
     company_ruc: '',
   });
   const { user } = useAuth();
+  useEffect(() => {
+    setPadronUsedBump(0);
+  }, [user?.padron_quota?.month, user?.id]);
+  const padronQuotaUi = useMemo(() => {
+    const pq = user?.padron_quota;
+    const limit = pq?.limit != null && pq.limit !== '' ? Number(pq.limit) : null;
+    if (limit == null || !Number.isFinite(limit) || limit < 1) {
+      return { exhausted: false, label: '' };
+    }
+    const used = (Number(pq?.used) || 0) + padronUsedBump;
+    return {
+      exhausted: used >= limit,
+      label: `Consultas padrón: ${used}/${limit} este mes`,
+    };
+  }, [user?.padron_quota, padronUsedBump]);
   const [cajaStations, setCajaStations] = useState([]);
   const [adminRegisterId, setAdminRegisterId] = useState(() => {
     try {
@@ -656,6 +675,10 @@ export default function POSPanel() {
       setSearchParams({ view: 'cobrar' }, { replace: true });
     }
   }, [activeCajaOption, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (activeCajaOption === 'cobrar') setMesaMapModalOpen(true);
+  }, [activeCajaOption]);
 
   const loadCajaExtras = async () => {
     try {
@@ -965,6 +988,15 @@ export default function POSPanel() {
       toast.error(docType === '6' ? 'Ingrese RUC de 11 dígitos' : 'Ingrese DNI de 8 dígitos');
       return;
     }
+    const pq = user?.padron_quota;
+    const lim = pq?.limit != null && pq.limit !== '' ? Number(pq.limit) : null;
+    if (lim != null && Number.isFinite(lim) && lim > 0) {
+      const used = (Number(pq?.used) || 0) + padronUsedBump;
+      if (used >= lim) {
+        toast.error(`Límite mensual de consultas DNI/RUC alcanzado (${lim}).`);
+        return;
+      }
+    }
     try {
       setConsultaPadronLoading(true);
       const data = await api.get(
@@ -984,13 +1016,27 @@ export default function POSPanel() {
             : prev.customer_address,
       }));
       setMatchedCustomer(null);
+      if (lim != null && Number.isFinite(lim) && lim > 0) {
+        setPadronUsedBump((b) => b + 1);
+      }
       toast.success(docType === '6' ? 'Razón social obtenida del padrón' : 'Nombre obtenido del padrón');
     } catch (err) {
-      toast.error(err?.message || 'No se pudo consultar el padrón');
+      const msg = err?.message || 'No se pudo consultar el padrón';
+      if (String(msg).toLowerCase().includes('límite mensual') || String(msg).includes('429')) {
+        toast.error(msg);
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setConsultaPadronLoading(false);
     }
-  }, [billingForm.customer_doc_number, billingForm.doc_type, billingForm.customer_doc_type]);
+  }, [
+    billingForm.customer_doc_number,
+    billingForm.doc_type,
+    billingForm.customer_doc_type,
+    user?.padron_quota,
+    padronUsedBump,
+  ]);
 
   const applyCustomerToBilling = (customer) => {
     if (!customer) return;
@@ -2366,6 +2412,10 @@ export default function POSPanel() {
     }
   };
 
+  /** Botones de acciones del mapa de mesas (misma altura, una fila). */
+  const mesaMapActionBtnClass =
+    'flex-1 min-w-0 basis-0 min-h-[44px] shrink-0 px-1 sm:px-2 py-2 rounded-lg text-[11px] sm:text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors inline-flex items-center justify-center gap-1 text-center leading-tight disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white';
+
   return (
     <div>
       <div className="mb-4 -mt-4">
@@ -2406,11 +2456,51 @@ export default function POSPanel() {
           </button>
         </div>
       </div>
-      <h2 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
-        <MdTableRestaurant /> Mapa de mesas
-      </h2>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6 items-start">
-        <div className="min-w-0 space-y-6">
+      {!mesaMapModalOpen && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold text-slate-700 flex items-center gap-2 text-base sm:text-lg">
+            <MdTableRestaurant /> Mapa de mesas
+          </h2>
+          <button
+            type="button"
+            onClick={() => setMesaMapModalOpen(true)}
+            className="px-4 py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200"
+          >
+            Abrir mapa de mesas
+          </button>
+        </div>
+      )}
+
+      {mesaMapModalOpen && (
+        <div className="fixed inset-0 z-40 pt-14 sm:pt-[4.25rem] pb-1.5 px-1.5 sm:pb-2 sm:px-2 pointer-events-none">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/55 pointer-events-auto cursor-default border-0 p-0"
+            aria-label="Cerrar mapa de mesas"
+            onClick={() => setMesaMapModalOpen(false)}
+          />
+          <div
+            className="relative pointer-events-auto ml-auto flex h-[calc(100dvh-3.75rem)] max-h-[calc(100dvh-3.75rem)] w-full max-w-[min(1040px,calc(100vw-0.75rem))] sm:max-w-[min(920px,52vw)] flex-col rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pos-mesa-map-title"
+          >
+            <div className="flex items-center justify-between gap-3 shrink-0 border-b border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
+              <h2 id="pos-mesa-map-title" className="font-semibold text-slate-800 flex items-center gap-2 text-base sm:text-lg min-w-0">
+                <MdTableRestaurant className="shrink-0 text-slate-600" /> Mapa de mesas
+              </h2>
+              <button
+                type="button"
+                onClick={() => setMesaMapModalOpen(false)}
+                className="shrink-0 rounded-lg p-2 text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors"
+                aria-label="Cerrar"
+              >
+                <MdClose className="text-2xl" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 lg:p-5">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 h-full min-h-0 items-stretch">
+        <div className="min-w-0 space-y-6 overflow-y-auto min-h-0 pr-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {stableTables.map((table) => {
               const isOccupied = Boolean(table.orders && table.orders.length > 0);
@@ -2490,9 +2580,9 @@ export default function POSPanel() {
           )}
         </div>
 
-        <div className="min-w-0">
+        <div className="min-w-0 flex flex-col min-h-0">
           {tableDetail ? (
-            <div className="card flex flex-col max-h-[min(72vh,calc(100vh-10rem))] lg:max-h-[calc(100vh-12rem)] lg:sticky lg:top-2 shadow-md border-slate-200/80">
+            <div className="card flex flex-col flex-1 min-h-0 shadow-md border-slate-200/80 overflow-hidden">
               <div className="flex items-start justify-between gap-3 mb-3 shrink-0 border-b border-slate-100 pb-3">
                 <div className="min-w-0">
                   <h3 className="font-bold text-slate-800">{tableDetail.name}</h3>
@@ -2548,33 +2638,35 @@ export default function POSPanel() {
                 })()}
               </div>
 
-              <div className="flex flex-col gap-3 shrink-0">
-                <div className="flex flex-wrap gap-2 items-stretch">
+              <div className="flex flex-nowrap gap-2 shrink-0 min-h-[48px] overflow-x-auto pb-0.5">
                   {!isDeliveryCheckoutTable(tableDetail) && (
                     <button
                       type="button"
                       onClick={() => openMenuForTable(tableDetail)}
-                      className="flex-1 min-w-[120px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                      className={mesaMapActionBtnClass}
                     >
-                      <MdRestaurantMenu /> Tomar Pedido
+                      <MdRestaurantMenu className="shrink-0 text-lg" />
+                      <span className="truncate">Tomar pedido</span>
                     </button>
                   )}
                   {!isDeliveryCheckoutTable(tableDetail) && (
                     <button
                       type="button"
                       onClick={() => openMesaTableAction('move')}
-                      className="flex-1 min-w-[120px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                      className={mesaMapActionBtnClass}
                     >
-                      <MdSwapHoriz /> Mover pedidos
+                      <MdSwapHoriz className="shrink-0 text-lg" />
+                      <span className="truncate">Mover</span>
                     </button>
                   )}
                   {!isDeliveryCheckoutTable(tableDetail) && (
                     <button
                       type="button"
                       onClick={() => openMesaTableAction('merge')}
-                      className="flex-1 min-w-[120px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                      className={mesaMapActionBtnClass}
                     >
-                      <MdMerge /> Unir mesas
+                      <MdMerge className="shrink-0 text-lg" />
+                      <span className="truncate">Unir</span>
                     </button>
                   )}
                   <button
@@ -2589,12 +2681,11 @@ export default function POSPanel() {
                       setDiscountConfig({ ...EMPTY_DISCOUNT_CONFIG });
                     }}
                     disabled={!tableDetail.orders?.length}
-                    className="flex-1 min-w-[120px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                    className={mesaMapActionBtnClass}
                   >
-                    <MdAttachMoney /> {isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar Mesa'}
+                    <MdAttachMoney className="shrink-0 text-lg" />
+                    <span className="truncate">{isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar'}</span>
                   </button>
-                </div>
-                <div className="flex flex-wrap gap-2 items-stretch">
                   <button
                     type="button"
                     onClick={() => {
@@ -2602,35 +2693,25 @@ export default function POSPanel() {
                       void printPrecuenta(tableDetail);
                     }}
                     disabled={!tableDetail.orders?.length}
-                    className="flex-1 min-w-[120px] py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
+                    className={mesaMapActionBtnClass}
                   >
-                    <MdPrint /> Imprimir precuenta
+                    <MdPrint className="shrink-0 text-lg" />
+                    <span className="truncate">Precuenta</span>
                   </button>
-                  <div className="flex flex-1 min-w-[120px] gap-2">
-                    <button
-                      type="button"
-                      title="Ver pedido"
-                      onClick={() => setViewOrdersModal({ table: tableDetail, orderId: null })}
-                      disabled={!tableDetail.orders?.length}
-                      className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
-                    >
-                      <MdVisibility className="text-xl" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Modificar pedido"
-                      onClick={openEditOrderFromToolbar}
-                      disabled={
-                        !tableDetail.orders?.length ||
-                        isClientCheckoutTable(tableDetail) ||
-                        !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
-                      }
-                      className="shrink-0 w-11 h-11 rounded-lg font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-surface)]"
-                    >
-                      <MdEdit className="text-xl" />
-                    </button>
-                  </div>
-                </div>
+                  <button
+                    type="button"
+                    title="Modificar pedido"
+                    onClick={openEditOrderFromToolbar}
+                    disabled={
+                      !tableDetail.orders?.length ||
+                      isClientCheckoutTable(tableDetail) ||
+                      !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
+                    }
+                    className={mesaMapActionBtnClass}
+                  >
+                    <MdEdit className="shrink-0 text-lg" />
+                    <span className="truncate">Modificar</span>
+                  </button>
               </div>
             </div>
           ) : (
@@ -2641,7 +2722,11 @@ export default function POSPanel() {
             </div>
           )}
         </div>
-      </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <button
@@ -3152,9 +3237,9 @@ export default function POSPanel() {
                         {(billingForm.doc_type !== 'nota_venta' && (billingForm.customer_doc_type === '1' || billingForm.customer_doc_type === '6')) && (
                           <button
                             type="button"
-                            title="Consultar nombre o razón social en padrón (requiere PERU_CONSULTAS_TOKEN en el servidor)"
+                            title={`Consultar nombre o razón social en padrón (requiere PERU_CONSULTAS_TOKEN en el servidor). ${padronQuotaUi.label || ''}`.trim()}
                             onClick={() => void handleConsultaPadron()}
-                            disabled={consultaPadronLoading}
+                            disabled={consultaPadronLoading || padronQuotaUi.exhausted}
                             className="shrink-0 px-2.5 py-2 rounded-lg border border-[color:var(--ui-accent)] text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center justify-center gap-1 disabled:opacity-50"
                           >
                             <MdSearch className="text-lg shrink-0" />
@@ -3700,9 +3785,9 @@ export default function POSPanel() {
                               {(billingForm.doc_type !== 'nota_venta' && (billingForm.customer_doc_type === '1' || billingForm.customer_doc_type === '6')) && (
                                 <button
                                   type="button"
-                                  title="Consultar nombre o razón social en padrón (requiere PERU_CONSULTAS_TOKEN en el servidor)"
+                                  title={`Consultar nombre o razón social en padrón (requiere PERU_CONSULTAS_TOKEN en el servidor). ${padronQuotaUi.label || ''}`.trim()}
                                   onClick={() => void handleConsultaPadron()}
-                                  disabled={consultaPadronLoading}
+                                  disabled={consultaPadronLoading || padronQuotaUi.exhausted}
                                   className="shrink-0 px-2.5 py-2 rounded-lg border border-[color:var(--ui-accent)] text-[#BFDBFE] text-xs font-medium hover:bg-[#2563EB]/20 flex items-center justify-center gap-1 disabled:opacity-50"
                                 >
                                   <MdSearch className="text-lg shrink-0" />

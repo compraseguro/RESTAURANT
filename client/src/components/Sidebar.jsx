@@ -34,7 +34,7 @@ const allLinks = [
   { to: '/admin/configuracion', icon: MdSettings, label: 'Configuración', roles: ['admin'], moduleId: 'configuracion' },
 ];
 
-const cajaSubOptions = [
+const cajaSubOptionsAll = [
   { id: 'cobrar', label: 'Cobrar' },
   { id: 'apertura_cierre', label: 'Apertura y cierre' },
   { id: 'cierres_caja', label: 'Cierres de caja' },
@@ -106,18 +106,26 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
   };
   const filtered = allLinks.filter(hasLinkPermission);
   const planAllowsAlmacenAvanzado = user?.service_plan !== 'basico';
-  const almacenSubOptions = planAllowsAlmacenAvanzado
-    ? almacenSubOptionsAll
-    : almacenSubOptionsAll.filter((o) => !['requerimiento', 'recepcion'].includes(o.id));
+  const subAlmacen = user?.sub_permissions?.almacen || {};
+  const almacenSubOptions = almacenSubOptionsAll.filter((o) => {
+    if (!planAllowsAlmacenAvanzado && ['requerimiento', 'recepcion'].includes(o.id)) return false;
+    if (subAlmacen[o.id] === false) return false;
+    return true;
+  });
   const planProfesional = user?.service_plan === 'profesional';
-  const miRestaurantSubOptionsByPlan = planProfesional
-    ? miRestaurantSubOptionsAll
-    : miRestaurantSubOptionsAll.filter((o) => o.id !== 'facturacion_electronica');
+  const subMi = user?.sub_permissions?.mi_restaurant || {};
+  const miRestaurantSubOptionsByPlan = miRestaurantSubOptionsAll.filter((o) => {
+    if (!planProfesional && o.id === 'facturacion_electronica') return false;
+    if (subMi[o.id] === false) return false;
+    return true;
+  });
   /** Respaldo/restauración: solo administrador maestro (API también exige rol). */
   const miRestaurantSubOptions =
     user?.role === 'master_admin'
       ? miRestaurantSubOptionsByPlan
       : miRestaurantSubOptionsByPlan.filter((o) => o.id !== 'informacion');
+  const subCaja = user?.sub_permissions?.caja || {};
+  const cajaSubOptions = cajaSubOptionsAll.filter((o) => subCaja[o.id] !== false);
   const visibleLinks = user?.role === 'cajero'
     ? [
         filtered.find(l => l.to === '/admin/caja'),

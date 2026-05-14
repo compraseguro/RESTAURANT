@@ -47,6 +47,12 @@ const DEFAULT_CONTROL = {
   pago_uso_comprobante_lock_auto: 0,
   /** basico | intermedio | profesional — limita módulos para admin y personal */
   service_plan: 'profesional',
+  /** { "caja": false, "caja:cobrar": true } — solo claves válidas para el plan; ausente = habilitado por defecto */
+  service_plan_module_overrides: {},
+  /** null o vacío = sin límite; entero > 0 = máximo de consultas DNI/RUC al mes (zona Lima). */
+  padron_monthly_query_limit: null,
+  padron_query_usage_month: '',
+  padron_query_usage_count: 0,
   /** 1 = el admin del restaurante puede editar «Bot facturación SUNAT» (emisor, series, bot); el maestro siempre puede. */
   allow_restaurant_admin_billing_bot: 0,
 };
@@ -135,6 +141,60 @@ function getControlConfig() {
     ...DEFAULT_CONTROL,
     ...(readSetting(MASTER_SETTING_KEY, {}) || {}),
   };
+}
+
+function padronMonthKeyLima() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit' })
+    .format(new Date())
+    .slice(0, 7);
+}
+
+function getPadronMonthlyLimit(control) {
+  const n = Number(control?.padron_monthly_query_limit);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return Math.min(999999, Math.floor(n));
+}
+
+function getPadronUsageForCurrentMonth(control) {
+  const month = padronMonthKeyLima();
+  const m = String(control?.padron_query_usage_month || '').trim();
+  const c = Number(control?.padron_query_usage_count || 0);
+  if (m !== month) return { month, used: 0 };
+  return { month, used: Math.max(0, Math.floor(c)) };
+}
+
+function getPadronQuotaPublic() {
+  const control = getControlConfig();
+  const limit = getPadronMonthlyLimit(control);
+  const { month, used } = getPadronUsageForCurrentMonth(control);
+  return { limit, used, month };
+}
+
+function assertPadronConsultAllowed() {
+  const control = getControlConfig();
+  const limit = getPadronMonthlyLimit(control);
+  if (limit == null) return;
+  const { used } = getPadronUsageForCurrentMonth(control);
+  if (used >= limit) {
+    const err = new Error(
+      `Límite mensual de consultas DNI/RUC alcanzado (${limit} por mes). El administrador maestro puede ampliarlo en Facturación o espere el próximo mes.`
+    );
+    err.code = 'PADRON_LIMIT';
+    throw err;
+  }
+}
+
+function recordSuccessfulPadronConsult() {
+  const control = getControlConfig();
+  if (getPadronMonthlyLimit(control) == null) return;
+  const month = padronMonthKeyLima();
+  const prevMonth = String(control.padron_query_usage_month || '').trim();
+  const count = prevMonth === month ? Math.max(0, Number(control.padron_query_usage_count || 0)) : 0;
+  upsertSetting(MASTER_SETTING_KEY, {
+    ...control,
+    padron_query_usage_month: month,
+    padron_query_usage_count: count + 1,
+  });
 }
 
 function getNotifications() {
@@ -598,6 +658,7 @@ function syncPagoUsoProximaFechaFromBillingAnchor(anchorDateKey) {
 }
 
 function setControlConfig(patch = {}, actorName = '') {
+  const { sanitizeModuleOverridesForPlan } = require('./planModuleCatalog');
   const current = getControlConfig();
   const next = {
     ...current,
@@ -615,6 +676,15 @@ function setControlConfig(patch = {}, actorName = '') {
   if (patch.allow_restaurant_admin_billing_bot !== undefined) {
     next.allow_restaurant_admin_billing_bot = Number(patch.allow_restaurant_admin_billing_bot) === 1 ? 1 : 0;
   }
+  if (patch.padron_monthly_query_limit !== undefined) {
+    const raw = patch.padron_monthly_query_limit;
+    if (raw === '' || raw === null || raw === undefined) {
+      next.padron_monthly_query_limit = null;
+    } else {
+      const n = Math.floor(Number(raw));
+      next.padron_monthly_query_limit = Number.isFinite(n) && n > 0 ? Math.min(n, 999999) : null;
+    }
+  }
   if (patch.global_lock_enabled !== undefined) {
     const enabled = Number(patch.global_lock_enabled || 0) === 1 ? 1 : 0;
     next.global_lock_enabled = enabled;
@@ -624,6 +694,10 @@ function setControlConfig(patch = {}, actorName = '') {
       next.global_lock_reason = 'Bloqueo por falta de pago';
     }
   }
+  next.service_plan_module_overrides = sanitizeModuleOverridesForPlan(
+    next.service_plan,
+    next.service_plan_module_overrides || {}
+  );
   upsertSetting(MASTER_SETTING_KEY, next);
   /** Al fijar la fecha de facturación (día de compra), la próxima fecha de pago por uso = ancla + 1 o 6 meses según periodo. */
   if (patch.billing_date !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(String(next.billing_date || '').trim())) {
@@ -648,6 +722,9 @@ module.exports = {
   MASTER_AUTH_KEY,
   DEFAULT_CONTROL,
   getControlConfig,
+  assertPadronConsultAllowed,
+  recordSuccessfulPadronConsult,
+  getPadronQuotaPublic,
   setControlConfig,
   getNotifications,
   getActiveNotifications,

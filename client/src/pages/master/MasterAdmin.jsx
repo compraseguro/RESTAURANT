@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { api, resolveMediaUrl } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
 import RestaurantServiceContractForm, { normalizeContratoFromApi } from '../../components/RestaurantServiceContractForm';
+import MasterRestaurantBackupPanel from '../../components/master/MasterRestaurantBackupPanel';
 import {
   MdAdminPanelSettings,
   MdReceiptLong,
@@ -24,7 +24,7 @@ import {
   MdReceipt,
   MdPayment,
   MdLayers,
-  MdStorefront,
+  MdBackup,
 } from 'react-icons/md';
 import MasterRestaurantBillingWorkspace from '../../components/master/MasterRestaurantBillingWorkspace';
 
@@ -35,12 +35,12 @@ const TABS = [
   { id: 'sunat_bot', label: 'Bot facturación SUNAT', icon: MdReceipt },
   { id: 'pago_uso_sistema', label: 'Pago por uso del sistema', icon: MdPayment },
   { id: 'facturacion', label: 'Fecha de facturación', icon: MdEventAvailable },
+  { id: 'respaldo', label: 'Respaldo', icon: MdBackup },
   { id: 'notificaciones', label: 'Notificaciones', icon: MdNotifications },
   { id: 'bloqueo', label: 'Bloqueo por falta de pago', icon: MdLock },
 ];
 
 export default function MasterAdmin() {
-  const navigate = useNavigate();
   const { logout } = useAuth();
   const [tab, setTab] = useState('usuarios');
   const [loading, setLoading] = useState(true);
@@ -70,11 +70,14 @@ export default function MasterAdmin() {
   const [serviceContrato, setServiceContrato] = useState(() => normalizeContratoFromApi(null));
   const [serviceContratoLoading, setServiceContratoLoading] = useState(false);
   const [serviceContratoSaving, setServiceContratoSaving] = useState(false);
+  /** Overrides de módulos / submódulos (false = deshabilitado). Se guardan con el plan. */
+  const [planModuleDraft, setPlanModuleDraft] = useState({});
 
   const loadDashboard = async () => {
     try {
       const data = await api.get('/master-admin/dashboard');
       setDashboard(data);
+      setPlanModuleDraft({ ...(data?.control?.service_plan_module_overrides || {}) });
     } catch (err) {
       toast.error(err.message || 'No se pudo cargar administrador maestro');
     } finally {
@@ -143,8 +146,15 @@ export default function MasterAdmin() {
 
   const updateControl = async (patch, okMessage) => {
     try {
-      const control = await api.put('/master-admin/control', patch);
-      setDashboard((prev) => ({ ...(prev || {}), control, lock: { ...(prev?.lock || {}), locked: Number(control.global_lock_enabled || 0) === 1, reason: control.global_lock_reason || '' } }));
+      const controlResp = await api.put('/master-admin/control', patch);
+      setDashboard((prev) => ({
+        ...(prev || {}),
+        control: controlResp,
+        lock: { ...(prev?.lock || {}), locked: Number(controlResp.global_lock_enabled || 0) === 1, reason: controlResp.global_lock_reason || '' },
+      }));
+      if (controlResp && typeof controlResp.service_plan_module_overrides === 'object') {
+        setPlanModuleDraft({ ...(controlResp.service_plan_module_overrides || {}) });
+      }
       if (okMessage) toast.success(okMessage);
     } catch (err) {
       toast.error(err.message);
@@ -328,6 +338,7 @@ export default function MasterAdmin() {
   }
 
   const control = dashboard?.control || {};
+  const planModuleTrees = dashboard?.plan_module_trees || { basico: [], intermedio: [], profesional: [] };
   const notifications = dashboard?.notifications || [];
   const adminUsers = dashboard?.admin_users || [];
   const creds = dashboard?.master_credentials || { username: 'Romero25879' };
@@ -343,13 +354,6 @@ export default function MasterAdmin() {
               <p className="text-sm text-[var(--ui-muted)]">Control de dueños, contratos, SUNAT y pago por uso del restaurante, fecha de facturación, bloqueo global y notificaciones.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => navigate('/admin/mi-restaurant?view=informacion')}
-                className="btn-secondary flex items-center gap-2"
-              >
-                <MdStorefront /> Respaldo (Mi restaurante)
-              </button>
               <button onClick={logout} className="btn-secondary flex items-center gap-2"><MdLogout /> Salir</button>
             </div>
           </div>
@@ -409,49 +413,152 @@ export default function MasterAdmin() {
         )}
 
         {tab === 'plan' && (
-          <div className="card max-w-3xl">
+          <div className="card">
             <h2 className="font-semibold text-slate-800 mb-2">Plan comercial del restaurante</h2>
             <p className="text-sm text-slate-500 mb-4">
-              Define qué módulos pueden usar el administrador y el personal. Coincide con los planes Básico, Intermedio y Profesional comercializados.
+              Elija el plan y active o desactive módulos y submódulos incluidos en ese plan. Los cambios aplican al guardar; el personal debe{' '}
+              <strong>volver a iniciar sesión</strong> o recargar la página.
             </p>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Plan activo</label>
-                <select
-                  className="input-field"
-                  value={control.service_plan === 'basico' || control.service_plan === 'básico' ? 'basico' : control.service_plan === 'intermedio' ? 'intermedio' : 'profesional'}
-                  onChange={(e) =>
-                    setDashboard((p) => ({
-                      ...(p || {}),
-                      control: { ...(p?.control || {}), service_plan: e.target.value },
-                    }))
-                  }
-                >
-                  <option value="basico">Básico — operación central + Mi Restaurante (sin SUNAT), ofertas, descuentos, salón, delivery, caja, almacén base, informes, productos, configuración</option>
-                  <option value="intermedio">
-                    Intermedio — incluye Básico + QR auto-pedido, clientes/créditos, cocina/bar, indicadores, tiempo trabajado, almacén avanzado (requerimiento/recepción)
-                  </option>
-                  <option value="profesional">
-                    Profesional — incluye Intermedio + pestaña Bot facturación SUNAT en Mi Restaurante
-                  </option>
-                </select>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Plan activo</label>
+                  <select
+                    className="input-field"
+                    value={
+                      control.service_plan === 'basico' || control.service_plan === 'básico'
+                        ? 'basico'
+                        : control.service_plan === 'intermedio'
+                          ? 'intermedio'
+                          : 'profesional'
+                    }
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setDashboard((p) => ({
+                        ...(p || {}),
+                        control: { ...(p?.control || {}), service_plan: v },
+                      }));
+                      setPlanModuleDraft((draft) => {
+                        const tree = planModuleTrees[v] || [];
+                        const allowed = new Set();
+                        for (const n of tree) {
+                          allowed.add(n.id);
+                          for (const ch of n.children || []) {
+                            allowed.add(`${n.id}:${ch.id}`);
+                          }
+                        }
+                        const next = {};
+                        for (const [k, val] of Object.entries(draft || {})) {
+                          if (allowed.has(k)) next[k] = val;
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    <option value="basico">
+                      Básico — operación central + Mi Restaurante (sin SUNAT), ofertas, descuentos, salón, delivery, caja, almacén base, informes,
+                      productos, configuración
+                    </option>
+                    <option value="intermedio">
+                      Intermedio — incluye Básico + QR auto-pedido, clientes/créditos, cocina/bar, indicadores, tiempo trabajado, almacén avanzado
+                      (requerimiento/recepción)
+                    </option>
+                    <option value="profesional">
+                      Profesional — incluye Intermedio + pestaña Bot facturación SUNAT en Mi Restaurante
+                    </option>
+                  </select>
+                </div>
+                <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
+                  Desactivar un módulo oculta su entrada en el menú. Desactivar un submódulo (p. ej. una vista de Caja) oculta solo esa opción si el módulo
+                  padre sigue activo.
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className="btn-primary flex items-center gap-2"
+                    onClick={() =>
+                      updateControl(
+                        {
+                          service_plan: control.service_plan || 'profesional',
+                          service_plan_module_overrides: planModuleDraft,
+                        },
+                        'Plan comercial actualizado'
+                      )
+                    }
+                  >
+                    <MdSave /> Guardar plan y módulos
+                  </button>
+                </div>
               </div>
-              <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
-                Tras guardar, los usuarios deben <strong>volver a iniciar sesión</strong> (o recargar) para aplicar los cambios en menús y rutas.
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="btn-primary flex items-center gap-2"
-                  onClick={() =>
-                    updateControl(
-                      { service_plan: control.service_plan || 'profesional' },
-                      'Plan comercial actualizado'
-                    )
-                  }
-                >
-                  <MdSave /> Guardar plan
-                </button>
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 max-h-[min(70vh,560px)] overflow-y-auto">
+                <h3 className="text-sm font-semibold text-slate-800 mb-3">Módulos del plan seleccionado</h3>
+                {(() => {
+                  const planKey =
+                    control.service_plan === 'basico' || control.service_plan === 'básico'
+                      ? 'basico'
+                      : control.service_plan === 'intermedio'
+                        ? 'intermedio'
+                        : 'profesional';
+                  const tree = planModuleTrees[planKey] || [];
+                  const setToggle = (key, enabled) => {
+                    setPlanModuleDraft((prev) => {
+                      const next = { ...prev };
+                      if (enabled) delete next[key];
+                      else next[key] = false;
+                      return next;
+                    });
+                  };
+                  const isOn = (key) => planModuleDraft[key] !== false;
+                  return tree.length === 0 ? (
+                    <p className="text-sm text-slate-500">No hay datos de catálogo. Recargue la página.</p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {tree.map((node) => {
+                        const parentKey = node.id;
+                        const parentOn = isOn(parentKey);
+                        return (
+                          <li key={parentKey} className="border border-slate-200 rounded-lg bg-white px-3 py-2">
+                            <label className="flex items-center justify-between gap-2 cursor-pointer">
+                              <span className="text-sm font-medium text-slate-800">{node.label}</span>
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                                checked={parentOn}
+                                onChange={(e) => setToggle(parentKey, e.target.checked)}
+                              />
+                            </label>
+                            {(node.children || []).length > 0 && (
+                              <ul className="mt-2 ml-2 space-y-1.5 border-t border-slate-100 pt-2">
+                                {(node.children || []).map((ch) => {
+                                  const ck = `${parentKey}:${ch.id}`;
+                                  const subOn = parentOn && isOn(ck);
+                                  return (
+                                    <li key={ck}>
+                                      <label
+                                        className={`flex items-center justify-between gap-2 text-sm ${
+                                          parentOn ? 'cursor-pointer text-slate-700' : 'text-slate-400 cursor-not-allowed'
+                                        }`}
+                                      >
+                                        <span>{ch.label}</span>
+                                        <input
+                                          type="checkbox"
+                                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                                          checked={subOn}
+                                          disabled={!parentOn}
+                                          onChange={(e) => setToggle(ck, e.target.checked)}
+                                        />
+                                      </label>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -512,9 +619,88 @@ export default function MasterAdmin() {
                 </select>
               </div>
             </div>
-            <div className="mt-3 flex justify-end">
-              <button className="btn-primary flex items-center gap-2" onClick={() => updateControl({ billing_date: control.billing_date || '', notify_days_before: Number(control.notify_days_before || 5), auto_block_on_overdue: Number(control.auto_block_on_overdue || 0) }, 'Parámetros de facturación guardados')}><MdSave /> Guardar facturación</button>
+            <div className="mt-6 border-t border-slate-200 pt-4">
+              <h3 className="text-sm font-semibold text-slate-800 mb-2">Consultas DNI / RUC (padrón en caja)</h3>
+              <p className="text-xs text-slate-500 mb-3">
+                Por defecto no hay límite. Si indica un número, el sistema permitirá como máximo esa cantidad de consultas exitosas al mes (zona horaria
+                Lima). El contador se muestra al personal en la caja.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Límite mensual (vacío = ilimitado)</label>
+                  <input
+                    className="input-field"
+                    type="number"
+                    min={1}
+                    step={1}
+                    placeholder="Sin límite"
+                    value={
+                      control.padron_monthly_query_limit === null ||
+                      control.padron_monthly_query_limit === undefined ||
+                      control.padron_monthly_query_limit === ''
+                        ? ''
+                        : String(control.padron_monthly_query_limit)
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value.trim();
+                      setDashboard((p) => ({
+                        ...p,
+                        control: {
+                          ...(p?.control || {}),
+                          padron_monthly_query_limit: raw === '' ? null : Math.max(1, parseInt(raw, 10) || 1),
+                        },
+                      }));
+                    }}
+                  />
+                </div>
+                <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
+                  Uso este mes (Lima):{' '}
+                  <strong>
+                    {(() => {
+                      const lim = control.padron_monthly_query_limit;
+                      const used =
+                        String(control.padron_query_usage_month || '').trim() ===
+                        new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit' })
+                          .format(new Date())
+                          .slice(0, 7)
+                          ? Number(control.padron_query_usage_count || 0)
+                          : 0;
+                      return lim == null || lim === '' ? `${used} (sin tope)` : `${used} / ${lim}`;
+                    })()}
+                  </strong>
+                </div>
+              </div>
             </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                className="btn-primary flex items-center gap-2"
+                onClick={() =>
+                  updateControl(
+                    {
+                      billing_date: control.billing_date || '',
+                      notify_days_before: Number(control.notify_days_before || 5),
+                      auto_block_on_overdue: Number(control.auto_block_on_overdue || 0),
+                      padron_monthly_query_limit: control.padron_monthly_query_limit,
+                    },
+                    'Parámetros de facturación guardados'
+                  )
+                }
+              >
+                <MdSave /> Guardar facturación
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tab === 'respaldo' && (
+          <div className="max-w-3xl">
+            <MasterRestaurantBackupPanel
+              textTone="slate"
+              cardClassName="card space-y-4"
+              onAfterMutate={() => {
+                window.location.reload();
+              }}
+            />
           </div>
         )}
 

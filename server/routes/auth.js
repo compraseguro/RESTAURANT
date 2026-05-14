@@ -4,8 +4,15 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { queryOne, runSql } = require('../database');
 const { JWT_SECRET, authenticateToken } = require('../middleware/auth');
-const { getLockState, verifyMasterCredentials, getMasterCredentialsPublic, getControlConfig } = require('../masterAdminService');
-const { getEffectivePermissions, normalizePlan } = require('../servicePlan');
+const {
+  getLockState,
+  verifyMasterCredentials,
+  getMasterCredentialsPublic,
+  getControlConfig,
+  getPadronQuotaPublic,
+} = require('../masterAdminService');
+const { normalizePlan } = require('../servicePlan');
+const { getEffectivePermissions, buildSubPermissions } = require('../planModuleCatalog');
 const { advanceStaffChatCycleIfDue, markAllStaffOfflineIfNeeded } = require('../staffChatService');
 const { getActiveCajaById } = require('../cajaSettings');
 
@@ -247,7 +254,10 @@ router.post('/login', (req, res) => {
 
   const control = getControlConfig();
   const plan = normalizePlan(control.service_plan);
-  const permissions = getEffectivePermissions(plan, user.role, getUserPermissions(user.id));
+  const moduleOverrides = control.service_plan_module_overrides || {};
+  const permissions = getEffectivePermissions(plan, user.role, getUserPermissions(user.id), moduleOverrides);
+  const sub_permissions = buildSubPermissions(plan, moduleOverrides, permissions);
+  const padron_quota = getPadronQuotaPublic();
   const cajaMeta =
     String(user.role || '').toLowerCase() === 'cajero'
       ? (() => {
@@ -265,6 +275,8 @@ router.post('/login', (req, res) => {
       role: user.role,
       avatar: user.avatar,
       permissions,
+      sub_permissions,
+      padron_quota,
       service_plan: plan,
       ui_theme: readUiThemeFromStoredSettings(),
       ...cajaMeta,
@@ -360,7 +372,10 @@ router.get('/me', authenticateToken, (req, res) => {
   );
   const control = getControlConfig();
   const plan = normalizePlan(control.service_plan);
-  const permissions = getEffectivePermissions(plan, user.role, getUserPermissions(req.user.id));
+  const moduleOverrides = control.service_plan_module_overrides || {};
+  const permissions = getEffectivePermissions(plan, user.role, getUserPermissions(req.user.id), moduleOverrides);
+  const sub_permissions = buildSubPermissions(plan, moduleOverrides, permissions);
+  const padron_quota = getPadronQuotaPublic();
   const caja =
     String(user?.role || '').toLowerCase() === 'cajero'
       ? getActiveCajaById(user?.caja_station_id)
@@ -368,6 +383,8 @@ router.get('/me', authenticateToken, (req, res) => {
   res.json({
     ...user,
     permissions,
+    sub_permissions,
+    padron_quota,
     service_plan: plan,
     type: 'staff',
     caja_name: caja?.name || '',

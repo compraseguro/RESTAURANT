@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { queryAll, queryOne, resetOperationalData } = require('../database');
 const { authenticateToken } = require('../middleware/auth');
+const { buildPlanModuleTrees } = require('../planModuleCatalog');
 const {
   PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE,
   getControlConfig,
@@ -65,6 +66,7 @@ router.get('/dashboard', (req, res) => {
     notifications,
     admin_users: adminUsers,
     master_credentials: getMasterCredentialsPublic(),
+    plan_module_trees: buildPlanModuleTrees(),
   });
 });
 

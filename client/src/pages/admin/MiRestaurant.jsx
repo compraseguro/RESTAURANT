@@ -6,9 +6,10 @@ import { api, resolveMediaUrl } from '../../utils/api';
 import { proximaFechaFromControlAnchor } from '../../utils/nextBillingFromAnchor';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
+import MasterRestaurantBackupPanel from '../../components/master/MasterRestaurantBackupPanel';
 import BillingSunatManualForm from '../../components/billing/BillingSunatManualForm';
 import { defaultBillingPanel } from '../../data/sunat47Catalog';
-import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdDownload, MdUpload, MdRestartAlt, MdPeople } from 'react-icons/md';
+import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdUpload, MdPeople } from 'react-icons/md';
 
 const DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
 const DAY_NAMES = { lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo' };
@@ -24,7 +25,9 @@ const MI_RESTAURANT_VIEWS = [
 export default function MiRestaurant() {
   const { user } = useAuth();
   const isMasterAdmin = user?.role === 'master_admin';
-  const planAllowsSunatView = isMasterAdmin || user?.service_plan === 'profesional';
+  const subMr = user?.sub_permissions?.mi_restaurant || {};
+  const planAllowsSunatView =
+    isMasterAdmin || (user?.service_plan === 'profesional' && subMr.facturacion_electronica !== false);
   const miRestaurantViewsForPlan = (() => {
     let v = planAllowsSunatView
       ? MI_RESTAURANT_VIEWS
@@ -32,6 +35,7 @@ export default function MiRestaurant() {
     if (!isMasterAdmin) {
       v = v.filter((x) => x.id !== 'informacion');
     }
+    v = v.filter((x) => subMr[x.id] !== false);
     return v;
   })();
   const isRestaurantAdmin = user?.role === 'admin';
@@ -44,7 +48,6 @@ export default function MiRestaurant() {
   const canEditPagoUsoComprobante = isMasterAdmin || isRestaurantAdmin;
   const [searchParams, setSearchParams] = useSearchParams();
   const logoInputRef = useRef(null);
-  const restoreInputRef = useRef(null);
   const comprobanteUsoInputRef = useRef(null);
   const [restaurant, setRestaurant] = useState(null);
   const [billingConfig, setBillingConfig] = useState({
@@ -95,9 +98,6 @@ export default function MiRestaurant() {
     },
   });
 
-  const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const [resetPassword, setResetPassword] = useState('');
-  const [resetBusy, setResetBusy] = useState(false);
   /** Fecha de facturación del control maestro (ancla para próxima fecha de pago por uso). */
   const [billingAnchorDate, setBillingAnchorDate] = useState('');
   /** Ventana de carga del comprobante (servidor): enlazada a fecha_proxima_facturación y días de gracia. */
@@ -476,86 +476,6 @@ export default function MiRestaurant() {
       toast.error(err.message || 'No se pudo subir el comprobante');
     } finally {
       if (comprobanteUsoInputRef.current) comprobanteUsoInputRef.current.value = '';
-    }
-  };
-
-  const downloadBackup = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/restaurant/backup', {
-        method: 'GET',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        throw new Error(data?.error || 'No se pudo descargar el backup');
-      }
-      const blob = await response.blob();
-      const disposition = response.headers.get('content-disposition') || '';
-      const match = disposition.match(/filename="?([^"]+)"?/i);
-      const filename = match?.[1] || `restaurant_backup_${new Date().toISOString().slice(0, 10)}.db`;
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast.success('Backup descargado');
-    } catch (err) {
-      toast.error(err.message || 'No se pudo descargar el backup');
-    }
-  };
-
-  const restoreBackup = async (file) => {
-    if (!file) return;
-    const confirmed = window.confirm('Esta acción reemplazará toda la información actual por la del backup. ¿Deseas continuar?');
-    if (!confirmed) return;
-    try {
-      const token = localStorage.getItem('token');
-      const form = new FormData();
-      form.append('backup', file);
-      const response = await fetch('/api/restaurant/restore', {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: form,
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.error || 'No se pudo restaurar el backup');
-      toast.success('Información restaurada correctamente');
-      setShowDataActions(false);
-      await loadInitialData();
-    } catch (err) {
-      toast.error(err.message || 'No se pudo restaurar el backup');
-    } finally {
-      if (restoreInputRef.current) restoreInputRef.current.value = '';
-    }
-  };
-
-  const openResetOperationalDialog = () => {
-    setResetPassword('');
-    setResetDialogOpen(true);
-  };
-
-  const submitResetOperational = async (e) => {
-    e?.preventDefault?.();
-    const pwd = String(resetPassword || '').trim();
-    if (!pwd) {
-      toast.error('Introduce la contraseña de reinicio.');
-      return;
-    }
-    setResetBusy(true);
-    try {
-      await api.post('/restaurant/reset-operational', { password: pwd });
-      toast.success('Datos operativos reiniciados para pruebas');
-      setResetDialogOpen(false);
-      setResetPassword('');
-      await loadInitialData();
-    } catch (err) {
-      toast.error(err.message || 'No se pudo reiniciar la información operativa');
-    } finally {
-      setResetBusy(false);
     }
   };
 
@@ -1123,40 +1043,7 @@ export default function MiRestaurant() {
               </div>
             </div>
           ) : activeView === 'informacion' ? (
-            <div className="card space-y-4">
-              <h3 className="font-bold text-[var(--ui-body-text)]">Respaldo y restauración de información</h3>
-              <p className="text-sm text-[var(--ui-muted)]">
-                Descarga una copia completa de datos antes de actualizar la app y luego restaura desde ese archivo para recuperar toda la información.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <button type="button" onClick={downloadBackup} className="w-full btn-secondary flex items-center justify-center gap-2">
-                  <MdDownload /> Guardar backup
-                </button>
-                <button type="button" onClick={() => restoreInputRef.current?.click()} className="w-full btn-primary flex items-center justify-center gap-2">
-                  <MdUpload /> Restaurar información
-                </button>
-                <input
-                  ref={restoreInputRef}
-                  type="file"
-                  accept=".db,application/octet-stream"
-                  className="hidden"
-                  onChange={(e) => restoreBackup(e.target.files?.[0])}
-                />
-              </div>
-              <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-sm text-amber-800">
-                Importante: al restaurar, se reemplaza la información actual por la del archivo de backup.
-              </div>
-              <div className="pt-2 flex justify-start">
-                <button
-                  type="button"
-                  onClick={openResetOperationalDialog}
-                  className="px-4 py-2 rounded-lg border border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 font-medium text-sm flex items-center gap-2"
-                >
-                  <MdRestartAlt />
-                  Reiniciar datos de la app (pruebas)
-                </button>
-              </div>
-            </div>
+            <MasterRestaurantBackupPanel onAfterMutate={loadInitialData} />
           ) : (
             <div className="card">
               <h3 className="font-bold text-[var(--ui-body-text)] mb-2">{activeViewLabel}</h3>
@@ -1221,47 +1108,6 @@ export default function MiRestaurant() {
         </div>
       </Modal>
 
-      <Modal
-        variant="light"
-        isOpen={resetDialogOpen}
-        onClose={() => !resetBusy && setResetDialogOpen(false)}
-        title="Reiniciar datos (pruebas)"
-        size="md"
-      >
-        <form onSubmit={submitResetOperational} className="space-y-4">
-          <p className="text-sm text-[var(--ui-muted)]">
-            Se borrarán ventas, pedidos, caja, clientes, productos y demás datos operativos. El{' '}
-            <strong>contrato del servicio</strong> (texto y firmas guardados en Mi Restaurante) no se elimina.
-          </p>
-          <div>
-            <label htmlFor="reset-operational-password" className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">
-              Contraseña de reinicio
-            </label>
-            <input
-              id="reset-operational-password"
-              type="password"
-              autoComplete="off"
-              value={resetPassword}
-              onChange={(e) => setResetPassword(e.target.value)}
-              className="input-field w-full"
-              placeholder="Contraseña"
-            />
-          </div>
-          <div className="flex gap-2 justify-end pt-2">
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={resetBusy}
-              onClick={() => setResetDialogOpen(false)}
-            >
-              Cancelar
-            </button>
-            <button type="submit" className="btn-primary" disabled={resetBusy}>
-              {resetBusy ? 'Reiniciando…' : 'Confirmar reinicio'}
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }

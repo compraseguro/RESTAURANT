@@ -43,30 +43,6 @@ function getModuleSetForPlan(planKey) {
   return PROFESIONAL;
 }
 
-function isPermissionEnabled(value) {
-  return value === true || value === 1 || value === '1' || value === 'true';
-}
-
-/**
- * @param {string} planKey
- * @param {string} role
- * @param {Record<string, boolean>} rawPerms permisos por usuario (cajero/mozo/…)
- * @returns {Record<string, boolean>}
- */
-function getEffectivePermissions(planKey, role, rawPerms = {}) {
-  const allowed = getModuleSetForPlan(planKey);
-  const r = String(role || '').toLowerCase();
-  return MODULE_IDS.reduce((acc, id) => {
-    const inPlan = allowed.has(id);
-    if (r === 'admin') {
-      acc[id] = inPlan;
-    } else {
-      acc[id] = inPlan && isPermissionEnabled(rawPerms[id]);
-    }
-    return acc;
-  }, {});
-}
-
 /** Requerimiento / recepción en almacén: solo intermedio o superior (marketing: almacén avanzado). */
 function planAllowsAlmacenAvanzado(planKey) {
   return normalizePlan(planKey) !== 'basico';
@@ -76,6 +52,5 @@ module.exports = {
   MODULE_IDS,
   normalizePlan,
   getModuleSetForPlan,
-  getEffectivePermissions,
   planAllowsAlmacenAvanzado,
 };

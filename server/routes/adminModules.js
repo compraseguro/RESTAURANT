@@ -8,6 +8,8 @@ const {
   assertComprobantePagoUsoChangeAllowed,
   releaseAutoLockIfComprobantePresent,
   evaluateAutomaticBillingRules,
+  assertPadronConsultAllowed,
+  recordSuccessfulPadronConsult,
 } = require('../masterAdminService');
 const { getOrderWithItems } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
@@ -412,12 +414,14 @@ router.get('/customers/by-document', requireRole('admin', 'cajero', 'mozo'), (re
 /** Consulta nombre/dirección por DNI o RUC (padrón vía API; token PERU_CONSULTAS_TOKEN en servidor). */
 router.get('/consulta-padron', async (req, res) => {
   try {
+    assertPadronConsultAllowed();
     const docType = normalizeDocType(req.query?.doc_type);
     const numero = normalizeDocNumber(req.query?.numero);
     const out = await consultarPadronPeru(docType, numero);
+    recordSuccessfulPadronConsult();
     res.json(out);
   } catch (err) {
-    const code = err.code === 'NO_TOKEN' ? 503 : 400;
+    const code = err.code === 'NO_TOKEN' ? 503 : err.code === 'PADRON_LIMIT' ? 429 : 400;
     res.status(code).json({ error: err.message || 'Consulta no disponible' });
   }
 });
