@@ -190,13 +190,13 @@ export default function Tables() {
   });
   const activeOrdersForTable = selectedTable?.orders || [];
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
+  if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ui-accent)] border-t-transparent" /></div>;
 
   return (
     <div>
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-slate-800">Mesas</h1>
-        <p className="text-sm text-slate-500 mt-1">Gestión de salón y consumo por mesa</p>
+        <h1 className="text-2xl font-bold text-[var(--ui-body-text)]">Mesas</h1>
+        <p className="mt-1 text-sm text-[var(--ui-muted)]">Gestión de salón y consumo por mesa</p>
       </div>
 
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -205,10 +205,10 @@ export default function Tables() {
             <button
               key={salonId}
               onClick={() => setSelectedSalon(salonId)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
                 selectedSalon === salonId
-                  ? 'bg-[#3B82F6] text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'border-[color:var(--ui-border)] bg-[var(--ui-accent)] text-white shadow-sm'
+                  : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
               }`}
             >
               {salonLabel(salonId)}
@@ -223,7 +223,7 @@ export default function Tables() {
                 key={action.id}
                 type="button"
                 onClick={() => openAction(action.id)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200"
+                className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-1.5 text-xs font-medium text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]"
               >
                 {action.label}
               </button>
@@ -251,24 +251,26 @@ export default function Tables() {
                 style={cardStyle}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="inline-flex items-center rounded-md bg-[#1E3A8A] px-2 py-0.5">
+                  <span className="inline-flex items-center rounded-md bg-[var(--ui-accent)] px-2 py-0.5">
                     <p className="font-bold text-white">{table.name}</p>
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={badgeStyle}>
                     {isOccupied ? 'Ocupada' : 'Libre'}
                   </span>
                 </div>
-                <p className="text-xs text-[#1E3A8A]">{table.capacity} pers.</p>
+                <p className="text-xs text-[var(--ui-accent-muted)]">{table.capacity} pers.</p>
                 <p className="text-xs mt-1 font-medium" style={stateTextStyle}>
                   {isOccupied ? `${table.orders?.length || 0} pedido(s)` : 'Disponible'}
                 </p>
-                {isOccupied && <p className="text-sm font-bold text-slate-700 mt-1">{formatCurrency(table.order_total || 0)}</p>}
+                {isOccupied && (
+                  <p className="mt-1 text-sm font-bold text-[var(--ui-body-text)]">{formatCurrency(table.order_total || 0)}</p>
+                )}
               </button>
             );
           })}
           {tablesToShow.length === 0 && (
-            <div className="col-span-full text-center py-16 text-slate-400">
-              <MdTableRestaurant className="text-5xl mx-auto mb-3 opacity-40" />
+            <div className="col-span-full py-16 text-center text-[var(--ui-muted)]">
+              <MdTableRestaurant className="mx-auto mb-3 text-5xl opacity-40" />
               <p>No hay mesas en este salón</p>
             </div>
           )}
@@ -376,7 +378,7 @@ export default function Tables() {
         <div className="space-y-3">
           {actionType && (actionType === 'move' || actionType === 'merge') && (
             <div>
-              <label className="block text-sm text-slate-700 mb-1">
+              <label className="mb-1 block text-sm text-[var(--ui-body-text)]">
                 {actionType === 'merge' ? 'Primera mesa' : 'Mesa origen'}
               </label>
               <select
@@ -397,7 +399,7 @@ export default function Tables() {
 
           {actionType && (actionType === 'merge' || actionType === 'move') && (
             <div>
-              <label className="block text-sm text-slate-700 mb-1">
+              <label className="mb-1 block text-sm text-[var(--ui-body-text)]">
                 {actionType === 'merge' ? 'Segunda mesa' : 'Mesa destino'}
               </label>
               <select value={targetTableId} onChange={e => setTargetTableId(e.target.value)} className="input-field">
