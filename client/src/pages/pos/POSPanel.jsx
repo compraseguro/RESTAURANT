@@ -2555,19 +2555,12 @@ export default function POSPanel() {
       </div>
 
       {mesaDetailModalOpen && tableDetail && (
-        <div className="fixed inset-0 z-[200] pt-14 pointer-events-none">
-          <button
-            type="button"
-            className="pointer-events-auto absolute inset-x-0 bottom-0 top-14 z-0 cursor-default border-0 bg-[var(--ui-body-bg)] p-0"
-            aria-label="Cerrar detalle de mesa"
-            onClick={() => setMesaDetailModalOpen(false)}
-          />
-          <div
-            className="pointer-events-auto absolute top-14 right-0 bottom-0 z-10 flex w-full min-w-0 flex-col border-l border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-body-text)] shadow-2xl md:w-1/2 md:max-w-[920px]"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="pos-mesa-detail-title"
-          >
+        <div
+          className="fixed top-14 right-0 bottom-0 z-[200] flex w-full min-w-0 flex-col border-l border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-body-text)] shadow-2xl md:w-1/2 md:max-w-[920px]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pos-mesa-detail-title"
+        >
           <div className="flex items-center justify-between gap-3 shrink-0 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2.5 sm:px-4">
             <h2 id="pos-mesa-detail-title" className="font-semibold flex items-center gap-2 text-base sm:text-lg min-w-0 truncate text-[var(--ui-body-text)]">
               <MdTableRestaurant className="shrink-0 text-[var(--ui-accent-muted)]" />
@@ -2716,7 +2709,6 @@ export default function POSPanel() {
                 </button>
               </div>
             </div>
-          </div>
           </div>
         </div>
       )}

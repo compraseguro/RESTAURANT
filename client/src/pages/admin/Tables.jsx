@@ -278,17 +278,10 @@ export default function Tables() {
       </div>
 
       {showMenu && selectedTable && (
-        <>
-          <button
-            type="button"
-            className="fixed inset-x-0 bottom-0 top-14 z-[99] cursor-default border-0 bg-[var(--ui-body-bg)] p-0"
-            aria-label="Cerrar panel de pedido"
-            onClick={closeMenuPanel}
-          />
-          <aside
-            className="fixed top-14 right-0 bottom-0 z-[100] flex w-full min-w-0 flex-col border-l border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-body-text)] shadow-2xl md:w-1/2 md:max-w-[920px]"
-            aria-labelledby="tables-add-order-title"
-          >
+        <aside
+          className="fixed top-14 right-0 bottom-0 z-[100] flex w-full min-w-0 flex-col border-l border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-body-text)] shadow-2xl md:w-1/2 md:max-w-[920px]"
+          aria-labelledby="tables-add-order-title"
+        >
           <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-4 py-3 sm:px-5">
             <div>
               <h3 id="tables-add-order-title" className="text-lg font-bold text-[var(--ui-body-text)]">
@@ -366,7 +359,6 @@ export default function Tables() {
             </div>
           </div>
           </aside>
-        </>
       )}
 
       <Modal
