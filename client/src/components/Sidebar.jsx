@@ -125,7 +125,13 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
       ? miRestaurantSubOptionsByPlan
       : miRestaurantSubOptionsByPlan.filter((o) => o.id !== 'informacion');
   const subCaja = user?.sub_permissions?.caja || {};
-  const cajaSubOptions = cajaSubOptionsAll.filter((o) => subCaja[o.id] !== false);
+  const cajaSubOptions = cajaSubOptionsAll.filter((o) => {
+    if (subCaja[o.id] === false) return false;
+    if (String(user?.role || '').toLowerCase() === 'cajero' && (o.id === 'apertura_cierre' || o.id === 'cierres_caja')) {
+      return false;
+    }
+    return true;
+  });
   const visibleLinks = user?.role === 'cajero'
     ? [
         filtered.find(l => l.to === '/admin/caja'),

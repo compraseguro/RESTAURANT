@@ -155,6 +155,14 @@ function isDeliveryCheckoutTable(table) {
 function deliveryOrderIdFromSlotTable(table) {
   return String(table?.id || '').slice(POS_DELIVERY_SLOT_PREFIX.length);
 }
+const CAJA_OPTIONS_CAJERO_IDS = new Set([
+  'cobrar',
+  'ingresos',
+  'egresos',
+  'notas_credito',
+  'notas_debito',
+  'consulta_precios',
+]);
 const CAJA_OPTIONS = [
   { id: 'cobrar', label: 'Cobrar' },
   { id: 'reservas', label: 'Reservas' },
@@ -433,6 +441,12 @@ export default function POSPanel() {
     company_ruc: '',
   });
   const { user } = useAuth();
+  const cajaOptionsForRole = useMemo(() => {
+    if (String(user?.role || '').toLowerCase() === 'cajero') {
+      return CAJA_OPTIONS.filter((o) => CAJA_OPTIONS_CAJERO_IDS.has(o.id));
+    }
+    return CAJA_OPTIONS;
+  }, [user?.role]);
   useEffect(() => {
     setPadronUsedBump(0);
   }, [user?.padron_quota?.month, user?.id]);
@@ -472,10 +486,15 @@ export default function POSPanel() {
     if (String(user?.role || '').toLowerCase() !== 'admin' || !rid) return {};
     return { register_id: rid };
   }, [user?.role, adminRegisterId]);
-  const openCajaView = (view) => {
-    setActiveCajaOption(view);
-    setSearchParams({ view }, { replace: true });
-  };
+  const openCajaView = useCallback(
+    (view) => {
+      const allowed = cajaOptionsForRole.some((o) => o.id === view);
+      const v = allowed ? view : 'cobrar';
+      setActiveCajaOption(v);
+      setSearchParams({ view: v }, { replace: true });
+    },
+    [cajaOptionsForRole, setSearchParams]
+  );
 
   const loadData = async (opts = {}) => {
     try {
@@ -666,19 +685,20 @@ export default function POSPanel() {
 
   useEffect(() => {
     const requestedView = searchParams.get('view');
-    const isValidView = CAJA_OPTIONS.some(option => option.id === requestedView);
+    const isValidView = cajaOptionsForRole.some((option) => option.id === requestedView);
     if (isValidView && requestedView !== activeCajaOption) {
       setActiveCajaOption(requestedView);
       return;
     }
-    if (!isValidView && activeCajaOption !== 'cobrar') {
-      setSearchParams({ view: activeCajaOption }, { replace: true });
+    if (!isValidView && requestedView) {
+      setActiveCajaOption('cobrar');
+      setSearchParams({ view: 'cobrar' }, { replace: true });
       return;
     }
     if (!isValidView && !requestedView) {
       setSearchParams({ view: 'cobrar' }, { replace: true });
     }
-  }, [activeCajaOption, searchParams, setSearchParams]);
+  }, [activeCajaOption, searchParams, setSearchParams, cajaOptionsForRole]);
 
   useEffect(() => {
     if (activeCajaOption !== 'cobrar') setMesaDetailModalOpen(false);
@@ -2742,6 +2762,7 @@ export default function POSPanel() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        {cajaOptionsForRole.some((o) => o.id === 'reservas') && (
         <button
           onClick={() => openCajaView('reservas')}
           className="card flex items-center gap-3 hover:border-indigo-300 text-left"
@@ -2754,6 +2775,7 @@ export default function POSPanel() {
             <p className="text-xl font-bold text-indigo-700">{reservationQueue.length}</p>
           </div>
         </button>
+        )}
         <div className="card flex items-center gap-3">
           <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center"><MdTableRestaurant className="text-sky-600 text-xl" /></div>
           <div><p className="text-xs text-slate-500">Total Mesas</p><p className="text-xl font-bold">{tables.length}</p></div>
@@ -2775,6 +2797,7 @@ export default function POSPanel() {
             <p className="text-xl font-bold text-emerald-700">{formatCurrency(todaySales)}</p>
           </div>
         </div>
+        {String(user?.role || '').toLowerCase() !== 'cajero' && (
         <button
           onClick={prepareClose}
           className="card flex items-center gap-3 hover:border-red-300 text-left"
@@ -2784,6 +2807,7 @@ export default function POSPanel() {
           </div>
           <p className="text-xl font-bold text-red-700">Cerrar Caja</p>
         </button>
+        )}
       </div>
         </>
       )}
