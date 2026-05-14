@@ -343,6 +343,7 @@ export default function POSPanel() {
   const [paymentOptions, setPaymentOptions] = useState(getPaymentMethodOptions(null, { includeOnline: false }));
   const [multiPayEnabled, setMultiPayEnabled] = useState(false);
   const [multiPayAmounts, setMultiPayAmounts] = useState(() => emptyMultiPaymentAmounts());
+  const [tipPayEnabled, setTipPayEnabled] = useState(false);
   const [checkoutTipAmount, setCheckoutTipAmount] = useState('');
   const [amountReceived, setAmountReceived] = useState('');
   const [billingForm, setBillingForm] = useState(DEFAULT_BILLING_FORM);
@@ -659,6 +660,7 @@ export default function POSPanel() {
     if (!showBill) return;
     setMultiPayEnabled(false);
     setMultiPayAmounts(emptyMultiPaymentAmounts());
+    setTipPayEnabled(false);
     setCheckoutTipAmount('');
   }, [showBill, selectedTable?.id]);
 
@@ -1302,7 +1304,7 @@ export default function POSPanel() {
         discount_reason: discountConfig.reason,
       };
       if (checkoutPaymentBreakdown) checkoutBody.payment_breakdown = checkoutPaymentBreakdown;
-      if (multiPayEnabled) {
+      if (tipPayEnabled) {
         const tipVal = roundMoneySoles(parseFloat(String(checkoutTipAmount).replace(',', '.')) || 0);
         if (tipVal > 0) checkoutBody.tip_amount = tipVal;
       }
@@ -1413,6 +1415,10 @@ export default function POSPanel() {
       clientCheckoutOpenedKeyRef.current = '';
       setSelectedTable(null);
       setAmountReceived('');
+      setMultiPayEnabled(false);
+      setMultiPayAmounts(emptyMultiPaymentAmounts());
+      setTipPayEnabled(false);
+      setCheckoutTipAmount('');
       resetBillingForm();
       loadData();
     } catch (err) { toast.error(err.message); }
@@ -1657,6 +1663,7 @@ export default function POSPanel() {
     setPaymentMethod('efectivo');
     setMultiPayEnabled(false);
     setMultiPayAmounts(emptyMultiPaymentAmounts());
+    setTipPayEnabled(false);
     setCheckoutTipAmount('');
     setShowMenu(true);
     resetCart();
@@ -1796,8 +1803,8 @@ export default function POSPanel() {
           doc = await issueElectronicDocument(createdOrder.id);
         }
         const payBody = { payment_method: quickPayMethod, payment_status: 'paid' };
-        if (quickPayBreakdown) {
-          payBody.payment_breakdown = quickPayBreakdown;
+        if (quickPayBreakdown) payBody.payment_breakdown = quickPayBreakdown;
+        if (tipPayEnabled) {
           const tipVal = roundMoneySoles(parseFloat(String(checkoutTipAmount).replace(',', '.')) || 0);
           if (tipVal > 0) payBody.tip_amount = tipVal;
         }
@@ -1816,6 +1823,7 @@ export default function POSPanel() {
       setQuickSaleMode(false);
       resetCart();
       setAmountReceived('');
+      setTipPayEnabled(false);
       setCheckoutTipAmount('');
       resetBillingForm();
       loadData();
@@ -3047,6 +3055,7 @@ export default function POSPanel() {
           setAmountReceived('');
           setMultiPayEnabled(false);
           setMultiPayAmounts(emptyMultiPaymentAmounts());
+          setTipPayEnabled(false);
           setCheckoutTipAmount('');
           resetBillingForm();
           resetCart();
@@ -3098,11 +3107,7 @@ export default function POSPanel() {
                     <input
                       type="checkbox"
                       checked={multiPayEnabled}
-                      onChange={(e) => {
-                        const on = e.target.checked;
-                        setMultiPayEnabled(on);
-                        if (!on) setCheckoutTipAmount('');
-                      }}
+                      onChange={(e) => setMultiPayEnabled(e.target.checked)}
                       className="rounded border-[color:var(--ui-accent)]"
                     />
                     Pago multimétodo
@@ -3136,18 +3141,35 @@ export default function POSPanel() {
                       <p className={`text-xs ${Math.abs(multiPaySumProof - cartTotal) <= 0.05 ? 'text-emerald-400' : 'text-amber-300'}`}>
                         Suma: {formatCurrency(multiPaySumProof)} · Total {formatCurrency(cartTotal)}
                       </p>
-                      <div className="pt-2 mt-2 border-t border-[color:var(--ui-border)]/70">
-                        <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Propina (opcional)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="input-field w-full text-sm"
-                          placeholder="0.00"
-                          value={checkoutTipAmount}
-                          onChange={(e) => setCheckoutTipAmount(e.target.value)}
-                        />
-                      </div>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 text-xs font-medium text-[#E5E7EB] mb-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tipPayEnabled}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setTipPayEnabled(on);
+                        if (!on) setCheckoutTipAmount('');
+                      }}
+                      className="rounded border-[color:var(--ui-accent)]"
+                    />
+                    Propina (opcional)
+                  </label>
+                  {tipPayEnabled && (
+                    <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)]/40 p-2">
+                      <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Monto propina</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="input-field w-full text-sm"
+                        placeholder="0.00"
+                        value={checkoutTipAmount}
+                        onChange={(e) => setCheckoutTipAmount(e.target.value)}
+                      />
                     </div>
                   )}
                 </div>
@@ -3941,11 +3963,7 @@ export default function POSPanel() {
                         <input
                           type="checkbox"
                           checked={multiPayEnabled}
-                          onChange={(e) => {
-                            const on = e.target.checked;
-                            setMultiPayEnabled(on);
-                            if (!on) setCheckoutTipAmount('');
-                          }}
+                          onChange={(e) => setMultiPayEnabled(e.target.checked)}
                           className="rounded border-[color:var(--ui-accent)]"
                         />
                         Pago multimétodo
@@ -3983,18 +4001,35 @@ export default function POSPanel() {
                           <p className={`text-xs ${Math.abs(multiPaySumProof - payableTotal) <= 0.05 ? 'text-emerald-400' : 'text-amber-300'}`}>
                             Suma: {formatCurrency(multiPaySumProof)} · Debe ser {formatCurrency(payableTotal)}
                           </p>
-                          <div className="pt-2 mt-2 border-t border-[color:var(--ui-border)]/70">
-                            <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Propina (opcional)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className="input-field w-full text-sm"
-                              placeholder="0.00"
-                              value={checkoutTipAmount}
-                              onChange={(e) => setCheckoutTipAmount(e.target.value)}
-                            />
-                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="flex items-center gap-2 text-xs font-medium text-[#E5E7EB] mb-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tipPayEnabled}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setTipPayEnabled(on);
+                            if (!on) setCheckoutTipAmount('');
+                          }}
+                          className="rounded border-[color:var(--ui-accent)]"
+                        />
+                        Propina (opcional)
+                      </label>
+                      {tipPayEnabled && (
+                        <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)]/40 p-2">
+                          <label className="block text-xs font-medium text-[#E5E7EB] mb-1">Monto propina</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="input-field w-full text-sm"
+                            placeholder="0.00"
+                            value={checkoutTipAmount}
+                            onChange={(e) => setCheckoutTipAmount(e.target.value)}
+                          />
                         </div>
                       )}
                     </div>

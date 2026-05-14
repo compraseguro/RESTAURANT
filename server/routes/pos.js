@@ -851,9 +851,6 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
       }
 
       const tipGross = round2(Math.max(0, Number(tipAmountRaw || 0)));
-      if (tipGross > 0 && !paymentBreakdownObj) {
-        throw new Error('La propina solo puede registrarse con pago multimétodo');
-      }
       const tipsPerOrder = distributeTipAcrossOrders(tipGross, toCharge.map((r) => r.total));
 
       const chargedOrderIds = [];
