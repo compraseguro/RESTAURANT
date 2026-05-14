@@ -254,7 +254,7 @@ export default function Tables() {
                   <span className="inline-flex w-fit max-w-full items-center rounded-md bg-[var(--ui-accent)] px-2 py-0.5">
                     <span className="truncate font-bold text-white">{table.name}</span>
                   </span>
-                  <p className="text-xs font-medium text-[var(--ui-body-text)]">{table.capacity} pers.</p>
+                  <p className="text-xs font-semibold text-neutral-900 tabular-nums">{table.capacity} pers.</p>
                   <span className="mt-auto inline-flex w-fit text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={badgeStyle}>
                     {isOccupied ? 'Ocupada' : 'Disponible'}
                   </span>
