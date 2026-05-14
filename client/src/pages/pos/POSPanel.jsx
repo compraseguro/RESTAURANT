@@ -1500,6 +1500,7 @@ export default function POSPanel() {
 
   const openMesaTableAction = (type) => {
     if (!tableDetail || isDeliveryCheckoutTable(tableDetail)) return;
+    setMesaDetailModalOpen(false);
     setMesaTableAction({ type, sourceId: tableDetail.id, targetId: '' });
   };
 
@@ -1531,6 +1532,7 @@ export default function POSPanel() {
 
   const openMenuForTable = (table) => {
     if (isDeliveryCheckoutTable(table)) return;
+    setMesaDetailModalOpen(false);
     setQuickSaleMode(false);
     setEditingOrderId('');
     setEditingSessionOrderIds([]);
@@ -1563,6 +1565,7 @@ export default function POSPanel() {
       return String(b.created_at || '').localeCompare(String(a.created_at || ''));
     });
     const primary = sorted[0];
+    setMesaDetailModalOpen(false);
     setQuickSaleMode(false);
     setEditingSessionOrderIds(editable.map((o) => o.id));
     setEditingOrderId(primary.id);
@@ -2412,12 +2415,12 @@ export default function POSPanel() {
     }
   };
 
-  /** Botones de acciones del mapa de mesas (misma altura, una fila). */
+  /** Botones de acciones del detalle de mesa (tema app, sin fondos fijos claros). */
   const mesaMapActionBtnClass =
-    'flex-1 min-w-0 basis-0 min-h-[44px] shrink-0 px-1 sm:px-2 py-2 rounded-lg text-[11px] sm:text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors inline-flex items-center justify-center gap-1 text-center leading-tight disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50';
+    'flex-1 min-w-0 basis-0 min-h-[44px] shrink-0 px-1 sm:px-2 py-2 rounded-lg text-[11px] sm:text-sm font-semibold border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] shadow-sm hover:bg-[var(--ui-sidebar-hover)] transition-colors inline-flex items-center justify-center gap-1 text-center leading-tight disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[var(--ui-surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-body-bg)]';
   /** Cobrar: mismo estilo que el botón principal del modal de cobro. */
   const mesaMapCobrarBtnClass =
-    'flex-1 min-w-0 basis-0 min-h-[44px] shrink-0 px-1 sm:px-2 py-2 rounded-xl text-[11px] sm:text-sm font-bold border-0 uppercase tracking-wide text-white bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] shadow-lg shadow-[#1D4ED8]/25 hover:from-[#1D4ED8] hover:to-[#1E40AF] inline-flex items-center justify-center gap-1 text-center leading-tight disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-[#2563EB] disabled:hover:to-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50';
+    'flex-1 min-w-0 basis-0 min-h-[44px] shrink-0 px-1 sm:px-2 py-2 rounded-xl text-[11px] sm:text-sm font-bold border-0 uppercase tracking-wide text-white bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] shadow-lg shadow-[#1D4ED8]/25 hover:from-[#1D4ED8] hover:to-[#1E40AF] inline-flex items-center justify-center gap-1 text-center leading-tight disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-[#2563EB] disabled:hover:to-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ui-body-bg)]';
 
   return (
     <div>
@@ -2552,164 +2555,158 @@ export default function POSPanel() {
       </div>
 
       {mesaDetailModalOpen && tableDetail && (
-        <div className="fixed inset-0 z-40 pt-14 sm:pt-[4.25rem] pb-1.5 px-1.5 sm:pb-2 sm:px-2 pointer-events-none">
-          <button
-            type="button"
-            className="absolute inset-0 bg-slate-950 pointer-events-auto cursor-default border-0 p-0"
-            aria-label="Cerrar detalle de mesa"
-            onClick={() => setMesaDetailModalOpen(false)}
-          />
-          <div
-            className="relative pointer-events-auto ml-auto flex h-[calc(100dvh-3.75rem)] max-h-[calc(100dvh-3.75rem)] w-full max-w-[min(1040px,calc(100vw-0.75rem))] sm:max-w-[min(920px,52vw)] flex-col rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="pos-mesa-detail-title"
-          >
-            <div className="flex items-center justify-between gap-3 shrink-0 border-b border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
-              <h2 id="pos-mesa-detail-title" className="font-semibold text-slate-800 flex items-center gap-2 text-base sm:text-lg min-w-0 truncate">
-                <MdTableRestaurant className="shrink-0 text-slate-600" />
-                <span className="truncate">{tableDetail.name}</span>
-              </h2>
-              <button
-                type="button"
-                onClick={() => setMesaDetailModalOpen(false)}
-                className="shrink-0 rounded-lg p-2 text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors"
-                aria-label="Cerrar"
-              >
-                <MdClose className="text-2xl" />
-              </button>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 lg:p-5">
-              <div className="card flex flex-col min-h-0 max-h-full shadow-md border-slate-200 bg-white overflow-hidden">
-                <div className="flex items-start justify-between gap-3 mb-3 shrink-0 border-b border-slate-100 pb-3">
-                  <div className="min-w-0">
-                    <p className="text-xs text-slate-500">
-                      {isDeliveryCheckoutTable(tableDetail)
-                        ? (() => {
-                            const o = tableDetail.orders?.[0];
-                            if (!o) return 'Sin pedido';
-                            return [o.customer_name, o.delivery_address].filter(Boolean).join(' · ') || 'Delivery';
-                          })()
-                        : tableDetail.orders?.length
-                          ? `${tableDetail.orders.length} pedido(s) activo(s)`
-                          : 'Sin pedidos activos'}
-                    </p>
-                  </div>
-                  <p className="text-xl font-bold text-gold-600 shrink-0 tabular-nums">
-                    {formatCurrency((tableDetail.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}
+        <div
+          className="fixed inset-x-0 bottom-0 top-14 z-[200] flex flex-col bg-[var(--ui-body-bg)] text-[var(--ui-body-text)]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pos-mesa-detail-title"
+        >
+          <div className="flex items-center justify-between gap-3 shrink-0 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2.5 sm:px-4">
+            <h2 id="pos-mesa-detail-title" className="font-semibold flex items-center gap-2 text-base sm:text-lg min-w-0 truncate text-[var(--ui-body-text)]">
+              <MdTableRestaurant className="shrink-0 text-[var(--ui-accent-muted)]" />
+              <span className="truncate">{tableDetail.name}</span>
+            </h2>
+            <button
+              type="button"
+              onClick={() => setMesaDetailModalOpen(false)}
+              className="shrink-0 rounded-lg p-2 text-[var(--ui-muted)] hover:bg-[var(--ui-sidebar-hover)] hover:text-[var(--ui-body-text)] transition-colors"
+              aria-label="Cerrar"
+            >
+              <MdClose className="text-2xl" />
+            </button>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 lg:p-5">
+            <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3">
+              <div className="flex items-start justify-between gap-3 border-b border-[color:var(--ui-border)] pb-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-[var(--ui-muted)]">
+                    {isDeliveryCheckoutTable(tableDetail)
+                      ? (() => {
+                          const o = tableDetail.orders?.[0];
+                          if (!o) return 'Sin pedido';
+                          return [o.customer_name, o.delivery_address].filter(Boolean).join(' · ') || 'Delivery';
+                        })()
+                      : tableDetail.orders?.length
+                        ? `${tableDetail.orders.length} pedido(s) activo(s)`
+                        : 'Sin pedidos activos'}
                   </p>
                 </div>
+                <p className="text-xl font-bold text-[var(--ui-accent-muted)] shrink-0 tabular-nums">
+                  {formatCurrency((tableDetail.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}
+                </p>
+              </div>
 
-                <div className="flex-1 min-h-0 max-h-[min(52vh,28rem)] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-3 mb-3 text-slate-700">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Productos en la mesa</p>
-                  {(() => {
-                    const lines = mergedProductsOnTable(tableDetail);
-                    const totalMesa = (tableDetail.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0);
-                    if (!lines.length) {
-                      return <p className="text-center text-slate-400 py-6 text-sm">No hay productos para mostrar.</p>;
-                    }
-                    return (
-                      <>
-                        <ul className="space-y-1.5 text-sm">
-                          {lines.map((row) => (
-                            <li
-                              key={row.key}
-                              className="flex justify-between gap-2 border-b border-slate-200 pb-1.5 last:border-0 last:pb-0"
-                            >
-                              <span className="min-w-0">
-                                <span className="font-medium text-slate-900">{row.name}</span>
-                                <span className="text-slate-500"> × {row.qty}</span>
-                              </span>
-                              <span className="shrink-0 tabular-nums font-medium text-sky-700">
-                                {formatCurrency(row.subtotal)}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                        <div className="flex justify-between border-t border-slate-200 pt-3 mt-3 text-base font-bold text-slate-900">
-                          <span>Total</span>
-                          <span className="text-gold-600">{formatCurrency(totalMesa)}</span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
+              <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-3 text-[var(--ui-body-text)]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-2">Productos en la mesa</p>
+                {(() => {
+                  const lines = mergedProductsOnTable(tableDetail);
+                  const totalMesa = (tableDetail.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0);
+                  if (!lines.length) {
+                    return <p className="text-center text-[var(--ui-muted)] py-6 text-sm">No hay productos para mostrar.</p>;
+                  }
+                  return (
+                    <>
+                      <ul className="space-y-1.5 text-sm">
+                        {lines.map((row) => (
+                          <li
+                            key={row.key}
+                            className="flex justify-between gap-2 border-b border-[color:var(--ui-border)] pb-1.5 last:border-0 last:pb-0"
+                          >
+                            <span className="min-w-0">
+                              <span className="font-medium text-[var(--ui-body-text)]">{row.name}</span>
+                              <span className="text-[var(--ui-muted)]"> × {row.qty}</span>
+                            </span>
+                            <span className="shrink-0 tabular-nums font-medium text-[var(--ui-accent-muted)]">
+                              {formatCurrency(row.subtotal)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex justify-between border-t border-[color:var(--ui-border)] pt-3 mt-3 text-base font-bold text-[var(--ui-body-text)]">
+                        <span>Total</span>
+                        <span className="text-[var(--ui-accent-muted)]">{formatCurrency(totalMesa)}</span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
 
-                <div className="flex flex-nowrap gap-2 shrink-0 min-h-[48px] overflow-x-auto pb-0.5">
-                  {!isDeliveryCheckoutTable(tableDetail) && (
-                    <button
-                      type="button"
-                      onClick={() => openMenuForTable(tableDetail)}
-                      className={mesaMapActionBtnClass}
-                    >
-                      <MdRestaurantMenu className="shrink-0 text-lg" />
-                      <span className="truncate">Tomar pedido</span>
-                    </button>
-                  )}
+              <div className="flex flex-nowrap gap-2 shrink-0 min-h-[48px] overflow-x-auto pb-1 pt-1">
+                {!isDeliveryCheckoutTable(tableDetail) && (
                   <button
                     type="button"
-                    title="Modificar pedido"
-                    onClick={openEditOrderFromToolbar}
-                    disabled={
-                      !tableDetail.orders?.length ||
-                      isClientCheckoutTable(tableDetail) ||
-                      !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
-                    }
+                    onClick={() => openMenuForTable(tableDetail)}
                     className={mesaMapActionBtnClass}
                   >
-                    <MdEdit className="shrink-0 text-lg" />
-                    <span className="truncate">Modificar pedido</span>
+                    <MdRestaurantMenu className="shrink-0 text-lg" />
+                    <span className="truncate">Tomar pedido</span>
                   </button>
-                  {!isDeliveryCheckoutTable(tableDetail) && (
-                    <button
-                      type="button"
-                      onClick={() => openMesaTableAction('move')}
-                      className={mesaMapActionBtnClass}
-                    >
-                      <MdSwapHoriz className="shrink-0 text-lg" />
-                      <span className="truncate">Mover</span>
-                    </button>
-                  )}
-                  {!isDeliveryCheckoutTable(tableDetail) && (
-                    <button
-                      type="button"
-                      onClick={() => openMesaTableAction('merge')}
-                      className={mesaMapActionBtnClass}
-                    >
-                      <MdMerge className="shrink-0 text-lg" />
-                      <span className="truncate">Unir</span>
-                    </button>
-                  )}
+                )}
+                <button
+                  type="button"
+                  title="Modificar pedido"
+                  onClick={openEditOrderFromToolbar}
+                  disabled={
+                    !tableDetail.orders?.length ||
+                    isClientCheckoutTable(tableDetail) ||
+                    !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
+                  }
+                  className={mesaMapActionBtnClass}
+                >
+                  <MdEdit className="shrink-0 text-lg" />
+                  <span className="truncate">Modificar pedido</span>
+                </button>
+                {!isDeliveryCheckoutTable(tableDetail) && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedTable(tableDetail);
-                      void printPrecuenta(tableDetail);
-                    }}
-                    disabled={!tableDetail.orders?.length}
+                    onClick={() => openMesaTableAction('move')}
                     className={mesaMapActionBtnClass}
                   >
-                    <MdPrint className="shrink-0 text-lg" />
-                    <span className="truncate">Pre cuenta</span>
+                    <MdSwapHoriz className="shrink-0 text-lg" />
+                    <span className="truncate">Mover</span>
                   </button>
+                )}
+                {!isDeliveryCheckoutTable(tableDetail) && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedTable(tableDetail);
-                      setShowBill(true);
-                      setPaymentMethod('efectivo');
-                      setAmountReceived('');
-                      setSplitMode(false);
-                      setSelectedOrderItemIds(collectAllOrderItemIds(tableDetail.orders));
-                      setDiscountConfig({ ...EMPTY_DISCOUNT_CONFIG });
-                    }}
-                    disabled={!tableDetail.orders?.length}
-                    className={mesaMapCobrarBtnClass}
+                    onClick={() => openMesaTableAction('merge')}
+                    className={mesaMapActionBtnClass}
                   >
-                    <MdAttachMoney className="shrink-0 text-lg" />
-                    <span className="truncate">{isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar'}</span>
+                    <MdMerge className="shrink-0 text-lg" />
+                    <span className="truncate">Unir</span>
                   </button>
-                </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTable(tableDetail);
+                    void printPrecuenta(tableDetail);
+                  }}
+                  disabled={!tableDetail.orders?.length}
+                  className={mesaMapActionBtnClass}
+                >
+                  <MdPrint className="shrink-0 text-lg" />
+                  <span className="truncate">Pre cuenta</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMesaDetailModalOpen(false);
+                    setSelectedTable(tableDetail);
+                    setShowBill(true);
+                    setPaymentMethod('efectivo');
+                    setAmountReceived('');
+                    setSplitMode(false);
+                    setSelectedOrderItemIds(collectAllOrderItemIds(tableDetail.orders));
+                    setDiscountConfig({ ...EMPTY_DISCOUNT_CONFIG });
+                  }}
+                  disabled={!tableDetail.orders?.length}
+                  className={mesaMapCobrarBtnClass}
+                >
+                  <MdAttachMoney className="shrink-0 text-lg" />
+                  <span className="truncate">{isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar'}</span>
+                </button>
               </div>
             </div>
           </div>

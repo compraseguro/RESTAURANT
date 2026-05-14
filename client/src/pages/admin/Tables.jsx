@@ -276,25 +276,29 @@ export default function Tables() {
       </div>
 
       {showMenu && selectedTable && (
-        <>
-          <div className="fixed inset-0 bg-black/30 z-40" onClick={closeMenuPanel} />
-          <aside className="fixed top-0 right-0 h-screen w-full md:w-1/2 bg-[var(--ui-surface)] z-50 shadow-2xl border-l border-[color:var(--ui-border)] flex flex-col text-[var(--ui-body-text)]">
-            <div className="px-5 py-4 border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] backdrop-blur-xl flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-[var(--ui-body-text)]">Agregar Pedido — {selectedTable.name}</h3>
-                <p className="text-xs text-[var(--ui-accent)]">Mesa {selectedTable.number}</p>
-              </div>
-              <button
-                type="button"
-                onClick={closeMenuPanel}
-                className="p-2 rounded-lg hover:bg-[var(--ui-sidebar-hover)] text-[var(--ui-accent)]"
-                aria-label="Cerrar ventana"
-              >
-                <MdClose className="text-xl" />
-              </button>
+        <aside
+          className="fixed inset-0 z-[100] flex flex-col bg-[var(--ui-body-bg)] text-[var(--ui-body-text)]"
+          aria-labelledby="tables-add-order-title"
+        >
+          <div className="flex h-14 shrink-0 items-center justify-between border-b border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-4 sm:px-5">
+            <div>
+              <h3 id="tables-add-order-title" className="text-lg font-bold text-[var(--ui-body-text)]">
+                Agregar Pedido — {selectedTable.name}
+              </h3>
+              <p className="text-xs text-[var(--ui-muted)]">Mesa {selectedTable.number}</p>
             </div>
+            <button
+              type="button"
+              onClick={closeMenuPanel}
+              className="rounded-lg p-2 text-[var(--ui-muted)] hover:bg-[var(--ui-sidebar-hover)] hover:text-[var(--ui-body-text)]"
+              aria-label="Cerrar ventana"
+            >
+              <MdClose className="text-xl" />
+            </button>
+          </div>
 
-            <div className="p-4 flex-1 overflow-hidden min-h-0 flex flex-col">
+          <div className="min-h-0 flex-1 overflow-hidden bg-[var(--ui-body-bg)] p-3 sm:p-4">
+            <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-3 sm:p-4">
               <StaffMesaPedidoTabs
                 orders={activeOrdersForTable}
                 formatCurrency={formatCurrency}
@@ -323,16 +327,16 @@ export default function Tables() {
                   footer={
                     cart.length > 0 ? (
                       <div className="space-y-2">
-                        <div className="flex justify-between font-bold text-lg text-[var(--ui-body-text)]">
+                        <div className="flex justify-between text-lg font-bold text-[var(--ui-body-text)]">
                           <span>Total</span>
-                          <span className="text-[var(--ui-accent)]">{formatCurrency(cartTotal)}</span>
+                          <span className="text-[var(--ui-accent-muted)]">{formatCurrency(cartTotal)}</span>
                         </div>
                         <button
                           type="button"
                           onClick={() => setParaLlevarMesa((v) => !v)}
-                          className={`w-1/2 mx-auto rounded-lg border py-1 px-2 text-xs font-semibold uppercase tracking-wide transition-colors flex items-center justify-center ${
+                          className={`mx-auto flex w-1/2 items-center justify-center rounded-lg border py-1 px-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
                             paraLlevarMesa
-                              ? 'bg-[var(--ui-accent)] text-white border-transparent shadow-sm'
+                              ? 'border-transparent bg-[var(--ui-accent)] text-white shadow-sm'
                               : 'border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'
                           }`}
                         >
@@ -341,7 +345,7 @@ export default function Tables() {
                         <button
                           type="button"
                           onClick={submitOrder}
-                          className="w-full py-3 btn-primary rounded-lg font-semibold text-base shadow-lg flex items-center justify-center gap-2"
+                          className="btn-primary flex w-full items-center justify-center gap-2 rounded-lg py-3 text-base font-semibold shadow-lg"
                         >
                           <MdReceipt /> Enviar Pedido
                         </button>
@@ -351,8 +355,8 @@ export default function Tables() {
                 />
               </StaffMesaPedidoTabs>
             </div>
-          </aside>
-        </>
+          </div>
+        </aside>
       )}
 
       <Modal
