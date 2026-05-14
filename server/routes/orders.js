@@ -431,6 +431,14 @@ router.put('/:id/payment', authenticateToken, requireRole('admin', 'cajero', 'mo
     paymentBreakdownObj = parsePaymentBreakdown(paymentBreakdownBody);
   }
 
+  const tipInBody = req.body?.tip_amount !== undefined && req.body?.tip_amount !== null;
+  if (tipInBody) {
+    const tipProbe = round2(Math.max(0, Number(req.body.tip_amount)));
+    if (tipProbe > 0 && !paymentBreakdownObj) {
+      return res.status(400).json({ error: 'La propina solo puede registrarse con pago multimétodo' });
+    }
+  }
+
   if (payment_status && !['pending', 'paid', 'refunded'].includes(String(payment_status))) {
     return res.status(400).json({ error: 'Estado de pago inválido' });
   }
@@ -480,6 +488,11 @@ router.put('/:id/payment', authenticateToken, requireRole('admin', 'cajero', 'mo
   if (nextBreakdown !== undefined) {
     setParts.push('payment_breakdown = ?');
     params.push(nextBreakdown);
+  }
+  if (paymentBreakdownObj && req.body.tip_amount !== undefined && req.body.tip_amount !== null) {
+    const tip = round2(Math.max(0, Number(req.body.tip_amount)));
+    setParts.splice(setParts.length - 1, 0, 'tip_amount = ?');
+    params.splice(params.length - 1, 0, tip);
   }
   if (payment_status !== undefined && payment_status !== null) {
     setParts.push('payment_status = ?');

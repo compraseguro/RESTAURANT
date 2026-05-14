@@ -94,6 +94,11 @@ function splitBreakdownAcrossOrders(breakdown, orderTotals, batchTotal) {
 function addOrderToSalesTotals(row, totals) {
   const t = round2(row.total || 0);
   totals.total_sales = round2(totals.total_sales + t);
+  const tip = round2(Number(row.tip_amount || 0));
+  if (tip > 0) {
+    if (typeof totals.total_tips !== 'number') totals.total_tips = 0;
+    totals.total_tips = round2(totals.total_tips + tip);
+  }
   const br = parsePaymentBreakdown(row.payment_breakdown);
   if (br) {
     aggregateBreakdownIntoTotals(br, totals);

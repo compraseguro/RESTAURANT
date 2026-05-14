@@ -20,6 +20,41 @@ function roundMoneySoles(n) {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 }
 
+/** Reparte la propina del cobro entre los pedidos según su total (cuadratura en céntimos). */
+function distributeTipAcrossOrders(tipGross, orderTotals) {
+  const tip = round2(Math.max(0, Number(tipGross || 0)));
+  const n = orderTotals.length;
+  if (tip <= 0 || !n) return Array(n).fill(0);
+  const T = round2(orderTotals.reduce((acc, ti) => acc + round2(Number(ti) || 0), 0));
+  if (T <= 0) {
+    const each = round2(tip / n);
+    const out = orderTotals.map(() => each);
+    const drift = round2(tip - round2(out.reduce((a, b) => a + b, 0)));
+    out[0] = round2(out[0] + drift);
+    return out;
+  }
+  const out = orderTotals.map((ti) => {
+    const tii = round2(Number(ti) || 0);
+    if (tii <= 0) return 0;
+    return round2((tip * tii) / T);
+  });
+  const sumO = round2(out.reduce((a, b) => a + b, 0));
+  let drift = round2(tip - sumO);
+  if (drift !== 0) {
+    let bi = 0;
+    let best = -1;
+    for (let i = 0; i < n; i += 1) {
+      const tii = round2(orderTotals[i] || 0);
+      if (tii > best) {
+        best = tii;
+        bi = i;
+      }
+    }
+    out[bi] = round2(out[bi] + drift);
+  }
+  return out;
+}
+
 /** Formspree por defecto; sobrescribe con CASH_CLOSE_FORM_URL en .env */
 const DEFAULT_CASH_CLOSE_FORM_URL = 'https://formspree.io/f/mlgpdblo';
 
@@ -277,12 +312,13 @@ function queryRegisterSessionSales(openedAt) {
       total_plin: 0,
       total_card: 0,
       total_online: 0,
+      total_tips: 0,
       order_count: 0,
     };
   }
   const rows =
     queryAll(
-      `SELECT total, payment_method, payment_breakdown
+      `SELECT total, payment_method, payment_breakdown, tip_amount
        FROM orders
        WHERE ${SALES_EVENT_AT_SQL} >= ?
          AND status != 'cancelled'
@@ -296,6 +332,7 @@ function queryRegisterSessionSales(openedAt) {
     total_plin: 0,
     total_card: 0,
     total_online: 0,
+    total_tips: 0,
     order_count: 0,
   };
   rows.forEach((row) => {
@@ -309,6 +346,7 @@ function queryRegisterSessionSales(openedAt) {
     total_plin: round2(totals.total_plin),
     total_card: round2(totals.total_card),
     total_online: round2(totals.total_online),
+    total_tips: round2(Number(totals.total_tips || 0)),
     order_count: Number(totals.order_count || 0),
   };
 }
@@ -375,6 +413,7 @@ async function sendCashCloseNotification({
     `Cierre: ${closeDate}`,
     `Ventas: ${Number(sales.total_sales || 0)}`,
     `Efectivo ventas: ${Number(sales.total_cash || 0)}`,
+    `Propinas (registradas): ${Number(sales.total_tips || 0)}`,
     `Yape: ${Number(sales.total_yape || 0)}`,
     `Plin: ${Number(sales.total_plin || 0)}`,
     `Tarjeta: ${Number(sales.total_card || 0)}`,
@@ -404,6 +443,7 @@ async function sendCashCloseNotification({
     total_plin: Number(sales.total_plin || 0),
     total_card: Number(sales.total_card || 0),
     total_online: Number(sales.total_online || 0),
+    total_tips: Number(sales.total_tips || 0),
     total_income: Number(movements.total_income || 0),
     total_expense: Number(movements.total_expense || 0),
     expected_cash: Number(expectedCash || 0),
@@ -550,6 +590,7 @@ router.get('/current-register', authenticateToken, requireRole('admin', 'cajero'
   const expectedCash = roundMoneySoles(
     Number(register.opening_amount || 0)
       + Number(sales.total_cash || 0)
+      + Number(sales.total_tips || 0)
       + Number(movements.total_income || 0)
       - Number(movements.total_expense || 0)
   );
@@ -574,6 +615,7 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
   const expectedCash = roundMoneySoles(
     Number(register.opening_amount || 0)
       + Number(sales.total_cash || 0)
+      + Number(sales.total_tips || 0)
       + Number(movements.total_income || 0)
       - Number(movements.total_expense || 0)
   );
@@ -601,6 +643,7 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
       expense: Number(movements.total_expense || 0),
     },
     total_sales: Number(sales.total_sales || 0),
+    total_tips: Number(sales.total_tips || 0),
     order_count: Number(sales.order_count || 0),
     observations: arqueo?.observations || notes || '',
     closed_by: req.user.id,
@@ -656,6 +699,7 @@ router.post('/send-close-email', authenticateToken, requireRole('admin', 'cajero
   const expectedCash = roundMoneySoles(
     Number(register.opening_amount || 0)
       + Number(sales.total_cash || 0)
+      + Number(sales.total_tips || 0)
       + Number(movements.total_income || 0)
       - Number(movements.total_expense || 0)
   );
@@ -690,6 +734,7 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
     order_item_ids: orderItemIdsBody,
     checkout_discount_total: checkoutDiscountTotalRaw,
     checkout_discount_anchor_order_item_id: checkoutDiscountAnchorItemRaw,
+    tip_amount: tipAmountRaw,
   } = body;
   const orderItemIds = [
     ...new Set(
@@ -805,13 +850,20 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
         );
       }
 
+      const tipGross = round2(Math.max(0, Number(tipAmountRaw || 0)));
+      if (tipGross > 0 && !paymentBreakdownObj) {
+        throw new Error('La propina solo puede registrarse con pago multimétodo');
+      }
+      const tipsPerOrder = distributeTipAcrossOrders(tipGross, toCharge.map((r) => r.total));
+
       const chargedOrderIds = [];
       toCharge.forEach((row, idx) => {
         const br = perOrderBreakdown ? perOrderBreakdown[idx] : null;
+        const tipForOrder = round2(Number(tipsPerOrder[idx] || 0));
         tx.run(
           `UPDATE orders SET payment_method = ?, payment_status = 'paid', status = 'delivered',
-            payment_breakdown = ?, updated_at = datetime('now') WHERE id = ?`,
-          [primaryMethod, br, row.id]
+            payment_breakdown = ?, tip_amount = ?, updated_at = datetime('now') WHERE id = ?`,
+          [primaryMethod, br, tipForOrder, row.id]
         );
         tx.run(
           "UPDATE electronic_documents SET payment_method = ?, updated_at = datetime('now') WHERE order_id = ?",
@@ -843,6 +895,7 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
         order_count: paidOrders.length,
         payment_method: primaryForAudit,
         payment_breakdown: paymentBreakdownObj || null,
+        tip_amount: round2(Math.max(0, Number(tipAmountRaw || 0))),
       },
     });
     const paidItems = paidOrders.flatMap((o) => (Array.isArray(o.items) ? o.items : []));

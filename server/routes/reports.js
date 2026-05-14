@@ -45,7 +45,7 @@ router.get('/daily', authenticateToken, requireRole('admin', 'cajero'), (req, re
   const register = queryOne("SELECT * FROM cash_registers WHERE closed_at IS NULL ORDER BY opened_at DESC LIMIT 1");
 
   const sales = queryOne(
-    `SELECT COUNT(*) as order_count, COALESCE(SUM(total), 0) as total_sales, COALESCE(SUM(subtotal), 0) as subtotal, COALESCE(SUM(tax), 0) as total_tax, COALESCE(SUM(discount), 0) as total_discount FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ? AND ${FINANCIAL_FILTER}`,
+    `SELECT COUNT(*) as order_count, COALESCE(SUM(total), 0) as total_sales, COALESCE(SUM(subtotal), 0) as subtotal, COALESCE(SUM(tax), 0) as total_tax, COALESCE(SUM(discount), 0) as total_discount, COALESCE(SUM(tip_amount), 0) as total_tips FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ? AND ${FINANCIAL_FILTER}`,
     [today]
   );
 

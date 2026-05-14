@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, formatCurrency, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { MdCalendarToday, MdCalendarMonth, MdEmojiEvents, MdTrendingUp, MdReceipt, MdAttachMoney, MdVisibility, MdRefresh, MdPointOfSale, MdDownload, MdShoppingCart } from 'react-icons/md';
+import { MdCalendarToday, MdCalendarMonth, MdEmojiEvents, MdTrendingUp, MdReceipt, MdAttachMoney, MdVisibility, MdRefresh, MdPointOfSale, MdDownload, MdShoppingCart, MdVolunteerActivism } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 
@@ -259,6 +259,7 @@ export default function Reports() {
     lines.push(`Cierre: ${formatDateTime(register.closed_at)}`);
     lines.push('----------------------------------------');
     lines.push(`Venta total: ${formatCurrency(register.total_sales || 0)}`);
+    lines.push(`Propinas: ${formatCurrency(register.arqueo?.total_tips || 0)}`);
     lines.push(`Efectivo: ${formatCurrency(register.total_cash || 0)}`);
     lines.push(`Yape: ${formatCurrency(register.total_yape || 0)}`);
     lines.push(`Plin: ${formatCurrency(register.total_plin || 0)}`);
@@ -416,7 +417,7 @@ export default function Reports() {
             <span className="text-sm text-slate-500">Fecha: {dailyData.date}</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
             <div className="card">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center"><MdAttachMoney className="text-emerald-600 text-xl" /></div>
@@ -450,6 +451,15 @@ export default function Reports() {
                 <div>
                   <p className="text-xs text-slate-500">Descuentos</p>
                   <p className="text-xl font-bold text-sky-600">{formatCurrency(dailyData.sales?.total_discount)}</p>
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center"><MdVolunteerActivism className="text-violet-600 text-xl" /></div>
+                <div>
+                  <p className="text-xs text-slate-500">Propinas</p>
+                  <p className="text-xl font-bold text-violet-600">{formatCurrency(dailyData.sales?.total_tips)}</p>
                 </div>
               </div>
             </div>
