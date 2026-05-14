@@ -2414,7 +2414,10 @@ export default function POSPanel() {
 
   /** Botones de acciones del mapa de mesas (misma altura, una fila). */
   const mesaMapActionBtnClass =
-    'flex-1 min-w-0 basis-0 min-h-[44px] shrink-0 px-1 sm:px-2 py-2 rounded-lg text-[11px] sm:text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors inline-flex items-center justify-center gap-1 text-center leading-tight disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white';
+    'flex-1 min-w-0 basis-0 min-h-[44px] shrink-0 px-1 sm:px-2 py-2 rounded-lg text-[11px] sm:text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200 hover:border-sky-300 active:bg-sky-500 active:text-white active:border-sky-600 transition-colors inline-flex items-center justify-center gap-1 text-center leading-tight disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-300 disabled:active:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50';
+  /** Cobrar: mismo estilo que el botón principal del modal de cobro. */
+  const mesaMapCobrarBtnClass =
+    'flex-1 min-w-0 basis-0 min-h-[44px] shrink-0 px-1 sm:px-2 py-2 rounded-xl text-[11px] sm:text-sm font-bold border-0 uppercase tracking-wide text-white bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] shadow-lg shadow-[#1D4ED8]/25 hover:from-[#1D4ED8] hover:to-[#1E40AF] inline-flex items-center justify-center gap-1 text-center leading-tight disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:from-[#2563EB] disabled:hover:to-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50';
 
   return (
     <div>
@@ -2552,7 +2555,7 @@ export default function POSPanel() {
         <div className="fixed inset-0 z-40 pt-14 sm:pt-[4.25rem] pb-1.5 px-1.5 sm:pb-2 sm:px-2 pointer-events-none">
           <button
             type="button"
-            className="absolute inset-0 bg-slate-900/55 pointer-events-auto cursor-default border-0 p-0"
+            className="absolute inset-0 bg-slate-950 pointer-events-auto cursor-default border-0 p-0"
             aria-label="Cerrar detalle de mesa"
             onClick={() => setMesaDetailModalOpen(false)}
           />
@@ -2577,7 +2580,7 @@ export default function POSPanel() {
               </button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 lg:p-5">
-              <div className="card flex flex-col min-h-0 max-h-full shadow-md border-slate-200/80 overflow-hidden">
+              <div className="card flex flex-col min-h-0 max-h-full shadow-md border-slate-200 bg-white overflow-hidden">
                 <div className="flex items-start justify-between gap-3 mb-3 shrink-0 border-b border-slate-100 pb-3">
                   <div className="min-w-0">
                     <p className="text-xs text-slate-500">
@@ -2597,7 +2600,7 @@ export default function POSPanel() {
                   </p>
                 </div>
 
-                <div className="flex-1 min-h-0 max-h-[min(52vh,28rem)] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/70 p-3 mb-3 text-slate-700">
+                <div className="flex-1 min-h-0 max-h-[min(52vh,28rem)] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50 p-3 mb-3 text-slate-700">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Productos en la mesa</p>
                   {(() => {
                     const lines = mergedProductsOnTable(tableDetail);
@@ -2611,7 +2614,7 @@ export default function POSPanel() {
                           {lines.map((row) => (
                             <li
                               key={row.key}
-                              className="flex justify-between gap-2 border-b border-slate-200/90 pb-1.5 last:border-0 last:pb-0"
+                              className="flex justify-between gap-2 border-b border-slate-200 pb-1.5 last:border-0 last:pb-0"
                             >
                               <span className="min-w-0">
                                 <span className="font-medium text-slate-900">{row.name}</span>
@@ -2643,6 +2646,20 @@ export default function POSPanel() {
                       <span className="truncate">Tomar pedido</span>
                     </button>
                   )}
+                  <button
+                    type="button"
+                    title="Modificar pedido"
+                    onClick={openEditOrderFromToolbar}
+                    disabled={
+                      !tableDetail.orders?.length ||
+                      isClientCheckoutTable(tableDetail) ||
+                      !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
+                    }
+                    className={mesaMapActionBtnClass}
+                  >
+                    <MdEdit className="shrink-0 text-lg" />
+                    <span className="truncate">Modificar pedido</span>
+                  </button>
                   {!isDeliveryCheckoutTable(tableDetail) && (
                     <button
                       type="button"
@@ -2667,6 +2684,18 @@ export default function POSPanel() {
                     type="button"
                     onClick={() => {
                       setSelectedTable(tableDetail);
+                      void printPrecuenta(tableDetail);
+                    }}
+                    disabled={!tableDetail.orders?.length}
+                    className={mesaMapActionBtnClass}
+                  >
+                    <MdPrint className="shrink-0 text-lg" />
+                    <span className="truncate">Pre cuenta</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTable(tableDetail);
                       setShowBill(true);
                       setPaymentMethod('efectivo');
                       setAmountReceived('');
@@ -2675,36 +2704,10 @@ export default function POSPanel() {
                       setDiscountConfig({ ...EMPTY_DISCOUNT_CONFIG });
                     }}
                     disabled={!tableDetail.orders?.length}
-                    className={mesaMapActionBtnClass}
+                    className={mesaMapCobrarBtnClass}
                   >
                     <MdAttachMoney className="shrink-0 text-lg" />
                     <span className="truncate">{isDeliveryCheckoutTable(tableDetail) ? 'Cobrar delivery' : 'Cobrar'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedTable(tableDetail);
-                      void printPrecuenta(tableDetail);
-                    }}
-                    disabled={!tableDetail.orders?.length}
-                    className={mesaMapActionBtnClass}
-                  >
-                    <MdPrint className="shrink-0 text-lg" />
-                    <span className="truncate">Precuenta</span>
-                  </button>
-                  <button
-                    type="button"
-                    title="Modificar pedido"
-                    onClick={openEditOrderFromToolbar}
-                    disabled={
-                      !tableDetail.orders?.length ||
-                      isClientCheckoutTable(tableDetail) ||
-                      !(tableDetail.orders || []).some((o) => canEditOrderLines(o))
-                    }
-                    className={mesaMapActionBtnClass}
-                  >
-                    <MdEdit className="shrink-0 text-lg" />
-                    <span className="truncate">Modificar</span>
                   </button>
                 </div>
               </div>
