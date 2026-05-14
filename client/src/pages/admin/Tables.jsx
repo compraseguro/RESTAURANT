@@ -233,7 +233,7 @@ export default function Tables() {
       </div>
 
       <div className="card">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 items-stretch">
           {tablesToShow.map(table => {
             const isOccupied = table.status === 'occupied' || (table.orders && table.orders.length > 0);
             const cardStyle = isOccupied
@@ -242,29 +242,23 @@ export default function Tables() {
             const badgeStyle = isOccupied
               ? { backgroundColor: '#dc2626', color: '#ffffff' }
               : { backgroundColor: '#059669', color: '#ffffff' };
-            const stateTextStyle = isOccupied ? { color: '#dc2626' } : { color: '#059669' };
             return (
               <button
                 key={table.id}
+                type="button"
                 onClick={() => openMenuForTable(table)}
-                className="rounded-xl p-3 border text-left transition-all hover:brightness-95"
+                className="flex h-full min-h-[7.25rem] flex-col rounded-xl border p-3 text-left transition-all hover:brightness-95"
                 style={cardStyle}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="inline-flex items-center rounded-md bg-[var(--ui-accent)] px-2 py-0.5">
-                    <p className="font-bold text-white">{table.name}</p>
+                <div className="flex min-h-0 flex-1 flex-col justify-between gap-2">
+                  <span className="inline-flex w-fit max-w-full items-center rounded-md bg-[var(--ui-accent)] px-2 py-0.5">
+                    <span className="truncate font-bold text-white">{table.name}</span>
                   </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={badgeStyle}>
-                    {isOccupied ? 'Ocupada' : 'Libre'}
+                  <p className="text-xs font-medium text-[var(--ui-body-text)]">{table.capacity} pers.</p>
+                  <span className="mt-auto inline-flex w-fit text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={badgeStyle}>
+                    {isOccupied ? 'Ocupada' : 'Disponible'}
                   </span>
                 </div>
-                <p className="text-xs text-[var(--ui-accent-muted)]">{table.capacity} pers.</p>
-                <p className="text-xs mt-1 font-medium" style={stateTextStyle}>
-                  {isOccupied ? `${table.orders?.length || 0} pedido(s)` : 'Disponible'}
-                </p>
-                {isOccupied && (
-                  <p className="mt-1 text-sm font-bold text-[var(--ui-body-text)]">{formatCurrency(table.order_total || 0)}</p>
-                )}
               </button>
             );
           })}
@@ -278,10 +272,17 @@ export default function Tables() {
       </div>
 
       {showMenu && selectedTable && (
-        <aside
-          className="fixed top-14 right-0 bottom-0 z-[100] flex w-full min-w-0 flex-col border-l border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-body-text)] shadow-2xl md:w-1/2 md:max-w-[920px]"
-          aria-labelledby="tables-add-order-title"
-        >
+        <div className="fixed top-14 left-0 right-0 bottom-0 z-[100] flex min-h-0">
+          <button
+            type="button"
+            className="min-h-0 min-w-0 flex-1 cursor-default border-0 bg-black/40 p-0"
+            aria-label="Cerrar panel"
+            onClick={closeMenuPanel}
+          />
+          <aside
+            className="flex h-full min-h-0 w-full min-w-0 shrink-0 flex-col border-l border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-body-text)] shadow-2xl md:w-1/2 md:max-w-[920px]"
+            aria-labelledby="tables-add-order-title"
+          >
           <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-4 py-3 sm:px-5">
             <div>
               <h3 id="tables-add-order-title" className="text-lg font-bold text-[var(--ui-body-text)]">
@@ -359,6 +360,7 @@ export default function Tables() {
             </div>
           </div>
           </aside>
+        </div>
       )}
 
       <Modal

@@ -62,13 +62,18 @@ export default function Modal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center ${placementClass} p-4 ${containerClassName}`}
-      onClick={onClose}
+      className={`fixed inset-0 z-50 flex items-center ${placementClass} p-4 relative ${containerClassName}`}
       role="presentation"
     >
-      <div className={`fixed inset-0 ${overlayClass}`} aria-hidden />
+      <button
+        type="button"
+        tabIndex={-1}
+        className={`absolute inset-0 z-0 cursor-default border-0 ${overlayClass}`}
+        aria-label="Cerrar"
+        onClick={onClose}
+      />
       <div
-        className={`relative rounded-2xl w-full ${sizeClass} ${maxHeightClass} flex flex-col overflow-hidden ${panelClass} ${dialogClassName}`.trim()}
+        className={`relative z-10 rounded-2xl w-full ${sizeClass} ${maxHeightClass} flex flex-col overflow-hidden ${panelClass} ${dialogClassName}`.trim()}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
