@@ -276,11 +276,18 @@ export default function Tables() {
       </div>
 
       {showMenu && selectedTable && (
-        <aside
-          className="fixed inset-0 z-[100] flex flex-col bg-[var(--ui-body-bg)] text-[var(--ui-body-text)]"
-          aria-labelledby="tables-add-order-title"
-        >
-          <div className="flex h-14 shrink-0 items-center justify-between border-b border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-4 sm:px-5">
+        <>
+          <button
+            type="button"
+            className="fixed inset-x-0 bottom-0 top-14 z-[99] cursor-default border-0 bg-[var(--ui-body-bg)] p-0"
+            aria-label="Cerrar panel de pedido"
+            onClick={closeMenuPanel}
+          />
+          <aside
+            className="fixed top-14 right-0 bottom-0 z-[100] flex w-full min-w-0 flex-col border-l border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-body-text)] shadow-2xl md:w-1/2 md:max-w-[920px]"
+            aria-labelledby="tables-add-order-title"
+          >
+          <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-4 py-3 sm:px-5">
             <div>
               <h3 id="tables-add-order-title" className="text-lg font-bold text-[var(--ui-body-text)]">
                 Agregar Pedido — {selectedTable.name}
@@ -298,7 +305,7 @@ export default function Tables() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden bg-[var(--ui-body-bg)] p-3 sm:p-4">
-            <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-3 sm:p-4">
+            <div className="flex h-full min-h-0 w-full flex-col rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-3 sm:p-4">
               <StaffMesaPedidoTabs
                 orders={activeOrdersForTable}
                 formatCurrency={formatCurrency}
@@ -356,7 +363,8 @@ export default function Tables() {
               </StaffMesaPedidoTabs>
             </div>
           </div>
-        </aside>
+          </aside>
+        </>
       )}
 
       <Modal
