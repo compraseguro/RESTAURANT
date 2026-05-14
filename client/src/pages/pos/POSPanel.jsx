@@ -314,8 +314,8 @@ export default function POSPanel() {
   const [loading, setLoading] = useState(true);
   const [selectedTable, setSelectedTable] = useState(null);
   const [tableDetail, setTableDetail] = useState(null);
-  /** Mapa de mesas en ventana superpuesta (estilo ventana tipo consola). */
-  const [mesaMapModalOpen, setMesaMapModalOpen] = useState(true);
+  /** Detalle de mesa (productos + acciones) en ventana superpuesta. */
+  const [mesaDetailModalOpen, setMesaDetailModalOpen] = useState(false);
   /** Modal mover/unir mesas (misma API que Admin → Mesas). */
   const [mesaTableAction, setMesaTableAction] = useState(null);
   const [showBill, setShowBill] = useState(false);
@@ -677,7 +677,7 @@ export default function POSPanel() {
   }, [activeCajaOption, searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (activeCajaOption === 'cobrar') setMesaMapModalOpen(true);
+    if (activeCajaOption !== 'cobrar') setMesaDetailModalOpen(false);
   }, [activeCajaOption]);
 
   const loadCajaExtras = async () => {
@@ -2456,189 +2456,183 @@ export default function POSPanel() {
           </button>
         </div>
       </div>
-      {!mesaMapModalOpen && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold text-slate-700 flex items-center gap-2 text-base sm:text-lg">
-            <MdTableRestaurant /> Mapa de mesas
-          </h2>
-          <button
-            type="button"
-            onClick={() => setMesaMapModalOpen(true)}
-            className="px-4 py-2 rounded-lg text-sm font-semibold border border-sky-400/70 bg-sky-300 text-sky-950 shadow-sm hover:bg-sky-200"
-          >
-            Abrir mapa de mesas
-          </button>
-        </div>
-      )}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold text-slate-700 flex items-center gap-2 text-base sm:text-lg">
+          <MdTableRestaurant /> Mapa de mesas
+        </h2>
+      </div>
 
-      {mesaMapModalOpen && (
+      <div className="min-w-0 space-y-6 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+          {stableTables.map((table) => {
+            const isOccupied = Boolean(table.orders && table.orders.length > 0);
+            const isSelected = tableDetail?.id === table.id;
+            return (
+              <button
+                key={table.id}
+                type="button"
+                onClick={() => {
+                  setTableDetail(table);
+                  setMesaDetailModalOpen(true);
+                }}
+                className={`card text-left transition-all border-l-4 hover:shadow-lg ${
+                  isOccupied ? 'border-l-red-500' : 'border-l-lime-500'
+                } ${isSelected ? 'ring-2 ring-gold-400' : ''}`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      isOccupied ? 'bg-red-100' : 'bg-emerald-100'
+                    }`}
+                  >
+                    <MdTableRestaurant className={`${isOccupied ? 'text-red-600' : 'text-emerald-600'} text-xl`} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800">{table.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {isOccupied ? `${table.orders.length} pedido(s)` : 'Sin pedidos activos'}
+                    </p>
+                  </div>
+                </div>
+                <p className={`text-xs font-semibold ${isOccupied ? 'text-red-700' : 'text-emerald-700'}`}>
+                  {isOccupied ? 'Ocupada' : 'Libre'}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+
+        {deliveryCajaSlots.length > 0 && (
+          <>
+            <h2
+              id="pos-delivery-caja"
+              className="font-semibold text-slate-700 mb-2 flex items-center gap-2 scroll-mt-4"
+            >
+              <MdDeliveryDining /> Delivery en caja
+            </h2>
+            <p className="text-sm text-slate-500 mb-3">
+              Un recuadro por pedido delivery pendiente de cobro. Al cobrar, desaparece de esta lista.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+              {deliveryCajaSlots.map((slot) => {
+                const isSelected = tableDetail?.id === slot.id;
+                return (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    onClick={() => {
+                      setTableDetail(slot);
+                      setMesaDetailModalOpen(true);
+                    }}
+                    className={`card text-left transition-all border-l-4 border-l-sky-500 hover:shadow-lg bg-slate-50/80 ${
+                      isSelected ? 'ring-2 ring-gold-400' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-sky-100">
+                        <MdDeliveryDining className="text-sky-700 text-xl" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800">{slot.name}</p>
+                        <p className="text-xs text-slate-500">Pedido #{slot.orders?.[0]?.order_number ?? '—'}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs font-semibold text-sky-800">
+                      Por cobrar · {formatCurrency((slot.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0))}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
+      {mesaDetailModalOpen && tableDetail && (
         <div className="fixed inset-0 z-40 pt-14 sm:pt-[4.25rem] pb-1.5 px-1.5 sm:pb-2 sm:px-2 pointer-events-none">
           <button
             type="button"
             className="absolute inset-0 bg-slate-900/55 pointer-events-auto cursor-default border-0 p-0"
-            aria-label="Cerrar mapa de mesas"
-            onClick={() => setMesaMapModalOpen(false)}
+            aria-label="Cerrar detalle de mesa"
+            onClick={() => setMesaDetailModalOpen(false)}
           />
           <div
             className="relative pointer-events-auto ml-auto flex h-[calc(100dvh-3.75rem)] max-h-[calc(100dvh-3.75rem)] w-full max-w-[min(1040px,calc(100vw-0.75rem))] sm:max-w-[min(920px,52vw)] flex-col rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="pos-mesa-map-title"
+            aria-labelledby="pos-mesa-detail-title"
           >
             <div className="flex items-center justify-between gap-3 shrink-0 border-b border-slate-200 bg-slate-50 px-3 py-2.5 sm:px-4">
-              <h2 id="pos-mesa-map-title" className="font-semibold text-slate-800 flex items-center gap-2 text-base sm:text-lg min-w-0">
-                <MdTableRestaurant className="shrink-0 text-slate-600" /> Mapa de mesas
+              <h2 id="pos-mesa-detail-title" className="font-semibold text-slate-800 flex items-center gap-2 text-base sm:text-lg min-w-0 truncate">
+                <MdTableRestaurant className="shrink-0 text-slate-600" />
+                <span className="truncate">{tableDetail.name}</span>
               </h2>
               <button
                 type="button"
-                onClick={() => setMesaMapModalOpen(false)}
+                onClick={() => setMesaDetailModalOpen(false)}
                 className="shrink-0 rounded-lg p-2 text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors"
                 aria-label="Cerrar"
               >
                 <MdClose className="text-2xl" />
               </button>
             </div>
-            <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 lg:p-5">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 h-full min-h-0 items-stretch">
-        <div className="min-w-0 space-y-6 overflow-y-auto min-h-0 pr-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-            {stableTables.map((table) => {
-              const isOccupied = Boolean(table.orders && table.orders.length > 0);
-              const isSelected = tableDetail?.id === table.id;
-              return (
-                <button
-                  key={table.id}
-                  type="button"
-                  onClick={() => setTableDetail(table)}
-                  className={`card text-left transition-all border-l-4 hover:shadow-lg ${
-                    isOccupied ? 'border-l-red-500' : 'border-l-lime-500'
-                  } ${isSelected ? 'ring-2 ring-gold-400' : ''}`}
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                        isOccupied ? 'bg-red-100' : 'bg-emerald-100'
-                      }`}
-                    >
-                      <MdTableRestaurant className={`${isOccupied ? 'text-red-600' : 'text-emerald-600'} text-xl`} />
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-800">{table.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {isOccupied ? `${table.orders.length} pedido(s)` : 'Sin pedidos activos'}
-                      </p>
-                    </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 lg:p-5">
+              <div className="card flex flex-col min-h-0 max-h-full shadow-md border-slate-200/80 overflow-hidden">
+                <div className="flex items-start justify-between gap-3 mb-3 shrink-0 border-b border-slate-100 pb-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500">
+                      {isDeliveryCheckoutTable(tableDetail)
+                        ? (() => {
+                            const o = tableDetail.orders?.[0];
+                            if (!o) return 'Sin pedido';
+                            return [o.customer_name, o.delivery_address].filter(Boolean).join(' · ') || 'Delivery';
+                          })()
+                        : tableDetail.orders?.length
+                          ? `${tableDetail.orders.length} pedido(s) activo(s)`
+                          : 'Sin pedidos activos'}
+                    </p>
                   </div>
-                  <p className={`text-xs font-semibold ${isOccupied ? 'text-red-700' : 'text-emerald-700'}`}>
-                    {isOccupied ? 'Ocupada' : 'Libre'}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-
-          {deliveryCajaSlots.length > 0 && (
-            <>
-              <h2
-                id="pos-delivery-caja"
-                className="font-semibold text-slate-700 mb-2 flex items-center gap-2 scroll-mt-4"
-              >
-                <MdDeliveryDining /> Delivery en caja
-              </h2>
-              <p className="text-sm text-slate-500 mb-3">
-                Un recuadro por pedido delivery pendiente de cobro. Al cobrar, desaparece de esta lista.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                {deliveryCajaSlots.map((slot) => {
-                  const isSelected = tableDetail?.id === slot.id;
-                  return (
-                    <button
-                      key={slot.id}
-                      type="button"
-                      onClick={() => setTableDetail(slot)}
-                      className={`card text-left transition-all border-l-4 border-l-sky-500 hover:shadow-lg bg-slate-50/80 ${
-                        isSelected ? 'ring-2 ring-gold-400' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-sky-100">
-                          <MdDeliveryDining className="text-sky-700 text-xl" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-800">{slot.name}</p>
-                          <p className="text-xs text-slate-500">Pedido #{slot.orders?.[0]?.order_number ?? '—'}</p>
-                        </div>
-                      </div>
-                      <p className="text-xs font-semibold text-sky-800">
-                        Por cobrar · {formatCurrency((slot.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0))}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="min-w-0 flex flex-col min-h-0">
-          {tableDetail ? (
-            <div className="card flex flex-col flex-1 min-h-0 shadow-md border-slate-200/80 overflow-hidden">
-              <div className="flex items-start justify-between gap-3 mb-3 shrink-0 border-b border-slate-100 pb-3">
-                <div className="min-w-0">
-                  <h3 className="font-bold text-slate-800">{tableDetail.name}</h3>
-                  <p className="text-xs text-slate-500">
-                    {isDeliveryCheckoutTable(tableDetail)
-                      ? (() => {
-                          const o = tableDetail.orders?.[0];
-                          if (!o) return 'Sin pedido';
-                          return [o.customer_name, o.delivery_address].filter(Boolean).join(' · ') || 'Delivery';
-                        })()
-                      : tableDetail.orders?.length
-                        ? `${tableDetail.orders.length} pedido(s) activo(s)`
-                        : 'Sin pedidos activos'}
+                  <p className="text-xl font-bold text-gold-600 shrink-0 tabular-nums">
+                    {formatCurrency((tableDetail.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}
                   </p>
                 </div>
-                <p className="text-xl font-bold text-gold-600 shrink-0 tabular-nums">
-                  {formatCurrency((tableDetail.orders || []).reduce((sum, o) => sum + getOrderChargeTotal(o), 0))}
-                </p>
-              </div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/70 p-3 mb-3 text-slate-700">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Productos en la mesa</p>
-                {(() => {
-                  const lines = mergedProductsOnTable(tableDetail);
-                  const totalMesa = (tableDetail.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0);
-                  if (!lines.length) {
-                    return <p className="text-center text-slate-400 py-6 text-sm">No hay productos para mostrar.</p>;
-                  }
-                  return (
-                    <>
-                      <ul className="space-y-1.5 text-sm">
-                        {lines.map((row) => (
-                          <li
-                            key={row.key}
-                            className="flex justify-between gap-2 border-b border-slate-200/90 pb-1.5 last:border-0 last:pb-0"
-                          >
-                            <span className="min-w-0">
-                              <span className="font-medium text-slate-900">{row.name}</span>
-                              <span className="text-slate-500"> × {row.qty}</span>
-                            </span>
-                            <span className="shrink-0 tabular-nums font-medium text-sky-700">
-                              {formatCurrency(row.subtotal)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="flex justify-between border-t border-slate-200 pt-3 mt-3 text-base font-bold text-slate-900">
-                        <span>Total</span>
-                        <span className="text-gold-600">{formatCurrency(totalMesa)}</span>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
+                <div className="flex-1 min-h-0 max-h-[min(52vh,28rem)] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/70 p-3 mb-3 text-slate-700">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Productos en la mesa</p>
+                  {(() => {
+                    const lines = mergedProductsOnTable(tableDetail);
+                    const totalMesa = (tableDetail.orders || []).reduce((s, o) => s + getOrderChargeTotal(o), 0);
+                    if (!lines.length) {
+                      return <p className="text-center text-slate-400 py-6 text-sm">No hay productos para mostrar.</p>;
+                    }
+                    return (
+                      <>
+                        <ul className="space-y-1.5 text-sm">
+                          {lines.map((row) => (
+                            <li
+                              key={row.key}
+                              className="flex justify-between gap-2 border-b border-slate-200/90 pb-1.5 last:border-0 last:pb-0"
+                            >
+                              <span className="min-w-0">
+                                <span className="font-medium text-slate-900">{row.name}</span>
+                                <span className="text-slate-500"> × {row.qty}</span>
+                              </span>
+                              <span className="shrink-0 tabular-nums font-medium text-sky-700">
+                                {formatCurrency(row.subtotal)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="flex justify-between border-t border-slate-200 pt-3 mt-3 text-base font-bold text-slate-900">
+                          <span>Total</span>
+                          <span className="text-gold-600">{formatCurrency(totalMesa)}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
 
-              <div className="flex flex-nowrap gap-2 shrink-0 min-h-[48px] overflow-x-auto pb-0.5">
+                <div className="flex flex-nowrap gap-2 shrink-0 min-h-[48px] overflow-x-auto pb-0.5">
                   {!isDeliveryCheckoutTable(tableDetail) && (
                     <button
                       type="button"
@@ -2712,16 +2706,7 @@ export default function POSPanel() {
                     <MdEdit className="shrink-0 text-lg" />
                     <span className="truncate">Modificar</span>
                   </button>
-              </div>
-            </div>
-          ) : (
-            <div className="card flex flex-col items-center justify-center text-center py-14 px-4 text-slate-500 border-dashed border-2 border-slate-200 bg-slate-50/60 min-h-[220px] lg:sticky lg:top-2">
-              <MdTableRestaurant className="text-4xl text-slate-300 mb-2" />
-              <p className="font-medium text-slate-600">Selecciona una mesa</p>
-              <p className="text-sm mt-1 max-w-xs">El detalle, pedidos y acciones aparecerán aquí a la derecha.</p>
-            </div>
-          )}
-        </div>
+                </div>
               </div>
             </div>
           </div>
