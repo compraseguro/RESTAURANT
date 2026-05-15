@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { emitInventoryUpdate, emitStaffDataUpdate } = require('../socketBroadcast');
 
 const router = express.Router();
 
@@ -240,6 +241,10 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
 
   const product = queryOne('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.id = ?', [id]);
   product.variants = queryAll('SELECT * FROM product_variants WHERE product_id = ?', [id]);
+  if (safeProcessType === 'non_transformed') {
+    emitInventoryUpdate({ productId: id });
+  }
+  emitStaffDataUpdate({ domain: 'catalog' });
   res.status(201).json(product);
 });
 
@@ -400,6 +405,10 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
 
   const product = queryOne('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.id = ?', [req.params.id]);
   product.variants = queryAll('SELECT * FROM product_variants WHERE product_id = ?', [req.params.id]);
+  if (stock !== undefined || forceZeroStock) {
+    emitInventoryUpdate({ productId: req.params.id });
+  }
+  emitStaffDataUpdate({ domain: 'catalog' });
   res.json(product);
 });
 
@@ -408,6 +417,8 @@ router.delete('/:id', authenticateToken, requireRole('admin'), (req, res) => {
   runSql('DELETE FROM inventory_logs WHERE product_id = ?', [req.params.id]);
   runSql('DELETE FROM product_variants WHERE product_id = ?', [req.params.id]);
   runSql('DELETE FROM products WHERE id = ?', [req.params.id]);
+  emitInventoryUpdate({});
+  emitStaffDataUpdate({ domain: 'catalog' });
   res.json({ success: true });
 });
 

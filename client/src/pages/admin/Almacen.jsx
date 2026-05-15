@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSocket } from '../../hooks/useSocket';
 import { useSearchParams } from 'react-router-dom';
 import { api, formatCurrency, formatInsumoQty, formatInsumoWithUnit } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -371,6 +372,13 @@ export default function Almacen() {
       setLoading(false);
     }
   };
+
+  useSocket('inventory-update', () => {
+    void load();
+  });
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'catalog') void load();
+  });
 
   useEffect(() => { load(); }, []);
   useEffect(() => {

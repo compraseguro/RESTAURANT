@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, formatCurrency, formatDate } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import { getOrderChargeTotal } from '../../utils/mesaOrderLines';
 import { MdAdd, MdEdit, MdDelete, MdSearch, MdPhone, MdEmail, MdReceipt, MdAttachMoney, MdContentCopy } from 'react-icons/md';
 import Modal from '../../components/Modal';
@@ -40,19 +41,14 @@ export default function Clientes() {
   const [editClient, setEditClient] = useState(null);
   const [expandedClientId, setExpandedClientId] = useState('');
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', password: '' });
+  const searchRef = useRef('');
 
-  const normalizeCustomerEmail = (value) => {
-    const raw = String(value || '').trim();
-    if (!raw || raw.toLowerCase() === '@gmail.com') return '';
-    if (raw.includes('@')) return raw;
-    return `${raw}@gmail.com`;
-  };
-
-  const load = async (term = '') => {
+  const load = useCallback(async (term) => {
+    const q = term !== undefined && term !== null ? String(term) : searchRef.current;
     setLoading(true);
     try {
       const [data, ordersData] = await Promise.all([
-        api.get(`/admin-modules/customers${term ? `?q=${encodeURIComponent(term)}` : ''}`),
+        api.get(`/admin-modules/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`),
         api.get('/orders?limit=600').catch(() => []),
       ]);
       setClientes(data || []);
@@ -62,9 +58,29 @@ export default function Clientes() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    searchRef.current = search;
+  }, [search]);
+
+  useEffect(() => {
+    load('');
+  }, [load]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'customers') void load(searchRef.current);
+  });
+  useSocket('order-update', () => {
+    void load(searchRef.current);
+  });
+
+  const normalizeCustomerEmail = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw || raw.toLowerCase() === '@gmail.com') return '';
+    if (raw.includes('@')) return raw;
+    return `${raw}@gmail.com`;
+  };
 
   const filtered = clientes.filter(c =>
     (c.name || '').toLowerCase().includes(search.toLowerCase()) ||

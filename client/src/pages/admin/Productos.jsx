@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api, formatCurrency, formatInsumoQty, formatInsumoWithUnit } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
@@ -67,7 +68,7 @@ export default function Productos() {
     warehouses[0]?.id ||
     '';
 
-  const load = () => {
+  const load = useCallback(() => {
     Promise.all([
       api.get('/products'),
       api.get('/categories'),
@@ -84,12 +85,21 @@ export default function Productos() {
         setModifiers(modifiersData || []);
         setInsumosKardex(Array.isArray(ins) ? ins : []);
       })
-      .catch(console.error).finally(() => setLoading(false));
-  };
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  useSocket('inventory-update', () => {
+    void load();
+  });
+  useSocket('staff-data-update', (p) => {
+    const d = p?.domain;
+    if (['combos', 'modifiers', 'discounts', 'offers', 'catalog'].includes(d)) void load();
+  });
 
   const hiddenCategoryIds = new Set(
     categories

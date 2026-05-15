@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 import { MdAdd, MdEdit, MdDelete, MdToggleOn, MdToggleOff } from 'react-icons/md';
@@ -11,13 +12,17 @@ export default function Categories() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', description: '', image: '' });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try { setCategories(await api.get('/categories')); }
     catch (err) { toast.error(err.message); }
     finally { setLoading(false); }
-  };
+  }, []);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'catalog') void loadData();
+  });
 
   const openCreate = () => { setEditing(null); setForm({ name: '', description: '', image: '' }); setShowModal(true); };
   const openEdit = (c) => { setEditing(c); setForm({ name: c.name, description: c.description, image: c.image }); setShowModal(true); };

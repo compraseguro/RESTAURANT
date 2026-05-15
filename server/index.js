@@ -69,6 +69,8 @@ const io = new Server(server, {
 });
 
 app.set('io', io);
+const { setSocketIo } = require('./socketBroadcast');
+setSocketIo(io);
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Private-Network', 'true');
   next();

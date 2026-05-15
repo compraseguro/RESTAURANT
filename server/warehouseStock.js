@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('./database');
+const { emitInventoryUpdate } = require('./socketBroadcast');
 
 function recalculateProductStock(productId) {
   const sum = queryOne(
@@ -8,6 +9,7 @@ function recalculateProductStock(productId) {
   );
   const total = Number(sum?.total || 0);
   runSql('UPDATE products SET stock = ?, updated_at = datetime(\'now\') WHERE id = ?', [total, productId]);
+  emitInventoryUpdate({ productId });
   return total;
 }
 
@@ -29,6 +31,7 @@ function addToWarehouses(product, quantityToAdd) {
   const rows = ensureWarehouseRowsForProduct(product);
   if (rows.length === 0) {
     runSql('UPDATE products SET stock = stock + ?, updated_at = datetime(\'now\') WHERE id = ?', [quantityToAdd, product.id]);
+    emitInventoryUpdate({ productId: product.id });
     return;
   }
   const preferredId = product.stock_warehouse_id || rows[0].warehouse_id;

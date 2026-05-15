@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import { MdAdd, MdEdit, MdDelete, MdDiscount } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -9,15 +10,19 @@ export default function Descuentos() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ name: '', type: 'percentage', value: '', appliesTo: 'all', conditions: '' });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const rows = await api.get('/admin-modules/discounts');
       setDescuentos(rows || []);
     } catch (err) {
       toast.error(err.message);
     }
-  };
-  useEffect(() => { load(); }, []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'discounts') void load();
+  });
 
   const handleCreate = async (e) => {
     e.preventDefault();

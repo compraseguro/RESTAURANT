@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api, formatCurrency } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 import { MdAdd, MdDelete, MdViewList, MdGridView, MdSearch, MdInventory, MdWarning } from 'react-icons/md';
@@ -13,7 +14,7 @@ export default function Inventory() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', price: '', stock: 100, category_id: '' });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [prods, cats] = await Promise.all([
         api.get('/products'),
@@ -23,9 +24,16 @@ export default function Inventory() {
       setCategories(cats);
     } catch (err) { toast.error(err.message); }
     finally { setLoading(false); }
-  };
+  }, []);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'catalog') void loadData();
+  });
+  useSocket('inventory-update', () => {
+    void loadData();
+  });
 
   const handleAdd = async (e) => {
     e.preventDefault();

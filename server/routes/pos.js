@@ -6,6 +6,8 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { assertPaymentMethodAllowed, normalizePaymentMethod } = require('../businessRules');
 const { getActiveCajaById, listCajasWithIds } = require('../cajaSettings');
 const { print } = require('../printing/printerService');
+const { getOrderWithItems } = require('../orderCreateService');
+const { emitInventoryUpdate, emitBillingDocumentUpdate, emitStaffDataUpdate } = require('../socketBroadcast');
 const {
   parsePaymentBreakdown,
   splitBreakdownAcrossOrders,
@@ -577,6 +579,8 @@ router.post('/open-register', authenticateToken, requireRole('admin', 'cajero'),
     resourceId: id,
     details: { opening_amount: Number(opening_amount), caja_station_id: stationId },
   });
+  const io = req.app.get('io');
+  if (io) io.emit('register-update', { action: 'open', registerId: id });
   res.status(201).json(queryOne('SELECT * FROM cash_registers WHERE id = ?', [id]));
 });
 
@@ -679,6 +683,9 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
   } catch (notifyErr) {
     console.error('[close-register] aviso externo fallido:', notifyErr.message);
   }
+
+  const io = req.app.get('io');
+  if (io) io.emit('register-update', { action: 'close', registerId: register.id });
 
   res.json(closedRegister);
 });
@@ -902,6 +909,30 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
       items: paidItems,
       text: `Pedidos cobrados: ${paidOrders.length}`,
     }).catch((err) => console.error('[printing] caja cierre:', err.message || err));
+    const io = req.app.get('io');
+    if (io) {
+      for (const o of paidOrders) {
+        const full = getOrderWithItems(o.id);
+        if (full) io.emit('order-update', full);
+      }
+    }
+    for (const oid of chargedOrderIds) {
+      const docRow = queryOne('SELECT * FROM electronic_documents WHERE order_id = ? LIMIT 1', [oid]);
+      if (docRow?.id) {
+        emitBillingDocumentUpdate({
+          id: docRow.id,
+          order_id: docRow.order_id,
+          order_number: docRow.order_number,
+          doc_type: docRow.doc_type,
+          full_number: docRow.full_number,
+          provider_status: docRow.provider_status,
+          provider_message: docRow.provider_message,
+          pdf_url: docRow.pdf_url,
+          updated_at: docRow.updated_at,
+        });
+      }
+    }
+    if (chargedOrderIds.length > 0) emitInventoryUpdate({});
     res.json({ success: true, orders: paidOrders, discounts_applied_by_order: discountsAppliedByOrder });
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo cobrar la mesa' });
@@ -942,6 +973,9 @@ router.post('/movements', authenticateToken, requireRole('admin', 'cajero'), (re
     'INSERT INTO cash_movements (id, register_id, user_id, type, amount, concept) VALUES (?, ?, ?, ?, ?, ?)',
     [id, register.id, req.user.id, type, Number(amount), concept || '']
   );
+  if (type === 'expense') {
+    emitStaffDataUpdate({ domain: 'finance_ops' });
+  }
   res.status(201).json(queryOne('SELECT * FROM cash_movements WHERE id = ?', [id]));
 });
 

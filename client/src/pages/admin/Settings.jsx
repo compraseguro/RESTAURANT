@@ -34,6 +34,7 @@ import {
   MdAutoGraph,
 } from 'react-icons/md';
 import { UI_THEME_OPTIONS, applyUiTheme, getValidUiThemeId } from '../../theme/uiTheme';
+import { useSocket } from '../../hooks/useSocket';
 
 const ALL_MODULES = [
   { id: 'escritorio', label: 'Escritorio', icon: MdDashboard, defaultRoles: ['admin', 'cajero'] },
@@ -636,6 +637,13 @@ export default function Settings() {
   };
 
   useEffect(() => { loadUsers(); loadRestaurant(); loadAppSettings(); loadPrintingConfig(); refreshPrinterStatus(); }, []);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain !== 'app_config') return;
+    loadAppSettings();
+    if (activeSection === 'config_historial') loadAppSettingsHistory();
+  });
+
   useEffect(() => {
     if (activeSection === 'impresoras' && hasElectronPrinting()) {
       detectUsbPrintersElectronAuto();

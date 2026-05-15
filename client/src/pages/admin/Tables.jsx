@@ -74,6 +74,10 @@ export default function Tables() {
   useActiveInterval(loadTables, 10000);
   useSocket('order-update', loadTables);
   useSocket('table-update', loadTables);
+  useSocket('inventory-update', loadProducts);
+  useSocket('staff-data-update', (p) => {
+    if (['catalog', 'modifiers'].includes(p?.domain)) loadProducts();
+  });
 
   const openMenuForTable = (table) => {
     setSelectedTable(table);

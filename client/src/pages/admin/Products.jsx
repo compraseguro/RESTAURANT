@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api, formatCurrency } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 import { MdAdd, MdEdit, MdDelete, MdSearch, MdToggleOn, MdToggleOff } from 'react-icons/md';
@@ -14,16 +15,23 @@ export default function Products() {
   const [filterCat, setFilterCat] = useState('');
   const [form, setForm] = useState({ name: '', description: '', price: '', category_id: '', stock: '', image: '', variants: [] });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [prods, cats] = await Promise.all([api.get('/products'), api.get('/categories')]);
       setProducts(prods);
       setCategories(cats);
     } catch (err) { toast.error(err.message); }
     finally { setLoading(false); }
-  };
+  }, []);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'catalog') void loadData();
+  });
+  useSocket('inventory-update', () => {
+    void loadData();
+  });
 
   const openCreate = () => {
     setEditingProduct(null);

@@ -1,8 +1,23 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { api, formatCurrency, PAYMENT_METHODS, resolveMediaUrl } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { MdCalendarToday, MdCalendarMonth, MdEmojiEvents, MdTrendingUp, MdReceipt, MdAttachMoney, MdVisibility, MdRefresh, MdPointOfSale, MdDownload, MdShoppingCart, MdVolunteerActivism } from 'react-icons/md';
+import {
+  MdCalendarToday,
+  MdCalendarMonth,
+  MdEmojiEvents,
+  MdTrendingUp,
+  MdReceipt,
+  MdAttachMoney,
+  MdVisibility,
+  MdRefresh,
+  MdPointOfSale,
+  MdDownload,
+  MdShoppingCart,
+  MdVolunteerActivism,
+  MdAutoGraph,
+} from 'react-icons/md';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
 
@@ -31,6 +46,140 @@ const formatDateTime = (dateValue) => {
   return new Date(`${dateValue}`.includes('T') ? dateValue : `${dateValue}Z`)
     .toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
+
+function formatPct1(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return '—';
+  return `${x.toFixed(1)}%`;
+}
+
+/** Umbrales del módulo empresarial + lectura frente al resumen del rango (Informes · Finanzas). */
+function FinanceBusinessIntelPanel({ overview }) {
+  const bi = overview?.business_intel;
+  if (!bi || typeof bi !== 'object') return null;
+
+  const sales = Number(overview.sales?.total || 0);
+  const gross = Number(overview.approx_gross_margin ?? 0);
+  const profit = Number(overview.approx_profit ?? 0);
+  const losses = Number(overview.losses_combined_total ?? 0);
+  const grossPct = sales > 0 ? (gross / sales) * 100 : null;
+  const netPct = sales > 0 ? (profit / sales) * 100 : null;
+  const lossRatioPct = sales > 0 ? (losses / sales) * 100 : null;
+
+  const minG = Number(bi.prof_margin_min_pct);
+  const idealG = Number(bi.prof_margin_ideal_pct);
+  const critG = Number(bi.prof_margin_critical_pct);
+  const targetNet = Number(bi.prof_target_net_margin_pct);
+  const varTol = Number(bi.var_tolerance_pct);
+  const overhead = Number(bi.gen_indirect_overhead_pct);
+
+  let grossLabel = 'Sin ventas en el rango';
+  let grossClass = 'text-slate-600';
+  if (grossPct != null && Number.isFinite(grossPct)) {
+    if (Number.isFinite(critG) && grossPct < critG) {
+      grossLabel = `Por debajo del margen crítico (${formatPct1(critG)})`;
+      grossClass = 'text-red-700 font-semibold';
+    } else if (Number.isFinite(minG) && grossPct < minG) {
+      grossLabel = `Por debajo del mínimo objetivo (${formatPct1(minG)})`;
+      grossClass = 'text-amber-800 font-semibold';
+    } else if (Number.isFinite(idealG) && grossPct >= idealG) {
+      grossLabel = `En o por encima del ideal (${formatPct1(idealG)})`;
+      grossClass = 'text-emerald-800 font-semibold';
+    } else {
+      grossLabel = 'Dentro del rango operativo';
+      grossClass = 'text-slate-800';
+    }
+  }
+
+  let netLabel = 'Sin ventas en el rango';
+  let netClass = 'text-slate-600';
+  if (netPct != null && Number.isFinite(netPct)) {
+    if (profit < 0) {
+      netLabel = 'Resultado neto aproximado negativo';
+      netClass = 'text-red-700 font-semibold';
+    } else if (Number.isFinite(targetNet) && netPct < targetNet) {
+      netLabel = `Por debajo del objetivo de utilidad neta (${formatPct1(targetNet)})`;
+      netClass = 'text-amber-800 font-semibold';
+    } else {
+      netLabel = 'En o por encima del objetivo de utilidad neta';
+      netClass = 'text-emerald-800 font-semibold';
+    }
+  }
+
+  let lossLabel = 'Sin ventas en el rango';
+  let lossClass = 'text-slate-600';
+  if (lossRatioPct != null && Number.isFinite(lossRatioPct) && sales > 0) {
+    if (Number.isFinite(varTol) && lossRatioPct >= varTol) {
+      lossLabel = `Salidas combinadas ≥ umbral de alertas (${formatPct1(varTol)} sobre ventas)`;
+      lossClass = 'text-amber-900 font-semibold';
+    } else {
+      lossLabel = 'Por debajo del umbral usado en alertas operativas';
+      lossClass = 'text-slate-700';
+    }
+  }
+
+  const rows = [
+    { k: 'Margen bruto mínimo objetivo', v: formatPct1(minG) },
+    { k: 'Margen bruto ideal', v: formatPct1(idealG) },
+    { k: 'Margen crítico', v: formatPct1(critG) },
+    { k: 'Utilidad neta objetivo', v: formatPct1(targetNet) },
+    { k: 'Tolerancia teórico vs real (alertas gastos/ventas)', v: formatPct1(varTol) },
+    { k: 'Costos indirectos estimados (referencia)', v: formatPct1(overhead) },
+  ];
+
+  return (
+    <div className="card border border-violet-200 bg-violet-50/40">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 className="font-bold text-slate-800 flex items-center gap-2">
+            <MdAutoGraph className="text-violet-600 text-xl shrink-0" />
+            Rentabilidad según módulo empresarial
+          </h3>
+          <p className="text-xs text-slate-600 mt-1 max-w-3xl">
+            Los porcentajes se configuran en Configuración → Módulo empresarial (dominio Rentabilidad y relacionados). Aquí se
+            comparan con el resumen del rango de fechas seleccionado.
+          </p>
+        </div>
+        <Link
+          to="/admin/configuracion"
+          className="text-sm font-semibold text-violet-800 hover:underline whitespace-nowrap"
+        >
+          Editar umbrales
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+        {rows.map((r) => (
+          <div key={r.k} className="rounded-lg bg-white/90 border border-violet-100 px-3 py-2">
+            <p className="text-[11px] text-slate-500 leading-snug">{r.k}</p>
+            <p className="text-lg font-bold text-violet-950 tabular-nums">{r.v}</p>
+          </div>
+        ))}
+      </div>
+      {sales > 0 && (
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">Lectura en este rango</p>
+          <ul className="space-y-2 text-sm">
+            <li className="flex flex-wrap justify-between gap-2">
+              <span className="text-slate-600">Margen bruto aprox. / ventas</span>
+              <span className="tabular-nums font-semibold">{formatPct1(grossPct)}</span>
+            </li>
+            <li className={grossClass}>{grossLabel}</li>
+            <li className="flex flex-wrap justify-between gap-2 mt-2">
+              <span className="text-slate-600">Utilidad neta aprox. / ventas</span>
+              <span className="tabular-nums font-semibold">{formatPct1(netPct)}</span>
+            </li>
+            <li className={netClass}>{netLabel}</li>
+            <li className="flex flex-wrap justify-between gap-2 mt-2">
+              <span className="text-slate-600">Salidas combinadas / ventas</span>
+              <span className="tabular-nums font-semibold">{formatPct1(lossRatioPct)}</span>
+            </li>
+            <li className={lossClass}>{lossLabel}</li>
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Reports() {
   const [searchParams] = useSearchParams();
@@ -93,6 +242,19 @@ export default function Reports() {
     setBillingDocuments(Array.isArray(docs) ? docs : []);
   };
 
+  const loadBillingDocumentsRef = useRef(loadBillingDocuments);
+  loadBillingDocumentsRef.current = loadBillingDocuments;
+  const reportSectionRef = useRef(reportSection);
+  reportSectionRef.current = reportSection;
+
+  useSocket(
+    'billing-document-update',
+    useCallback(() => {
+      if (reportSectionRef.current !== 'facturacion') return;
+      loadBillingDocumentsRef.current().catch(() => setBillingDocuments([]));
+    }, [])
+  );
+
   useEffect(() => {
     Promise.all([
       loadDaily(),
@@ -111,6 +273,8 @@ export default function Reports() {
       setReportSection('facturacion');
     } else if (searchParams.get('seccion') === 'productos') {
       setReportSection('productos');
+    } else if (searchParams.get('seccion') === 'finanzas') {
+      setReportSection('finanzas');
     }
   }, [searchParams]);
 
@@ -993,6 +1157,8 @@ export default function Reports() {
               </>
             )}
           </div>
+
+          {financeOverview && !financeLoading ? <FinanceBusinessIntelPanel overview={financeOverview} /> : null}
 
           <div className="card">
             <h3 className="font-bold text-slate-800 mb-2">Registrar pérdida</h3>

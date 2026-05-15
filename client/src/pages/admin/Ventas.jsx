@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { api, formatCurrency, formatDateTime } from '../../utils/api';
 import toast from 'react-hot-toast';
+import { useSocket } from '../../hooks/useSocket';
 import { MdSearch, MdVisibility, MdEdit, MdSave, MdPrint, MdTableChart, MdCancel, MdDownload } from 'react-icons/md';
 import Modal from '../../components/Modal';
 
@@ -252,6 +253,11 @@ export default function Ventas() {
       setLoading(false);
     }
   };
+
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  useSocket('billing-document-update', useCallback(() => { loadRef.current(); }, []));
+  useSocket('order-update', useCallback(() => { loadRef.current(); }, []));
 
   useEffect(() => { load(); }, []);
 

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api, formatCurrency } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import { MdAdd, MdPerson, MdCreditCard, MdPayment, MdHistory } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -11,16 +12,20 @@ export default function Creditos() {
   const [payAmount, setPayAmount] = useState('');
   const [form, setForm] = useState({ client: '', phone: '', total: '', items: '' });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const rows = await api.get('/admin-modules/credits');
       setCreditos(rows || []);
     } catch (err) {
       toast.error(err.message);
     }
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'credits') void load();
+  });
 
   const handleCreate = async (e) => {
     e.preventDefault();

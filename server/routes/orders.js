@@ -7,6 +7,7 @@ const { parsePaymentBreakdown, dominantPaymentMethod, round2 } = require('../uti
 const { getOrderWithItems, createOrderInTransaction, replaceOrderLinesInTransaction, actorFromRequest } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
 const kardexInventory = require('../services/kardexInventoryService');
+const { emitInventoryUpdate, emitBillingDocumentUpdate } = require('../socketBroadcast');
 const router = express.Router();
 const ORDER_TRANSITIONS = {
   pending: ['preparing', 'cancelled'],
@@ -221,6 +222,7 @@ router.put('/:id/lines', authenticateToken, requireRole('admin', 'cajero', 'mozo
       /** Cocina/bar: mismo efecto que pedido nuevo para impresión automática (ítems añadidos a mesa existente). */
       io.emit('order-lines-updated', order);
     }
+    emitInventoryUpdate({});
     res.json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo actualizar el pedido' });
@@ -278,6 +280,7 @@ router.post('/', authenticateToken, (req, res) => {
     const order = getOrderWithItems(result.orderId);
     const io = req.app.get('io');
     if (io) { io.emit('new-order', order); io.emit('order-update', order); }
+    emitInventoryUpdate({});
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo crear el pedido' });
@@ -374,6 +377,7 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'moz
       "UPDATE orders SET status = 'cancelled', cancellation_reason = ?, updated_at = datetime('now') WHERE id = ?",
       [reason, req.params.id]
     );
+    emitInventoryUpdate({});
   } else if (status === 'delivered' && String(order.payment_status || '') === 'paid') {
     try {
       withTransaction((tx) => {
@@ -389,6 +393,7 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'moz
     } catch (err) {
       return res.status(400).json({ error: err.message || 'No se pudo aplicar salidas de kardex' });
     }
+    emitInventoryUpdate({});
   } else {
     runSql("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?", [status, req.params.id]);
     if (order.type === 'delivery' && status === 'delivered') {
@@ -526,7 +531,27 @@ router.put('/:id/payment', authenticateToken, requireRole('admin', 'cajero', 'mo
       );
     }
   }
-  res.json(getOrderWithItems(req.params.id));
+  if (nextPaymentMethod !== null || nextBreakdown !== undefined) {
+    const docRow = queryOne('SELECT * FROM electronic_documents WHERE order_id = ? LIMIT 1', [req.params.id]);
+    if (docRow?.id) {
+      emitBillingDocumentUpdate({
+        id: docRow.id,
+        order_id: docRow.order_id,
+        order_number: docRow.order_number,
+        doc_type: docRow.doc_type,
+        full_number: docRow.full_number,
+        provider_status: docRow.provider_status,
+        provider_message: docRow.provider_message,
+        pdf_url: docRow.pdf_url,
+        updated_at: docRow.updated_at,
+      });
+    }
+  }
+  const fresh = getOrderWithItems(req.params.id);
+  const io = req.app.get('io');
+  if (io) io.emit('order-update', fresh);
+  if (applyKardexAfter) emitInventoryUpdate({});
+  res.json(fresh);
 });
 
 router.put('/:id/discount', authenticateToken, requireRole('admin', 'cajero', 'mozo'), (req, res) => {
@@ -555,7 +580,10 @@ router.put('/:id/discount', authenticateToken, requireRole('admin', 'cajero', 'm
     details: { discount: safeDiscount, reason: reason || '' },
   });
 
-  res.json(getOrderWithItems(req.params.id));
+  const updatedOrder = getOrderWithItems(req.params.id);
+  const io = req.app.get('io');
+  if (io) io.emit('order-update', updatedOrder);
+  res.json(updatedOrder);
 });
 
 module.exports = router;

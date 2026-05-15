@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api, formatCurrency } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import { MdTrendingUp, MdTrendingDown, MdPeople, MdRestaurantMenu, MdAttachMoney, MdShoppingCart } from 'react-icons/md';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
@@ -10,11 +11,34 @@ export default function Indicadores() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([api.get('/orders'), api.get('/products')])
-      .then(([o, p]) => { setOrders(o); setProducts(p); })
-      .catch(console.error).finally(() => setLoading(false));
+  const fetchOrdersAndProducts = useCallback(async () => {
+    const [o, p] = await Promise.all([api.get('/orders'), api.get('/products')]);
+    setOrders(o);
+    setProducts(p);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchOrdersAndProducts()
+      .catch(console.error)
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchOrdersAndProducts]);
+
+  useSocket('order-update', () => {
+    void fetchOrdersAndProducts().catch(console.error);
+  });
+  useSocket('new-order', () => {
+    void fetchOrdersAndProducts().catch(console.error);
+  });
+  useSocket('inventory-update', () => {
+    void fetchOrdersAndProducts().catch(console.error);
+  });
 
   const paidOrders = orders.filter(o => o.payment_status === 'paid' && o.status !== 'cancelled');
   const totalRevenue = paidOrders.reduce((s, o) => s + (o.total || 0), 0);

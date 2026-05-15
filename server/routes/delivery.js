@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { getOrderWithItems } = require('../orderCreateService');
 
 const router = express.Router();
 const DELIVERY_TRANSITIONS = {
@@ -43,6 +44,8 @@ router.post('/assign', authenticateToken, requireRole('admin', 'cajero'), (req, 
   if (io) {
     io.to(`delivery-${driver_id}`).emit('delivery-assigned', assignment);
     io.emit('delivery-update', assignment);
+    const fullOrder = getOrderWithItems(order_id);
+    if (fullOrder) io.emit('order-update', fullOrder);
   }
   res.status(201).json(assignment);
 });
@@ -89,6 +92,10 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'del
   if (io) {
     io.to(`delivery-${updated.driver_id}`).emit('delivery-update', updated);
     io.emit('delivery-update', updated);
+    if (status === 'delivered') {
+      const fullOrder = getOrderWithItems(assignment.order_id);
+      if (fullOrder) io.emit('order-update', fullOrder);
+    }
   }
   res.json(updated);
 });

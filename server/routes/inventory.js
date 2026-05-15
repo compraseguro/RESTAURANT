@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql, withTransaction, logAudit } = require('../database');
 const kardexInventory = require('../services/kardexInventoryService');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { emitInventoryUpdate } = require('../socketBroadcast');
 
 const router = express.Router();
 
@@ -168,6 +169,7 @@ function recalculateProductStock(productId) {
   );
   const total = Number(totalByWarehouses?.total || 0);
   runSql('UPDATE products SET stock = ?, updated_at = datetime(\'now\') WHERE id = ?', [total, productId]);
+  emitInventoryUpdate({ productId });
   return total;
 }
 
@@ -211,6 +213,7 @@ router.put('/adjust/:product_id', authenticateToken, requireRole('admin'), (req,
 
   runSql('UPDATE products SET stock = ? WHERE id = ?', [newStock, req.params.product_id]);
   runSql('INSERT INTO inventory_logs (id, product_id, quantity_change, previous_stock, new_stock, reason, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)', [uuidv4(), req.params.product_id, quantity_change, product.stock, newStock, reason || '', req.user.id]);
+  emitInventoryUpdate({ productId: req.params.product_id });
   logAudit({
     actorUserId: req.user.id,
     actorName: req.user.full_name || req.user.username || '',
@@ -682,6 +685,7 @@ router.post('/receptions/receive', authenticateToken, requireRole('admin'), (req
       details: { processed_items: processed, total_expense: totalExpense },
     });
 
+    emitInventoryUpdate({});
     res.json({ success: true, requirement_id, processed_items: processed, total_expense: totalExpense });
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo registrar recepción' });
@@ -1030,6 +1034,7 @@ router.put('/purchase-orders/:id/receive', authenticateToken, requireRole('admin
     resourceId: req.params.id,
     details: { item_count: items.length },
   });
+  emitInventoryUpdate({});
   res.json({ success: true, status: 'received' });
 });
 

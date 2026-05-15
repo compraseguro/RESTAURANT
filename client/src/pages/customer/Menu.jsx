@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api, formatCurrency } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
 import { useCart } from '../../context/CartContext';
 import Modal from '../../components/Modal';
@@ -16,7 +17,7 @@ export default function Menu() {
   const [selectedVariant, setSelectedVariant] = useState(null);
   const { addItem } = useCart();
 
-  useEffect(() => {
+  const loadMenu = useCallback(() => {
     Promise.all([
       api.get('/products?active_only=true'),
       api.get('/categories/active'),
@@ -25,6 +26,15 @@ export default function Menu() {
       setCategories(cats);
     }).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    loadMenu();
+  }, [loadMenu]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'catalog') loadMenu();
+  });
+  useSocket('inventory-update', loadMenu);
 
   const handleAddToCart = () => {
     if (!selectedProduct) return;

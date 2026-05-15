@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { emitStaffDataUpdate } = require('../socketBroadcast');
 
 const router = express.Router();
 
@@ -21,17 +22,20 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
   const restaurant = queryOne('SELECT id FROM restaurants LIMIT 1');
   const id = uuidv4();
   runSql('INSERT INTO categories (id, name, description, image, restaurant_id, sort_order) VALUES (?, ?, ?, ?, ?, ?)', [id, name, description || '', image || '', restaurant?.id, (maxSort?.m || 0) + 1]);
+  emitStaffDataUpdate({ domain: 'catalog' });
   res.status(201).json(queryOne('SELECT * FROM categories WHERE id = ?', [id]));
 });
 
 router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
   const { name, description, image, is_active, sort_order } = req.body;
   runSql('UPDATE categories SET name = COALESCE(?, name), description = COALESCE(?, description), image = COALESCE(?, image), is_active = COALESCE(?, is_active), sort_order = COALESCE(?, sort_order) WHERE id = ?', [name, description, image, is_active, sort_order, req.params.id]);
+  emitStaffDataUpdate({ domain: 'catalog' });
   res.json(queryOne('SELECT * FROM categories WHERE id = ?', [req.params.id]));
 });
 
 router.delete('/:id', authenticateToken, requireRole('admin'), (req, res) => {
   runSql('DELETE FROM categories WHERE id = ?', [req.params.id]);
+  emitStaffDataUpdate({ domain: 'catalog' });
   res.json({ success: true });
 });
 

@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql, logAudit } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { getOrderWithItems } = require('../orderCreateService');
 
 router.use(authenticateToken);
 
@@ -130,8 +131,13 @@ router.patch('/:id/free', requireRole('admin', 'cajero'), (req, res) => {
 
     const updated = queryOne('SELECT * FROM tables WHERE id = ?', [req.params.id]);
     const io = req.app.get('io');
-    if (io) io.emit('table-update', updated);
-    if (io) io.emit('order-update', {});
+    if (io) {
+      io.emit('table-update', updated);
+      activeOrders.forEach((o) => {
+        const full = getOrderWithItems(o.id);
+        if (full) io.emit('order-update', full);
+      });
+    }
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -181,7 +187,10 @@ router.post('/move-orders', requireRole('admin', 'cajero', 'mozo'), (req, res) =
     const io = req.app.get('io');
     if (io) {
       io.emit('table-update', {});
-      io.emit('order-update', {});
+      selected.forEach((o) => {
+        const full = getOrderWithItems(o.id);
+        if (full) io.emit('order-update', full);
+      });
     }
     res.json({ success: true, moved: selected.length, source_table: source.number, target_table: target.number });
   } catch (err) {
@@ -203,6 +212,7 @@ router.post('/merge', requireRole('admin', 'cajero', 'mozo'), (req, res) => {
     if (!target) return res.status(404).json({ error: 'Mesa destino no encontrada' });
 
     let moved = 0;
+    const mergedOrderIds = [];
     sourceTableIds.forEach((sourceId) => {
       const source = queryOne('SELECT * FROM tables WHERE id = ?', [sourceId]);
       if (!source) return;
@@ -215,6 +225,7 @@ router.post('/merge', requireRole('admin', 'cajero', 'mozo'), (req, res) => {
           "UPDATE orders SET table_number = ?, customer_name = ?, updated_at = datetime('now') WHERE id = ?",
           [String(target.number), `Mesa ${target.number}`, order.id]
         );
+        mergedOrderIds.push(order.id);
         moved += 1;
       });
     });
@@ -232,7 +243,10 @@ router.post('/merge', requireRole('admin', 'cajero', 'mozo'), (req, res) => {
     const io = req.app.get('io');
     if (io) {
       io.emit('table-update', {});
-      io.emit('order-update', {});
+      mergedOrderIds.forEach((oid) => {
+        const full = getOrderWithItems(oid);
+        if (full) io.emit('order-update', full);
+      });
     }
     res.json({ success: true, moved, target_table: target.number });
   } catch (err) {

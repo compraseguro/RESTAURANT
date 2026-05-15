@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, formatCurrency } from '../../utils/api';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
+import { useSocket } from '../../hooks/useSocket';
 import { useStaffOrderCart } from '../../hooks/useStaffOrderCart';
 import StaffDineInOrderUI from '../../components/StaffDineInOrderUI';
 import StaffModifierPromptModal from '../../components/StaffModifierPromptModal';
@@ -78,6 +79,24 @@ export default function SelfOrder() {
   }, [loadOrders, bootstrap?.table?.id]);
 
   useActiveInterval(loadOrders, 8000);
+
+  const STAFF_CATALOG_DOMAINS = useMemo(
+    () => new Set(['modifiers', 'auto_pedido_cartas', 'discounts', 'offers', 'combos', 'catalog']),
+    []
+  );
+
+  useSocket('staff-data-update', (p) => {
+    if (!mesaParam || !STAFF_CATALOG_DOMAINS.has(p?.domain)) return;
+    void loadBootstrap();
+  });
+  useSocket('inventory-update', () => {
+    if (!mesaParam) return;
+    void loadBootstrap();
+  });
+  useSocket('order-update', () => {
+    if (!mesaParam) return;
+    void loadOrders();
+  });
 
   const filteredProducts = useMemo(
     () =>

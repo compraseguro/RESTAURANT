@@ -34,51 +34,7 @@ import MasterAdmin from './pages/master/MasterAdmin';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 import BackgroundKitchenAutoPrinter from './components/BackgroundKitchenAutoPrinter';
 import PrintingAssistantAutoDiscover from './components/PrintingAssistantAutoDiscover';
-
-const ADMIN_MODULE_PATHS = [
-  { path: '/admin', moduleId: 'escritorio', roles: ['admin', 'cajero'] },
-  { path: '/admin/caja', moduleId: 'caja', roles: ['admin', 'cajero'] },
-  { path: '/admin/mesas', moduleId: 'mesas', roles: ['admin', 'mozo'] },
-  { path: '/admin/cocina', moduleId: 'cocina', roles: ['admin'] },
-  { path: '/admin/bar', moduleId: 'bar', roles: ['admin'] },
-  { path: '/admin/delivery', moduleId: 'delivery', roles: ['admin', 'cajero', 'mozo'] },
-  { path: '/admin/reservas', moduleId: 'reservas', roles: ['admin', 'cajero', 'mozo'] },
-  { path: '/admin/auto-pedido', moduleId: 'auto_pedido', roles: ['admin'] },
-  { path: '/admin/clientes', moduleId: 'clientes', roles: ['admin', 'cajero'] },
-  { path: '/admin/creditos', moduleId: 'creditos', roles: ['admin', 'cajero'] },
-  { path: '/admin/ofertas', moduleId: 'ofertas', roles: ['admin'] },
-  { path: '/admin/descuentos', moduleId: 'descuentos', roles: ['admin'] },
-  { path: '/admin/almacen', moduleId: 'almacen', roles: ['admin'] },
-  { path: '/admin/productos', moduleId: 'productos', roles: ['admin'] },
-  { path: '/admin/informes', moduleId: 'informes', roles: ['admin', 'cajero'] },
-  { path: '/admin/ventas', moduleId: 'ventas', roles: ['admin', 'cajero'] },
-  { path: '/admin/indicadores', moduleId: 'indicadores', roles: ['admin'] },
-  { path: '/admin/mi-restaurant', moduleId: 'mi_restaurant', roles: ['admin', 'master_admin'] },
-  { path: '/admin/tiempo-trabajado', moduleId: 'tiempo_trabajado', roles: ['admin'] },
-  { path: '/admin/configuracion', moduleId: 'configuracion', roles: ['admin'] },
-];
-
-function isPermissionEnabled(value) {
-  return value === true || value === 1 || value === '1' || value === 'true';
-}
-
-function hasModulePermission(user, moduleId) {
-  if (!moduleId) return true;
-  if (user?.role === 'master_admin') return true;
-  if (!user || typeof user.permissions !== 'object' || user.permissions === null) return false;
-  return isPermissionEnabled(user.permissions[moduleId]);
-}
-
-function getDefaultStaffPath(user) {
-  if (!user) return '/';
-  if (user.role === 'master_admin') return '/master';
-  if (user.role === 'cocina') return hasModulePermission(user, 'cocina') ? '/kitchen' : '/';
-  if (user.role === 'bar') return hasModulePermission(user, 'bar') ? '/bar' : '/';
-  if (user.role === 'delivery') return hasModulePermission(user, 'delivery') ? '/delivery' : '/';
-  if (!['admin', 'cajero', 'mozo'].includes(user.role)) return '/admin';
-  const first = ADMIN_MODULE_PATHS.find((item) => hasModulePermission(user, item.moduleId));
-  return first?.path || '/admin';
-}
+import { ADMIN_MODULE_PATHS, hasModulePermission, getDefaultStaffPath } from './utils/staffModuleAccess';
 
 function ProtectedRoute({ children, roles, moduleId }) {
   const { user, loading } = useAuth();

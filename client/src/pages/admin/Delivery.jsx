@@ -70,6 +70,11 @@ export default function Delivery() {
   }, [isMozo]);
   useActiveInterval(load, isMozo ? 0 : 10000);
   useSocket('order-update', isMozo ? () => {} : load);
+  useSocket('delivery-update', isMozo ? () => {} : load);
+  useSocket('inventory-update', loadProducts);
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'catalog') loadProducts();
+  });
 
   const activeOrders = orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
   const completedOrders = orders.filter(o => ['delivered', 'cancelled'].includes(o.status));

@@ -14,6 +14,10 @@ export default defineConfig(() => {
     base: isDesktopBuild ? './' : '/',
     define: {
       __APP_VERSION__: JSON.stringify(clientPkg.version),
+      /** Instalación Windows: el API embebido escucha en este host (ver `electron/main.js`). */
+      ...(isDesktopBuild
+        ? { 'import.meta.env.VITE_API_URL': JSON.stringify('http://127.0.0.1:3001') }
+        : {}),
     },
     resolve: {
       alias: {

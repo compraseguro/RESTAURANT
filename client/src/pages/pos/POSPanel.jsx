@@ -668,6 +668,11 @@ export default function POSPanel() {
   useActiveInterval(loadData, 10000);
   useSocket('order-update', loadData);
   useSocket('table-update', loadData);
+  useSocket('inventory-update', loadData);
+  useSocket('staff-data-update', (payload) => {
+    const d = payload?.domain;
+    if (['modifiers', 'reservations', 'customers', 'app_config', 'catalog'].includes(d)) void loadData();
+  });
 
   useEffect(() => {
     if (!paymentOptions.some(opt => opt.value === paymentMethod)) {
@@ -741,6 +746,8 @@ export default function POSPanel() {
       setBillingStatus(prev => ({ ...prev, provider_reachable: false, checked_at: new Date().toISOString() }));
     }
   };
+
+  useSocket('billing-document-update', loadBillingStatus);
 
   useEffect(() => {
     loadBillingStatus();

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { api } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import { MdAdd, MdDelete, MdLocalOffer, MdCalendarToday, MdSearch } from 'react-icons/md';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -33,14 +34,14 @@ export default function Ofertas() {
     productIds: [],
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const rows = await api.get('/admin-modules/offers');
       setOfertas(rows || []);
     } catch (err) {
       toast.error(err.message);
     }
-  };
+  }, []);
 
   const loadCatalog = useCallback(async () => {
     try {
@@ -53,7 +54,15 @@ export default function Ofertas() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'offers') void load();
+    if (p?.domain === 'catalog') void loadCatalog();
+  });
+  useSocket('inventory-update', () => {
+    void loadCatalog();
+  });
 
   useEffect(() => {
     if (showModal) loadCatalog();

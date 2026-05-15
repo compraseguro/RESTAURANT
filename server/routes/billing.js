@@ -14,8 +14,36 @@ const { getControlConfig } = require('../masterAdminService');
 const { scheduleWhatsappPdfSend } = require('../whatsappLaptopNotify');
 const { exportBillingPdfToUploads, isHttpUrl: isHttpPdfUrl } = require('../billingPdfStorage');
 const { saveLocalFallbackReceiptPdf, ensureLocalFallbackPdfForDocumentRow } = require('../billingLocalReceiptPdf');
+const { getOrderWithItems } = require('../orderCreateService');
+const { getSocketIo, emitBillingDocumentUpdate } = require('../socketBroadcast');
 
 const router = express.Router();
+
+function emitOrderUpdateForBilling(io, orderId) {
+  if (!io || !orderId) return;
+  const full = getOrderWithItems(orderId);
+  if (full) io.emit('order-update', full);
+}
+
+function slimBillingDocumentRow(row) {
+  if (!row || !row.id) return null;
+  return {
+    id: row.id,
+    order_id: row.order_id,
+    order_number: row.order_number,
+    doc_type: row.doc_type,
+    full_number: row.full_number,
+    provider_status: row.provider_status,
+    provider_message: row.provider_message,
+    pdf_url: row.pdf_url,
+    updated_at: row.updated_at,
+  };
+}
+
+function broadcastBillingDocumentRow(row) {
+  const slim = slimBillingDocumentRow(row);
+  if (slim) emitBillingDocumentUpdate(slim);
+}
 
 const DOCS = {
   boleta: { sunatCode: '03', nubefactCode: '2', fallbackSeries: 'B001' },
@@ -919,6 +947,8 @@ router.post('/issue', authenticateToken, requireRole('admin', 'cajero', 'mozo'),
       replaceExisting: false,
       invoiceLinesMode,
     });
+    emitOrderUpdateForBilling(req.app.get('io'), orderId);
+    broadcastBillingDocumentRow(created);
     res.json(created);
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo emitir comprobante electrónico' });
@@ -937,6 +967,8 @@ router.put('/order/:orderId/document', authenticateToken, requireRole('admin', '
       replaceExisting: true,
       invoiceLinesMode,
     });
+    emitOrderUpdateForBilling(req.app.get('io'), orderId);
+    broadcastBillingDocumentRow(created);
     res.json(created);
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo cambiar el comprobante' });
@@ -967,6 +999,8 @@ router.post('/:id/retry', authenticateToken, requireRole('admin', 'cajero'), asy
 
     const updated = await refreshDocWithLocalPdfIfNeeded(doc.id, restaurant);
     scheduleWhatsappPdfSend(updated, restaurant);
+    emitOrderUpdateForBilling(req.app.get('io'), doc.order_id);
+    broadcastBillingDocumentRow(updated);
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo reintentar el comprobante' });
@@ -975,8 +1009,12 @@ router.post('/:id/retry', authenticateToken, requireRole('admin', 'cajero'), asy
 
 async function retryFailedDocumentsBatch({ limit = 20 } = {}) {
   const restaurant = queryOne('SELECT * FROM restaurants LIMIT 1');
-  if (!restaurant) return { processed: 0, success: 0, failed: 0, skipped: true };
-  if (!canSendToProvider(restaurant)) return { processed: 0, success: 0, failed: 0, skipped: true };
+  if (!restaurant) {
+    return { processed: 0, success: 0, failed: 0, skipped: true, touchedOrderIds: [] };
+  }
+  if (!canSendToProvider(restaurant)) {
+    return { processed: 0, success: 0, failed: 0, skipped: true, touchedOrderIds: [] };
+  }
 
   const rows = queryAll(
     `SELECT * FROM electronic_documents
@@ -988,6 +1026,7 @@ async function retryFailedDocumentsBatch({ limit = 20 } = {}) {
 
   let processed = 0;
   let success = 0;
+  const touchedOrderIds = [];
   for (const row of rows) {
     const payload = parseProviderPayload(row.provider_payload);
     if (!payload || Object.keys(payload).length === 0) continue;
@@ -995,15 +1034,29 @@ async function retryFailedDocumentsBatch({ limit = 20 } = {}) {
     applyProviderResultToDocument(row.id, result);
     const updatedRow = await refreshDocWithLocalPdfIfNeeded(row.id, restaurant);
     scheduleWhatsappPdfSend(updatedRow, restaurant);
+    broadcastBillingDocumentRow(updatedRow);
     processed += 1;
+    if (row.order_id) touchedOrderIds.push(row.order_id);
     if (result.providerStatus === 'accepted' || result.providerStatus === 'sent') success += 1;
   }
-  return { processed, success, failed: Math.max(0, processed - success), skipped: false };
+  return {
+    processed,
+    success,
+    failed: Math.max(0, processed - success),
+    skipped: false,
+    touchedOrderIds: [...new Set(touchedOrderIds)],
+  };
 }
 
 router.post('/retry-failed', authenticateToken, requireRole('admin', 'cajero'), async (req, res) => {
   try {
     const result = await retryFailedDocumentsBatch({ limit: req.body?.limit || 20 });
+    const io = req.app.get('io');
+    if (io && Array.isArray(result.touchedOrderIds)) {
+      for (const oid of result.touchedOrderIds) {
+        emitOrderUpdateForBilling(io, oid);
+      }
+    }
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message || 'No se pudo ejecutar reintento masivo' });
@@ -1027,7 +1080,13 @@ function startBillingAutoRetryJob() {
       if (now - autoRetryLastRunMs < intervalSec * 1000) return;
       autoRetryRunning = true;
       autoRetryLastRunMs = now;
-      await retryFailedDocumentsBatch({ limit: 20 });
+      const batch = await retryFailedDocumentsBatch({ limit: 20 });
+      const io = getSocketIo();
+      if (io && Array.isArray(batch.touchedOrderIds)) {
+        for (const oid of batch.touchedOrderIds) {
+          emitOrderUpdateForBilling(io, oid);
+        }
+      }
     } catch (_) {
       // Silent by design: this runs in background.
     } finally {

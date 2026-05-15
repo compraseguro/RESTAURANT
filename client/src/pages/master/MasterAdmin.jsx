@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSocket } from '../../hooks/useSocket';
 import toast from 'react-hot-toast';
 import { api, resolveMediaUrl } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -104,6 +105,21 @@ export default function MasterAdmin() {
     })();
     return () => { cancelled = true; };
   }, [tab]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain !== 'app_config' || tab !== 'contrato') return;
+    (async () => {
+      setServiceContratoLoading(true);
+      try {
+        const appCfg = await api.get('/admin-modules/config/app');
+        setServiceContrato(normalizeContratoFromApi(appCfg?.contrato));
+      } catch (err) {
+        toast.error(err.message || 'No se pudo actualizar el contrato del servicio');
+      } finally {
+        setServiceContratoLoading(false);
+      }
+    })();
+  });
 
   const saveServiceContrato = async () => {
     const c = serviceContrato || {};

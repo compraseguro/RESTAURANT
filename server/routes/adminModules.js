@@ -13,6 +13,11 @@ const {
 } = require('../masterAdminService');
 const { getOrderWithItems } = require('../orderCreateService');
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
+const { emitInventoryUpdate, emitStaffDataUpdate } = require('../socketBroadcast');
+
+function broadcastStaffData(domain) {
+  emitStaffDataUpdate({ domain: String(domain || '') });
+}
 const { consultarPadronPeru } = require('../peruConsultaPadron');
 const { resolveRestaurantId, syncPrinterRoutesFromImpresoras, listPrinterRoutes } = require('../printerRoutesService');
 
@@ -133,6 +138,7 @@ router.put('/auto-pedido/cartas', requireRole('admin'), (req, res) => {
       resourceId: 'settings',
       details: { count: normalized.length },
     });
+    broadcastStaffData('auto_pedido_cartas');
     res.json({ cartas: normalized });
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo guardar' });
@@ -318,6 +324,9 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
       console.error('[printer_routes] sync desde settings:', e.message || e);
     }
   }
+  if (changedKeys.length) {
+    broadcastStaffData('app_config');
+  }
   res.json(out);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo guardar' });
@@ -369,6 +378,9 @@ router.post('/config/app/rollback/:historyId', requireRole('admin'), (req, res) 
       new_history_id: rollbackHistoryId,
     },
   });
+  if (restoredKeys.length) {
+    broadcastStaffData('app_config');
+  }
   res.json(afterRollback);
 });
 
@@ -462,6 +474,7 @@ router.post('/customers', requireRole('admin', 'cajero'), (req, res) => {
     resourceId: id,
     details: { email: nextEmail, doc_type: cleanDocType, doc_number: cleanDocNumber },
   });
+  broadcastStaffData('customers');
   res.status(201).json(queryOne('SELECT id, name, email, phone, address, doc_type, doc_number, created_at FROM customers WHERE id = ?', [id]));
 });
 
@@ -499,6 +512,7 @@ router.put('/customers/:id', requireRole('admin', 'cajero'), (req, res) => {
     const hash = bcrypt.hashSync(String(password), 10);
     runSql('UPDATE customers SET password_hash = ? WHERE id = ?', [hash, req.params.id]);
   }
+  broadcastStaffData('customers');
   res.json(queryOne('SELECT id, name, email, phone, address, doc_type, doc_number, created_at FROM customers WHERE id = ?', [req.params.id]));
 });
 
@@ -510,6 +524,7 @@ router.delete('/customers/:id', requireRole('admin'), (req, res) => {
     return res.status(400).json({ error: 'No se puede eliminar: el cliente tiene pedidos registrados' });
   }
   runSql('DELETE FROM customers WHERE id = ?', [req.params.id]);
+  broadcastStaffData('customers');
   res.json({ success: true });
 });
 
@@ -532,6 +547,7 @@ router.post('/reservations', (req, res) => {
     [id, client_name, phone, date, time, Number(guests || 2), table_id, notes, status, req.user.id]
   );
   logAudit({ actorUserId: req.user.id, actorName: req.user.full_name || req.user.username || '', action: 'reservation.create', resourceType: 'reservation', resourceId: id });
+  broadcastStaffData('reservations');
   res.status(201).json(queryOne('SELECT * FROM reservations WHERE id = ?', [id]));
 });
 
@@ -600,13 +616,16 @@ router.put('/reservations/:id', (req, res) => {
         if (updatedOrder) io.emit('order-update', updatedOrder);
       }
     }
+    if (linkedOrders.length > 0) emitInventoryUpdate({});
   }
 
+  broadcastStaffData('reservations');
   res.json(queryOne('SELECT * FROM reservations WHERE id = ?', [req.params.id]));
 });
 
 router.delete('/reservations/:id', requireRole('admin', 'cajero'), (req, res) => {
   runSql('DELETE FROM reservations WHERE id = ?', [req.params.id]);
+  broadcastStaffData('reservations');
   res.json({ success: true });
 });
 
@@ -626,6 +645,7 @@ router.post('/credits', requireRole('admin', 'cajero'), (req, res) => {
     'INSERT INTO customer_credits (id, client_name, phone, total, paid, items, status, created_by_user_id) VALUES (?, ?, ?, ?, 0, ?, ?, ?)',
     [id, client_name, phone, Number(total), items, 'open', req.user.id]
   );
+  broadcastStaffData('credits');
   res.status(201).json(queryOne('SELECT * FROM customer_credits WHERE id = ?', [id]));
 });
 
@@ -639,6 +659,7 @@ router.post('/credits/:id/payments', requireRole('admin', 'cajero'), (req, res) 
   const paymentId = uuidv4();
   runSql('INSERT INTO credit_payments (id, credit_id, amount, created_by_user_id) VALUES (?, ?, ?, ?)', [paymentId, req.params.id, amount, req.user.id]);
   runSql('UPDATE customer_credits SET paid = ?, status = ?, updated_at = datetime(\'now\') WHERE id = ?', [nextPaid, status, req.params.id]);
+  broadcastStaffData('credits');
   res.status(201).json(queryOne('SELECT * FROM customer_credits WHERE id = ?', [req.params.id]));
 });
 
@@ -654,6 +675,7 @@ router.post('/discounts', requireRole('admin'), (req, res) => {
     'INSERT INTO discounts_catalog (id, name, type, value, applies_to, conditions, active) VALUES (?, ?, ?, ?, ?, ?, ?)',
     [id, name, type, Number(value || 0), applies_to, conditions, active ? 1 : 0]
   );
+  broadcastStaffData('discounts');
   res.status(201).json(queryOne('SELECT * FROM discounts_catalog WHERE id = ?', [id]));
 });
 
@@ -666,11 +688,13 @@ router.put('/discounts/:id', requireRole('admin'), (req, res) => {
      WHERE id = ?`,
     [name, type, value, applies_to, conditions, active, req.params.id]
   );
+  broadcastStaffData('discounts');
   res.json(queryOne('SELECT * FROM discounts_catalog WHERE id = ?', [req.params.id]));
 });
 
 router.delete('/discounts/:id', requireRole('admin'), (req, res) => {
   runSql('DELETE FROM discounts_catalog WHERE id = ?', [req.params.id]);
+  broadcastStaffData('discounts');
   res.json({ success: true });
 });
 
@@ -711,6 +735,7 @@ router.post('/offers', requireRole('admin'), (req, res) => {
     'INSERT INTO offers_catalog (id, name, description, type, discount, start_date, end_date, products, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [id, name, description, type, Number(discount || 0), start_date, end_date, products, active ? 1 : 0]
   );
+  broadcastStaffData('offers');
   res.status(201).json(queryOne('SELECT * FROM offers_catalog WHERE id = ?', [id]));
 });
 
@@ -726,11 +751,13 @@ router.put('/offers/:id', requireRole('admin'), (req, res) => {
      WHERE id = ?`,
     [name, description, type, discount, start_date, end_date, productsVal, active, req.params.id]
   );
+  broadcastStaffData('offers');
   res.json(queryOne('SELECT * FROM offers_catalog WHERE id = ?', [req.params.id]));
 });
 
 router.delete('/offers/:id', requireRole('admin'), (req, res) => {
   runSql('DELETE FROM offers_catalog WHERE id = ?', [req.params.id]);
+  broadcastStaffData('offers');
   res.json({ success: true });
 });
 
@@ -757,6 +784,7 @@ router.post('/combos', requireRole('admin'), (req, res) => {
     if (!it?.product_id) return;
     runSql('INSERT INTO combo_items (id, combo_id, product_id, quantity) VALUES (?, ?, ?, ?)', [uuidv4(), id, it.product_id, Number(it.quantity || 1)]);
   });
+  broadcastStaffData('combos');
   res.status(201).json({ id });
 });
 
@@ -776,12 +804,14 @@ router.put('/combos/:id', requireRole('admin'), (req, res) => {
       runSql('INSERT INTO combo_items (id, combo_id, product_id, quantity) VALUES (?, ?, ?, ?)', [uuidv4(), req.params.id, it.product_id, Number(it.quantity || 1)]);
     });
   }
+  broadcastStaffData('combos');
   res.json({ success: true });
 });
 
 router.delete('/combos/:id', requireRole('admin'), (req, res) => {
   runSql('DELETE FROM combo_items WHERE combo_id = ?', [req.params.id]);
   runSql('DELETE FROM combos WHERE id = ?', [req.params.id]);
+  broadcastStaffData('combos');
   res.json({ success: true });
 });
 
@@ -802,6 +832,7 @@ router.post('/modifiers', requireRole('admin'), (req, res) => {
     if (!opt) return;
     runSql('INSERT INTO modifier_options (id, modifier_id, option_name) VALUES (?, ?, ?)', [uuidv4(), id, String(opt)]);
   });
+  broadcastStaffData('modifiers');
   res.status(201).json({ id });
 });
 
@@ -818,12 +849,14 @@ router.put('/modifiers/:id', requireRole('admin'), (req, res) => {
       runSql('INSERT INTO modifier_options (id, modifier_id, option_name) VALUES (?, ?, ?)', [uuidv4(), req.params.id, String(opt)]);
     });
   }
+  broadcastStaffData('modifiers');
   res.json({ success: true });
 });
 
 router.delete('/modifiers/:id', requireRole('admin'), (req, res) => {
   runSql('DELETE FROM modifier_options WHERE modifier_id = ?', [req.params.id]);
   runSql('DELETE FROM modifiers WHERE id = ?', [req.params.id]);
+  broadcastStaffData('modifiers');
   res.json({ success: true });
 });
 

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
+import { ADMIN_MODULE_PATHS, hasModulePermission } from '../utils/staffModuleAccess';
 import EndShiftModal from './EndShiftModal';
 import AdminAttendanceReviewModal from './AdminAttendanceReviewModal';
 import {
@@ -11,28 +12,53 @@ import {
   MdInsights, MdStorefront, MdSettings, MdLogout, MdTableBar, MdAccessTime, MdKitchen, MdLocalBar, MdQrCode2,
 } from 'react-icons/md';
 
-const allLinks = [
-  { to: '/admin', icon: MdDashboard, label: 'Escritorio', end: true, roles: ['admin', 'cajero'], moduleId: 'escritorio' },
-  { to: '/admin/caja', icon: MdPointOfSale, label: 'Caja', roles: ['admin', 'cajero'], moduleId: 'caja' },
-  { to: '/admin/mesas', icon: MdTableBar, label: 'Mesas', roles: ['admin', 'mozo'], moduleId: 'mesas' },
-  { to: '/admin/cocina', icon: MdKitchen, label: 'Cocina', roles: ['admin'], moduleId: 'cocina' },
-  { to: '/admin/bar', icon: MdLocalBar, label: 'Bar', roles: ['admin'], moduleId: 'bar' },
-  { to: '/admin/delivery', icon: MdDeliveryDining, label: 'Delivery', roles: ['admin', 'cajero', 'mozo'], moduleId: 'delivery' },
-  { to: '/admin/reservas', icon: MdEventSeat, label: 'Reservas', roles: ['admin', 'cajero', 'mozo'], moduleId: 'reservas' },
-  { to: '/admin/auto-pedido', icon: MdQrCode2, label: 'Auto pedido (QR)', roles: ['admin'], moduleId: 'auto_pedido' },
-  { to: '/admin/clientes', icon: MdPeopleAlt, label: 'Clientes', roles: ['admin', 'cajero'], moduleId: 'clientes' },
-  { to: '/admin/creditos', icon: MdCreditCard, label: 'Créditos', roles: ['admin', 'cajero'], moduleId: 'creditos' },
-  { to: '/admin/ofertas', icon: MdLocalOffer, label: 'Ofertas', roles: ['admin'], moduleId: 'ofertas' },
-  { to: '/admin/descuentos', icon: MdDiscount, label: 'Descuentos', roles: ['admin'], moduleId: 'descuentos' },
-  { to: '/admin/almacen', icon: MdWarehouse, label: 'Almacenes e Inventario', roles: ['admin'], moduleId: 'almacen' },
-  { to: '/admin/productos', icon: MdRestaurantMenu, label: 'Productos', roles: ['admin'], moduleId: 'productos' },
-  { to: '/admin/informes', icon: MdAssessment, label: 'Informes', roles: ['admin', 'cajero'], moduleId: 'informes' },
-  { to: '/admin/ventas', icon: MdAttachMoney, label: 'Ventas', roles: ['admin', 'cajero'], moduleId: 'ventas' },
-  { to: '/admin/indicadores', icon: MdInsights, label: 'Indicadores', roles: ['admin'], moduleId: 'indicadores' },
-  { to: '/admin/mi-restaurant', icon: MdStorefront, label: 'Mi Restaurante', roles: ['admin', 'master_admin'], moduleId: 'mi_restaurant' },
-  { to: '/admin/tiempo-trabajado', icon: MdAccessTime, label: 'Tiempo trabajado', roles: ['admin'], moduleId: 'tiempo_trabajado' },
-  { to: '/admin/configuracion', icon: MdSettings, label: 'Configuración', roles: ['admin'], moduleId: 'configuracion' },
-];
+/** Icono y texto por módulo; rutas y roles salen de `ADMIN_MODULE_PATHS` para no desincronizar con App.jsx. */
+const SIDEBAR_LINK_META = {
+  escritorio: { icon: MdDashboard, label: 'Escritorio', end: true },
+  caja: { icon: MdPointOfSale, label: 'Caja' },
+  mesas: { icon: MdTableBar, label: 'Mesas' },
+  cocina: { icon: MdKitchen, label: 'Cocina' },
+  bar: { icon: MdLocalBar, label: 'Bar' },
+  delivery: { icon: MdDeliveryDining, label: 'Delivery' },
+  reservas: { icon: MdEventSeat, label: 'Reservas' },
+  auto_pedido: { icon: MdQrCode2, label: 'Auto pedido (QR)' },
+  clientes: { icon: MdPeopleAlt, label: 'Clientes' },
+  creditos: { icon: MdCreditCard, label: 'Créditos' },
+  ofertas: { icon: MdLocalOffer, label: 'Ofertas' },
+  descuentos: { icon: MdDiscount, label: 'Descuentos' },
+  almacen: { icon: MdWarehouse, label: 'Almacenes e Inventario' },
+  productos: { icon: MdRestaurantMenu, label: 'Productos' },
+  informes: { icon: MdAssessment, label: 'Informes' },
+  ventas: { icon: MdAttachMoney, label: 'Ventas' },
+  indicadores: { icon: MdInsights, label: 'Indicadores' },
+  mi_restaurant: { icon: MdStorefront, label: 'Mi Restaurante' },
+  tiempo_trabajado: { icon: MdAccessTime, label: 'Tiempo trabajado' },
+  configuracion: { icon: MdSettings, label: 'Configuración' },
+};
+
+const allLinks = ADMIN_MODULE_PATHS.map((row) => {
+  const meta = SIDEBAR_LINK_META[row.moduleId];
+  if (!meta) return null;
+  const { icon, label, end } = meta;
+  return {
+    to: row.path,
+    icon,
+    label,
+    end: Boolean(end),
+    roles: row.roles,
+    moduleId: row.moduleId,
+  };
+}).filter(Boolean);
+
+if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+  ADMIN_MODULE_PATHS.forEach((row) => {
+    if (!SIDEBAR_LINK_META[row.moduleId]) {
+      console.warn(
+        `[Sidebar] Falta SIDEBAR_LINK_META para moduleId="${row.moduleId}" (añada icono y etiqueta en Sidebar.jsx).`
+      );
+    }
+  });
+}
 
 const cajaSubOptionsAll = [
   { id: 'cobrar', label: 'Cobrar' },
@@ -61,10 +87,6 @@ const almacenSubOptionsAll = [
   { id: 'recepcion', label: 'Recepción' },
   { id: 'ir_modulo_gastos', label: 'Ir a módulo de gastos' },
 ];
-function isPermissionEnabled(value) {
-  return value === true || value === 1 || value === '1' || value === 'true';
-}
-
 export default function Sidebar({ collapsed, isMobile = false, mobileOpen = false, onClose = () => {} }) {
   const { user } = useAuth();
   const location = useLocation();
@@ -101,8 +123,7 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
     }
     if (Array.isArray(link.roles) && link.roles.length > 0 && !link.roles.includes(user?.role)) return false;
     if (!link.moduleId) return link.roles.includes(user?.role);
-    if (!user || typeof user.permissions !== 'object' || user.permissions === null) return false;
-    return isPermissionEnabled(user.permissions[link.moduleId]);
+    return hasModulePermission(user, link.moduleId);
   };
   const filtered = allLinks.filter(hasLinkPermission);
   const planAllowsAlmacenAvanzado = user?.service_plan !== 'basico';

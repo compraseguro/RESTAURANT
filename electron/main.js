@@ -1,10 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const net = require('net');
-const { execFile } = require('child_process');
+const http = require('http');
+const { execFile, spawn } = require('child_process');
 const express = require('express');
 const cors = require('cors');
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification, shell } = require('electron');
 const { buildTicket } = require('../server/printing/escposBuilder');
 const { getThermalGdiFontPx } = require('../server/printing/thermalMagnify');
 const thermalPrintLayoutJson = require('../server/printing/thermalPrintLayout.json');
@@ -22,10 +23,21 @@ try {
 }
 
 const MODULE_KEYS = ['caja', 'cocina', 'bar'];
-const LOCAL_ASSISTANT_BASE_PORT = Number(process.env.RESTO_ASSISTANT_PORT || 3001);
+/** API principal embebida (instalación NSIS); debe coincidir con VITE_API_URL en build de escritorio. */
+const EMBEDDED_API_DEFAULT_PORT = 3001;
+/**
+ * En la app empaquetada la API Node ocupa 3001; el asistente Express de impresión empieza en 3002.
+ * En desarrollo no se lanza la API desde Electron, así que 3001 sigue siendo el puerto típico del asistente.
+ */
+const LOCAL_ASSISTANT_BASE_PORT = Number(
+  process.env.RESTO_ASSISTANT_PORT || (app.isPackaged ? 3002 : 3001),
+);
 const ASSISTANT_PORT_TRY_COUNT = 25;
 /** Puerto donde quedó escuchando el asistente (3001… o siguiente libre). */
 let assistantListenPort = null;
+/** Puerto de la API restaurant (solo empaquetado). */
+let embeddedApiListenPort = null;
+let restaurantApiChild = null;
 let mainWindow = null; // Ventana oculta auxiliar para APIs de impresión del sistema.
 let tray = null;
 let localServer = null;
@@ -605,6 +617,126 @@ function listenAssistantOnPort(expressApp, port) {
   });
 }
 
+function getPackagedServerEntry() {
+  return path.join(__dirname, '..', 'server', 'index.js');
+}
+
+function stopEmbeddedRestaurantApi() {
+  if (!restaurantApiChild) return;
+  try {
+    restaurantApiChild.kill();
+  } catch (_) {
+    /* noop */
+  }
+  restaurantApiChild = null;
+  embeddedApiListenPort = null;
+}
+
+function waitForEmbeddedApiHealthz(port, maxMs, callback) {
+  const deadline = Date.now() + maxMs;
+  const probe = () => {
+    const req = http.get(`http://127.0.0.1:${port}/api/healthz`, (res) => {
+      res.resume();
+      if (res.statusCode === 200) {
+        callback(true);
+        return;
+      }
+      if (Date.now() < deadline) setTimeout(probe, 400);
+      else callback(false);
+    });
+    req.on('error', () => {
+      if (Date.now() < deadline) setTimeout(probe, 400);
+      else callback(false);
+    });
+    req.setTimeout(2500, () => {
+      try {
+        req.destroy();
+      } catch (_) {
+        /* noop */
+      }
+      if (Date.now() < deadline) setTimeout(probe, 400);
+      else callback(false);
+    });
+  };
+  probe();
+}
+
+function tryOpenBrowserFirstRun(apiPort) {
+  if (!app.isPackaged) return;
+  const flagPath = path.join(app.getPath('userData'), '.resto-opened-browser-once');
+  if (fs.existsSync(flagPath)) return;
+  const url = `http://127.0.0.1:${apiPort}`;
+  setTimeout(() => {
+    void shell
+      .openExternal(url)
+      .then(() => {
+        try {
+          fs.writeFileSync(flagPath, new Date().toISOString(), 'utf8');
+        } catch (_) {
+          /* noop */
+        }
+      })
+      .catch(() => {});
+  }, 600);
+}
+
+function startEmbeddedRestaurantApi() {
+  if (!app.isPackaged) return;
+  if (restaurantApiChild) return;
+  const port = String(process.env.PORT || EMBEDDED_API_DEFAULT_PORT);
+  const portNum = Number(port) || EMBEDDED_API_DEFAULT_PORT;
+  embeddedApiListenPort = portNum;
+  const userData = app.getPath('userData');
+  const dbPath = path.join(userData, 'restaurant.db');
+  const uploadsDir = path.join(userData, 'uploads');
+  const env = {
+    ...process.env,
+    ELECTRON_RUN_AS_NODE: '1',
+    DB_PATH: dbPath,
+    UPLOADS_DIR: uploadsDir,
+    PORT: port,
+    LISTEN_HOST: process.env.LISTEN_HOST || '0.0.0.0',
+  };
+  const serverEntry = getPackagedServerEntry();
+  const cwd = path.join(__dirname, '..');
+  try {
+    restaurantApiChild = spawn(process.execPath, [serverEntry], {
+      env,
+      cwd,
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    restaurantApiChild.stderr?.on('data', (d) => {
+      const t = String(d || '').trimEnd().slice(-500);
+      if (t) console.error('[resto-api]', t);
+    });
+    restaurantApiChild.on('exit', (code) => {
+      console.warn('[resto-api] proceso API terminado, código:', code);
+      restaurantApiChild = null;
+      embeddedApiListenPort = null;
+    });
+    console.log(`[electron] API Resto iniciada (DB: ${dbPath}, PORT=${port})`);
+    waitForEmbeddedApiHealthz(portNum, 30000, (ok) => {
+      if (ok) {
+        console.log('[electron] API respondió /api/healthz');
+        tryOpenBrowserFirstRun(portNum);
+      } else {
+        console.warn('[electron] API no respondió a tiempo; revise antivirus o puerto', port);
+        showTrayBalloon(
+          'Resto FADEY',
+          'El servidor tardó en iniciar. Si la app no carga, reinicie el ordenador o contacte a soporte.',
+        );
+      }
+    });
+  } catch (e) {
+    embeddedApiListenPort = null;
+    console.error('[electron] no se pudo iniciar API embebida:', e?.message || e);
+    showTrayBalloon(
+      'Resto FADEY',
+      'No se pudo iniciar el servidor local. Revise el antivirus o contacte a soporte.',
+    );
+  }
+}
+
 function showTrayBalloon(title, body) {
   try {
     if (Notification.isSupported()) {
@@ -674,31 +806,39 @@ function updateTrayMenu() {
   const statusLabel = assistantListenPort
     ? `Servicio listo · puerto ${assistantListenPort}`
     : 'Servicio detenido — pulse «Reintentar»';
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: statusLabel, enabled: false },
-      {
-        label: 'Reintentar servicio de impresión',
-        click: () => {
-          void startPrintingAssistantServer();
-        },
+  const template = [{ label: statusLabel, enabled: false }];
+  if (app.isPackaged) {
+    const apiPort = embeddedApiListenPort || EMBEDDED_API_DEFAULT_PORT;
+    template.push({
+      label: `Abrir sistema (navegador) · ${apiPort}`,
+      click: () => {
+        void shell.openExternal(`http://127.0.0.1:${apiPort}`).catch(() => {});
       },
-      { type: 'separator' },
-      {
-        label: 'Salir',
-        click: () => {
-          app.isQuitting = true;
-          void stopAssistantServer().finally(() => {
-            try {
-              app.quit();
-            } catch (_) {
-              process.exit(0);
-            }
-          });
-        },
+    });
+  }
+  template.push(
+    {
+      label: 'Reintentar servicio de impresión',
+      click: () => {
+        void startPrintingAssistantServer();
       },
-    ]),
+    },
+    { type: 'separator' },
+    {
+      label: 'Salir',
+      click: () => {
+        app.isQuitting = true;
+        void stopAssistantServer().finally(() => {
+          try {
+            app.quit();
+          } catch (_) {
+            process.exit(0);
+          }
+        });
+      },
+    },
   );
+  tray.setContextMenu(Menu.buildFromTemplate(template));
 }
 
 function createTray() {
@@ -769,8 +909,13 @@ if (!acquiredSingleInstance) {
     showTrayBalloon('Resto FADEY', 'El programa de impresión ya está en ejecución (busque el ícono junto al reloj).');
   });
 
+  app.on('will-quit', () => {
+    stopEmbeddedRestaurantApi();
+  });
+
   app.whenReady().then(() => {
     console.log('[electron] proceso main iniciado');
+    startEmbeddedRestaurantApi();
     configureAutoStart();
     createWindow();
     createTray();

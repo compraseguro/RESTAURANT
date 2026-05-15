@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSocket } from '../../hooks/useSocket';
 import { api } from '../../utils/api';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -23,7 +24,7 @@ export default function Users() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [usersData, cfg] = await Promise.all([
         api.get('/users'),
@@ -35,8 +36,12 @@ export default function Users() {
     }
     catch (err) { toast.error(err.message); }
     finally { setLoading(false); }
-  };
-  useEffect(() => { loadData(); }, []);
+  }, []);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'app_config') void loadData();
+  });
 
   const closeModal = () => {
     setShowModal(false);

@@ -4,6 +4,7 @@ const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { FINANCIAL_FILTER_SQL } = require('../businessRules');
 const { getEffectiveFlat } = require('../services/businessConfigService');
+const { emitStaffDataUpdate } = require('../socketBroadcast');
 
 const router = express.Router();
 const FINANCIAL_FILTER = FINANCIAL_FILTER_SQL;
@@ -16,6 +17,357 @@ const SALES_EVENT_ORDER_LOCAL_SQL = `datetime(COALESCE(o.updated_at, o.created_a
 const SALES_EVENT_ORDER_MONTH_SQL = `strftime('%Y-%m', ${SALES_EVENT_ORDER_LOCAL_SQL})`;
 const SALES_EVENT_ORDER_DATE_SQL = `DATE(${SALES_EVENT_ORDER_LOCAL_SQL})`;
 
+function readBusinessIntelFlat() {
+  try {
+    return getEffectiveFlat();
+  } catch (_) {
+    return {};
+  }
+}
+
+/**
+ * Métricas operativas y alertas en tiempo casi real (mismas tablas que Caja, Mesas, Delivery, inventario, finanzas).
+ * Usado por GET /reports/dashboard y GET /reports/operational-alerts (roles admin, cajero, mozo, delivery; maestro pasa por middleware).
+ * @param {{ role?: string }} [opts]
+ */
+function buildOperationalIntelligence(opts = {}) {
+  const role = String(opts.role || '');
+  const biz = readBusinessIntelFlat();
+  const autoAlertsOn = biz.auto_alerts_enabled !== false;
+  const stockBizAlertsOn = autoAlertsOn && biz.alert_critical_stock_enabled !== false;
+  const marginBizAlertsOn = autoAlertsOn && biz.alert_low_margin_enabled !== false;
+  const lossRatioThresholdPct = Math.min(80, Math.max(5, Number(biz.var_tolerance_pct ?? 14)));
+  const targetNetMarginPct = Math.min(90, Math.max(1, Number(biz.prof_target_net_margin_pct ?? 12)));
+  const slowMovingDays = Math.min(365, Math.max(1, Math.round(Number(biz.auto_slow_moving_days ?? 14))));
+  const predHorizonDays = Math.min(180, Math.max(1, Math.round(Number(biz.pred_horizon_days ?? 14))));
+
+  const today = new Date().toISOString().split('T')[0];
+  const tablesWithActiveOrders = queryOne(
+    `SELECT COUNT(DISTINCT TRIM(o.table_number)) as count
+     FROM orders o
+     WHERE o.status IN ('pending','preparing','ready')
+       AND TRIM(IFNULL(o.table_number,'')) != ''
+       AND IFNULL(o.type,'dine_in') IN ('dine_in','pickup')`
+  );
+  const deliveryActive = queryOne(
+    `SELECT COUNT(*) as count FROM orders
+     WHERE type = 'delivery'
+       AND payment_status != 'paid'
+       AND status IN ('pending','preparing','ready')`
+  );
+  const inKitchen = queryOne(`SELECT COUNT(*) as count FROM orders WHERE status = 'preparing'`);
+  const registerOpen = queryOne(
+    'SELECT id, opened_at, user_id FROM cash_registers WHERE closed_at IS NULL ORDER BY opened_at DESC LIMIT 1'
+  );
+  const activeOrders = queryOne("SELECT COUNT(*) as count FROM orders WHERE status IN ('pending', 'preparing', 'ready')");
+  const pendingCount = queryOne(`SELECT COUNT(*) as count FROM orders WHERE status = 'pending'`);
+  const readyCount = queryOne(`SELECT COUNT(*) as count FROM orders WHERE status = 'ready'`);
+  const staleReady = queryOne(
+    `SELECT COUNT(*) as count FROM orders WHERE status = 'ready'
+     AND (julianday('now') - julianday(COALESCE(updated_at, created_at))) * 24 * 60 > 25`
+  );
+  const lowStock = queryAll(
+    'SELECT * FROM products WHERE stock <= 10 AND is_active = 1 ORDER BY stock ASC LIMIT 10'
+  );
+  const peakHourToday = queryOne(
+    `SELECT ${SALES_EVENT_HOUR_SQL} as hour, COALESCE(SUM(total), 0) as total
+     FROM orders
+     WHERE ${SALES_EVENT_DATE_SQL} = ? AND ${FINANCIAL_FILTER}
+     GROUP BY ${SALES_EVENT_HOUR_SQL}
+     ORDER BY total DESC
+     LIMIT 1`,
+    [today]
+  );
+  const barPreparingDistinct = queryOne(
+    `SELECT COUNT(DISTINCT o.id) as count
+     FROM orders o
+     WHERE o.status = 'preparing'
+       AND EXISTS (
+         SELECT 1 FROM order_items oi
+         JOIN products p ON p.id = oi.product_id
+         WHERE oi.order_id = o.id AND IFNULL(p.production_area, 'cocina') = 'bar'
+       )`
+  );
+  const deliveryStaleReady = queryOne(
+    `SELECT COUNT(*) as count FROM orders
+     WHERE type = 'delivery' AND status = 'ready'
+       AND (julianday('now') - julianday(COALESCE(updated_at, created_at))) * 24 * 60 > 22`
+  );
+  const outOfStockCount = queryOne(
+    `SELECT COUNT(*) as count FROM products
+     WHERE is_active = 1 AND IFNULL(stock, 0) <= 0
+       AND IFNULL(process_type, 'transformed') = 'non_transformed'`
+  );
+
+  const slowMovingDateModLiteral = `-${slowMovingDays} days`;
+  const slowMovingCount = autoAlertsOn
+    ? queryOne(
+        `SELECT COUNT(*) as count FROM products p
+         WHERE p.is_active = 1
+           AND LOWER(IFNULL(p.process_type, 'transformed')) = 'non_transformed'
+           AND IFNULL(p.stock, 0) > 0
+           AND NOT EXISTS (
+             SELECT 1 FROM order_items oi
+             JOIN orders o ON o.id = oi.order_id
+             WHERE oi.product_id = p.id
+               AND o.status != 'cancelled'
+               AND o.payment_status = 'paid'
+               AND DATE(datetime(COALESCE(o.updated_at, o.created_at), 'localtime')) >= date('now', 'localtime', '${slowMovingDateModLiteral}')
+           )`,
+        []
+      )
+    : { count: 0 };
+
+  const operationalAlerts = [];
+  const lowN = Number(lowStock?.length || 0);
+  if (stockBizAlertsOn && lowN > 0) {
+    operationalAlerts.push({
+      id: 'stock',
+      severity: lowN >= 5 ? 'warning' : 'info',
+      title: 'Stock bajo',
+      message: `${lowN} producto(s) con stock ≤ 10`,
+    });
+  }
+  const oosN = Number(outOfStockCount?.count || 0);
+  if (stockBizAlertsOn && oosN > 0) {
+    operationalAlerts.push({
+      id: 'stock_agotado',
+      severity: oosN >= 3 ? 'warning' : 'info',
+      title: 'Productos agotados',
+      message: `${oosN} producto(s) de venta con stock 0 (no transformados).`,
+      linkTo: '/admin/productos',
+      linkLabel: 'Ir a productos',
+    });
+  }
+  const slowN = Number(slowMovingCount?.count || 0);
+  if (autoAlertsOn && slowN >= 3) {
+    operationalAlerts.push({
+      id: 'rotacion_lenta',
+      severity: slowN >= 12 ? 'warning' : 'info',
+      title: 'Productos con ventas detenidas',
+      message: `${slowN} producto(s) con stock y sin ventas cobradas en los últimos ${slowMovingDays} días.`,
+      linkTo: '/admin/productos',
+      linkLabel: 'Revisar carta / productos',
+    });
+  }
+
+  const delN = Number(deliveryActive?.count || 0);
+  if (delN > 0) {
+    operationalAlerts.push({
+      id: 'delivery',
+      severity: 'info',
+      title: 'Delivery activo',
+      message: `${delN} pedido(s) pendiente(s) de cobro o en curso`,
+    });
+  }
+  const dStale = Number(deliveryStaleReady?.count || 0);
+  if (dStale > 0) {
+    operationalAlerts.push({
+      id: 'delivery_listo_demora',
+      severity: 'warning',
+      title: 'Delivery listo con demora',
+      message: `${dStale} pedido(s) en «listo» llevan más de 22 minutos sin marcar entrega.`,
+      linkTo: role === 'delivery' ? '/delivery' : '/admin/delivery',
+      linkLabel: role === 'delivery' ? 'Ir a reparto' : 'Ir a delivery',
+    });
+  }
+  const prepN = Number(inKitchen?.count || 0);
+  if (prepN >= 6) {
+    operationalAlerts.push({
+      id: 'kitchen_load',
+      severity: 'warning',
+      title: 'Cocina cargada',
+      message: `${prepN} pedidos en preparación (cocina y bar combinados).`,
+    });
+  }
+  const barN = Number(barPreparingDistinct?.count || 0);
+  if (barN >= 4) {
+    operationalAlerts.push({
+      id: 'bar_load',
+      severity: 'info',
+      title: 'Bar con cola',
+      message: `${barN} pedido(s) con platos/bebidas de bar aún en preparación.`,
+    });
+  }
+  if (!registerOpen?.id) {
+    operationalAlerts.push({
+      id: 'caja_cerrada',
+      severity: 'warning',
+      title: 'Caja cerrada',
+      message: 'No hay turno de caja abierto; la caja no registrará ventas hasta la apertura.',
+    });
+  }
+  const readyN = Number(readyCount?.count || 0);
+  if (readyN >= 5) {
+    operationalAlerts.push({
+      id: 'ready_backlog',
+      severity: 'warning',
+      title: 'Pedidos listos sin retirar',
+      message: `${readyN} pedido(s) en estado «listo»; revisar salón, bar o entrega.`,
+    });
+  }
+  const staleN = Number(staleReady?.count || 0);
+  if (staleN > 0) {
+    operationalAlerts.push({
+      id: 'ready_demora',
+      severity: 'warning',
+      title: 'Demora en pedidos listos',
+      message: `${staleN} pedido(s) llevan más de 25 minutos en «listo» sin cambio de estado.`,
+    });
+  }
+  const pendN = Number(pendingCount?.count || 0);
+  if (pendN >= 12) {
+    operationalAlerts.push({
+      id: 'pending_spike',
+      severity: 'warning',
+      title: 'Cola de pedidos nuevos',
+      message: `${pendN} pedido(s) en «pendiente»; revisar cocina o toma de pedidos.`,
+    });
+  }
+  const actN = Number(activeOrders?.count || 0);
+  if (actN >= 25) {
+    operationalAlerts.push({
+      id: 'active_high',
+      severity: 'info',
+      title: 'Alto volumen operativo',
+      message: `${actN} pedido(s) activos en el sistema.`,
+    });
+  }
+
+  if (['admin', 'cajero'].includes(role)) {
+    const tolerance = getCajaDifferenceToleranceSoles();
+    const lastClose = queryOne(
+      `SELECT closed_at, arqueo_data FROM cash_registers
+       WHERE closed_at IS NOT NULL
+         AND datetime(closed_at) >= datetime('now', '-14 days')
+       ORDER BY closed_at DESC LIMIT 1`
+    );
+    if (lastClose?.arqueo_data) {
+      const ar = parseArqueoData(lastClose.arqueo_data);
+      const diff = Number(ar.difference);
+      if (Number.isFinite(diff) && Math.abs(diff) > tolerance) {
+        operationalAlerts.push({
+          id: 'caja_diferencia',
+          severity: Math.abs(diff) > tolerance * 3 ? 'warning' : 'info',
+          title: 'Diferencia de caja en el último cierre',
+          message: `Último cierre: desvío de S/ ${diff.toFixed(2)} vs esperado (tolerancia S/ ${Number(tolerance).toFixed(2)}).`,
+          linkTo: '/admin/caja?view=cierres_caja',
+          linkLabel: 'Cierres de caja',
+        });
+      }
+    }
+
+    const billingErr = queryOne(
+      `SELECT COUNT(*) as count FROM electronic_documents
+       WHERE LOWER(TRIM(IFNULL(provider_status,''))) = 'error'`
+    );
+    const billN = Number(billingErr?.count || 0);
+    if (billN > 0) {
+      operationalAlerts.push({
+        id: 'billing_errors',
+        severity: 'warning',
+        title: 'Comprobantes con error',
+        message: `${billN} comprobante(s) electrónico(s) en estado error; reintentar o revisar en Informes · Facturación.`,
+        linkTo: '/admin/informes?seccion=facturacion',
+        linkLabel: 'Abrir facturación',
+      });
+    }
+  }
+
+  if (role === 'admin' || role === 'master_admin') {
+    const fw = financeRolling7dSnapshot();
+    if (marginBizAlertsOn) {
+      const ratioThreshold = lossRatioThresholdPct / 100;
+      if (fw.totalSales >= 400 && fw.lossesCombined > 0) {
+        const ratio = fw.lossesCombined / fw.totalSales;
+        if (ratio >= ratioThreshold) {
+          operationalAlerts.push({
+            id: 'gastos_ratio',
+            severity: ratio >= ratioThreshold * 1.75 ? 'warning' : 'info',
+            title: 'Gastos y pérdidas altos (7 días)',
+            message: `Ventas cobradas ~S/ ${fw.totalSales.toFixed(0)} vs salidas ~S/ ${fw.lossesCombined.toFixed(0)} (${(ratio * 100).toFixed(0)}% sobre ventas; umbral ${lossRatioThresholdPct}% en módulo empresarial).`,
+            linkTo: '/admin/informes?seccion=finanzas',
+            linkLabel: 'Informes · Finanzas',
+          });
+        }
+      }
+      if (fw.totalSales >= 500 && fw.approxProfit < 0) {
+        operationalAlerts.push({
+          id: 'rentabilidad_negativa',
+          severity: 'warning',
+          title: 'Resultado aproximado negativo (7 días)',
+          message: 'Ventas menos compras y pérdidas/gastos de caja dan saldo negativo en la ventana reciente.',
+          linkTo: '/admin/informes?seccion=finanzas',
+          linkLabel: 'Informes · Finanzas',
+        });
+      } else if (fw.totalSales >= 400 && fw.approxProfit > 0) {
+        const netRat = fw.approxProfit / fw.totalSales;
+        const targetNet = targetNetMarginPct / 100;
+        if (netRat < targetNet) {
+          operationalAlerts.push({
+            id: 'margen_bajo',
+            severity: 'info',
+            title: 'Utilidad neta por debajo del objetivo (7 días)',
+            message: `Utilidad aproximada ${(100 * netRat).toFixed(1)}% sobre ventas cobradas (objetivo ${targetNetMarginPct}% en módulo empresarial).`,
+            linkTo: '/admin/informes?seccion=finanzas',
+            linkLabel: 'Informes · Finanzas',
+          });
+        }
+      }
+    }
+  }
+
+  let insightToday = '';
+  const ph = peakHourToday?.hour != null ? String(peakHourToday.hour).padStart(2, '0') : '';
+  if (ph && Number(peakHourToday?.total || 0) > 0) {
+    insightToday = `Mayor facturación hoy entre las ${ph}:00 y ${ph}:59 (ventas cobradas).`;
+  }
+
+  const summary = {
+    date: today,
+    tablesWithActiveOrders: Number(tablesWithActiveOrders?.count || 0),
+    deliveryActiveCount: Number(deliveryActive?.count || 0),
+    inKitchenCount: Number(inKitchen?.count || 0),
+    activeOrders: actN,
+    pendingCount: pendN,
+    readyCount: readyN,
+    staleReadyCount: staleN,
+    lowStockCount: lowN,
+    outOfStockCount: oosN,
+    barPreparingCount: barN,
+    deliveryStaleReadyCount: dStale,
+    registerOpen: !!registerOpen?.id,
+    slowMovingCount: slowN,
+  };
+
+  const dashPreset = String(biz.dash_kpi_preset || 'basic').trim();
+  const allowedPresets = new Set(['basic', 'operations', 'finance']);
+  const dashKpiPreset = allowedPresets.has(dashPreset) ? dashPreset : 'basic';
+
+  return {
+    operationalAlerts,
+    summary,
+    insightToday,
+    lowStock,
+    registerOpen: registerOpen ? { id: registerOpen.id, opened_at: registerOpen.opened_at, user_id: registerOpen.user_id } : null,
+    tablesWithActiveOrders: summary.tablesWithActiveOrders,
+    deliveryActiveCount: summary.deliveryActiveCount,
+    inKitchenCount: summary.inKitchenCount,
+    generated_at: new Date().toISOString(),
+    businessIntel: {
+      dash_kpi_preset: dashKpiPreset,
+      pred_horizon_days: predHorizonDays,
+      auto_alerts_enabled: autoAlertsOn,
+      alert_critical_stock_enabled: stockBizAlertsOn,
+      alert_low_margin_enabled: marginBizAlertsOn,
+      auto_slow_moving_days: slowMovingDays,
+      loss_ratio_threshold_pct: lossRatioThresholdPct,
+      target_net_margin_pct: targetNetMarginPct,
+      show_stock_alert_panel: autoAlertsOn && biz.alert_critical_stock_enabled !== false,
+    },
+  };
+}
+
 function parseArqueoData(raw) {
   if (!raw) return {};
   try {
@@ -25,18 +377,129 @@ function parseArqueoData(raw) {
   }
 }
 
+function parsePagosSistemaSettings() {
+  const row = queryOne('SELECT value FROM app_settings WHERE key = ?', ['pagos_sistema']);
+  try {
+    return row?.value ? JSON.parse(row.value) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function getCajaDifferenceToleranceSoles() {
+  const p = parsePagosSistemaSettings();
+  const t = Number(p.tolerancia_diferencia_caja);
+  if (Number.isFinite(t) && t >= 0) return t;
+  return 2;
+}
+
+/** Ventas y costos aproximados últimos 7 días (alineado con la lógica de finance-overview). */
+function financeRolling7dSnapshot() {
+  const dateSales = SALES_EVENT_DATE_SQL;
+  const salesRow = queryOne(
+    `SELECT COALESCE(SUM(total), 0) as total_sales FROM orders WHERE ${FINANCIAL_FILTER} AND ${dateSales} >= date('now', 'localtime', '-6 days')`
+  );
+  const cashExpensesRow = queryOne(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM cash_movements
+     WHERE type = 'expense' AND date(datetime(created_at, 'localtime')) >= date('now', 'localtime', '-6 days')`
+  );
+  const lossEventsRow = queryOne(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM finance_loss_events
+     WHERE date(datetime(occurred_at, 'localtime')) >= date('now', 'localtime', '-6 days')`
+  );
+  const purchasesRow = queryOne(
+    `SELECT COALESCE(SUM(total_cost), 0) as total FROM inventory_expenses
+     WHERE date(datetime(created_at, 'localtime')) >= date('now', 'localtime', '-6 days')`
+  );
+  const totalSales = Number(salesRow?.total_sales || 0);
+  const cashExpenses = Number(cashExpensesRow?.total || 0);
+  const lossEventsTotal = Number(lossEventsRow?.total || 0);
+  const totalPurchases = Number(purchasesRow?.total || 0);
+  const lossesCombined = lossEventsTotal + cashExpenses;
+  const approxProfit = totalSales - totalPurchases - lossesCombined;
+  return { totalSales, lossesCombined, approxProfit, totalPurchases };
+}
+
+/** Mes calendario en curso: ventas cobradas, compras, salidas y utilidad aprox. (base Informes · Finanzas). */
+function financeMonthToDateSnapshot() {
+  const monthSalesRow = queryOne(
+    `SELECT COALESCE(SUM(total), 0) as total_sales, COUNT(*) as orders FROM orders WHERE ${FINANCIAL_FILTER} AND ${SALES_EVENT_MONTH_SQL} = strftime('%Y-%m', 'now', 'localtime')`
+  );
+  const purchasesRow = queryOne(
+    `SELECT COALESCE(SUM(total_cost), 0) as total FROM inventory_expenses
+     WHERE strftime('%Y-%m', datetime(created_at, 'localtime')) = strftime('%Y-%m', 'now', 'localtime')`
+  );
+  const cashExpensesRow = queryOne(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM cash_movements
+     WHERE type = 'expense' AND strftime('%Y-%m', datetime(created_at, 'localtime')) = strftime('%Y-%m', 'now', 'localtime')`
+  );
+  const lossEventsRow = queryOne(
+    `SELECT COALESCE(SUM(amount), 0) as total FROM finance_loss_events
+     WHERE strftime('%Y-%m', datetime(occurred_at, 'localtime')) = strftime('%Y-%m', 'now', 'localtime')`
+  );
+  const ymRow = queryOne(`SELECT strftime('%Y-%m', 'now', 'localtime') as ym`);
+  const totalSales = Number(monthSalesRow?.total_sales || 0);
+  const totalPurchases = Number(purchasesRow?.total || 0);
+  const cashExpenses = Number(cashExpensesRow?.total || 0);
+  const lossEventsTotal = Number(lossEventsRow?.total || 0);
+  const lossesCombined = lossEventsTotal + cashExpenses;
+  const approxGrossMargin = totalSales - totalPurchases;
+  const approxProfit = totalSales - totalPurchases - lossesCombined;
+  return {
+    month_key: String(ymRow?.ym || ''),
+    sales_total: totalSales,
+    orders_count: Number(monthSalesRow?.orders || 0),
+    purchases_total: totalPurchases,
+    loss_events_total: lossEventsTotal,
+    cash_expenses_total: cashExpenses,
+    losses_combined_total: lossesCombined,
+    approx_gross_margin: approxGrossMargin,
+    approx_profit: approxProfit,
+  };
+}
+
 router.get('/dashboard', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const todaySales = queryOne(`SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ? AND ${FINANCIAL_FILTER}`, [today]);
   const monthSales = queryOne(`SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE ${SALES_EVENT_MONTH_SQL} = strftime('%Y-%m', 'now', 'localtime') AND ${FINANCIAL_FILTER}`);
-  const activeOrders = queryOne("SELECT COUNT(*) as count FROM orders WHERE status IN ('pending', 'preparing', 'ready')");
   const topProducts = queryAll(`SELECT oi.product_name, SUM(oi.quantity) as total_sold, SUM(oi.subtotal) as total_revenue FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE o.status != 'cancelled' AND o.payment_status = 'paid' AND ${SALES_EVENT_ORDER_MONTH_SQL} = strftime('%Y-%m', 'now', 'localtime') GROUP BY oi.product_name ORDER BY total_sold DESC LIMIT 10`);
   const recentOrders = queryAll('SELECT * FROM orders ORDER BY created_at DESC LIMIT 10');
   recentOrders.forEach(o => { o.items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [o.id]); });
-  const lowStock = queryAll('SELECT * FROM products WHERE stock <= 10 AND is_active = 1 ORDER BY stock ASC LIMIT 10');
   const paymentMethods = queryAll(`SELECT payment_method, COUNT(*) as count, SUM(total) as total FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ? AND ${FINANCIAL_FILTER} GROUP BY payment_method`, [today]);
 
-  res.json({ today: todaySales, month: monthSales, activeOrders: activeOrders.count, topProducts, recentOrders, lowStock, paymentMethods });
+  const op = buildOperationalIntelligence({ role: req.user?.role });
+  const financeMonth = financeMonthToDateSnapshot();
+
+  res.json({
+    today: todaySales,
+    month: monthSales,
+    activeOrders: op.summary.activeOrders,
+    topProducts,
+    recentOrders,
+    lowStock: op.lowStock,
+    paymentMethods,
+    tablesWithActiveOrders: op.tablesWithActiveOrders,
+    deliveryActiveCount: op.deliveryActiveCount,
+    inKitchenCount: op.inKitchenCount,
+    registerOpen: op.registerOpen,
+    operationalAlerts: op.operationalAlerts,
+    operationalSummary: op.summary,
+    insightToday: op.insightToday,
+    generated_at: op.generated_at,
+    financeMonth,
+    businessIntel: op.businessIntel,
+  });
+});
+
+router.get('/operational-alerts', authenticateToken, requireRole('admin', 'cajero', 'mozo', 'delivery'), (req, res) => {
+  const op = buildOperationalIntelligence({ role: req.user?.role });
+  res.json({
+    alerts: op.operationalAlerts,
+    summary: op.summary,
+    insightToday: op.insightToday,
+    generated_at: op.generated_at,
+    businessIntel: op.businessIntel,
+  });
 });
 
 router.get('/daily', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
@@ -359,6 +822,7 @@ router.post('/finance-loss-events', authenticateToken, requireRole('admin'), (re
       [id, category, amount, concept, orderId || null, itemsJson || '', occurredAt]
     );
     const created = queryOne('SELECT * FROM finance_loss_events WHERE id = ?', [id]);
+    emitStaffDataUpdate({ domain: 'finance_ops' });
     res.status(201).json(created);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo registrar la pérdida' });

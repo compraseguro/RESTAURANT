@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSocket } from '../../hooks/useSocket';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import RestaurantServiceContractForm, { normalizeContratoFromApi } from '../../components/RestaurantServiceContractForm';
@@ -207,6 +208,10 @@ export default function MiRestaurant() {
     if (!user?.role) return;
     loadInitialData();
   }, [user?.role, user?.id, loadInitialData]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'app_config') void loadInitialData();
+  });
 
   useEffect(() => {
     const requestedView = searchParams.get('view');

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { api, resolveMediaUrl } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { MdAdd, MdDelete, MdSave, MdContentCopy, MdQrCode2, MdUploadFile, MdRestaurantMenu, MdEdit } from 'react-icons/md';
@@ -90,7 +91,7 @@ export default function AutoPedidoAdmin() {
   const [genPreviewUrl, setGenPreviewUrl] = useState('');
   const [genColors, setGenColors] = useState(() => ({ ...DEFAULT_MENU_CARTA_COLORS }));
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     Promise.all([
       api.get('/admin-modules/auto-pedido/cartas'),
@@ -106,11 +107,19 @@ export default function AutoPedidoAdmin() {
       })
       .catch((e) => toast.error(e.message))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  useSocket('staff-data-update', (p) => {
+    const d = p?.domain;
+    if (['auto_pedido_cartas', 'modifiers', 'discounts', 'offers', 'combos', 'catalog'].includes(d)) void load();
+  });
+  useSocket('inventory-update', () => {
+    void load();
+  });
 
   useEffect(() => {
     if (genOpenIndex === null) return undefined;

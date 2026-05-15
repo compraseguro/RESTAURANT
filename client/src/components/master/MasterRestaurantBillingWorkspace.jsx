@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSocket } from '../../hooks/useSocket';
 import toast from 'react-hot-toast';
 import { api, resolveMediaUrl } from '../../utils/api';
 import { proximaFechaFromControlAnchor } from '../../utils/nextBillingFromAnchor';
@@ -147,6 +148,10 @@ export default function MasterRestaurantBillingWorkspace({ active }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useSocket('staff-data-update', (p) => {
+    if (p?.domain === 'app_config') void load();
+  });
 
   const update = (f, v) => setRestaurant((prev) => ({ ...prev, [f]: v }));
   const updateBilling = (f, v) => setBillingConfig((prev) => ({ ...prev, [f]: v }));

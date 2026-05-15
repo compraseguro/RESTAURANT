@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, withTransaction } = require('../database');
 const { assertPaymentMethodAllowed } = require('../businessRules');
 const { createOrderInTransaction, getOrderWithItems } = require('../orderCreateService');
+const { emitInventoryUpdate } = require('../socketBroadcast');
 const { createRateLimiter } = require('../middleware/rateLimit');
 const { JWT_SECRET } = require('../middleware/auth');
 
@@ -285,6 +286,7 @@ router.post('/orders', selfOrderPostLimiter, (req, res) => {
         io.emit('new-order', order);
         io.emit('order-update', order);
       }
+      emitInventoryUpdate({});
       return res.status(201).json(order);
     } catch (err) {
       return res.status(400).json({ error: err.message || 'No se pudo crear el pedido' });
@@ -321,6 +323,7 @@ router.post('/orders', selfOrderPostLimiter, (req, res) => {
       io.emit('order-update', order);
       io.emit('table-update', table);
     }
+    emitInventoryUpdate({});
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo crear el pedido' });

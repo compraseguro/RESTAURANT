@@ -52,9 +52,6 @@
     "appId": "com.restofadey.desktop",
     "productName": "Resto FADEY",
     "asar": true,
-    "asarUnpack": [
-      "**/*.node"
-    ],
     "directories": {
       "output": "release/dist",
       "buildResources": "client/public"
@@ -62,9 +59,13 @@
     "files": [
       "electron/**",
       "client/dist/**",
-      "server/printing/**",
-      "server/uploadsPath.js",
+      "server/**/*",
+      "!server/efact/**",
       "package.json"
+    ],
+    "asarUnpack": [
+      "**/*.node",
+      "node_modules/sql.js/**"
     ],
     "win": {
       "target": [

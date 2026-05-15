@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { api, formatCurrency } from '../../utils/api';
+import { useSocket } from '../../hooks/useSocket';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import StaffDineInOrderUI from '../../components/StaffDineInOrderUI';
@@ -43,7 +44,7 @@ export default function Reservas() {
     resetCart,
   } = useStaffOrderCart(modifiers);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const [tablesData, reservationsData, customersData, prods, cats, modifiersData] = await Promise.all([
         api.get('/tables'),
@@ -65,11 +66,25 @@ export default function Reservas() {
     } catch (err) {
       toast.error(err.message);
     }
-  };
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  useSocket('table-update', () => {
+    void load();
+  });
+  useSocket('order-update', () => {
+    void load();
+  });
+  useSocket('inventory-update', () => {
+    void load();
+  });
+  useSocket('staff-data-update', (p) => {
+    const d = p?.domain;
+    if (['reservations', 'modifiers', 'customers', 'catalog'].includes(d)) void load();
+  });
   useEffect(() => {
     const query = String(form.client_name || '').trim().toLowerCase();
     const source = customers || [];

@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
+import { useSocket } from '../hooks/useSocket';
 import { MdMenu, MdPointOfSale, MdLock, MdAdminPanelSettings } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 
@@ -22,23 +23,27 @@ export default function Layout() {
     location.pathname.startsWith('/bar') ||
     user?.role === 'cocina' ||
     user?.role === 'bar';
-  const checkCaja = () => {
+  const checkCaja = useCallback(() => {
     api.get('/pos/register-status')
-      .then(data => setCajaOpen(data.is_open))
+      .then((data) => setCajaOpen(data.is_open))
       .catch(() => setCajaOpen(false))
       .finally(() => setCheckingCaja(false));
-  };
+  }, []);
+
+  useSocket('register-update', () => {
+    if (user?.role === 'mozo') checkCaja();
+  });
 
   useEffect(() => {
     if (user?.role === 'mozo') {
       checkCaja();
       const interval = setInterval(checkCaja, 15000);
       return () => clearInterval(interval);
-    } else {
-      setCajaOpen(true);
-      setCheckingCaja(false);
     }
-  }, [user?.role]);
+    setCajaOpen(true);
+    setCheckingCaja(false);
+    return undefined;
+  }, [user?.role, checkCaja]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 1024);

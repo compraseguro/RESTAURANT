@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { api, formatCurrency, parseApiDate, toLocalDateKey, PAYMENT_METHODS } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { MdDateRange, MdKeyboardArrowDown, MdKitchen, MdLocalBar, MdDeliveryDining, MdPointOfSale, MdTableBar } from 'react-icons/md';
+import { MdDateRange, MdKeyboardArrowDown, MdKitchen, MdLocalBar, MdDeliveryDining, MdPointOfSale, MdTableBar, MdBolt, MdWarning } from 'react-icons/md';
 
 const PAYMENT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#06b6d4', '#a855f7'];
 const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4'];
@@ -40,6 +40,7 @@ function ventaMesaKey(order) {
 
 export default function Escritorio() {
   const [orders, setOrders] = useState([]);
+  const [liveDash, setLiveDash] = useState(null);
   const [loading, setLoading] = useState(true);
   const [restaurantInfo, setRestaurantInfo] = useState({ name: 'Resto-FADEY', address: '', phone: '' });
   const [datePreset, setDatePreset] = useState('month');
@@ -50,6 +51,15 @@ export default function Escritorio() {
   const startDateInputRef = useRef(null);
   const endDateInputRef = useRef(null);
   const navigate = useNavigate();
+
+  const loadLiveDash = useCallback(async () => {
+    try {
+      const d = await api.get('/reports/dashboard');
+      setLiveDash(d);
+    } catch {
+      setLiveDash(null);
+    }
+  }, []);
 
   const loadData = async () => {
     try {
@@ -67,7 +77,21 @@ export default function Escritorio() {
   }, []);
   useActiveInterval(loadData, 10000);
 
-  useSocket('order-update', loadData);
+  useEffect(() => {
+    loadLiveDash();
+  }, [loadLiveDash]);
+  useActiveInterval(loadLiveDash, 15000);
+  useSocket('order-update', () => {
+    loadData();
+    void loadLiveDash();
+  });
+  useSocket('table-update', loadLiveDash);
+  useSocket('delivery-update', loadLiveDash);
+  useSocket('register-update', loadLiveDash);
+  useSocket('inventory-update', loadLiveDash);
+  useSocket('billing-document-update', () => {
+    void loadLiveDash();
+  });
   useEffect(() => {
     if (datePreset !== 'month') return;
     const monthRange = getCurrentMonthRange();
@@ -344,6 +368,146 @@ export default function Escritorio() {
 
   return (
     <div className="space-y-4">
+      {liveDash && (
+        <div className="card p-4 border border-[color:var(--ui-border)] bg-[var(--ui-surface)]">
+          <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <MdBolt className="text-xl text-[var(--ui-accent-muted)] shrink-0" />
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold text-[var(--ui-body-text)]">Panel en vivo</h3>
+                <p className="text-xs text-[var(--ui-muted)]">
+                  Datos del servidor · sincronizado con Caja, Mesas, Delivery e inventario
+                  {liveDash.generated_at && (
+                    <span className="ml-1">
+                      ·{' '}
+                      {new Date(liveDash.generated_at).toLocaleTimeString('es-PE', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <span
+              className={`text-xs font-medium px-2 py-1 rounded-lg border ${
+                liveDash.registerOpen
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700'
+                  : 'border-amber-500/40 bg-amber-500/10 text-amber-800'
+              }`}
+            >
+              {liveDash.registerOpen ? 'Caja abierta' : 'Sin caja abierta'}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
+            <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">Ventas hoy</p>
+              <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{formatCurrency(Number(liveDash.today?.total || 0))}</p>
+              <p className="text-[11px] text-[var(--ui-muted)]">{Number(liveDash.today?.count || 0)} pedidos</p>
+            </div>
+            <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">Pedidos activos</p>
+              <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{Number(liveDash.activeOrders || 0)}</p>
+              <p className="text-[11px] text-[var(--ui-muted)]">Pendiente / prep. / listo</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/mesas')}
+              className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2 text-left hover:bg-[var(--ui-sidebar-hover)] transition-colors"
+            >
+              <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">Mesas con cuenta</p>
+              <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{Number(liveDash.tablesWithActiveOrders || 0)}</p>
+              <p className="text-[11px] text-rose-600">Ir a Mesas</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/delivery')}
+              className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2 text-left hover:bg-[var(--ui-sidebar-hover)] transition-colors"
+            >
+              <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">Delivery activo</p>
+              <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{Number(liveDash.deliveryActiveCount || 0)}</p>
+              <p className="text-[11px] text-emerald-600">Ir a Delivery</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/cocina')}
+              className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2 text-left hover:bg-[var(--ui-sidebar-hover)] transition-colors"
+            >
+              <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">En preparación</p>
+              <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{Number(liveDash.inKitchenCount || 0)}</p>
+              <p className="text-[11px] text-amber-700">Ir a Cocina</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/almacen')}
+              className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2 text-left hover:bg-[var(--ui-sidebar-hover)] transition-colors"
+            >
+              <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">Stock ≤ 10</p>
+              <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{liveDash.lowStock?.length ?? 0}</p>
+              <p className="text-[11px] text-[var(--ui-muted)]">Inventario</p>
+            </button>
+          </div>
+          {liveDash.operationalSummary &&
+          (liveDash.operationalSummary.pendingCount != null ||
+            liveDash.operationalSummary.readyCount != null ||
+            liveDash.operationalSummary.staleReadyCount != null) ? (
+            <div className="flex flex-wrap gap-2 mb-3 text-[11px] text-[var(--ui-body-text)]">
+              <span className="rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-body-bg)] px-2 py-1 tabular-nums">
+                Pendientes: <strong>{Number(liveDash.operationalSummary.pendingCount ?? 0)}</strong>
+              </span>
+              <span className="rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-body-bg)] px-2 py-1 tabular-nums">
+                Listos: <strong>{Number(liveDash.operationalSummary.readyCount ?? 0)}</strong>
+              </span>
+              <span
+                className={`rounded-md border px-2 py-1 tabular-nums ${
+                  Number(liveDash.operationalSummary.staleReadyCount ?? 0) > 0
+                    ? 'border-amber-500/50 bg-amber-500/10 text-amber-900'
+                    : 'border-[color:var(--ui-border)] bg-[var(--ui-body-bg)]'
+                }`}
+              >
+                Listos {'>'}25 min: <strong>{Number(liveDash.operationalSummary.staleReadyCount ?? 0)}</strong>
+              </span>
+            </div>
+          ) : null}
+          {liveDash.insightToday ? (
+            <p className="text-xs text-[var(--ui-accent-muted)] mb-2">{liveDash.insightToday}</p>
+          ) : null}
+          {Array.isArray(liveDash.operationalAlerts) && liveDash.operationalAlerts.length > 0 ? (
+            <ul className="space-y-1.5 border-t border-[color:var(--ui-border)] pt-3">
+              {liveDash.operationalAlerts.map((a) => (
+                <li
+                  key={a.id}
+                  className={`flex items-start gap-2 text-sm rounded-lg px-2 py-1.5 ${
+                    a.severity === 'warning'
+                      ? 'bg-amber-500/10 text-amber-900 border border-amber-500/25'
+                      : 'bg-sky-500/10 text-[var(--ui-body-text)] border border-sky-500/20'
+                  }`}
+                >
+                  <MdWarning className="shrink-0 text-lg text-amber-600 mt-0.5" />
+                  <span>
+                    <span className="font-semibold">{a.title}: </span>
+                    {a.message}
+                    {a.linkTo && a.linkLabel ? (
+                      <span className="block mt-1">
+                        <Link
+                          to={a.linkTo}
+                          className="text-xs font-semibold text-[var(--ui-accent)] hover:underline underline-offset-2"
+                        >
+                          {a.linkLabel}
+                        </Link>
+                      </span>
+                    ) : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-[var(--ui-muted)] border-t border-[color:var(--ui-border)] pt-3">Sin alertas operativas en este momento.</p>
+          )}
+        </div>
+      )}
+
       <div className="card p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-[var(--ui-body-text)]">Centro Operativo</h3>
