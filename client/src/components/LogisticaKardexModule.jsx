@@ -9,7 +9,7 @@ import {
   formatInsumoWithUnit,
 } from '../utils/api';
 import toast from 'react-hot-toast';
-import { MdDownload, MdWarning, MdInventory2, MdAdd, MdList } from 'react-icons/md';
+import { MdDownload, MdWarning, MdInventory2, MdAdd, MdList, MdExpandMore, MdExpandLess } from 'react-icons/md';
 import Modal from './Modal';
 
 const TABS = [
@@ -86,6 +86,8 @@ export default function LogisticaKardexModule() {
   const [insumos, setInsumos] = useState([]);
   /** Área activa en pestaña Insumos (cada lista tiene su propio catálogo en BD vía `insumo_area`). */
   const [insumoAreaTab, setInsumoAreaTab] = useState('cocina');
+  /** Formulario de alta/edición de insumo: oculto por defecto; se abre con botón o al pulsar Editar. */
+  const [showInsumoAddForm, setShowInsumoAddForm] = useState(false);
   const [compraAreaTab, setCompraAreaTab] = useState('cocina');
   const [invFisicoAreaTab, setInvFisicoAreaTab] = useState('cocina');
   const [ajusteAreaTab, setAjusteAreaTab] = useState('cocina');
@@ -300,6 +302,7 @@ export default function LogisticaKardexModule() {
         activo: true,
       });
       setEditingInsumoId('');
+      setShowInsumoAddForm(false);
       loadCore();
     } catch (err) {
       toast.error(err.message);
@@ -307,6 +310,7 @@ export default function LogisticaKardexModule() {
   };
 
   const editInsumo = (row) => {
+    setShowInsumoAddForm(true);
     setEditingInsumoId(row.id || '');
     setInsumoAreaTab((row.insumo_area || 'cocina') === 'bar' ? 'bar' : 'cocina');
     setInsumoForm({
@@ -676,7 +680,7 @@ export default function LogisticaKardexModule() {
 
       {tab === 'insumos' && (
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-2 border-b border-[color:var(--ui-border)] pb-2">
+          <div className="flex flex-wrap items-center gap-2 border-b border-[color:var(--ui-border)] pb-2">
             <button
               type="button"
               onClick={() => {
@@ -723,16 +727,37 @@ export default function LogisticaKardexModule() {
             >
               Insumos de bar
             </button>
-            <span className="text-[var(--ui-muted)] text-xs self-center ml-1">
-              Catálogos separados en base de datos (`insumo_area`); mismo kardex y ventas.
-            </span>
+            <div className="flex-1 min-w-[8px]" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={() => setShowInsumoAddForm((v) => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition shrink-0 ${
+                showInsumoAddForm
+                  ? 'bg-[var(--ui-surface)] text-[var(--ui-body-text)] border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)]'
+                  : 'bg-emerald-700/90 text-white border-emerald-600 hover:bg-emerald-600'
+              }`}
+            >
+              {showInsumoAddForm ? (
+                <>
+                  <MdExpandLess className="text-lg" /> Ocultar formulario
+                </>
+              ) : (
+                <>
+                  <MdExpandMore className="text-lg" /> Agregar insumo
+                </>
+              )}
+            </button>
           </div>
+          <p className="text-[var(--ui-muted)] text-xs -mt-2">
+            Catálogos separados en base de datos (`insumo_area`); mismo kardex y ventas.
+          </p>
           <p className="text-[var(--ui-body-text)] text-xs max-w-3xl">
             <strong className="text-[var(--ui-body-text)]">Kardex y recetas usan cantidad en kg/L (o ml).</strong>{' '}
             <strong>Cant. (U)</strong> y el promedio kg/U se alimentan con la compra; las ventas por receta descontarán
             <strong> kg</strong> y <strong>U</strong> si aplica. Los mínimos (U y kg/L) definen alerta y requisición según
             rellenes cada uno (0 = no aplicar); no se listan en la tabla de abajo.
           </p>
+          {showInsumoAddForm ? (
           <form
             onSubmit={addInsumo}
             className="bg-[var(--ui-surface-2)] p-3 rounded-lg border border-[color:var(--ui-border)]"
@@ -828,6 +853,7 @@ export default function LogisticaKardexModule() {
                   className="text-sm px-3 py-1.5 rounded-lg border border-[color:var(--ui-border)] text-[var(--ui-body-text)] shrink-0"
                   onClick={() => {
                     setEditingInsumoId('');
+                    setShowInsumoAddForm(false);
                     setInsumoForm({
                       nombre: '',
                       unidad_medida: '',
@@ -844,6 +870,7 @@ export default function LogisticaKardexModule() {
               ) : null}
             </div>
           </form>
+          ) : null}
           <div className="overflow-x-auto border border-slate-600/50 rounded-lg">
             <table className="w-full text-sm min-w-[720px]">
               <thead>
@@ -919,7 +946,9 @@ export default function LogisticaKardexModule() {
                 {insumosListaActiva.length === 0 && (
                   <tr>
                     <td colSpan="7" className="p-6 text-center text-[var(--ui-muted)] text-sm">
-                      No hay insumos de {insumoAreaTab === 'bar' ? 'bar' : 'cocina'} todavía. Complete el formulario arriba y pulse Agregar.
+                      No hay insumos de {insumoAreaTab === 'bar' ? 'bar' : 'cocina'} todavía. Pulse{' '}
+                      <strong className="text-[var(--ui-body-text)]">Agregar insumo</strong> arriba a la derecha, complete el
+                      formulario y pulse Agregar.
                     </td>
                   </tr>
                 )}
