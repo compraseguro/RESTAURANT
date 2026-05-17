@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
+import { getPresetRange } from '../../utils/indicatorsDatePresets';
 import {
   MdInsights,
   MdDashboard,
@@ -14,6 +15,8 @@ import {
   MdNotificationsActive,
   MdPsychology,
   MdDownload,
+  MdSync,
+  MdCircle,
 } from 'react-icons/md';
 import {
   IndicatorsGeneralPanel,
@@ -27,6 +30,8 @@ import {
   IndicatorsAlertsPanel,
   IndicatorsInsightsPanel,
 } from '../../components/indicadores/IndicatorsHubPanels';
+import IndicatorsDateFilters from '../../components/indicadores/IndicatorsDateFilters';
+import IndicatorsExportMenu from '../../components/indicadores/IndicatorsExportMenu';
 
 const TABS = [
   { id: 'general', label: 'Panel', icon: MdDashboard },
@@ -45,41 +50,54 @@ export default function Indicadores() {
   const [tab, setTab] = useState('general');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ from: '', to: '' });
+  const [refreshing, setRefreshing] = useState(false);
+  const [preset, setPreset] = useState('month');
+  const [filters, setFilters] = useState(() => getPresetRange('month'));
+  const [exportOpen, setExportOpen] = useState(false);
+  const [livePulse, setLivePulse] = useState(false);
+  const debounceRef = useRef(null);
 
-  const loadHub = useCallback(async () => {
+  const loadHub = useCallback(async (soft = false) => {
+    if (!soft) setLoading(true);
+    else setRefreshing(true);
     try {
       const qs = new URLSearchParams();
       if (filters.from) qs.set('from', filters.from);
       if (filters.to) qs.set('to', filters.to);
       const hub = await api.get(`/reports/indicators-hub${qs.toString() ? `?${qs}` : ''}`);
       setData(hub);
+      setLivePulse(true);
+      setTimeout(() => setLivePulse(false), 800);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [filters.from, filters.to]);
 
   useEffect(() => {
-    setLoading(true);
     void loadHub();
   }, [loadHub]);
 
-  useSocket('order-update', () => void loadHub());
-  useSocket('new-order', () => void loadHub());
-  useSocket('inventory-update', () => void loadHub());
-  useSocket('staff-data-update', () => void loadHub());
+  const scheduleReload = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => void loadHub(true), 600);
+  }, [loadHub]);
 
-  const exportCsv = () => {
-    const rows = data?.products?.top_sellers || [];
-    if (!rows.length) return;
-    const csv = ['Producto,Cantidad,Ingresos', ...rows.map((r) => `${r.product_name},${r.qty},${r.revenue}`)].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'indicadores-productos.csv';
-    a.click();
+  useSocket('order-update', scheduleReload);
+  useSocket('new-order', scheduleReload);
+  useSocket('inventory-update', scheduleReload);
+  useSocket('staff-data-update', scheduleReload);
+  useSocket('table-update', scheduleReload);
+  useSocket('delivery-update', scheduleReload);
+  useSocket('register-update', scheduleReload);
+
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+
+  const handlePresetChange = (id) => {
+    setPreset(id);
+    if (id !== 'custom') setFilters(getPresetRange(id));
   };
 
   const alertCount = data?.alerts?.length ?? 0;
@@ -122,36 +140,48 @@ export default function Indicadores() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
+      {refreshing ? (
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gold-500/30 overflow-hidden z-10">
+          <div className="h-full w-1/3 bg-gold-500 animate-pulse" />
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[var(--ui-body-text)] flex items-center gap-2">
             <MdInsights className="text-gold-600" /> Indicadores
           </h1>
           <p className="text-sm text-[var(--ui-muted)] mt-1 max-w-2xl">
-            Centro de análisis conectado con caja, mesas, cocina, delivery, inventario, clientes y ventas en tiempo real.
+            Centro de análisis conectado con caja, mesas, cocina, delivery, inventario, clientes y tiempo trabajado.
           </p>
+          <div className={`flex items-center gap-1.5 text-xs mt-2 ${livePulse ? 'text-emerald-600' : 'text-[var(--ui-muted)]'}`}>
+            <MdCircle className="text-[6px]" />
+            {livePulse ? 'Actualizado en vivo' : 'Sincronización en tiempo real activa'}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-secondary text-sm" onClick={() => { setLoading(true); void loadHub(); }}>
-            Actualizar
+          <button
+            type="button"
+            className="btn-secondary text-sm flex items-center gap-1"
+            disabled={refreshing}
+            onClick={() => void loadHub(true)}
+          >
+            <MdSync className={refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'Actualizando…' : 'Actualizar'}
           </button>
-          <button type="button" className="btn-secondary text-sm flex items-center gap-1" onClick={exportCsv}>
+          <button type="button" className="btn-secondary text-sm flex items-center gap-1" onClick={() => setExportOpen(true)}>
             <MdDownload /> Exportar
           </button>
         </div>
       </div>
 
-      <div className="card grid grid-cols-1 md:grid-cols-2 gap-3 py-3">
-        <div>
-          <label className="block text-xs text-[var(--ui-muted)] mb-1">Desde</label>
-          <input type="date" className="input-field" value={filters.from} onChange={(e) => setFilters((p) => ({ ...p, from: e.target.value }))} />
-        </div>
-        <div>
-          <label className="block text-xs text-[var(--ui-muted)] mb-1">Hasta</label>
-          <input type="date" className="input-field" value={filters.to} onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))} />
-        </div>
-      </div>
+      <IndicatorsDateFilters
+        preset={preset}
+        onPresetChange={handlePresetChange}
+        filters={filters}
+        onFiltersChange={setFilters}
+      />
 
       <div className="flex flex-wrap gap-2">
         {TABS.map((t) => (
@@ -175,10 +205,20 @@ export default function Indicadores() {
       </div>
 
       {data?.generated_at ? (
-        <p className="text-[10px] text-[var(--ui-muted)]">Actualizado: {new Date(data.generated_at).toLocaleString('es-PE')}</p>
+        <p className="text-[10px] text-[var(--ui-muted)]">
+          Período {data.filters?.from} — {data.filters?.to} · Actualizado {new Date(data.generated_at).toLocaleString('es-PE')}
+        </p>
       ) : null}
 
-      {renderPanel()}
+      <div className={refreshing ? 'opacity-90 transition-opacity' : ''}>{renderPanel()}</div>
+
+      <IndicatorsExportMenu
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        hub={data}
+        filters={filters}
+        activeTab={tab}
+      />
     </div>
   );
 }

@@ -842,4 +842,13 @@ router.get('/indicators-hub', authenticateToken, requireRole('admin'), (req, res
   }
 });
 
+router.get('/indicators-export', authenticateToken, requireRole('admin'), (req, res) => {
+  try {
+    const { exportIndicators } = require('../services/indicatorsExportService');
+    exportIndicators(req.query || {}, res);
+  } catch (err) {
+    if (!res.headersSent) res.status(500).json({ error: err.message || 'No se pudo exportar' });
+  }
+});
+
 module.exports = router;

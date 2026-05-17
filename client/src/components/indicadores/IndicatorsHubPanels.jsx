@@ -41,10 +41,12 @@ function ChartCard({ title, hint, children }) {
 
 export function IndicatorsGeneralPanel({ data }) {
   const g = data?.general || {};
+  const cmp = data?.financial?.comparison_prev_period;
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
+    <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-        <IndicatorStatCard icon={MdAttachMoney} label="Ventas hoy" value={formatCurrency(g.sales_today)} sub={`${g.orders_today ?? 0} pedidos`} accent="emerald" />
+        <IndicatorStatCard icon={MdAttachMoney} label="Ventas período" value={formatCurrency(g.period_sales)} sub={`${g.period_orders ?? 0} pedidos`} accent="emerald" />
+        <IndicatorStatCard icon={MdAttachMoney} label="Ventas hoy" value={formatCurrency(g.sales_today)} sub={`${g.orders_today ?? 0} pedidos`} />
         <IndicatorStatCard icon={MdAttachMoney} label="Ventas semana" value={formatCurrency(g.sales_week)} accent="sky" />
         <IndicatorStatCard icon={MdAttachMoney} label="Ventas mes" value={formatCurrency(g.sales_month)} trend={g.growth_month_pct} />
         <IndicatorStatCard icon={MdAttachMoney} label="Utilidad neta (aprox.)" value={formatCurrency(g.net_profit_approx)} sub="Mes en curso" accent="emerald" />
@@ -56,6 +58,10 @@ export function IndicatorsGeneralPanel({ data }) {
         <IndicatorStatCard icon={MdPeople} label="Clientes hoy" value={g.customers_served_today ?? 0} />
         <IndicatorStatCard icon={MdInventory} label="Stock crítico" value={g.critical_stock ?? 0} accent={g.critical_stock > 0 ? 'amber' : 'default'} />
         <IndicatorStatCard icon={MdWarning} label="Agotados" value={g.out_of_stock ?? 0} accent={g.out_of_stock > 0 ? 'amber' : 'default'} />
+        {cmp ? <IndicatorStatCard label="vs período ant." value={`${cmp.change_pct >= 0 ? '+' : ''}${cmp.change_pct}%`} accent={cmp.change_pct >= 0 ? 'emerald' : 'amber'} /> : null}
+        <IndicatorStatCard label="Personal en turno" value={g.staff_on_shift ?? 0} />
+        <IndicatorStatCard label="Productividad" value={g.productivity_index ?? 0} />
+        <IndicatorStatCard label="Caja" value={g.register_open ? 'Abierta' : 'Cerrada'} accent={g.register_open ? 'emerald' : 'default'} />
       </div>
     </div>
   );
@@ -75,6 +81,10 @@ export function IndicatorsFinancialPanel({ data }) {
         <IndicatorStatCard label="Gastos operativos" value={formatCurrency(f.operating_expenses)} accent="amber" />
         <IndicatorStatCard label="Flujo caja (+)" value={formatCurrency(f.cash_flow_in)} />
         <IndicatorStatCard label="Flujo caja (-)" value={formatCurrency(f.cash_flow_out)} />
+        <IndicatorStatCard label="Efectivo" value={formatCurrency(f.sales_efectivo)} />
+        <IndicatorStatCard label="Yape" value={formatCurrency(f.sales_yape)} />
+        <IndicatorStatCard label="Tarjeta" value={formatCurrency(f.sales_tarjeta)} />
+        {f.projection_next_7d ? <IndicatorStatCard label="Proyección 7d" value={formatCurrency(f.projection_next_7d)} accent="sky" /> : null}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard title="Utilidad vs gastos (período)">
@@ -121,7 +131,9 @@ export function IndicatorsOperationalPanel({ data }) {
         <IndicatorStatCard label="Tiempo delivery (7d)" value={`${o.avg_delivery_minutes ?? 0} min`} />
         <IndicatorStatCard label="Retraso cocina" value={o.orders_delayed_kitchen ?? 0} accent="amber" />
         <IndicatorStatCard label="Retraso delivery" value={o.orders_delayed_delivery ?? 0} accent="amber" />
-        <IndicatorStatCard label="Entregados hoy" value={o.orders_delivered_today ?? 0} accent="emerald" />
+        <IndicatorStatCard label="Entregados período" value={o.orders_delivered_period ?? 0} accent="emerald" />
+        <IndicatorStatCard label="Reservas" value={o.reservations_period ?? 0} />
+        <IndicatorStatCard label="Rotación mesas" value={o.table_rotation_avg ?? 0} />
       </div>
     </div>
   );
@@ -321,10 +333,19 @@ export function IndicatorsAlertsPanel({ data }) {
         <li
           key={a.id}
           className={`card border-l-4 ${
-            a.severity === 'warning' ? 'border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/20' : 'border-l-sky-500'
+            a.severity === 'warning'
+              ? 'border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/20'
+              : a.severity === 'high'
+                ? 'border-l-red-500 bg-red-50/20 dark:bg-red-950/20'
+                : 'border-l-sky-500'
           }`}
         >
-          <p className="font-semibold text-sm text-[var(--ui-body-text)]">{a.title}</p>
+          <div className="flex justify-between gap-2">
+            <p className="font-semibold text-sm text-[var(--ui-body-text)]">{a.title}</p>
+            <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded ${a.severity === 'warning' ? 'bg-amber-200 text-amber-900' : 'bg-sky-100 text-sky-800'}`}>
+              {a.severity}
+            </span>
+          </div>
           <p className="text-xs text-[var(--ui-muted)] mt-1">{a.message}</p>
         </li>
       ))}
@@ -334,15 +355,25 @@ export function IndicatorsAlertsPanel({ data }) {
 
 export function IndicatorsInsightsPanel({ data }) {
   const insights = data?.insights || [];
+  const priorityClass = (p) => {
+    if (p === 'high') return 'border-l-red-500';
+    if (p === 'medium') return 'border-l-amber-500';
+    return 'border-l-gold-500';
+  };
   return (
-    <ul className="space-y-3">
-      {insights.map((ins, i) => (
-        <li key={i} className="card border-l-4 border-l-gold-500 pl-4">
-          <p className="text-sm text-[var(--ui-body-text)]">{ins.message}</p>
-          <span className="text-[10px] uppercase text-[var(--ui-muted)] mt-1 inline-block">{ins.priority}</span>
-        </li>
-      ))}
-      {insights.length === 0 ? <p className="text-sm text-[var(--ui-muted)]">Generando recomendaciones…</p> : null}
-    </ul>
+    <div className="space-y-4">
+      <p className="text-sm text-[var(--ui-muted)] card">
+        Recomendaciones generadas automáticamente a partir de ventas, productos, inventario, productividad y operación en tiempo real.
+      </p>
+      <ul className="space-y-3">
+        {insights.map((ins, i) => (
+          <li key={i} className={`card border-l-4 pl-4 ${priorityClass(ins.priority)}`}>
+            <p className="text-sm text-[var(--ui-body-text)]">{ins.message}</p>
+            <span className="text-[10px] uppercase text-[var(--ui-muted)] mt-1 inline-block">{ins.priority}</span>
+          </li>
+        ))}
+        {insights.length === 0 ? <p className="text-sm text-[var(--ui-muted)]">Generando recomendaciones…</p> : null}
+      </ul>
+    </div>
   );
 }
