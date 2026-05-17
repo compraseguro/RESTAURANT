@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import MasterRestaurantBackupPanel from '../../components/master/MasterRestaurantBackupPanel';
 import BillingSunatManualForm from '../../components/billing/BillingSunatManualForm';
-import { defaultBillingPanel } from '../../data/sunat47Catalog';
+import { defaultBillingPanel, defaultBillingPanelPresence } from '../../data/sunat47Catalog';
 import { defaultMiRestaurantProfile, mergeMiRestaurantProfile } from '../../data/miRestaurantProfileDefaults';
 import MiRestaurantEmpresaHub from '../../components/miRestaurant/MiRestaurantEmpresaHub';
 import { MdSave, MdReceipt, MdPayment, MdUpload, MdPeople } from 'react-icons/md';
@@ -109,6 +109,7 @@ export default function MiRestaurant() {
   /** Ventana de carga del comprobante (servidor): enlazada a fecha_proxima_facturación y días de gracia. */
   const [pagoUsoComprobanteUi, setPagoUsoComprobanteUi] = useState(null);
   const [billingPanel, setBillingPanel] = useState(() => defaultBillingPanel());
+  const [billingPanelPresence, setBillingPanelPresence] = useState(() => defaultBillingPanelPresence());
   const [staffUsers, setStaffUsers] = useState([]);
   const [staffLoading, setStaffLoading] = useState(false);
   const [payrollInvestModal, setPayrollInvestModal] = useState(null);
@@ -155,6 +156,11 @@ export default function MiRestaurant() {
         } else {
           setBillingPanel(defaultBillingPanel());
         }
+        setBillingPanelPresence(
+          data?.billing_panel_presence && typeof data.billing_panel_presence === 'object'
+            ? { ...defaultBillingPanelPresence(), ...data.billing_panel_presence }
+            : defaultBillingPanelPresence()
+        );
         if (billingData) {
           setAllowRestaurantAdminBillingBot(Boolean(billingData.allow_restaurant_admin_billing_bot));
           setBillingConfig(prev => ({
@@ -265,6 +271,9 @@ export default function MiRestaurant() {
         setRestaurant(savedRestaurant);
         if (savedRestaurant?.billing_panel && typeof savedRestaurant.billing_panel === 'object') {
           setBillingPanel({ ...defaultBillingPanel(), ...savedRestaurant.billing_panel });
+        }
+        if (savedRestaurant?.billing_panel_presence && typeof savedRestaurant.billing_panel_presence === 'object') {
+          setBillingPanelPresence({ ...defaultBillingPanelPresence(), ...savedRestaurant.billing_panel_presence });
         }
         const saved = await api.put('/billing/config', {
           billing_offline_mode: billingConfig.billing_offline_mode,
@@ -711,6 +720,7 @@ export default function MiRestaurant() {
                 restaurant={restaurant}
                 onRestaurantField={update}
                 billingPanel={billingPanel}
+                billingPanelPresence={billingPanelPresence}
                 onBillingPanelField={(k, v) => setBillingPanel((p) => ({ ...p, [k]: v }))}
                 onUploadBillingCert={canEditBillingBot ? handleBillingCertUpload : undefined}
                 disabled={!canEditBillingBot}
