@@ -7,7 +7,7 @@ const { queryOne } = require('../database');
 const { buildIndicatorsHub } = require('./indicatorsHubService');
 
 function getRestaurantHeader() {
-  const r = queryOne('SELECT name, address, phone, logo_url FROM restaurants LIMIT 1');
+  const r = queryOne('SELECT name, address, phone FROM restaurants LIMIT 1');
   return {
     name: r?.name || 'Resto-FADEY',
     address: r?.address || '',

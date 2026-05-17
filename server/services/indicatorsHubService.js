@@ -3,32 +3,41 @@
  */
 
 const { queryAll, queryOne } = require('../database');
-const { FINANCIAL_FILTER_SQL } = require('../businessRules');
 const { buildRankings, buildProductivityByUser } = require('./workProductivityService');
 
-const FIN = FINANCIAL_FILTER_SQL;
 const CACHE_TTL_MS = 12000;
 const hubCache = new Map();
 
-const SALES_AT = 'COALESCE(updated_at, created_at)';
-const SALES_LOCAL = `datetime(${SALES_AT}, 'localtime')`;
-const SALES_DATE = `DATE(${SALES_LOCAL})`;
-const SALES_MONTH = `strftime('%Y-%m', ${SALES_LOCAL})`;
-const SALES_HOUR = `strftime('%H', ${SALES_LOCAL})`;
+/** Siempre calificar columnas de `orders` (alias o) para evitar ambigüedad con products en JOINs. */
+const O_FIN = "o.status != 'cancelled' AND o.payment_status = 'paid'";
+const O_AT = 'COALESCE(o.updated_at, o.created_at)';
+const O_LOCAL = `datetime(${O_AT}, 'localtime')`;
+const O_DATE = `DATE(${O_LOCAL})`;
+const O_MONTH = `strftime('%Y-%m', ${O_LOCAL})`;
+const O_HOUR = `strftime('%H', ${O_LOCAL})`;
+
+const FIN = O_FIN;
+const SALES_DATE = O_DATE;
+const SALES_MONTH = O_MONTH;
+const SALES_HOUR = O_HOUR;
 
 function parseDateKey(input) {
   const v = String(input || '').trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
 }
 
+function localDateKey(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function defaultRange() {
   const to = new Date();
   const from = new Date(to);
   from.setDate(from.getDate() - 29);
-  return {
-    from: from.toISOString().split('T')[0],
-    to: to.toISOString().split('T')[0],
-  };
+  return { from: localDateKey(from), to: localDateKey(to) };
 }
 
 function orderDateFilter(from, to, params) {
@@ -52,24 +61,24 @@ function buildGeneralKpis(from, to) {
   const params = [];
   const od = orderDateFilter(from, to, params);
   const periodRow = queryOne(
-    `SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales FROM orders WHERE ${FIN} AND ${od}`,
+    `SELECT COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS sales FROM orders o WHERE ${O_FIN} AND ${od}`,
     params
   );
   const today = new Date().toISOString().split('T')[0];
   const todayRow = queryOne(
-    `SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales FROM orders WHERE ${SALES_DATE} = date('now', 'localtime') AND ${FIN}`
+    `SELECT COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS sales FROM orders o WHERE ${O_DATE} = date('now', 'localtime') AND ${O_FIN}`
   );
   const weekRow = queryOne(
-    `SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales FROM orders
-     WHERE ${FIN} AND ${SALES_DATE} >= date('now', 'localtime', '-6 days')`
+    `SELECT COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS sales FROM orders o
+     WHERE ${O_FIN} AND ${O_DATE} >= date('now', 'localtime', '-6 days')`
   );
   const monthRow = queryOne(
-    `SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales FROM orders
-     WHERE ${FIN} AND ${SALES_MONTH} = strftime('%Y-%m', 'now', 'localtime')`
+    `SELECT COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS sales FROM orders o
+     WHERE ${O_FIN} AND ${O_MONTH} = strftime('%Y-%m', 'now', 'localtime')`
   );
   const prevMonthRow = queryOne(
-    `SELECT COALESCE(SUM(total), 0) AS sales FROM orders
-     WHERE ${FIN} AND ${SALES_MONTH} = strftime('%Y-%m', date('now', 'localtime', '-1 month'))`
+    `SELECT COALESCE(SUM(o.total), 0) AS sales FROM orders o
+     WHERE ${O_FIN} AND ${O_MONTH} = strftime('%Y-%m', date('now', 'localtime', '-1 month'))`
   );
   const activeOrders = queryOne("SELECT COUNT(*) AS c FROM orders WHERE status IN ('pending','preparing','ready')");
   const paidToday = Number(todayRow?.orders || 0);
@@ -84,11 +93,11 @@ function buildGeneralKpis(from, to) {
 
   const customersServed = queryOne(
     `SELECT COUNT(DISTINCT COALESCE(NULLIF(trim(customer_id), ''), customer_name)) AS c
-     FROM orders WHERE ${FIN} AND ${SALES_DATE} = date('now', 'localtime')`
+     FROM orders o WHERE ${O_FIN} AND ${O_DATE} = date('now', 'localtime')`
   );
   const productsSold = queryOne(
     `SELECT COALESCE(SUM(oi.quantity), 0) AS qty FROM order_items oi
-     JOIN orders o ON o.id = oi.order_id WHERE ${FIN} AND ${SALES_DATE} = date('now', 'localtime')`
+     JOIN orders o ON o.id = oi.order_id WHERE ${O_FIN} AND ${O_DATE} = date('now', 'localtime')`
   );
   const reservationsActive = queryOne(
     `SELECT COUNT(*) AS c FROM reservations
@@ -129,10 +138,10 @@ function buildGeneralKpis(from, to) {
 
 function buildFinancialSection(from, to) {
   const params = [from, to];
-  const dateF = `${SALES_DATE} BETWEEN date(?) AND date(?)`;
+  const dateF = `${O_DATE} BETWEEN date(?) AND date(?)`;
   const salesRow = queryOne(
-    `SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS total, COALESCE(SUM(subtotal), 0) AS subtotal
-     FROM orders WHERE ${FIN} AND ${dateF}`,
+    `SELECT COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS total, COALESCE(SUM(o.subtotal), 0) AS subtotal
+     FROM orders o WHERE ${O_FIN} AND ${dateF}`,
     params
   );
   const purchases = queryOne(
@@ -157,14 +166,14 @@ function buildFinancialSection(from, to) {
   const net = gross - totalExpenses;
 
   const paymentMethods = queryAll(
-    `SELECT payment_method, COUNT(*) AS count, COALESCE(SUM(total), 0) AS total
-     FROM orders WHERE ${FIN} AND ${dateF} GROUP BY payment_method ORDER BY total DESC`,
+    `SELECT o.payment_method, COUNT(*) AS count, COALESCE(SUM(o.total), 0) AS total
+     FROM orders o WHERE ${O_FIN} AND ${dateF} GROUP BY o.payment_method ORDER BY total DESC`,
     params
   );
 
   const dailyTrend = queryAll(
-    `SELECT ${SALES_DATE} AS day, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales
-     FROM orders WHERE ${FIN} AND ${dateF} GROUP BY ${SALES_DATE} ORDER BY day`,
+    `SELECT ${O_DATE} AS day, COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS sales
+     FROM orders o WHERE ${O_FIN} AND ${dateF} GROUP BY ${O_DATE} ORDER BY day`,
     params
   );
 
@@ -209,7 +218,7 @@ function compareSalesPeriods(from, to) {
   if (!from || !to) return null;
   const params = [from, to];
   const cur = queryOne(
-    `SELECT COALESCE(SUM(total), 0) AS s FROM orders WHERE ${FIN} AND ${SALES_DATE} BETWEEN date(?) AND date(?)`,
+    `SELECT COALESCE(SUM(o.total), 0) AS s FROM orders o WHERE ${O_FIN} AND ${O_DATE} BETWEEN date(?) AND date(?)`,
     params
   );
   const fromD = new Date(from);
@@ -219,10 +228,10 @@ function compareSalesPeriods(from, to) {
   prevTo.setDate(prevTo.getDate() - 1);
   const prevFrom = new Date(prevTo);
   prevFrom.setDate(prevFrom.getDate() - days + 1);
-  const pf = prevFrom.toISOString().split('T')[0];
-  const pt = prevTo.toISOString().split('T')[0];
+  const pf = localDateKey(prevFrom);
+  const pt = localDateKey(prevTo);
   const prev = queryOne(
-    `SELECT COALESCE(SUM(total), 0) AS s FROM orders WHERE ${FIN} AND ${SALES_DATE} BETWEEN date(?) AND date(?)`,
+    `SELECT COALESCE(SUM(o.total), 0) AS s FROM orders o WHERE ${O_FIN} AND ${O_DATE} BETWEEN date(?) AND date(?)`,
     [pf, pt]
   );
   const curS = Number(cur?.s || 0);
@@ -255,7 +264,7 @@ function buildOperationalSection(from, to) {
   const delParams = [];
   const delFilter = orderDateFilter(from, to, delParams);
   const deliveredPeriod = queryOne(
-    `SELECT COUNT(*) AS c FROM orders WHERE status = 'delivered' AND ${delFilter}`,
+    `SELECT COUNT(*) AS c FROM orders o WHERE o.status = 'delivered' AND ${delFilter}`,
     delParams
   );
   const reservationsPeriod = queryOne(
@@ -264,8 +273,8 @@ function buildOperationalSection(from, to) {
     [from, to]
   );
   const tableRotation = queryOne(
-    `SELECT COUNT(DISTINCT TRIM(table_number)) AS tables, COUNT(*) AS orders
-     FROM orders WHERE ${FIN} AND ${delFilter} AND TRIM(IFNULL(table_number,'')) != ''`,
+    `SELECT COUNT(DISTINCT TRIM(o.table_number)) AS tables, COUNT(*) AS orders
+     FROM orders o WHERE ${O_FIN} AND ${delFilter} AND TRIM(IFNULL(o.table_number,'')) != ''`,
     delParams
   );
   const tables = Number(tableRotation?.tables || 0);
@@ -344,21 +353,21 @@ function buildCustomersSection(from, to) {
             COUNT(*) AS orders,
             COALESCE(SUM(o.total), 0) AS spent,
             COALESCE(AVG(o.total), 0) AS avg_ticket
-     FROM orders o WHERE ${FIN} AND ${od} AND trim(coalesce(o.customer_name, '')) != ''
+     FROM orders o WHERE ${O_FIN} AND ${od} AND trim(coalesce(o.customer_name, '')) != ''
      GROUP BY o.customer_name ORDER BY orders DESC LIMIT 8`,
     params
   );
   const vip = queryAll(
     `SELECT COALESCE(NULLIF(trim(o.customer_name), ''), 'Sin nombre') AS name,
             COALESCE(SUM(o.total), 0) AS spent
-     FROM orders o WHERE ${FIN} AND ${od} AND trim(coalesce(o.customer_name, '')) != ''
+     FROM orders o WHERE ${O_FIN} AND ${od} AND trim(coalesce(o.customer_name, '')) != ''
      GROUP BY o.customer_name HAVING spent >= 200 ORDER BY spent DESC LIMIT 5`,
     params
   );
   const favoriteProducts = queryAll(
     `SELECT oi.product_name, SUM(oi.quantity) AS qty
      FROM order_items oi JOIN orders o ON o.id = oi.order_id
-     WHERE ${FIN} AND ${od} GROUP BY oi.product_name ORDER BY qty DESC LIMIT 5`,
+     WHERE ${O_FIN} AND ${od} GROUP BY oi.product_name ORDER BY qty DESC LIMIT 5`,
     params
   );
   return {
@@ -376,13 +385,13 @@ function buildProductsSection(from, to) {
   const top = queryAll(
     `SELECT oi.product_name, SUM(oi.quantity) AS qty, SUM(oi.subtotal) AS revenue
      FROM order_items oi JOIN orders o ON o.id = oi.order_id
-     WHERE ${FIN} AND ${od} GROUP BY oi.product_name ORDER BY qty DESC LIMIT 10`,
+     WHERE ${O_FIN} AND ${od} GROUP BY oi.product_name ORDER BY qty DESC LIMIT 10`,
     params
   );
   const bottom = queryAll(
     `SELECT oi.product_name, SUM(oi.quantity) AS qty
      FROM order_items oi JOIN orders o ON o.id = oi.order_id
-     WHERE ${FIN} AND ${od} GROUP BY oi.product_name HAVING qty > 0 ORDER BY qty ASC LIMIT 8`,
+     WHERE ${O_FIN} AND ${od} GROUP BY oi.product_name HAVING qty > 0 ORDER BY qty ASC LIMIT 8`,
     params
   );
   const profitable = queryAll(
@@ -391,7 +400,7 @@ function buildProductsSection(from, to) {
             COALESCE(SUM(oi.quantity), 0) AS qty
      FROM products p
      LEFT JOIN order_items oi ON oi.product_id = p.id
-     LEFT JOIN orders o ON o.id = oi.order_id AND ${FIN} AND ${od}
+     LEFT JOIN orders o ON o.id = oi.order_id AND ${O_FIN} AND ${od}
      WHERE p.is_active = 1
      GROUP BY p.id ORDER BY revenue DESC LIMIT 8`,
     params
@@ -586,23 +595,23 @@ function buildChartsData(from, to) {
   const params = [];
   const od = orderDateFilter(from, to, params);
   const byHour = queryAll(
-    `SELECT ${SALES_HOUR} AS hour, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales
-     FROM orders WHERE ${FIN} AND ${od} GROUP BY ${SALES_HOUR} ORDER BY hour`,
+    `SELECT ${O_HOUR} AS hour, COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS sales
+     FROM orders o WHERE ${O_FIN} AND ${od} GROUP BY ${O_HOUR} ORDER BY hour`,
     params
   );
   const byDay = queryAll(
-    `SELECT ${SALES_DATE} AS day, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS sales
-     FROM orders WHERE ${FIN} AND ${od} GROUP BY ${SALES_DATE} ORDER BY day`,
+    `SELECT ${O_DATE} AS day, COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS sales
+     FROM orders o WHERE ${O_FIN} AND ${od} GROUP BY ${O_DATE} ORDER BY day`,
     params
   );
   const byChannel = queryAll(
-    `SELECT type, COUNT(*) AS count, COALESCE(SUM(total), 0) AS total
-     FROM orders WHERE ${FIN} AND ${od} GROUP BY type`,
+    `SELECT o.type, COUNT(*) AS count, COALESCE(SUM(o.total), 0) AS total
+     FROM orders o WHERE ${O_FIN} AND ${od} GROUP BY o.type`,
     params
   );
   const byMonth = queryAll(
-    `SELECT ${SALES_MONTH} AS month, COALESCE(SUM(total), 0) AS sales
-     FROM orders WHERE ${FIN} AND ${od} GROUP BY ${SALES_MONTH} ORDER BY month`,
+    `SELECT ${O_MONTH} AS month, COALESCE(SUM(o.total), 0) AS sales
+     FROM orders o WHERE ${O_FIN} AND ${od} GROUP BY ${O_MONTH} ORDER BY month`,
     params
   );
   return {
@@ -650,7 +659,7 @@ function buildIndicatorsHub(query = {}, opts = {}) {
   const products = buildProductsSection(from, to);
   const charts = buildCharts(from, to, productivity);
 
-  const restaurant = queryOne('SELECT name, logo_url, currency_symbol FROM restaurants LIMIT 1');
+  const restaurant = queryOne('SELECT name, currency_symbol FROM restaurants LIMIT 1');
 
   const payload = {
     filters: { from, to },
