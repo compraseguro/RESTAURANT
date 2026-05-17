@@ -829,4 +829,17 @@ router.post('/finance-loss-events', authenticateToken, requireRole('admin'), (re
   }
 });
 
+router.buildOperationalIntelligence = buildOperationalIntelligence;
+router.financeMonthToDateSnapshot = financeMonthToDateSnapshot;
+router.financeRolling7dSnapshot = financeRolling7dSnapshot;
+
+router.get('/indicators-hub', authenticateToken, requireRole('admin'), (req, res) => {
+  try {
+    const { buildIndicatorsHub } = require('../services/indicatorsHubService');
+    res.json(buildIndicatorsHub(req.query || {}, { role: req.user?.role || 'admin' }));
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'No se pudo cargar indicadores' });
+  }
+});
+
 module.exports = router;
