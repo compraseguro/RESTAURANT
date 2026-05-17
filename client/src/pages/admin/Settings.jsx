@@ -35,6 +35,10 @@ import {
 } from 'react-icons/md';
 import { UI_THEME_OPTIONS, applyUiTheme, getValidUiThemeId } from '../../theme/uiTheme';
 import { useSocket } from '../../hooks/useSocket';
+import { useConfigHub } from '../../hooks/useConfigHub';
+import SettingsConfigHubBanner from '../../components/settings/SettingsConfigHubBanner';
+import SettingsRegionalPanel from '../../components/settings/SettingsRegionalPanel';
+import SettingsSectionInsights from '../../components/settings/SettingsSectionInsights';
 
 const ALL_MODULES = [
   { id: 'escritorio', label: 'Escritorio', icon: MdDashboard, defaultRoles: ['admin', 'cajero'] },
@@ -111,7 +115,20 @@ const HISTORY_FILTER_SECTIONS = [...PARTIAL_SECTIONS, 'imagenes_self'];
 const REQUIRED_ACTIVE_SECTIONS = new Set(['comprobantes', 'formas_pago']);
 
 const DEFAULT_APP_SETTINGS = {
-  regional: { country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' },
+  regional: {
+    country: 'Peru',
+    timezone: 'America/Lima',
+    language: 'es',
+    date_format: 'DD/MM/YYYY',
+    time_format: '24h',
+    currency_code: 'PEN',
+    currency_symbol: 'S/',
+    decimal_separator: '.',
+    thousands_separator: ',',
+    ticket_language: 'es',
+    number_decimals: 2,
+    rounding_mode: 'standard',
+  },
   locales: [{ name: 'Principal', address: '', phone: '', active: 1 }],
   almacenes: [{ name: 'Almacén Principal', description: 'Almacén general de insumos', active: 1 }],
   cajas: [{
@@ -182,6 +199,11 @@ const SETTINGS_SECTION_FORMS = {
       { key: 'name', label: 'Nombre', required: true },
       { key: 'address', label: 'Dirección' },
       { key: 'phone', label: 'Teléfono' },
+      { key: 'reference', label: 'Referencia / indicaciones' },
+      { key: 'whatsapp', label: 'WhatsApp (con código país)' },
+      { key: 'lat', label: 'Latitud (mapa)' },
+      { key: 'lng', label: 'Longitud (mapa)' },
+      { key: 'maps_url', label: 'Enlace Google Maps' },
     ],
   },
   almacenes: {
@@ -225,7 +247,9 @@ const SETTINGS_SECTION_FORMS = {
     fields: [
       { key: 'bank', label: 'Banco', required: true },
       { key: 'account', label: 'Nro. cuenta', required: true },
+      { key: 'cci', label: 'CCI / interbancario' },
       { key: 'type', label: 'Tipo de cuenta' },
+      { key: 'holder', label: 'Titular' },
     ],
   },
   marcas: {
@@ -338,6 +362,9 @@ export default function Settings() {
     }
   });
   const { user: currentUser } = useAuth();
+  const { hub: configHub, loading: configHubLoading, reload: reloadConfigHub } = useConfigHub({
+    enabled: Boolean(activeSection),
+  });
   const autoSaveTimerRef = useRef(null);
   const historySearchTimerRef = useRef(null);
   const serializeAppSettings = (value) => JSON.stringify(value || {});
@@ -641,8 +668,12 @@ export default function Settings() {
   useSocket('staff-data-update', (p) => {
     if (p?.domain !== 'app_config') return;
     loadAppSettings();
+    void reloadConfigHub?.();
     if (activeSection === 'config_historial') loadAppSettingsHistory();
   });
+  useSocket('order-update', () => { void reloadConfigHub?.(); });
+  useSocket('register-update', () => { void reloadConfigHub?.(); });
+  useSocket('inventory-update', () => { void reloadConfigHub?.(); });
 
   useEffect(() => {
     if (activeSection === 'impresoras' && hasElectronPrinting()) {
@@ -1181,6 +1212,15 @@ export default function Settings() {
             </span>
           )}
         </div>
+        {activeSection && activeSection !== 'config_historial' ? (
+          <SettingsConfigHubBanner
+            hub={configHub}
+            loading={configHubLoading}
+            onRefresh={() => void reloadConfigHub()}
+            sectionId={activeSection}
+          />
+        ) : null}
+        {activeSection ? <SettingsSectionInsights sectionId={activeSection} hub={configHub} /> : null}
         {activeSection === 'apariencia' && (
           <div className="max-w-3xl space-y-4">
             <div className="card">
@@ -1346,40 +1386,12 @@ export default function Settings() {
 
         {/* CONFIGURACIÓN REGIONAL */}
         {activeSection === 'regional' && restaurant && (
-          <div className="space-y-4">
-            <div className="card">
-              <h3 className="font-semibold text-slate-800 mb-4">Configuración Regional</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">País</label>
-                  <select className="input-field" value={appSettings.regional?.country || 'Peru'} onChange={e => setAppSettings(prev => ({ ...prev, regional: { ...(prev.regional || {}), country: e.target.value } }))}>
-                    <option>Peru</option><option>Colombia</option><option>Mexico</option><option>Argentina</option><option>Chile</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Zona Horaria</label>
-                  <select className="input-field" value={appSettings.regional?.timezone || 'America/Lima'} onChange={e => setAppSettings(prev => ({ ...prev, regional: { ...(prev.regional || {}), timezone: e.target.value } }))}>
-                    <option value="America/Lima">America/Lima (UTC-5)</option><option value="America/Bogota">America/Bogota (UTC-5)</option><option value="America/Mexico_City">America/Mexico_City (UTC-6)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Idioma</label>
-                  <select className="input-field" value={appSettings.regional?.language || 'es'} onChange={e => setAppSettings(prev => ({ ...prev, regional: { ...(prev.regional || {}), language: e.target.value } }))}>
-                    <option value="es">Español</option><option value="en">English</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Formato de Fecha</label>
-                  <select className="input-field" value={appSettings.regional?.date_format || 'DD/MM/YYYY'} onChange={e => setAppSettings(prev => ({ ...prev, regional: { ...(prev.regional || {}), date_format: e.target.value } }))}>
-                    <option>DD/MM/YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <button onClick={saveAppSettings} className="btn-primary flex items-center gap-2"><MdSave /> Guardar</button>
-            </div>
-          </div>
+          <SettingsRegionalPanel
+            regional={appSettings.regional}
+            setRegional={(regional) => setAppSettings((prev) => ({ ...prev, regional }))}
+            onSave={() => void saveAppSettings()}
+            saving={isSavingAppSettings}
+          />
         )}
 
         {/* LOCALES */}
@@ -1403,6 +1415,16 @@ export default function Settings() {
                       <p className="font-bold text-slate-800">{loc.name}</p>
                       <p className="text-sm text-slate-500">{loc.address || 'Sin dirección'}</p>
                       <p className="text-sm text-slate-400">{loc.phone || 'Sin teléfono'}</p>
+                      {loc.whatsapp ? (
+                        <a href={`https://wa.me/${String(loc.whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-xs text-emerald-600 hover:underline mt-0.5 inline-block">
+                          WhatsApp
+                        </a>
+                      ) : null}
+                      {loc.maps_url ? (
+                        <a href={loc.maps_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline mt-0.5 inline-block ml-2">
+                          Mapa
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

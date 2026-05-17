@@ -102,6 +102,28 @@ router.get('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
   res.json(readAppSettingsObject());
 });
 
+/** Hub de configuración: contexto en vivo por sección (Indicadores, operación, regional). */
+router.get('/config/hub', requireRole('admin', 'master_admin'), (req, res) => {
+  try {
+    const { buildConfigHub } = require('../services/systemConfigHubService');
+    res.json(buildConfigHub());
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'No se pudo cargar el hub de configuración' });
+  }
+});
+
+router.post('/config/regional-preview', requireRole('admin', 'master_admin'), (req, res) => {
+  try {
+    const { buildPreview, mergeRegional } = require('../services/regionalFormatService');
+    const { readRegional } = require('../services/systemConfigHubService');
+    const incoming = req.body?.regional && typeof req.body.regional === 'object' ? req.body.regional : null;
+    const regional = incoming ? mergeRegional(incoming) : readRegional();
+    res.json(buildPreview(regional));
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Vista previa inválida' });
+  }
+});
+
 /** Rutas de impresión persistidas (tabla printer_routes, por restaurant_id). */
 router.get('/printer-routes', requireRole('admin', 'master_admin'), (req, res) => {
   try {
@@ -334,6 +356,22 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
   }
   if (changedKeys.length) {
     broadcastStaffData('app_config');
+  }
+  if (changedKeys.includes('settings')) {
+    try {
+      const regional = out.settings?.regional;
+      if (regional && typeof regional === 'object') {
+        const { syncRegionalToRestaurant } = require('../services/systemConfigHubService');
+        syncRegionalToRestaurant(regional);
+        runSql(
+          `INSERT INTO app_settings (key, value, updated_at) VALUES ('regional', ?, datetime('now'))
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+          [JSON.stringify(regional)]
+        );
+      }
+    } catch (e) {
+      console.error('[config] sync regional:', e.message || e);
+    }
   }
   res.json(out);
   } catch (err) {
