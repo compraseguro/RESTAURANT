@@ -8,6 +8,7 @@ const { getActiveCajaById, listCajasWithIds } = require('../cajaSettings');
 const { print } = require('../printing/printerService');
 const { getOrderWithItems } = require('../orderCreateService');
 const { emitInventoryUpdate, emitBillingDocumentUpdate, emitStaffDataUpdate } = require('../socketBroadcast');
+const { recordWorkActivityEvent } = require('../services/workActivityTracker');
 const {
   parsePaymentBreakdown,
   splitBreakdownAcrossOrders,
@@ -889,6 +890,11 @@ router.post('/checkout-table', authenticateToken, requireRole('admin', 'cajero')
       })
       .filter(Boolean);
     const primaryForAudit = paymentBreakdownObj ? dominantPaymentMethod(paymentBreakdownObj) : paymentMethod;
+    recordWorkActivityEvent(req.user?.id, 'sale_closed', {
+      module: 'caja',
+      refId: paidOrders[0]?.id,
+      meta: { order_count: paidOrders.length },
+    });
     logAudit({
       actorUserId: req.user.id,
       actorName: req.user.full_name || req.user.username || '',

@@ -8,6 +8,7 @@ const { getOrderWithItems, createOrderInTransaction, replaceOrderLinesInTransact
 const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
 const kardexInventory = require('../services/kardexInventoryService');
 const { emitInventoryUpdate, emitBillingDocumentUpdate } = require('../socketBroadcast');
+const { recordWorkActivityEvent } = require('../services/workActivityTracker');
 const router = express.Router();
 const ORDER_TRANSITIONS = {
   pending: ['preparing', 'cancelled'],
@@ -281,6 +282,7 @@ router.post('/', authenticateToken, (req, res) => {
     const io = req.app.get('io');
     if (io) { io.emit('new-order', order); io.emit('order-update', order); }
     emitInventoryUpdate({});
+    recordWorkActivityEvent(req.user?.id, 'order_created', { module: 'pedidos', refId: order?.id });
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo crear el pedido' });

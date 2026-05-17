@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { queryOne, runSql } = require('../database');
 const { getLockState, getMasterCredentialsPublic } = require('../masterAdminService');
+const { touchWorkSessionActivity } = require('../services/workActivityTracker');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -50,6 +51,7 @@ function authenticateToken(req, res, next) {
       full_name: user.full_name,
     };
     ensureOpenWorkSession(req.user);
+    touchWorkSessionActivity(req.user, { module: 'api', path: req.path });
     const lock = getLockState();
     if (lock.locked) {
       return res.status(423).json({ error: lock.reason || 'Sistema bloqueado por falta de pago' });

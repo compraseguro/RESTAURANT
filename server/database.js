@@ -1226,6 +1226,33 @@ async function initDatabase() {
       WHERE lower(trim(coalesce(role, ''))) = 'admin'
         AND COALESCE(NULLIF(trim(attendance_status), ''), 'pending') = 'pending'`);
 
+    if (!workSessionColNames.has('last_activity_at')) {
+      db.run('ALTER TABLE user_work_sessions ADD COLUMN last_activity_at TEXT');
+      db.run(`UPDATE user_work_sessions SET last_activity_at = COALESCE(logout_at, login_at, datetime('now'))
+        WHERE last_activity_at IS NULL OR trim(last_activity_at) = ''`);
+    }
+    if (!workSessionColNames.has('shift_label')) {
+      db.run("ALTER TABLE user_work_sessions ADD COLUMN shift_label TEXT DEFAULT ''");
+    }
+    if (!workSessionColNames.has('pause_minutes')) {
+      db.run('ALTER TABLE user_work_sessions ADD COLUMN pause_minutes INTEGER DEFAULT 0');
+    }
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS user_work_activity_events (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        session_id TEXT,
+        event_type TEXT NOT NULL,
+        module TEXT DEFAULT '',
+        ref_id TEXT DEFAULT '',
+        meta_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    db.run('CREATE INDEX IF NOT EXISTS idx_work_activity_user_created ON user_work_activity_events(user_id, created_at)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_work_activity_session ON user_work_activity_events(session_id)');
+
     const usersTableSql = queryOne("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'");
     if (usersTableSql?.sql && !usersTableSql.sql.includes("'bar'")) {
       db.run('PRAGMA foreign_keys = OFF');

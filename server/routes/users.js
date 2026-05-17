@@ -4,6 +4,12 @@ const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { getActiveCajaById, getFirstAutoAssignCajaId } = require('../cajaSettings');
+const {
+  rawWorkedMinutesExpr,
+  effectiveWorkedMinutesExpr,
+  parseDateKey,
+} = require('../lib/workSessionSql');
+const { buildAnalyticsBundle } = require('../services/workProductivityService');
 
 const router = express.Router();
 const VALID_ROLES = new Set(['admin', 'cajero', 'mozo', 'cocina', 'bar', 'delivery']);
@@ -14,33 +20,6 @@ const MODULE_IDS = [
 ];
 function isPermissionEnabled(value) {
   return value === true || value === 1 || value === '1' || value === 'true';
-}
-
-function parseDateKey(input) {
-  const value = String(input || '').trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
-}
-
-/** Minutos brutos según login/logout (sin regla de asistencia). */
-function rawWorkedMinutesExpr(alias = 's') {
-  return `CASE
-      WHEN ${alias}.logout_at IS NULL THEN CAST((julianday('now') - julianday(${alias}.login_at)) * 24 * 60 AS INTEGER)
-      ELSE COALESCE(${alias}.worked_minutes, CAST((julianday(${alias}.logout_at) - julianday(${alias}.login_at)) * 24 * 60 AS INTEGER), 0)
-    END`;
-}
-
-/** Minutos que cuentan en informes: solo asistente confirmado; pending/justificado/ausente → 0. Administrador siempre por tiempo bruto (no revisión). */
-function effectiveWorkedMinutesExpr(alias = 's') {
-  const raw = rawWorkedMinutesExpr(alias);
-  const st = `COALESCE(NULLIF(trim(${alias}.attendance_status), ''), 'pending')`;
-  const roleIsAdmin = `lower(coalesce(nullif(u.role, ''), nullif(${alias}.role, ''), '')) = 'admin'`;
-  return `(CASE WHEN ${roleIsAdmin} THEN (${raw}) ELSE (CASE ${st}
-    WHEN 'justificado' THEN 0
-    WHEN 'ausente' THEN 0
-    WHEN 'pending' THEN 0
-    WHEN 'asistente' THEN (${raw})
-    ELSE 0
-  END) END)`;
 }
 
 const FINAL_ATTENDANCE = new Set(['asistente', 'justificado', 'ausente']);
@@ -318,6 +297,16 @@ router.delete('/:id', authenticateToken, requireRole('admin'), (req, res) => {
   runSql('DELETE FROM user_permissions WHERE user_id = ?', [req.params.id]);
   runSql('DELETE FROM users WHERE id = ?', [req.params.id]);
   res.json({ success: true });
+});
+
+/** Panel de productividad, alertas, rankings e IA operativa (extiende Tiempo trabajado). */
+router.get('/work-analytics', authenticateToken, requireRole('admin'), (req, res) => {
+  try {
+    ensureOpenWorkSession(req.user);
+    res.json(buildAnalyticsBundle(req.query || {}));
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'No se pudo cargar analítica laboral' });
+  }
 });
 
 router.get('/work-sessions', authenticateToken, requireRole('admin'), (req, res) => {
