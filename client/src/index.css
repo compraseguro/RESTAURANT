@@ -5,6 +5,20 @@
 /* Temas: Configuración → Apariencia (`data-ui-theme` en <html>) */
 html {
   --ui-shell-header-h: 3.5rem;
+  --ui-live-success-text: #6ee7b7;
+  --ui-live-warning-text: #fcd34d;
+  --ui-live-info-text: #7dd3fc;
+  --ui-live-danger-text: #fda4af;
+  --ui-live-alert-warning-bg: rgba(245, 158, 11, 0.14);
+  --ui-live-alert-warning-text: #fde68a;
+  --ui-live-alert-warning-border: rgba(251, 191, 36, 0.4);
+  --ui-live-alert-info-bg: rgba(56, 189, 248, 0.12);
+  --ui-live-alert-info-text: #e0f2fe;
+  --ui-live-alert-info-border: rgba(56, 189, 248, 0.35);
+  --ui-live-badge-success-bg: rgba(16, 185, 129, 0.15);
+  --ui-live-badge-success-text: #6ee7b7;
+  --ui-live-badge-warn-bg: rgba(245, 158, 11, 0.15);
+  --ui-live-badge-warn-text: #fcd34d;
   --ui-body-bg: #111827;
   --ui-body-text: #f9fafb;
   --ui-muted: #9ca3af;
@@ -28,6 +42,20 @@ html {
 
 /* Claro: alto contraste — texto y bordes casi negros, fondos blancos (colores de acento/estado no se tocan en componentes) */
 html[data-ui-theme='light'] {
+  --ui-live-success-text: #047857;
+  --ui-live-warning-text: #92400e;
+  --ui-live-info-text: #0369a1;
+  --ui-live-danger-text: #be123c;
+  --ui-live-alert-warning-bg: rgba(245, 158, 11, 0.12);
+  --ui-live-alert-warning-text: #78350f;
+  --ui-live-alert-warning-border: rgba(245, 158, 11, 0.35);
+  --ui-live-alert-info-bg: rgba(14, 165, 233, 0.1);
+  --ui-live-alert-info-text: #0c4a6e;
+  --ui-live-alert-info-border: rgba(14, 165, 233, 0.28);
+  --ui-live-badge-success-bg: rgba(16, 185, 129, 0.12);
+  --ui-live-badge-success-text: #047857;
+  --ui-live-badge-warn-bg: rgba(245, 158, 11, 0.12);
+  --ui-live-badge-warn-text: #92400e;
   --ui-body-bg: #ffffff;
   --ui-body-text: #000000;
   --ui-muted: #262626;
@@ -50,6 +78,20 @@ html[data-ui-theme='light'] {
 }
 
 html[data-ui-theme='dark'] {
+  --ui-live-success-text: #34d399;
+  --ui-live-warning-text: #fbbf24;
+  --ui-live-info-text: #38bdf8;
+  --ui-live-danger-text: #fb7185;
+  --ui-live-alert-warning-bg: rgba(251, 191, 36, 0.14);
+  --ui-live-alert-warning-text: #fef3c7;
+  --ui-live-alert-warning-border: rgba(251, 191, 36, 0.38);
+  --ui-live-alert-info-bg: rgba(56, 189, 248, 0.14);
+  --ui-live-alert-info-text: #e0f2fe;
+  --ui-live-alert-info-border: rgba(56, 189, 248, 0.38);
+  --ui-live-badge-success-bg: rgba(52, 211, 153, 0.14);
+  --ui-live-badge-success-text: #6ee7b7;
+  --ui-live-badge-warn-bg: rgba(251, 191, 36, 0.14);
+  --ui-live-badge-warn-text: #fde68a;
   --ui-body-bg: #000000;
   --ui-body-text: #f3f4f6;
   --ui-muted: #9ca3af;
@@ -385,6 +427,55 @@ html[data-ui-theme='light'] #root .badge-cancelled {
   .btn-secondary:hover {
     background-color: var(--ui-btn-secondary-hover);
   }
+
+  /* Panel en vivo / alertas operativas — contraste en tema claro y oscuro */
+  .ui-live-alert-warning {
+    background: var(--ui-live-alert-warning-bg);
+    color: var(--ui-live-alert-warning-text);
+    border: 1px solid var(--ui-live-alert-warning-border);
+  }
+  .ui-live-alert-warning .ui-live-alert-icon {
+    color: var(--ui-live-warning-text);
+  }
+  .ui-live-alert-info {
+    background: var(--ui-live-alert-info-bg);
+    color: var(--ui-live-alert-info-text);
+    border: 1px solid var(--ui-live-alert-info-border);
+  }
+  .ui-live-alert-info .ui-live-alert-icon {
+    color: var(--ui-live-info-text);
+  }
+  .ui-live-alert-link {
+    color: var(--ui-accent-muted);
+  }
+  .ui-live-alert-link:hover {
+    color: var(--ui-accent);
+  }
+  .ui-live-pill-stale {
+    background: var(--ui-live-alert-warning-bg);
+    color: var(--ui-live-alert-warning-text);
+    border-color: var(--ui-live-alert-warning-border);
+  }
+  .ui-live-badge-open {
+    background: var(--ui-live-badge-success-bg);
+    color: var(--ui-live-badge-success-text);
+    border-color: color-mix(in srgb, var(--ui-live-success-text) 45%, transparent);
+  }
+  .ui-live-badge-closed {
+    background: var(--ui-live-badge-warn-bg);
+    color: var(--ui-live-badge-warn-text);
+    border-color: color-mix(in srgb, var(--ui-live-warning-text) 45%, transparent);
+  }
+  .ui-live-link-rose {
+    color: var(--ui-live-danger-text);
+  }
+  .ui-live-link-emerald {
+    color: var(--ui-live-success-text);
+  }
+  .ui-live-link-amber {
+    color: var(--ui-live-warning-text);
+  }
+
   .btn-success {
     @apply text-white px-4 py-2 rounded-lg transition-colors font-medium shadow-sm;
     background-color: var(--ui-accent);

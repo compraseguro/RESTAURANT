@@ -392,9 +392,7 @@ export default function Escritorio() {
             </div>
             <span
               className={`text-xs font-medium px-2 py-1 rounded-lg border ${
-                liveDash.registerOpen
-                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700'
-                  : 'border-amber-500/40 bg-amber-500/10 text-amber-800'
+                liveDash.registerOpen ? 'ui-live-badge-open' : 'ui-live-badge-closed'
               }`}
             >
               {liveDash.registerOpen ? 'Caja abierta' : 'Sin caja abierta'}
@@ -418,7 +416,7 @@ export default function Escritorio() {
             >
               <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">Mesas con cuenta</p>
               <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{Number(liveDash.tablesWithActiveOrders || 0)}</p>
-              <p className="text-[11px] text-rose-600">Ir a Mesas</p>
+              <p className="text-[11px] font-medium ui-live-link-rose">Ir a Mesas</p>
             </button>
             <button
               type="button"
@@ -427,7 +425,7 @@ export default function Escritorio() {
             >
               <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">Delivery activo</p>
               <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{Number(liveDash.deliveryActiveCount || 0)}</p>
-              <p className="text-[11px] text-emerald-600">Ir a Delivery</p>
+              <p className="text-[11px] font-medium ui-live-link-emerald">Ir a Delivery</p>
             </button>
             <button
               type="button"
@@ -436,7 +434,7 @@ export default function Escritorio() {
             >
               <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">En preparación</p>
               <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{Number(liveDash.inKitchenCount || 0)}</p>
-              <p className="text-[11px] text-amber-700">Ir a Cocina</p>
+              <p className="text-[11px] font-medium ui-live-link-amber">Ir a Cocina</p>
             </button>
             <button
               type="button"
@@ -462,8 +460,8 @@ export default function Escritorio() {
               <span
                 className={`rounded-md border px-2 py-1 tabular-nums ${
                   Number(liveDash.operationalSummary.staleReadyCount ?? 0) > 0
-                    ? 'border-amber-500/50 bg-amber-500/10 text-amber-900'
-                    : 'border-[color:var(--ui-border)] bg-[var(--ui-body-bg)]'
+                    ? 'ui-live-pill-stale'
+                    : 'border-[color:var(--ui-border)] bg-[var(--ui-body-bg)] text-[var(--ui-body-text)]'
                 }`}
               >
                 Listos {'>'}25 min: <strong>{Number(liveDash.operationalSummary.staleReadyCount ?? 0)}</strong>
@@ -479,12 +477,10 @@ export default function Escritorio() {
                 <li
                   key={a.id}
                   className={`flex items-start gap-2 text-sm rounded-lg px-2 py-1.5 ${
-                    a.severity === 'warning'
-                      ? 'bg-amber-500/10 text-amber-900 border border-amber-500/25'
-                      : 'bg-sky-500/10 text-[var(--ui-body-text)] border border-sky-500/20'
+                    a.severity === 'warning' ? 'ui-live-alert-warning' : 'ui-live-alert-info'
                   }`}
                 >
-                  <MdWarning className="shrink-0 text-lg text-amber-600 mt-0.5" />
+                  <MdWarning className="shrink-0 text-lg ui-live-alert-icon mt-0.5" />
                   <span>
                     <span className="font-semibold">{a.title}: </span>
                     {a.message}
@@ -492,7 +488,7 @@ export default function Escritorio() {
                       <span className="block mt-1">
                         <Link
                           to={a.linkTo}
-                          className="text-xs font-semibold text-[var(--ui-accent)] hover:underline underline-offset-2"
+                          className="text-xs font-semibold ui-live-alert-link hover:underline underline-offset-2"
                         >
                           {a.linkLabel}
                         </Link>
