@@ -71,7 +71,7 @@ export default function Layout() {
         onClose={() => setMobileMenuOpen(false)}
       />
       <div className={`transition-all duration-300 ${isMobile ? 'ml-0' : (collapsed ? 'ml-16' : 'ml-60')}`}>
-        <header className="h-14 bg-[var(--ui-surface)] flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shadow-sm border-b border-[color:var(--ui-sidebar-border)]">
+        <header className="h-[var(--ui-shell-header-h)] shrink-0 bg-[var(--ui-surface)] flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shadow-sm border-b border-[color:var(--ui-sidebar-border)]">
           <div className="flex items-center gap-4">
             <button
               onClick={() => (isMobile ? setMobileMenuOpen(prev => !prev) : setCollapsed(!collapsed))}
@@ -107,7 +107,7 @@ export default function Layout() {
             </div>
           </div>
         </header>
-        <main className="p-3 sm:p-6 bg-[var(--ui-body-bg)] min-h-[calc(100vh-3.5rem)]">
+        <main className="p-3 sm:p-6 bg-[var(--ui-body-bg)] min-h-[calc(100vh-var(--ui-shell-header-h))]">
           {isMozoBlocked ? (
             <div className="flex flex-col items-center justify-center py-32 text-center">
               <div className="w-24 h-24 bg-[var(--ui-surface)] rounded-3xl flex items-center justify-center mb-6 border border-[color:var(--ui-border)]">

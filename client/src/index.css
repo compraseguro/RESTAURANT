@@ -4,6 +4,7 @@
 
 /* Temas: Configuración → Apariencia (`data-ui-theme` en <html>) */
 html {
+  --ui-shell-header-h: 3.5rem;
   --ui-body-bg: #111827;
   --ui-body-text: #f9fafb;
   --ui-muted: #9ca3af;

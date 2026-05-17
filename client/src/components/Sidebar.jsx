@@ -175,7 +175,11 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
         ? `w-72 max-w-[85vw] transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
         : (isCollapsed ? 'w-16' : 'w-60')
     }`}>
-      <div className="flex items-center gap-3 px-4 h-16 border-b border-[color:var(--ui-sidebar-border)]">
+      <div
+        className={`flex items-center shrink-0 h-[var(--ui-shell-header-h)] border-b border-[color:var(--ui-sidebar-border)] ${
+          isCollapsed ? 'justify-center px-0' : 'gap-3 px-4'
+        }`}
+      >
         <div className="w-9 h-9 bg-gradient-to-br from-[var(--ui-logo-from)] to-[var(--ui-logo-to)] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
           <MdStorefront className="text-white text-lg" />
         </div>
