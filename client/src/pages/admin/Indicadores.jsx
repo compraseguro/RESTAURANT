@@ -27,9 +27,9 @@ import {
   IndicatorsCustomersPanel,
   IndicatorsProductsPanel,
   IndicatorsChartsPanel,
-  IndicatorsAlertsPanel,
   IndicatorsInsightsPanel,
 } from '../../components/indicadores/IndicatorsHubPanels';
+import IndicatorsAlertsPanel from '../../components/indicadores/IndicatorsAlertsPanel';
 import IndicatorsDateFilters from '../../components/indicadores/IndicatorsDateFilters';
 import IndicatorsExportMenu from '../../components/indicadores/IndicatorsExportMenu';
 
@@ -55,11 +55,13 @@ export default function Indicadores() {
   const [filters, setFilters] = useState(() => getPresetRange('month'));
   const [exportOpen, setExportOpen] = useState(false);
   const [livePulse, setLivePulse] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const debounceRef = useRef(null);
 
   const loadHub = useCallback(async (soft = false) => {
     if (!soft) setLoading(true);
     else setRefreshing(true);
+    setLoadError(null);
     try {
       const qs = new URLSearchParams();
       if (filters.from) qs.set('from', filters.from);
@@ -70,6 +72,8 @@ export default function Indicadores() {
       setTimeout(() => setLivePulse(false), 800);
     } catch (err) {
       console.error(err);
+      setLoadError(err?.message || 'No se pudieron cargar los indicadores');
+      if (!soft) setData(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -103,7 +107,23 @@ export default function Indicadores() {
   const alertCount = data?.alerts?.length ?? 0;
 
   const renderPanel = () => {
-    if (!data) return null;
+    if (loadError && !data) {
+      return (
+        <div className="card border border-red-500/30 bg-red-500/5 p-6 text-center space-y-3">
+          <p className="text-sm text-[var(--ui-body-text)]">{loadError}</p>
+          <button type="button" className="btn-primary text-sm" onClick={() => void loadHub()}>
+            Reintentar
+          </button>
+        </div>
+      );
+    }
+    if (!data) {
+      return (
+        <div className="card p-6 text-center text-sm text-[var(--ui-muted)]">
+          Sin datos. Pulse Actualizar o cambie el rango de fechas (pruebe «Mes»).
+        </div>
+      );
+    }
     switch (tab) {
       case 'general':
         return <IndicatorsGeneralPanel data={data} />;

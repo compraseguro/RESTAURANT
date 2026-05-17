@@ -467,6 +467,32 @@ function buildUnifiedAlerts(payload) {
       message: `${lowProd.length} colaboradores bajo ritmo esperado`,
     });
   }
+
+  const periodOrders = Number(payload.financial?.orders_count || 0);
+  const periodSales = Number(payload.financial?.total_sales || 0);
+  if (periodOrders > 0) {
+    push({
+      id: 'sales-period',
+      severity: 'info',
+      title: 'Ventas en el período',
+      message: `${periodOrders} pedido(s) cobrado(s) · S/ ${periodSales.toFixed(2)} en el rango seleccionado.`,
+    });
+  } else if (Number(payload.general?.active_orders || 0) > 0) {
+    push({
+      id: 'orders-unpaid',
+      severity: 'warning',
+      title: 'Pedidos sin cobrar',
+      message: `Hay ${payload.general.active_orders} pedido(s) activo(s). Cobre en Caja para que aparezcan en ventas del período.`,
+    });
+  } else if (Number(payload.general?.sales_today || 0) > 0 && periodOrders === 0) {
+    push({
+      id: 'sales-today-hint',
+      severity: 'info',
+      title: 'Ventas de hoy',
+      message: `Hoy hay ventas (S/ ${Number(payload.general.sales_today).toFixed(2)}). Pruebe filtro «Mes» o «Semana» si «Hoy» no coincide por zona horaria.`,
+    });
+  }
+
   return alerts.sort((a, b) => (a.severity === 'warning' ? -1 : 1) - (b.severity === 'warning' ? -1 : 1));
 }
 
@@ -601,10 +627,16 @@ function buildIndicatorsHub(query = {}, opts = {}) {
     if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   }
 
-  const productivity = {
-    by_user: buildProductivityByUser(from, to, 'all'),
-    rankings: buildRankings(from, to),
-  };
+  let productivity = { by_user: [], rankings: {} };
+  try {
+    productivity = {
+      by_user: buildProductivityByUser(from, to, 'all'),
+      rankings: buildRankings(from, to),
+    };
+  } catch (err) {
+    console.error('[indicators-hub] productivity:', err.message);
+  }
+
   const general = buildGeneralKpis(from, to);
   const avgProd = (productivity.by_user || []).filter((u) => u.productivity_per_hour > 0);
   general.productivity_index = avgProd.length

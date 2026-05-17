@@ -324,35 +324,6 @@ export function IndicatorsChartsPanel({ data }) {
   );
 }
 
-export function IndicatorsAlertsPanel({ data }) {
-  const alerts = data?.alerts || [];
-  if (!alerts.length) return <p className="text-sm text-[var(--ui-muted)] card">Sin alertas activas.</p>;
-  return (
-    <ul className="space-y-2">
-      {alerts.map((a) => (
-        <li
-          key={a.id}
-          className={`card border-l-4 ${
-            a.severity === 'warning'
-              ? 'border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/20'
-              : a.severity === 'high'
-                ? 'border-l-red-500 bg-red-50/20 dark:bg-red-950/20'
-                : 'border-l-sky-500'
-          }`}
-        >
-          <div className="flex justify-between gap-2">
-            <p className="font-semibold text-sm text-[var(--ui-body-text)]">{a.title}</p>
-            <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded ${a.severity === 'warning' ? 'bg-amber-200 text-amber-900' : 'bg-sky-100 text-sky-800'}`}>
-              {a.severity}
-            </span>
-          </div>
-          <p className="text-xs text-[var(--ui-muted)] mt-1">{a.message}</p>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export function IndicatorsInsightsPanel({ data }) {
   const insights = data?.insights || [];
   const priorityClass = (p) => {
