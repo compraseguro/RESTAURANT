@@ -5,6 +5,11 @@ const path = require('path');
 const { queryOne, runSql, createBackupFile, restoreDbFromBuffer, resetOperationalData } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { getControlConfig } = require('../masterAdminService');
+const {
+  attachProfileToRestaurant,
+  mergeProfileUpdate,
+  restaurantPatchFromProfile,
+} = require('../services/miRestaurantConfigService');
 
 const router = express.Router();
 
@@ -88,6 +93,7 @@ router.get('/', (req, res) => {
   if (restaurant) {
     restaurant.schedule = JSON.parse(restaurant.schedule || '{}');
     attachPublicBillingPanel(restaurant);
+    attachProfileToRestaurant(restaurant);
   }
   res.json(restaurant || {});
 });
@@ -127,6 +133,26 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
     nextBillingPanelJson = String(current?.billing_panel_json || '').trim() || nextBillingPanelJson;
   }
 
+  if (b.profile !== undefined && typeof b.profile === 'object') {
+    try {
+      mergeProfileUpdate(b.profile, {
+        actorUserId: req.user?.id || '',
+        actorName: req.user?.full_name || req.user?.username || '',
+        restaurant: {
+          ...current,
+          company_ruc: b.company_ruc ?? current?.company_ruc,
+          email: b.email ?? current?.email,
+          name: b.name ?? current?.name,
+        },
+      });
+    } catch (err) {
+      const code = err.statusCode || 400;
+      return res.status(code).json({ error: err.message || 'Perfil inválido' });
+    }
+    const profilePatch = restaurantPatchFromProfile(current, b.profile);
+    if (profilePatch.phone) phone = profilePatch.phone;
+  }
+
   runSql(`UPDATE restaurants SET 
     name = COALESCE(?, name), address = COALESCE(?, address), phone = COALESCE(?, phone), email = COALESCE(?, email), logo = COALESCE(?, logo),
     tax_rate = COALESCE(?, tax_rate), currency = COALESCE(?, currency), currency_symbol = COALESCE(?, currency_symbol),
@@ -159,6 +185,7 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
   const updated = queryOne('SELECT * FROM restaurants LIMIT 1');
   updated.schedule = JSON.parse(updated.schedule || '{}');
   attachPublicBillingPanel(updated);
+  attachProfileToRestaurant(updated);
   res.json(updated);
 });
 

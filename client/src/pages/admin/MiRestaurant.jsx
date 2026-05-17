@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSocket } from '../../hooks/useSocket';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -10,7 +10,9 @@ import Modal from '../../components/Modal';
 import MasterRestaurantBackupPanel from '../../components/master/MasterRestaurantBackupPanel';
 import BillingSunatManualForm from '../../components/billing/BillingSunatManualForm';
 import { defaultBillingPanel } from '../../data/sunat47Catalog';
-import { MdSave, MdStore, MdPhone, MdEmail, MdLocationOn, MdSchedule, MdImage, MdReceipt, MdPayment, MdUpload, MdPeople } from 'react-icons/md';
+import { defaultMiRestaurantProfile, mergeMiRestaurantProfile } from '../../data/miRestaurantProfileDefaults';
+import MiRestaurantEmpresaHub from '../../components/miRestaurant/MiRestaurantEmpresaHub';
+import { MdSave, MdReceipt, MdPayment, MdUpload, MdPeople } from 'react-icons/md';
 
 const DAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
 const DAY_NAMES = { lunes: 'Lunes', martes: 'Martes', miercoles: 'Miércoles', jueves: 'Jueves', viernes: 'Viernes', sabado: 'Sábado', domingo: 'Domingo' };
@@ -48,9 +50,13 @@ export default function MiRestaurant() {
   /** Comprobante de pago por uso: maestro o admin del restaurante. */
   const canEditPagoUsoComprobante = isMasterAdmin || isRestaurantAdmin;
   const [searchParams, setSearchParams] = useSearchParams();
-  const logoInputRef = useRef(null);
   const comprobanteUsoInputRef = useRef(null);
   const [restaurant, setRestaurant] = useState(null);
+  const [profile, setProfile] = useState(() => defaultMiRestaurantProfile());
+  const [empresaTab, setEmpresaTab] = useState('info');
+  const [autosaveStatus, setAutosaveStatus] = useState('');
+  const autosaveTimerRef = useRef(null);
+  const skipAutosaveRef = useRef(true);
   const [billingConfig, setBillingConfig] = useState({
     billing_api_url: '',
     billing_api_token: '',
@@ -61,7 +67,6 @@ export default function MiRestaurant() {
     billing_auto_retry_enabled: 1,
     billing_auto_retry_interval_sec: 120,
   });
-  const [tab, setTab] = useState('info');
   const initialViewParam = searchParams.get('view') || 'mi_empresa';
   const [activeView, setActiveView] = useState(
     initialViewParam === 'series_contingencia' ? 'facturacion_electronica' : initialViewParam
@@ -143,6 +148,8 @@ export default function MiRestaurant() {
         if (!data.schedule || typeof data.schedule !== 'object') data.schedule = {};
         DAYS.forEach(d => { if (!data.schedule[d]) data.schedule[d] = { open: '11:00', close: '23:00', enabled: true }; });
         setRestaurant(data);
+        setProfile(mergeMiRestaurantProfile(defaultMiRestaurantProfile(), data.profile || data.profile_effective || {}));
+        skipAutosaveRef.current = true;
         if (data?.billing_panel && typeof data.billing_panel === 'object') {
           setBillingPanel({ ...defaultBillingPanel(), ...data.billing_panel });
         } else {
@@ -362,7 +369,10 @@ export default function MiRestaurant() {
         toast.success('Configuración guardada');
         return;
       }
-      await api.put('/restaurant', restaurant);
+      const saved = await api.put('/restaurant', { ...restaurant, profile });
+      setRestaurant(saved);
+      if (saved?.profile) setProfile(mergeMiRestaurantProfile(defaultMiRestaurantProfile(), saved.profile));
+      skipAutosaveRef.current = true;
       toast.success('Guardado correctamente');
     } catch (err) {
       toast.error(err.message);
@@ -379,12 +389,71 @@ export default function MiRestaurant() {
     ...prev, schedule: { ...prev.schedule, [day]: { ...prev.schedule[day], [field]: value } }
   }));
 
+  const updateProfileSection = (section, field, value) => {
+    setProfile((prev) => ({
+      ...prev,
+      [section]: { ...(prev[section] || {}), [field]: value },
+    }));
+  };
+
+  const profileValidation = useMemo(() => {
+    const errs = [];
+    if (!String(restaurant?.name || '').trim()) errs.push('El nombre comercial es obligatorio');
+    const ruc = String(restaurant?.company_ruc || '').trim();
+    if (ruc && !/^\d{11}$/.test(ruc)) errs.push('RUC: 11 dígitos');
+    const email = String(restaurant?.email || '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.push('Correo no válido');
+    return errs;
+  }, [restaurant]);
+
+  const persistEmpresaSilent = useCallback(async () => {
+    if (!restaurant || profileValidation.length) return;
+    setAutosaveStatus('Guardando…');
+    try {
+      const saved = await api.put('/restaurant', { ...restaurant, profile });
+      setRestaurant(saved);
+      if (saved?.profile) setProfile(mergeMiRestaurantProfile(defaultMiRestaurantProfile(), saved.profile));
+      setAutosaveStatus('Guardado automático');
+    } catch (err) {
+      setAutosaveStatus('');
+      toast.error(err.message || 'No se pudo guardar');
+    }
+  }, [restaurant, profile, profileValidation]);
+
+  useEffect(() => {
+    if (activeView !== 'mi_empresa' || !restaurant) return undefined;
+    if (skipAutosaveRef.current) {
+      skipAutosaveRef.current = false;
+      return undefined;
+    }
+    if (profileValidation.length) return undefined;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      void persistEmpresaSilent();
+    }, 2200);
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    };
+  }, [restaurant, profile, activeView, profileValidation, persistEmpresaSilent]);
+
+  const uploadBranding = async (field, file) => {
+    if (!file) return;
+    try {
+      const uploaded = await api.upload(file);
+      const url = uploaded?.url || '';
+      updateProfileSection('branding', field, url);
+      toast.success('Imagen cargada. Se guardará automáticamente.');
+    } catch (err) {
+      toast.error(err.message || 'No se pudo subir');
+    }
+  };
+
   const patchStaffUser = (id, partial) => {
     setStaffUsers((prev) => prev.map((x) => (x.id === id ? { ...x, ...partial } : x)));
   };
 
   useEffect(() => {
-    if (activeView !== 'mi_empresa' || tab !== 'schedule' || !isRestaurantAdmin) return undefined;
+    if (activeView !== 'mi_empresa' || empresaTab !== 'schedule' || !isRestaurantAdmin) return undefined;
     let cancelled = false;
     setStaffLoading(true);
     api
@@ -401,7 +470,7 @@ export default function MiRestaurant() {
     return () => {
       cancelled = true;
     };
-  }, [activeView, tab, isRestaurantAdmin]);
+  }, [activeView, empresaTab, isRestaurantAdmin]);
 
   const saveStaffPayroll = async (u) => {
     try {
@@ -487,7 +556,8 @@ export default function MiRestaurant() {
   if (!restaurant) return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
   const activeViewLabel = miRestaurantViewsForPlan.find(option => option.id === activeView)?.label || 'Mi empresa';
   const showSaveButton =
-    (activeView !== 'contrato' || canEditContrato)
+    activeView !== 'mi_empresa'
+    && (activeView !== 'contrato' || canEditContrato)
     && (activeView !== 'facturacion_electronica' || canEditBillingMaster)
     && (activeView !== 'pago_uso_sistema' || canEditBillingMaster || canEditPagoUsoComprobante);
 
@@ -501,55 +571,18 @@ export default function MiRestaurant() {
       </div>
 
       {activeView === 'mi_empresa' && (
-        <>
-          <div className="flex gap-2 mb-5">
-            {[{ id: 'info', label: 'Información', icon: MdStore }, { id: 'schedule', label: 'Horarios', icon: MdSchedule }, { id: 'delivery', label: 'Delivery', icon: MdLocationOn }].map(t => (
-              <button key={t.id} type="button" onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${tab === t.id ? 'bg-gold-600 text-white border-gold-600' : 'bg-[var(--ui-surface)] border-[color:var(--ui-border)] text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)]'}`}><t.icon /> {t.label}</button>
-            ))}
-          </div>
-
-          {tab === 'info' && (
-        <div className="card">
-          <div className="flex items-center gap-6 mb-6">
-            <div
-              className="w-24 h-24 bg-gold-100 rounded-2xl flex items-center justify-center border-2 border-dashed border-gold-300 cursor-pointer hover:bg-gold-50 overflow-hidden"
-              onClick={() => logoInputRef.current?.click()}
-            >
-              {restaurant.logo ? (
-                <img src={resolveMediaUrl(restaurant.logo)} alt="Logo del restaurante" className="w-full h-full object-cover" />
-              ) : (
-                <MdImage className="text-3xl text-gold-400" />
-              )}
-            </div>
-            <div>
-              <h3 className="font-bold text-lg">{restaurant.name}</h3>
-              <p className="text-sm text-[var(--ui-muted)]">Logo del restaurante</p>
-              <button
-                type="button"
-                className="text-xs text-gold-600 mt-1 hover:underline"
-                onClick={() => logoInputRef.current?.click()}
-              >
-                Cambiar imagen
-              </button>
-              <input
-                ref={logoInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={(e) => uploadLogo(e.target.files?.[0])}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre del Restaurante</label><input value={restaurant.name} onChange={e => update('name', e.target.value)} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Teléfono</label><input value={restaurant.phone} onChange={e => update('phone', e.target.value)} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Email</label><input value={restaurant.email} onChange={e => update('email', e.target.value)} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Dirección</label><input value={restaurant.address} onChange={e => update('address', e.target.value)} className="input-field" /></div>
-          </div>
-        </div>
-          )}
-
-          {tab === 'schedule' && (
+        <MiRestaurantEmpresaHub
+          tab={empresaTab}
+          setTab={setEmpresaTab}
+          restaurant={restaurant}
+          profile={profile}
+          onRestaurantField={update}
+          onProfileSection={updateProfileSection}
+          onUploadLogoMain={uploadLogo}
+          onUploadBranding={uploadBranding}
+          validationErrors={profileValidation}
+          autosaveStatus={autosaveStatus}
+          scheduleSection={(
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
           <div className="card">
             <h3 className="font-bold text-[var(--ui-body-text)] mb-4">Horario de Atención</h3>
@@ -660,24 +693,7 @@ export default function MiRestaurant() {
           </div>
         </div>
           )}
-
-          {tab === 'delivery' && (
-        <div className="card">
-          <h3 className="font-bold text-[var(--ui-body-text)] mb-4">Configuración de Delivery</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Delivery habilitado</label>
-              <select className="input-field" value={restaurant.delivery_enabled ? '1' : '0'} onChange={e => update('delivery_enabled', parseInt(e.target.value))}>
-                <option value="1">Sí</option><option value="0">No</option>
-              </select>
-            </div>
-            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Costo de Delivery (S/)</label><input type="number" step="0.50" value={restaurant.delivery_fee} onChange={e => update('delivery_fee', parseFloat(e.target.value))} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Pedido Mínimo (S/)</label><input type="number" step="1" value={restaurant.delivery_min_order} onChange={e => update('delivery_min_order', parseFloat(e.target.value))} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Radio de Cobertura (km)</label><input type="number" step="0.5" value={restaurant.delivery_radius_km} onChange={e => update('delivery_radius_km', parseFloat(e.target.value))} className="input-field" /></div>
-          </div>
-        </div>
-          )}
-        </>
+        />
       )}
 
       {activeView !== 'mi_empresa' && (

@@ -1658,6 +1658,62 @@ async function initDatabase() {
     db.run('INSERT OR IGNORE INTO schema_migrations (migration_key) VALUES (?)', ['2026-02-professionalization-indexes-audit']);
 
     db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['regional', JSON.stringify({ country: 'Peru', timezone: 'America/Lima', language: 'es', date_format: 'DD/MM/YYYY' })]);
+    db.run(
+      'INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)',
+      [
+        'mi_restaurant',
+        JSON.stringify({
+          general: {
+            address_reference: '',
+            phone_secondary: '',
+            whatsapp: '',
+            website: '',
+            social_facebook: '',
+            social_instagram: '',
+            social_tiktok: '',
+            description: '',
+          },
+          branding: { logo_ticket: '', favicon: '', qr_hero_image: '' },
+          ticket: {
+            paper_width_mm: 80,
+            alignment: 'center',
+            show_logo: 1,
+            show_qr: 0,
+            show_social: 1,
+            welcome_message: '',
+            footer_message: '',
+            promo_message: '',
+            auto_notes: '',
+            custom_footer: '',
+          },
+          tax_display: { rounding_mode: 'standard', show_tax_breakdown: 1 },
+          delivery_extra: {
+            estimated_minutes: 45,
+            message: '',
+            auto_notes: '',
+            contact_phone: '',
+            coverage_zones: '',
+          },
+          qr: {
+            cover_title: '',
+            welcome_message: '',
+            primary_color: '#f04438',
+            banner_url: '',
+            show_social: 1,
+            terms_text: '',
+          },
+          messages: {
+            ticket: '',
+            reservas: '',
+            delivery: '',
+            promos: '',
+            clientes: '',
+            whatsapp: '',
+          },
+          meta: { updated_at: '', updated_by: '' },
+        }),
+      ]
+    );
     db.run('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)', ['series_contingencia', JSON.stringify({ boleta: 'BC01', factura: 'FC01', enabled: 1 })]);
     db.run(
       'INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)',

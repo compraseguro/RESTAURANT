@@ -23,7 +23,15 @@ const { resolveRestaurantId, syncPrinterRoutesFromImpresoras, listPrinterRoutes 
 
 router.use(authenticateToken, requireRole('admin', 'cajero', 'mozo'));
 
-const APP_CONFIG_ALLOWED_KEYS = ['regional', 'series_contingencia', 'contrato', 'pagos_sistema', 'pago_uso_sistema', 'settings'];
+const APP_CONFIG_ALLOWED_KEYS = [
+  'regional',
+  'series_contingencia',
+  'contrato',
+  'pagos_sistema',
+  'pago_uso_sistema',
+  'settings',
+  'mi_restaurant',
+];
 
 function parseJsonSafe(value, fallback = {}) {
   try {

@@ -582,7 +582,19 @@ export function buildPrecuentaPlainText({
   }
   lines.push(padLeftRight('TOTAL A PAGAR:', formatCurrencyFn(payableTotal), w));
   lines.push(sep);
-  lines.push(centerThermalLine('GRACIAS POR SU PREFERENCIA', w));
+  const ticketCfg = restaurant?.profile?.ticket || {};
+  const footerMsg =
+    String(ticketCfg.footer_message || ticketCfg.custom_footer || '').trim()
+    || String(restaurant?.profile?.messages?.ticket || '').trim()
+    || 'GRACIAS POR SU PREFERENCIA';
+  for (const seg of wrapThermalLine(footerMsg, inner)) {
+    lines.push(centerThermalLine(seg, w));
+  }
+  const promo = String(ticketCfg.promo_message || '').trim();
+  if (promo) {
+    lines.push(sep);
+    for (const seg of wrapThermalLine(promo, inner)) lines.push(centerThermalLine(seg, w));
+  }
   lines.push('');
   return stripThermalDebugFooter(lines.join('\n'));
 }
