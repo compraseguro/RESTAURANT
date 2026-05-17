@@ -1119,8 +1119,12 @@ export default function Reports() {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                   <div className="ui-finance-kpi ui-finance-kpi--amber">
-                    <p className="ui-finance-kpi__label">Inversión (nómina y otros movimientos)</p>
+                    <p className="ui-finance-kpi__label">Inversión (movimientos + inventario)</p>
                     <p className="ui-finance-kpi__value">{formatCurrency(financeOverview.investment?.total)}</p>
+                    <p className="ui-finance-kpi__sub">
+                      Movimientos: {formatCurrency(financeOverview.investment?.movements_total ?? financeOverview.investment?.total)} ·
+                      Inventario: {formatCurrency(financeOverview.investment?.inventory_total ?? 0)}
+                    </p>
                   </div>
                   <div className="ui-finance-kpi ui-finance-kpi--emerald">
                     <p className="ui-finance-kpi__label">Ventas (pedidos pagados)</p>

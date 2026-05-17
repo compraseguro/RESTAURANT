@@ -86,6 +86,15 @@ function assertProductCategory(categoryIdRaw) {
   return { ok: true, id };
 }
 
+/** Precio de compra opcional: null = sin costo de inversión registrado. */
+function parseOptionalPurchasePrice(raw) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return { error: 'Precio de compra inválido' };
+  if (n === 0) return null;
+  return n;
+}
+
 function upsertWarehouseStock(productId, warehouseId, quantity) {
   if (!warehouseId) return false;
   ensureWarehouseInfrastructure();
@@ -168,8 +177,14 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
     kardex_insumo_den,
     kardex_insumo_modo,
     kardex_insumo_gramos,
+    purchase_price,
   } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error: 'Nombre y precio son requeridos' });
+
+  const parsedPurchase = parseOptionalPurchasePrice(purchase_price);
+  if (parsedPurchase && typeof parsedPurchase === 'object' && parsedPurchase.error) {
+    return res.status(400).json({ error: parsedPurchase.error });
+  }
 
   const catPost = assertProductCategory(category_id);
   if (!catPost.ok) return res.status(400).json({ error: catPost.error });
@@ -207,8 +222,9 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
     `INSERT INTO products (
       id, name, description, price, image, category_id, restaurant_id, stock,
       process_type, stock_warehouse_id, production_area, tax_type, modifier_id, note_required,
-      kardex_insumo_id, kardex_insumo_num, kardex_insumo_den, kardex_insumo_modo, kardex_insumo_gramos
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      kardex_insumo_id, kardex_insumo_num, kardex_insumo_den, kardex_insumo_modo, kardex_insumo_gramos,
+      purchase_price
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       name,
@@ -229,6 +245,7 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
       safeKardexModo === 'peso' ? 1 : safeKardexDen,
       safeKardexInsumo ? safeKardexModo : 'unidad',
       safeKardexInsumo ? safeKardexGramos : 0,
+      parsedPurchase,
     ]
   );
   if (safeProcessType === 'non_transformed') {
@@ -269,9 +286,19 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
     kardex_insumo_den,
     kardex_insumo_modo,
     kardex_insumo_gramos,
+    purchase_price,
   } = req.body;
   const current = queryOne('SELECT * FROM products WHERE id = ?', [req.params.id]);
   if (!current) return res.status(404).json({ error: 'Producto no encontrado' });
+
+  let safePurchasePrice = undefined;
+  if (purchase_price !== undefined) {
+    const parsed = parseOptionalPurchasePrice(purchase_price);
+    if (parsed && typeof parsed === 'object' && parsed.error) {
+      return res.status(400).json({ error: parsed.error });
+    }
+    safePurchasePrice = parsed;
+  }
   const safeProcessType = process_type === 'non_transformed' ? 'non_transformed' : (process_type === 'transformed' ? 'transformed' : null);
   const finalProcessType = safeProcessType || current.process_type || 'transformed';
   const forceZeroStock = finalProcessType === 'transformed';
@@ -367,6 +394,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       kardex_insumo_den = ?,
       kardex_insumo_modo = ?,
       kardex_insumo_gramos = ?,
+      purchase_price = ?,
       updated_at = datetime('now')
     WHERE id = ?`,
     [
@@ -388,6 +416,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       finalProcessType === 'non_transformed' ? 1 : finalKardexDenPut,
       finalProcessType === 'non_transformed' ? 'unidad' : finalKardexModo,
       finalProcessType === 'non_transformed' ? 0 : (finalKardexModo === 'peso' ? finalKardexGramos : 0),
+      safePurchasePrice === undefined ? current.purchase_price : safePurchasePrice,
       req.params.id,
     ]
   );

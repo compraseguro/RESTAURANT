@@ -17,6 +17,16 @@ const SALES_EVENT_ORDER_LOCAL_SQL = `datetime(COALESCE(o.updated_at, o.created_a
 const SALES_EVENT_ORDER_MONTH_SQL = `strftime('%Y-%m', ${SALES_EVENT_ORDER_LOCAL_SQL})`;
 const SALES_EVENT_ORDER_DATE_SQL = `DATE(${SALES_EVENT_ORDER_LOCAL_SQL})`;
 
+/** Solo ítems de inventario (excluye platos de carta con process_type transformado). */
+const INVENTORY_PRODUCT_WHERE = "IFNULL(process_type, 'transformed') = 'non_transformed'";
+
+/**
+ * Pedido en «listo» que aún debe cerrarse en salón/caja/delivery.
+ * Salón/mostrador ya cobrado no cuenta: cocina/bar no lo muestran y no es demora operativa.
+ */
+const READY_NEEDS_CLOSURE_WHERE = `status = 'ready'
+  AND NOT (payment_status = 'paid' AND type IN ('dine_in', 'pickup'))`;
+
 function readBusinessIntelFlat() {
   try {
     return getEffectiveFlat();
@@ -59,15 +69,19 @@ function buildOperationalIntelligence(opts = {}) {
   const registerOpen = queryOne(
     'SELECT id, opened_at, user_id FROM cash_registers WHERE closed_at IS NULL ORDER BY opened_at DESC LIMIT 1'
   );
-  const activeOrders = queryOne("SELECT COUNT(*) as count FROM orders WHERE status IN ('pending', 'preparing', 'ready')");
+  const activeOrders = queryOne(
+    `SELECT COUNT(*) as count FROM orders WHERE status IN ('pending', 'preparing')
+     OR (${READY_NEEDS_CLOSURE_WHERE})`
+  );
   const pendingCount = queryOne(`SELECT COUNT(*) as count FROM orders WHERE status = 'pending'`);
-  const readyCount = queryOne(`SELECT COUNT(*) as count FROM orders WHERE status = 'ready'`);
+  const readyCount = queryOne(`SELECT COUNT(*) as count FROM orders WHERE ${READY_NEEDS_CLOSURE_WHERE}`);
   const staleReady = queryOne(
-    `SELECT COUNT(*) as count FROM orders WHERE status = 'ready'
+    `SELECT COUNT(*) as count FROM orders WHERE ${READY_NEEDS_CLOSURE_WHERE}
      AND (julianday('now') - julianday(COALESCE(updated_at, created_at))) * 24 * 60 > 25`
   );
   const lowStock = queryAll(
-    'SELECT * FROM products WHERE stock <= 10 AND is_active = 1 ORDER BY stock ASC LIMIT 10'
+    `SELECT * FROM products WHERE stock <= 10 AND is_active = 1 AND ${INVENTORY_PRODUCT_WHERE}
+     ORDER BY stock ASC LIMIT 10`
   );
   const peakHourToday = queryOne(
     `SELECT ${SALES_EVENT_HOUR_SQL} as hour, COALESCE(SUM(total), 0) as total
@@ -90,7 +104,7 @@ function buildOperationalIntelligence(opts = {}) {
   );
   const deliveryStaleReady = queryOne(
     `SELECT COUNT(*) as count FROM orders
-     WHERE type = 'delivery' AND status = 'ready'
+     WHERE type = 'delivery' AND ${READY_NEEDS_CLOSURE_WHERE}
        AND (julianday('now') - julianday(COALESCE(updated_at, created_at))) * 24 * 60 > 22`
   );
   const outOfStockCount = queryOne(
@@ -212,7 +226,9 @@ function buildOperationalIntelligence(opts = {}) {
       id: 'ready_demora',
       severity: 'warning',
       title: 'Demora en pedidos listos',
-      message: `${staleN} pedido(s) llevan más de 25 minutos en «listo» sin cambio de estado.`,
+      message: `${staleN} pedido(s) llevan más de 25 min en «listo» sin cerrar (mesas, delivery o caja). Ya no aparecen en cocina/bar.`,
+      linkTo: '/admin/mesas',
+      linkLabel: 'Ir a Mesas',
     });
   }
   const pendN = Number(pendingCount?.count || 0);
@@ -727,6 +743,21 @@ router.get('/finance-overview', authenticateToken, requireRole('admin'), (req, r
   );
   const totalSales = Number(salesRow?.total_sales || 0);
   const totalInvestment = Number(investmentRow?.total || 0);
+  const inventoryInvestmentRow = queryOne(
+    `SELECT COALESCE(SUM(stock * purchase_price), 0) AS total FROM products
+     WHERE is_active = 1 AND purchase_price IS NOT NULL AND purchase_price > 0`
+  );
+  let insumosInvestment = 0;
+  try {
+    const insRow = queryOne(
+      `SELECT COALESCE(SUM(stock_actual * costo_promedio), 0) AS total FROM insumos WHERE activo = 1`
+    );
+    insumosInvestment = Number(insRow?.total || 0);
+  } catch (_) {
+    insumosInvestment = 0;
+  }
+  const inventoryInvestmentTotal =
+    Number(inventoryInvestmentRow?.total || 0) + insumosInvestment;
   const totalPurchases = Number(purchasesRow?.total || 0);
   const cashExpenses = Number(cashExpensesRow?.total || 0);
   const lossEventsTotal = Number(lossEventsRow?.total || 0);
@@ -744,7 +775,11 @@ router.get('/finance-overview', authenticateToken, requireRole('admin'), (req, r
   res.json({
     filters: { from, to },
     sales: { total: totalSales, orders: Number(salesRow?.orders || 0) },
-    investment: { total: totalInvestment },
+    investment: {
+      total: totalInvestment + inventoryInvestmentTotal,
+      movements_total: totalInvestment,
+      inventory_total: inventoryInvestmentTotal,
+    },
     purchases: { total: totalPurchases },
     cash_expenses: { total: cashExpenses },
     loss_events: { total: lossEventsTotal, count: Number(lossEventsRow?.n || 0) },

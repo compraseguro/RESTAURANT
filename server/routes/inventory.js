@@ -309,7 +309,7 @@ router.get('/warehouse-stock', authenticateToken, requireRole('admin'), (req, re
     ensureWarehouseTables();
     const { category_type } = req.query;
     let productsQuery = `
-      SELECT p.id, p.name, p.description, p.price, p.stock, p.category_id, p.process_type, p.stock_warehouse_id, c.name as category_name
+      SELECT p.id, p.name, p.description, p.price, p.purchase_price, p.stock, p.category_id, p.process_type, p.stock_warehouse_id, c.name as category_name
       FROM products p
       LEFT JOIN categories c ON c.id = p.category_id
       WHERE p.is_active = 1

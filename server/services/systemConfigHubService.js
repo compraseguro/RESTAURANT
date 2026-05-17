@@ -69,7 +69,10 @@ function buildSectionInsights(settings, restaurant) {
   );
   const openSessions = queryOne('SELECT COUNT(*) AS c FROM user_work_sessions WHERE logout_at IS NULL');
   const usersActive = queryOne('SELECT COUNT(*) AS c FROM users WHERE is_active = 1');
-  const lowStock = queryOne('SELECT COUNT(*) AS c FROM products WHERE is_active = 1 AND stock <= 10');
+  const lowStock = queryOne(
+    `SELECT COUNT(*) AS c FROM products WHERE is_active = 1 AND stock <= 10
+     AND IFNULL(process_type, 'transformed') = 'non_transformed'`
+  );
   const reservationsToday = queryOne(
     `SELECT COUNT(*) AS c FROM reservations WHERE date = date('now', 'localtime') AND status IN ('confirmed','pending')`
   );

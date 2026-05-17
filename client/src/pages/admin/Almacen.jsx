@@ -91,6 +91,12 @@ function isInsumosWarehouse(warehouse) {
 }
 
 /** Producto de catálogo asociado a un almacén (por defecto o con fila de stock). */
+function productInventoryInvestment(p) {
+  const pc = p.purchase_price;
+  if (pc == null || pc === '' || !Number.isFinite(Number(pc)) || Number(pc) <= 0) return 0;
+  return Number(pc) * Number(p.stock || 0);
+}
+
 function productLinkedToWarehouse(p, whId) {
   if (!whId) return true;
   if (String(p.stock_warehouse_id || '') === String(whId)) return true;
@@ -131,7 +137,7 @@ function CreateProductModal({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Precio</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Precio venta</label>
             <input
               type="number"
               step="0.01"
@@ -143,16 +149,28 @@ function CreateProductModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Stock</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Precio compra (opc.)</label>
             <input
               type="number"
+              step="0.01"
               min="0"
-              value={itemForm.stock}
-              onChange={e => setItemForm({ ...itemForm, stock: e.target.value })}
+              value={itemForm.purchase_price}
+              onChange={e => setItemForm({ ...itemForm, purchase_price: e.target.value })}
               className="input-field"
-              required
+              placeholder="Inversión en inventario"
             />
           </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Stock inicial</label>
+          <input
+            type="number"
+            min="0"
+            value={itemForm.stock}
+            onChange={e => setItemForm({ ...itemForm, stock: e.target.value })}
+            className="input-field"
+            required
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Categoría de producto</label>
@@ -263,11 +281,13 @@ export default function Almacen() {
     name: '',
     description: '',
     price: '',
+    purchase_price: '',
     stock: '0',
     category_id: '',
     stock_warehouse: DEFAULT_STOCK_WAREHOUSE,
     note_required: 0,
   });
+  const [stockPurchasePrice, setStockPurchasePrice] = useState('');
 
   const getCategoryIdByType = (type) => categories.find(c => c.name === WAREHOUSE_CATEGORY_NAMES[type])?.id || '';
   const productCategoryOptions = categories.filter(c => {
@@ -536,6 +556,9 @@ export default function Almacen() {
   const totalValue = selectedIsInsumosWarehouse
     ? insumosTotalValue
     : productsForSelectedWarehouse.reduce((s, p) => s + (p.price * p.stock), 0);
+  const totalInventoryInvestment = selectedIsInsumosWarehouse
+    ? insumosTotalValue
+    : productsForSelectedWarehouse.reduce((s, p) => s + productInventoryInvestment(p), 0);
   const expenseGroups = Object.values(
     (expenseHistory || []).reduce((acc, expense) => {
       const key = expense.requirement_id || expense.id;
@@ -579,8 +602,24 @@ export default function Almacen() {
     setStockModal(null);
     setStockChange('');
     setStockReason('');
+    setStockPurchasePrice('');
     setShowDeleteFlow(false);
     setDeleteReason('');
+  };
+
+  const handleSavePurchasePrice = async () => {
+    if (!stockModal?.id) return;
+    const raw = String(stockPurchasePrice ?? '').trim();
+    try {
+      await api.put(`/products/${stockModal.id}`, {
+        purchase_price: raw === '' ? null : parseFloat(raw),
+      });
+      toast.success('Precio de compra actualizado');
+      closeStockModal();
+      load();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo guardar el precio de compra');
+    }
   };
 
   const handleDeleteProductFromAdjust = async () => {
@@ -600,10 +639,12 @@ export default function Almacen() {
       const initialStock = parseInt(itemForm.stock || '0') || 0;
       const selectedWarehouseId = itemForm.stock_warehouse;
 
+      const rawPurchase = String(itemForm.purchase_price ?? '').trim();
       const created = await api.post('/products', {
         name: itemForm.name,
         description: buildWarehouseDescription(itemForm.description, 'non_transformed', initialStock, 0),
         price: parseFloat(itemForm.price || '0'),
+        purchase_price: rawPurchase === '' ? null : parseFloat(rawPurchase),
         stock: 0,
         category_id: itemForm.category_id || null,
         process_type: 'non_transformed',
@@ -630,7 +671,9 @@ export default function Almacen() {
             product_name: created.name || itemForm.name,
             warehouse_id: String(selectedWarehouseId || principalWarehouse?.id || ''),
             quantity: '1',
-            unit_cost: String(parseFloat(itemForm.price || '0') || 0),
+            unit_cost: String(
+              parseFloat(itemForm.purchase_price || itemForm.price || '0') || 0
+            ),
           },
         ]);
       }
@@ -639,6 +682,7 @@ export default function Almacen() {
         name: '',
         description: '',
         price: '',
+        purchase_price: '',
         stock: '0',
         category_id: '',
         stock_warehouse: getDefaultCreateWarehouseId(),
@@ -1418,9 +1462,10 @@ export default function Almacen() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
         <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Total Ítems</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{selectedIsInsumosWarehouse ? insumosPorVista.length : productsForSelectedWarehouse.length}</p></div>
         <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Valor del Inventario</p><p className="text-xl font-bold text-emerald-400">{formatCurrency(totalValue)}</p></div>
+        <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Inversión de inventario</p><p className="text-xl font-bold text-violet-400">{formatCurrency(totalInventoryInvestment)}</p></div>
         <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Stock Bajo</p><p className="text-xl font-bold text-red-400">{selectedIsInsumosWarehouse ? insumosLowCount : lowStock.length}</p></div>
         <div className="card"><p className="text-xs text-[var(--ui-body-text)]">Unidades Totales</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{selectedIsInsumosWarehouse ? insumosTotalUnits : productsForSelectedWarehouse.reduce((s, p) => s + p.stock, 0)}</p></div>
       </div>
@@ -1551,7 +1596,8 @@ export default function Almacen() {
               <tr className="text-left text-slate-500 border-b">
                 <th className="pb-2 font-medium">Producto</th>
                 <th className="pb-2 font-medium">Tipo</th>
-                <th className="pb-2 font-medium">Precio Unit.</th>
+                <th className="pb-2 font-medium">Precio venta</th>
+                <th className="pb-2 font-medium">P. compra</th>
                 <th className="pb-2 font-medium">Principal</th>
                 <th className="pb-2 font-medium">Cocina</th>
                 <th className="pb-2 font-medium">Stock Total</th>
@@ -1566,6 +1612,11 @@ export default function Almacen() {
                   <td className="py-3 font-medium">{p.name}</td>
                   <td className="py-3 text-slate-500">{p.category_name || '-'}</td>
                   <td className="py-3">{formatCurrency(p.price)}</td>
+                  <td className="py-3 text-[var(--ui-muted)]">
+                    {p.purchase_price != null && Number(p.purchase_price) > 0
+                      ? formatCurrency(p.purchase_price)
+                      : '—'}
+                  </td>
                   <td className="py-3 font-bold">{p.stock_main || 0}</td>
                   <td className="py-3 font-bold">{p.stock_kitchen || 0}</td>
                   <td className="py-3 font-bold">{p.stock}</td>
@@ -1576,6 +1627,11 @@ export default function Almacen() {
                       type="button"
                       onClick={() => {
                         setStockModal(p);
+                        setStockPurchasePrice(
+                          p.purchase_price != null && Number(p.purchase_price) > 0
+                            ? String(p.purchase_price)
+                            : ''
+                        );
                         setStockWarehouse(principalWarehouse?.id || '');
                         setShowDeleteFlow(false);
                         setDeleteReason('');
@@ -1589,7 +1645,7 @@ export default function Almacen() {
               ))}
               {productsForSelectedWarehouse.length === 0 && (
                 <tr>
-                  <td colSpan="9" className="py-10 text-center text-slate-400">
+                  <td colSpan="10" className="py-10 text-center text-slate-400">
                     {selectedWarehouseView
                       ? 'No hay productos en este almacén'
                       : 'Selecciona un almacén para ver sus productos'}
@@ -1618,6 +1674,24 @@ export default function Almacen() {
             </select>
           </div>
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Motivo</label><input value={stockReason} onChange={e => setStockReason(e.target.value)} className="input-field" placeholder="Motivo del ajuste" /></div>
+          <div className="border-t border-[color:var(--ui-border)] pt-4 space-y-2">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Precio de compra (opcional)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={stockPurchasePrice}
+              onChange={(e) => setStockPurchasePrice(e.target.value)}
+              className="input-field"
+              placeholder="Para inversión de inventario"
+            />
+            <p className="text-xs text-[var(--ui-muted)]">
+              Inversión actual: {formatCurrency(productInventoryInvestment(stockModal || {}))}
+            </p>
+            <button type="button" onClick={() => void handleSavePurchasePrice()} className="btn-secondary w-full">
+              Guardar precio de compra
+            </button>
+          </div>
           <div className="flex gap-3">
             <button onClick={() => handleStock('remove')} className="flex-1 btn-danger flex items-center justify-center gap-1"><MdRemove /> Descontar</button>
             <button onClick={() => handleStock('add')} className="flex-1 btn-success flex items-center justify-center gap-1"><MdAdd /> Agregar</button>
