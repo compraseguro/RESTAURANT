@@ -74,47 +74,47 @@ function FinanceBusinessIntelPanel({ overview }) {
   const overhead = Number(bi.gen_indirect_overhead_pct);
 
   let grossLabel = 'Sin ventas en el rango';
-  let grossClass = 'text-slate-600';
+  let grossClass = 'ui-bi-status';
   if (grossPct != null && Number.isFinite(grossPct)) {
     if (Number.isFinite(critG) && grossPct < critG) {
       grossLabel = `Por debajo del margen crítico (${formatPct1(critG)})`;
-      grossClass = 'text-red-700 font-semibold';
+      grossClass = 'ui-bi-status ui-bi-status--bad';
     } else if (Number.isFinite(minG) && grossPct < minG) {
       grossLabel = `Por debajo del mínimo objetivo (${formatPct1(minG)})`;
-      grossClass = 'text-amber-800 font-semibold';
+      grossClass = 'ui-bi-status ui-bi-status--warn';
     } else if (Number.isFinite(idealG) && grossPct >= idealG) {
       grossLabel = `En o por encima del ideal (${formatPct1(idealG)})`;
-      grossClass = 'text-emerald-800 font-semibold';
+      grossClass = 'ui-bi-status ui-bi-status--ok';
     } else {
       grossLabel = 'Dentro del rango operativo';
-      grossClass = 'text-slate-800';
+      grossClass = 'ui-bi-status ui-bi-status--neutral';
     }
   }
 
   let netLabel = 'Sin ventas en el rango';
-  let netClass = 'text-slate-600';
+  let netClass = 'ui-bi-status';
   if (netPct != null && Number.isFinite(netPct)) {
     if (profit < 0) {
       netLabel = 'Resultado neto aproximado negativo';
-      netClass = 'text-red-700 font-semibold';
+      netClass = 'ui-bi-status ui-bi-status--bad';
     } else if (Number.isFinite(targetNet) && netPct < targetNet) {
       netLabel = `Por debajo del objetivo de utilidad neta (${formatPct1(targetNet)})`;
-      netClass = 'text-amber-800 font-semibold';
+      netClass = 'ui-bi-status ui-bi-status--warn';
     } else {
       netLabel = 'En o por encima del objetivo de utilidad neta';
-      netClass = 'text-emerald-800 font-semibold';
+      netClass = 'ui-bi-status ui-bi-status--ok';
     }
   }
 
   let lossLabel = 'Sin ventas en el rango';
-  let lossClass = 'text-slate-600';
+  let lossClass = 'ui-bi-status';
   if (lossRatioPct != null && Number.isFinite(lossRatioPct) && sales > 0) {
     if (Number.isFinite(varTol) && lossRatioPct >= varTol) {
       lossLabel = `Salidas combinadas ≥ umbral de alertas (${formatPct1(varTol)} sobre ventas)`;
-      lossClass = 'text-amber-900 font-semibold';
+      lossClass = 'ui-bi-status ui-bi-status--warn';
     } else {
       lossLabel = 'Por debajo del umbral usado en alertas operativas';
-      lossClass = 'text-slate-700';
+      lossClass = 'ui-bi-status ui-bi-status--neutral';
     }
   }
 
@@ -128,49 +128,49 @@ function FinanceBusinessIntelPanel({ overview }) {
   ];
 
   return (
-    <div className="card border border-violet-200 bg-violet-50/40">
+    <div className="ui-bi-panel">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
-          <h3 className="font-bold text-slate-800 flex items-center gap-2">
-            <MdAutoGraph className="text-violet-600 text-xl shrink-0" />
+          <h3 className="font-bold text-[var(--ui-body-text)] flex items-center gap-2">
+            <MdAutoGraph className="text-[var(--ui-accent-muted)] text-xl shrink-0" />
             Rentabilidad según módulo empresarial
           </h3>
-          <p className="text-xs text-slate-600 mt-1 max-w-3xl">
+          <p className="text-xs text-[var(--ui-muted)] mt-1 max-w-3xl">
             Los porcentajes se configuran en Configuración → Módulo empresarial (dominio Rentabilidad y relacionados). Aquí se
             comparan con el resumen del rango de fechas seleccionado.
           </p>
         </div>
         <Link
           to="/admin/configuracion"
-          className="text-sm font-semibold text-violet-800 hover:underline whitespace-nowrap"
+          className="text-sm font-semibold text-[var(--ui-accent-muted)] hover:underline whitespace-nowrap"
         >
           Editar umbrales
         </Link>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
         {rows.map((r) => (
-          <div key={r.k} className="rounded-lg bg-white/90 border border-violet-100 px-3 py-2">
-            <p className="text-[11px] text-slate-500 leading-snug">{r.k}</p>
-            <p className="text-lg font-bold text-violet-950 tabular-nums">{r.v}</p>
+          <div key={r.k} className="ui-bi-threshold">
+            <p className="ui-bi-threshold__label">{r.k}</p>
+            <p className="ui-bi-threshold__value">{r.v}</p>
           </div>
         ))}
       </div>
       {sales > 0 && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">Lectura en este rango</p>
-          <ul className="space-y-2 text-sm">
+        <div className="ui-bi-reading">
+          <p className="text-xs font-semibold text-[var(--ui-muted)] uppercase tracking-wide mb-3">Lectura en este rango</p>
+          <ul className="space-y-2 text-sm text-[var(--ui-body-text)]">
             <li className="flex flex-wrap justify-between gap-2">
-              <span className="text-slate-600">Margen bruto aprox. / ventas</span>
+              <span className="text-[var(--ui-muted)]">Margen bruto aprox. / ventas</span>
               <span className="tabular-nums font-semibold">{formatPct1(grossPct)}</span>
             </li>
             <li className={grossClass}>{grossLabel}</li>
             <li className="flex flex-wrap justify-between gap-2 mt-2">
-              <span className="text-slate-600">Utilidad neta aprox. / ventas</span>
+              <span className="text-[var(--ui-muted)]">Utilidad neta aprox. / ventas</span>
               <span className="tabular-nums font-semibold">{formatPct1(netPct)}</span>
             </li>
             <li className={netClass}>{netLabel}</li>
             <li className="flex flex-wrap justify-between gap-2 mt-2">
-              <span className="text-slate-600">Salidas combinadas / ventas</span>
+              <span className="text-[var(--ui-muted)]">Salidas combinadas / ventas</span>
               <span className="tabular-nums font-semibold">{formatPct1(lossRatioPct)}</span>
             </li>
             <li className={lossClass}>{lossLabel}</li>
@@ -1090,10 +1090,10 @@ export default function Reports() {
       {reportSection === 'finanzas' && (
         <div className="space-y-6">
           <div className="card">
-            <h3 className="font-bold text-slate-800 mb-4">Resumen financiero</h3>
+            <h3 className="font-bold text-[var(--ui-body-text)] mb-4">Resumen financiero</h3>
             <div className="flex flex-wrap gap-3 mb-4 items-end">
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Desde</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-1">Desde</label>
                 <input
                   type="date"
                   className="input-field"
@@ -1102,7 +1102,7 @@ export default function Reports() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Hasta</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-1">Hasta</label>
                 <input
                   type="date"
                   className="input-field"
@@ -1112,46 +1112,46 @@ export default function Reports() {
               </div>
             </div>
             {financeLoading ? (
-              <p className="text-slate-500">Cargando…</p>
+              <p className="text-[var(--ui-muted)]">Cargando…</p>
             ) : !financeOverview ? (
-              <p className="text-slate-500">No se pudo cargar el resumen.</p>
+              <p className="text-[var(--ui-muted)]">No se pudo cargar el resumen.</p>
             ) : (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                  <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
-                    <p className="text-xs text-amber-800">Inversión (nómina y otros movimientos)</p>
-                    <p className="text-xl font-bold text-amber-900">{formatCurrency(financeOverview.investment?.total)}</p>
+                  <div className="ui-finance-kpi ui-finance-kpi--amber">
+                    <p className="ui-finance-kpi__label">Inversión (nómina y otros movimientos)</p>
+                    <p className="ui-finance-kpi__value">{formatCurrency(financeOverview.investment?.total)}</p>
                   </div>
-                  <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
-                    <p className="text-xs text-emerald-700">Ventas (pedidos pagados)</p>
-                    <p className="text-xl font-bold text-emerald-800">{formatCurrency(financeOverview.sales?.total)}</p>
-                    <p className="text-xs text-emerald-600 mt-1">{financeOverview.sales?.orders || 0} pedidos</p>
+                  <div className="ui-finance-kpi ui-finance-kpi--emerald">
+                    <p className="ui-finance-kpi__label">Ventas (pedidos pagados)</p>
+                    <p className="ui-finance-kpi__value">{formatCurrency(financeOverview.sales?.total)}</p>
+                    <p className="ui-finance-kpi__sub">{financeOverview.sales?.orders || 0} pedidos</p>
                   </div>
-                  <div className="bg-sky-50 rounded-lg p-3 border border-sky-100">
-                    <p className="text-xs text-sky-700">Ganancia aproximada</p>
-                    <p className="text-xl font-bold text-sky-900">{formatCurrency(financeOverview.approx_profit)}</p>
-                    <p className="text-[11px] text-sky-700 mt-1">
+                  <div className="ui-finance-kpi ui-finance-kpi--sky">
+                    <p className="ui-finance-kpi__label">Ganancia aproximada</p>
+                    <p className="ui-finance-kpi__value">{formatCurrency(financeOverview.approx_profit)}</p>
+                    <p className="ui-finance-kpi__sub">
                       Ventas − compras − pérdidas registradas − egresos de caja en el rango
                     </p>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                    <p className="text-xs text-slate-600">Compras (inventario)</p>
-                    <p className="text-lg font-bold text-slate-800">{formatCurrency(financeOverview.purchases?.total)}</p>
+                  <div className="ui-finance-kpi">
+                    <p className="ui-finance-kpi__label">Compras (inventario)</p>
+                    <p className="ui-finance-kpi__value">{formatCurrency(financeOverview.purchases?.total)}</p>
                   </div>
-                  <div className="bg-red-50 rounded-lg p-3 border border-red-100">
-                    <p className="text-xs text-red-700">Pérdidas (eventos + egresos caja)</p>
-                    <p className="text-xl font-bold text-red-800">{formatCurrency(financeOverview.losses_combined_total)}</p>
-                    <p className="text-[11px] text-red-600 mt-1">
+                  <div className="ui-finance-kpi ui-finance-kpi--red">
+                    <p className="ui-finance-kpi__label">Pérdidas (eventos + egresos caja)</p>
+                    <p className="ui-finance-kpi__value">{formatCurrency(financeOverview.losses_combined_total)}</p>
+                    <p className="ui-finance-kpi__sub">
                       Eventos: {formatCurrency(financeOverview.loss_events?.total)} · Egresos caja:{' '}
                       {formatCurrency(financeOverview.cash_expenses?.total)}
                     </p>
                   </div>
-                  <div className="bg-violet-50 rounded-lg p-3 border border-violet-100">
-                    <p className="text-xs text-violet-700">Margen bruto aprox.</p>
-                    <p className="text-lg font-bold text-violet-900">{formatCurrency(financeOverview.approx_gross_margin)}</p>
+                  <div className="ui-finance-kpi ui-finance-kpi--violet">
+                    <p className="ui-finance-kpi__label">Margen bruto aprox.</p>
+                    <p className="ui-finance-kpi__value">{formatCurrency(financeOverview.approx_gross_margin)}</p>
                   </div>
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[var(--ui-muted)]">
                   Rango: {financeOverview.filters?.from} — {financeOverview.filters?.to}. Los totales usan fecha local del servidor.
                 </p>
               </>
@@ -1245,25 +1245,25 @@ export default function Reports() {
             {!lossEvents?.events?.length ? (
               <p className="text-slate-500">No hay eventos en este rango.</p>
             ) : (
-              <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50">
+              <div className="ui-data-table">
+                <table>
+                  <thead>
                     <tr>
-                      <th className="text-left p-2">Fecha</th>
-                      <th className="text-left p-2">Categoría</th>
-                      <th className="text-left p-2">Concepto</th>
-                      <th className="text-right p-2">Monto</th>
-                      <th className="text-left p-2">Detalle</th>
+                      <th>Fecha</th>
+                      <th>Categoría</th>
+                      <th>Concepto</th>
+                      <th className="text-right">Monto</th>
+                      <th>Detalle</th>
                     </tr>
                   </thead>
                   <tbody>
                     {lossEvents.events.map((ev) => (
-                      <tr key={ev.id} className="border-t border-slate-100">
-                        <td className="p-2 whitespace-nowrap">{formatDateTime(ev.occurred_at)}</td>
-                        <td className="p-2">{FINANCE_LOSS_LABELS[ev.category] || ev.category}</td>
-                        <td className="p-2 max-w-[200px] truncate" title={ev.concept}>{ev.concept || '—'}</td>
-                        <td className="p-2 text-right font-semibold">{formatCurrency(ev.amount)}</td>
-                        <td className="p-2 text-xs text-slate-600 max-w-xs">
+                      <tr key={ev.id}>
+                        <td className="whitespace-nowrap">{formatDateTime(ev.occurred_at)}</td>
+                        <td>{FINANCE_LOSS_LABELS[ev.category] || ev.category}</td>
+                        <td className="max-w-[200px] truncate" title={ev.concept}>{ev.concept || '—'}</td>
+                        <td className="text-right font-semibold">{formatCurrency(ev.amount)}</td>
+                        <td className="text-xs text-[var(--ui-muted)] max-w-xs">
                           {Array.isArray(ev.items_json_parsed)
                             ? ev.items_json_parsed.map((it, i) => (
                               <span key={i} className="inline-block mr-2">

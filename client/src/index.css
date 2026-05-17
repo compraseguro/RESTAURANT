@@ -476,6 +476,108 @@ html[data-ui-theme='light'] #root .badge-cancelled {
     color: var(--ui-live-warning-text);
   }
 
+  /* Informes · Finanzas — legible en tema claro y oscuro */
+  .ui-finance-kpi {
+    @apply rounded-lg p-3 border;
+    background: var(--ui-surface-2);
+    border-color: var(--ui-border);
+  }
+  .ui-finance-kpi__label {
+    @apply text-xs;
+    color: var(--ui-muted);
+  }
+  .ui-finance-kpi__value {
+    @apply text-xl font-bold tabular-nums;
+    color: var(--ui-body-text);
+  }
+  .ui-finance-kpi__sub {
+    @apply text-xs mt-1;
+    color: var(--ui-muted);
+  }
+  .ui-finance-kpi--amber {
+    border-color: color-mix(in srgb, var(--ui-live-warning-text) 40%, var(--ui-border));
+    background: color-mix(in srgb, var(--ui-live-warning-text) 12%, var(--ui-surface-2));
+  }
+  .ui-finance-kpi--amber .ui-finance-kpi__label {
+    color: var(--ui-live-warning-text);
+  }
+  .ui-finance-kpi--emerald {
+    border-color: color-mix(in srgb, var(--ui-live-success-text) 40%, var(--ui-border));
+    background: color-mix(in srgb, var(--ui-live-success-text) 12%, var(--ui-surface-2));
+  }
+  .ui-finance-kpi--emerald .ui-finance-kpi__label,
+  .ui-finance-kpi--emerald .ui-finance-kpi__sub {
+    color: var(--ui-live-success-text);
+  }
+  .ui-finance-kpi--sky {
+    border-color: color-mix(in srgb, var(--ui-live-info-text) 40%, var(--ui-border));
+    background: color-mix(in srgb, var(--ui-live-info-text) 12%, var(--ui-surface-2));
+  }
+  .ui-finance-kpi--sky .ui-finance-kpi__label,
+  .ui-finance-kpi--sky .ui-finance-kpi__sub {
+    color: var(--ui-live-info-text);
+  }
+  .ui-finance-kpi--red {
+    border-color: color-mix(in srgb, var(--ui-live-danger-text) 40%, var(--ui-border));
+    background: color-mix(in srgb, var(--ui-live-danger-text) 12%, var(--ui-surface-2));
+  }
+  .ui-finance-kpi--red .ui-finance-kpi__label,
+  .ui-finance-kpi--red .ui-finance-kpi__sub {
+    color: var(--ui-live-danger-text);
+  }
+  .ui-finance-kpi--violet {
+    border-color: color-mix(in srgb, var(--ui-accent-muted) 45%, var(--ui-border));
+    background: color-mix(in srgb, var(--ui-accent-muted) 12%, var(--ui-surface-2));
+  }
+  .ui-finance-kpi--violet .ui-finance-kpi__label {
+    color: var(--ui-accent-muted);
+  }
+
+  .ui-bi-panel {
+    @apply rounded-xl shadow-sm p-6 border;
+    background: color-mix(in srgb, var(--ui-accent-muted) 6%, var(--ui-surface));
+    border-color: color-mix(in srgb, var(--ui-accent-muted) 28%, var(--ui-border));
+    color: var(--ui-body-text);
+  }
+  .ui-bi-threshold {
+    @apply rounded-lg px-3 py-2 border;
+    background: var(--ui-surface-2);
+    border-color: var(--ui-border);
+  }
+  .ui-bi-threshold__label {
+    @apply text-[11px] leading-snug;
+    color: var(--ui-muted);
+  }
+  .ui-bi-threshold__value {
+    @apply text-lg font-bold tabular-nums;
+    color: var(--ui-body-text);
+  }
+  .ui-bi-reading {
+    @apply rounded-lg border p-4;
+    background: var(--ui-surface-2);
+    border-color: var(--ui-border);
+  }
+  .ui-bi-status {
+    @apply text-sm;
+    color: var(--ui-muted);
+  }
+  .ui-bi-status--ok {
+    color: var(--ui-live-success-text);
+    @apply font-semibold;
+  }
+  .ui-bi-status--warn {
+    color: var(--ui-live-warning-text);
+    @apply font-semibold;
+  }
+  .ui-bi-status--bad {
+    color: var(--ui-live-danger-text);
+    @apply font-semibold;
+  }
+  .ui-bi-status--neutral {
+    color: var(--ui-body-text);
+    @apply font-semibold;
+  }
+
   .btn-success {
     @apply text-white px-4 py-2 rounded-lg transition-colors font-medium shadow-sm;
     background-color: var(--ui-accent);
@@ -535,6 +637,35 @@ html[data-ui-theme='light'] #root .badge-cancelled {
   }
   html[data-ui-theme='light'] .card .text-slate-500 {
     color: #262626 !important;
+  }
+  html:not([data-ui-theme='light']) .card .text-slate-800,
+  html:not([data-ui-theme='light']) .card .text-slate-700 {
+    color: var(--ui-body-text) !important;
+  }
+  html:not([data-ui-theme='light']) .card .text-slate-600 {
+    color: var(--ui-muted) !important;
+  }
+
+  .ui-data-table {
+    @apply overflow-x-auto rounded-lg border;
+    border-color: var(--ui-border);
+  }
+  .ui-data-table table {
+    @apply w-full text-sm;
+    color: var(--ui-body-text);
+  }
+  .ui-data-table thead {
+    background: var(--ui-surface-2);
+  }
+  .ui-data-table th {
+    @apply text-left p-2 font-medium;
+    color: var(--ui-muted);
+  }
+  .ui-data-table td {
+    @apply p-2;
+  }
+  .ui-data-table tbody tr {
+    border-top: 1px solid var(--ui-border);
   }
 
   /* Informe de productos (lista de cierres): sin filas blancas en tema oscuro */
