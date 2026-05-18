@@ -92,8 +92,9 @@
       const pt = $('paymentsTable').querySelector('tbody');
       const allPay = await api('/api/admin/payments');
       pt.innerHTML = allPay.slice(0, 30).map(function (p) {
-        var actions = p.estado === 'pending'
-          ? '<button data-id="' + p.id + '" data-act="approved">Aprobar</button> <button class="secondary" data-id="' + p.id + '" data-act="rejected">Rechazar</button>'
+        var isPending = p.estado === 'pending' || p.estado === 'pendiente';
+        var actions = isPending
+          ? '<button data-id="' + p.id + '" data-act="aprobado">Aprobar</button> <button class="secondary" data-id="' + p.id + '" data-act="rechazado">Rechazar</button>'
           : '';
         return '<tr><td>' + (p.restaurante || p.restaurant_name || '—') + '</td><td>' + (p.plan || '—') + '</td><td>'
           + (p.monto != null ? 'S/ ' + Number(p.monto).toFixed(2) : '—') + '</td><td>' + (p.fecha || '—') + '</td><td><span class="badge '

@@ -127,6 +127,7 @@ export default function MiRestaurant() {
   const refreshPagoUsoComprobanteSchedule = useCallback(async () => {
     if (!canReadBillingConfig) return;
     try {
+      await api.get('/platform-payments/status').catch(() => null);
       const s = await api.get('/master-admin/billing-schedule');
       setPagoUsoComprobanteUi(s?.pago_uso_comprobante || null);
     } catch (_) {
@@ -554,7 +555,7 @@ export default function MiRestaurant() {
       const uploaded = await api.upload(file);
       const url = uploaded?.url || '';
       updateAppCfg('pago_uso_sistema', 'comprobante_pago_url', url);
-      toast.success('Comprobante cargado. Pulsa Guardar cambios para conservarlo.');
+      toast.success('Comprobante cargado. Pulsa Guardar cambios para enviarlo a revisión.');
     } catch (err) {
       toast.error(err.message || 'No se pudo subir el comprobante');
     } finally {
@@ -913,6 +914,33 @@ export default function MiRestaurant() {
                 <MdReceipt className="text-blue-600 text-2xl" />
                 <h3 className="font-bold text-[var(--ui-body-text)] text-lg">Pago por uso del sistema</h3>
               </div>
+              {pagoUsoComprobanteUi?.platform_payment?.show_approved_banner ? (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                  <p className="font-semibold">Pago aprobado</p>
+                  <p className="mt-1">Plan activo</p>
+                  <p className="mt-2 text-emerald-800">
+                    {pagoUsoComprobanteUi.platform_payment.mensaje_aprobado
+                      || 'Tu pago ha sido aprobado correctamente.'}
+                  </p>
+                </div>
+              ) : null}
+              {pagoUsoComprobanteUi?.platform_payment?.show_pending_banner ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                  <p className="font-semibold">Comprobante en revisión</p>
+                  <p className="mt-1">
+                    Su pago está <strong>pendiente</strong> de aprobación por el administrador central.
+                    {pagoUsoComprobanteUi.platform_payment.referencia
+                      ? ` Referencia: ${pagoUsoComprobanteUi.platform_payment.referencia}`
+                      : ''}
+                  </p>
+                </div>
+              ) : null}
+              {pagoUsoComprobanteUi?.platform_payment?.show_rejected_banner ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                  <p className="font-semibold">Pago rechazado</p>
+                  <p className="mt-1">Puede subir un nuevo comprobante dentro del plazo permitido.</p>
+                </div>
+              ) : null}
               {pagoUsoComprobanteUi?.policy_active && pagoUsoComprobanteUi.upload_comprobante_message ? (
                 <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-3 text-sm text-[var(--ui-body-text)]">
                   <p className="whitespace-nowrap overflow-x-auto text-xs md:text-sm">
@@ -1014,13 +1042,19 @@ export default function MiRestaurant() {
                         isRestaurantAdmin && !isMasterAdmin && Boolean(compUi?.policy_active);
                       const blockUpload = restrictComprobanteForRestaurant && !compUi.upload_comprobante_allowed;
                       const blockRemove = restrictComprobanteForRestaurant && !compUi.quitar_comprobante_allowed;
+                      const hideComprobanteUi =
+                        compUi?.platform_payment?.comprobante_oculto_ui
+                        || compUi?.platform_payment?.show_approved_banner;
+                      const showComprobanteEnPanel =
+                        appConfig.pago_uso_sistema?.comprobante_pago_url
+                        && !hideComprobanteUi;
                       return (
                         <>
                           <button
                             type="button"
                             onClick={() => comprobanteUsoInputRef.current?.click()}
                             className="btn-secondary flex items-center gap-2 text-sm"
-                            disabled={!canEditPagoUsoComprobante || blockUpload}
+                            disabled={!canEditPagoUsoComprobante || blockUpload || hideComprobanteUi}
                           >
                             <MdUpload /> Cargar comprobante
                           </button>
@@ -1031,7 +1065,7 @@ export default function MiRestaurant() {
                             className="hidden"
                             onChange={(e) => uploadComprobantePagoUso(e.target.files?.[0])}
                           />
-                          {appConfig.pago_uso_sistema?.comprobante_pago_url ? (
+                          {showComprobanteEnPanel ? (
                             <>
                               <a
                                 href={resolveMediaUrl(appConfig.pago_uso_sistema.comprobante_pago_url)}
@@ -1055,16 +1089,23 @@ export default function MiRestaurant() {
                       );
                     })()}
                   </div>
-                  {appConfig.pago_uso_sistema?.comprobante_pago_url &&
-                  !String(appConfig.pago_uso_sistema.comprobante_pago_url).toLowerCase().endsWith('.pdf') ? (
+                  {(() => {
+                    const hidePreview =
+                      pagoUsoComprobanteUi?.platform_payment?.comprobante_oculto_ui
+                      || pagoUsoComprobanteUi?.platform_payment?.show_approved_banner;
+                    const url = appConfig.pago_uso_sistema?.comprobante_pago_url;
+                    if (!url || hidePreview) return null;
+                    if (String(url).toLowerCase().endsWith('.pdf')) return null;
+                    return (
                     <div className="mt-3 rounded-lg border border-[color:var(--ui-border)] overflow-hidden max-w-xs bg-[var(--ui-surface-2)]">
                       <img
-                        src={resolveMediaUrl(appConfig.pago_uso_sistema.comprobante_pago_url)}
+                        src={resolveMediaUrl(url)}
                         alt="Vista previa del comprobante"
                         className="w-full max-h-48 object-contain"
                       />
                     </div>
-                  ) : null}
+                    );
+                  })()}
                 </div>
               </div>
 

@@ -10,6 +10,38 @@ function createCentralSyncClient(options = {}) {
   const fetchImpl = options.fetch || global.fetch;
   const log = options.log || console;
 
+  async function getJson(path, extraHeaders = {}) {
+    if (!isCentralSyncConfigured(identity)) {
+      return { skipped: true, reason: 'central_not_configured' };
+    }
+    const url = `${identity.centralPlatformUrl}${path.startsWith('/') ? path : `/${path}`}`;
+    const headers = {
+      Authorization: `Bearer ${identity.apiSecretKey}`,
+      'X-Client-Id': identity.clientId,
+      'X-WebService-Id': identity.webServiceId,
+      'X-License-Key': identity.licenseKey,
+      ...extraHeaders,
+    };
+    try {
+      const res = await fetchImpl(url, { method: 'GET', headers });
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (_) {
+        data = { raw: text };
+      }
+      if (!res.ok) {
+        log.warn('[central-sync] HTTP', res.status, path, data?.error || text?.slice(0, 200));
+        return { ok: false, status: res.status, data };
+      }
+      return { ok: true, status: res.status, data };
+    } catch (err) {
+      log.warn('[central-sync] error', path, err.message || err);
+      return { ok: false, error: err.message || String(err) };
+    }
+  }
+
   async function postJson(path, body, extraHeaders = {}) {
     if (!isCentralSyncConfigured(identity)) {
       return { skipped: true, reason: 'central_not_configured' };
@@ -73,6 +105,11 @@ function createCentralSyncClient(options = {}) {
         ...basePayload(),
         ...payment,
       });
+    },
+    async fetchPaymentStatus({ referencia } = {}) {
+      const qs = new URLSearchParams({ clientId: identity.clientId });
+      if (referencia) qs.set('referencia', String(referencia));
+      return getJson(`/api/payments/status?${qs.toString()}`);
     },
     async syncUser(user) {
       return postJson('/api/sync/users', {

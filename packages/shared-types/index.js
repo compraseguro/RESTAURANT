@@ -10,10 +10,20 @@ const SYNC_EVENT_TYPES = Object.freeze({
 });
 
 const PAYMENT_STATUSES = Object.freeze({
-  PENDING: 'pending',
-  APPROVED: 'approved',
-  REJECTED: 'rejected',
+  PENDING: 'pendiente',
+  APPROVED: 'aprobado',
+  REJECTED: 'rechazado',
 });
+
+/** Acepta español o inglés legacy y devuelve pendiente | aprobado | rechazado | null */
+function normalizePaymentEstado(raw) {
+  const v = String(raw || '').trim().toLowerCase();
+  if (!v) return null;
+  if (['pendiente', 'pending', 'p'].includes(v)) return PAYMENT_STATUSES.PENDING;
+  if (['aprobado', 'approved', 'a'].includes(v)) return PAYMENT_STATUSES.APPROVED;
+  if (['rechazado', 'rejected', 'r'].includes(v)) return PAYMENT_STATUSES.REJECTED;
+  return null;
+}
 
 const LICENSE_STATUSES = Object.freeze({
   ACTIVE: 'active',
@@ -31,6 +41,7 @@ const SERVICE_PLANS = Object.freeze({
 module.exports = {
   SYNC_EVENT_TYPES,
   PAYMENT_STATUSES,
+  normalizePaymentEstado,
   LICENSE_STATUSES,
   SERVICE_PLANS,
 };

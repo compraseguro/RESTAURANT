@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const { normalizePaymentEstado, PAYMENT_STATUSES } = require('../../../../packages/shared-types');
 const { queryAll, queryOne, runSql } = require('../database');
 
 const router = express.Router();
@@ -30,7 +31,7 @@ router.get('/dashboard/financial', (req, res) => {
   const monthlyRevenue = queryOne(
     `SELECT COALESCE(SUM(monto), 0) as total
      FROM payments
-     WHERE estado = 'approved' AND strftime('%Y-%m', fecha) = ?`,
+     WHERE estado IN ('aprobado','approved') AND strftime('%Y-%m', fecha) = ?`,
     [monthKey]
   );
 
@@ -66,7 +67,7 @@ router.get('/dashboard/financial', (req, res) => {
   const prevMonthKey = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
   const prevRevenue = queryOne(
     `SELECT COALESCE(SUM(monto), 0) as total FROM payments
-     WHERE estado = 'approved' AND strftime('%Y-%m', fecha) = ?`,
+     WHERE estado IN ('aprobado','approved') AND strftime('%Y-%m', fecha) = ?`,
     [prevMonthKey]
   );
   const current = Number(monthlyRevenue?.total || 0);
@@ -97,9 +98,9 @@ router.get('/payments', (req, res) => {
 });
 
 router.patch('/payments/:id', (req, res) => {
-  const estado = String(req.body?.estado || '').trim();
-  if (!['pending', 'approved', 'rejected'].includes(estado)) {
-    return res.status(400).json({ error: 'estado inválido' });
+  const estado = normalizePaymentEstado(req.body?.estado || req.body?.status);
+  if (!estado || ![PAYMENT_STATUSES.PENDING, PAYMENT_STATUSES.APPROVED, PAYMENT_STATUSES.REJECTED].includes(estado)) {
+    return res.status(400).json({ error: 'estado inválido (pendiente, aprobado, rechazado)' });
   }
   const row = queryOne('SELECT id FROM payments WHERE id = ?', [req.params.id]);
   if (!row) return res.status(404).json({ error: 'Pago no encontrado' });
@@ -136,7 +137,7 @@ router.get('/metrics/saas', (req, res) => {
     `SELECT COUNT(*) as c FROM central_users WHERE is_active = 1`
   );
   const pendingPayments = queryOne(
-    `SELECT COUNT(*) as c FROM payments WHERE estado = 'pending'`
+    `SELECT COUNT(*) as c FROM payments WHERE estado IN ('pendiente','pending')`
   );
   const eventsToday = queryOne(
     `SELECT COUNT(*) as c FROM sync_events WHERE date(created_at) = date('now')`

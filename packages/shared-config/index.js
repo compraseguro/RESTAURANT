@@ -8,7 +8,9 @@ function readClientIdentity(env = process.env) {
     restaurantId: String(env.RESTAURANT_ID || env.CLIENT_ID || '').trim(),
     webServiceId: String(env.WEBSERVICE_ID || '').trim(),
     licenseKey: String(env.LICENSE_KEY || '').trim(),
-    centralPlatformUrl: String(env.CENTRAL_PLATFORM_URL || 'https://restofadey.pe').replace(/\/$/, ''),
+    centralPlatformUrl: String(
+      env.NEXT_PUBLIC_PLATFORM_URL || env.CENTRAL_PLATFORM_URL || 'https://restofadey.pe',
+    ).replace(/\/$/, ''),
     apiSecretKey: String(env.API_SECRET_KEY || '').trim(),
     publicApiUrl: String(env.NEXT_PUBLIC_API_URL || env.PUBLIC_API_BASE_URL || '').replace(/\/$/, ''),
   };

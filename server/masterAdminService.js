@@ -529,12 +529,21 @@ function evaluatePagoUsoComprobanteWindow() {
   }
 
   if (hasUrl && Number(control.pago_uso_comprobante_lock_auto || 0) === 1) {
-    control.global_lock_enabled = 0;
-    control.pago_uso_comprobante_lock_auto = 0;
-    control.global_lock_reason = '';
-    control.lock_enabled_at = new Date().toISOString();
-    control.lock_enabled_by = 'Sistema automático';
-    controlChanged = true;
+    let unlockOnComprobante = true;
+    try {
+      const { isPaymentApprovedForUnlock } = require('./services/platformPaymentService');
+      unlockOnComprobante = isPaymentApprovedForUnlock(pago);
+    } catch (_) {
+      unlockOnComprobante = true;
+    }
+    if (unlockOnComprobante) {
+      control.global_lock_enabled = 0;
+      control.pago_uso_comprobante_lock_auto = 0;
+      control.global_lock_reason = '';
+      control.lock_enabled_at = new Date().toISOString();
+      control.lock_enabled_by = 'Sistema automático';
+      controlChanged = true;
+    }
   }
   if (hasUrl) {
     clearNotificationsByTitle(PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE);
@@ -581,6 +590,14 @@ function buildPagoUsoComprobanteUiState() {
     msg = `Cargue el comprobante entre ${uploadStart} y ${deadline}.`;
   }
 
+  let platformPayment = null;
+  try {
+    const { getPublicPlatformPaymentState } = require('./services/platformPaymentService');
+    platformPayment = getPublicPlatformPaymentState();
+  } catch (_) {
+    platformPayment = null;
+  }
+
   return {
     policy_active: true,
     fecha_proxima_facturacion: nextDue,
@@ -593,6 +610,7 @@ function buildPagoUsoComprobanteUiState() {
     upload_comprobante_message: msg,
     has_comprobante: hasUrl,
     days_until_fecha_proxima: daysToDue,
+    platform_payment: platformPayment,
   };
 }
 
@@ -621,21 +639,24 @@ function todayBeforeDue(st) {
   return diffDays(today, nextDue) > 0;
 }
 
-function releaseAutoLockIfComprobantePresent(urlTrimmed) {
+function releaseAutoLockIfComprobantePresent(urlTrimmed, options = {}) {
   if (!String(urlTrimmed || '').trim()) return;
   clearNotificationsByTitle(PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE);
-  clearNotificationsByTitle('Pago exitoso¡ Gracias por trabajar con Resto Fadey');
-  addNotification({
-    title: 'Pago exitoso¡ Gracias por trabajar con Resto Fadey',
-    message: 'Pago exitoso¡ Gracias por trabajar con Resto Fadey',
-    created_by: 'Sistema automático',
-    level: 'success',
-  });
-  const notifications = getNotifications();
-  if (notifications.length > 0 && notifications[0].title === 'Pago exitoso¡ Gracias por trabajar con Resto Fadey') {
-    notifications[0].expires_at = nextLocalMidnightIso();
-    notifications[0].updated_at = new Date().toISOString();
-    saveNotifications(notifications);
+  const legacySuccess = options.legacySuccessMessage !== false;
+  if (legacySuccess) {
+    clearNotificationsByTitle('Pago exitoso¡ Gracias por trabajar con Resto Fadey');
+    addNotification({
+      title: 'Pago exitoso¡ Gracias por trabajar con Resto Fadey',
+      message: 'Pago exitoso¡ Gracias por trabajar con Resto Fadey',
+      created_by: 'Sistema automático',
+      level: 'success',
+    });
+    const notifications = getNotifications();
+    if (notifications.length > 0 && notifications[0].title === 'Pago exitoso¡ Gracias por trabajar con Resto Fadey') {
+      notifications[0].expires_at = nextLocalMidnightIso();
+      notifications[0].updated_at = new Date().toISOString();
+      saveNotifications(notifications);
+    }
   }
   const control = { ...getControlConfig() };
   if (Number(control.pago_uso_comprobante_lock_auto || 0) !== 1) return;

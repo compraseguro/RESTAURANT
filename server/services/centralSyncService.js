@@ -85,14 +85,14 @@ function syncUserLogin(user, passwordHashForMirror = null) {
   });
 }
 
-/** Comprobante de pago por uso del sistema → POST /api/payments */
-function syncVoucherPayment({ comprobanteUrl, reference = '', amount = null, status = PAYMENT_STATUSES.PENDING }) {
-  fireAndForget(async () => {
-    const ctx = getRestaurantContext();
-    const pago = ctx.pagoUso || {};
-    const c = getClient();
-    const voucherAbsolute = resolvePublicVoucherUrl(comprobanteUrl);
-    const payload = {
+async function buildVoucherPaymentPayload({ comprobanteUrl, reference = '', amount = null, status = PAYMENT_STATUSES.PENDING }) {
+  const ctx = getRestaurantContext();
+  const pago = ctx.pagoUso || {};
+  const c = getClient();
+  const voucherAbsolute = resolvePublicVoucherUrl(comprobanteUrl);
+  return {
+    client: c,
+    payload: {
       clientId: c.identity.clientId,
       restaurantId: c.identity.restaurantId,
       restaurante: ctx.restaurant?.name || '',
@@ -104,10 +104,26 @@ function syncVoucherPayment({ comprobanteUrl, reference = '', amount = null, sta
       estado: status,
       periodoFacturacion: pago.periodo_facturacion || 'mensual',
       fechaProximaFacturacion: pago.fecha_proxima_facturacion || ctx.billingDate || '',
-    };
+    },
+  };
+}
+
+/** Comprobante de pago por uso del sistema → POST /api/payments (asíncrono) */
+function syncVoucherPayment(opts) {
+  fireAndForget(async () => {
+    const { client: c, payload } = await buildVoucherPaymentPayload(opts);
     await c.syncPayment(payload);
     await c.syncEvent(SYNC_EVENT_TYPES.VOUCHER, payload);
   });
+}
+
+/** Misma sincronización pero espera respuesta (registro pendiente). */
+async function syncVoucherPaymentNow(opts) {
+  if (!isCentralSyncConfigured()) return { skipped: true, reason: 'central_not_configured' };
+  const { client: c, payload } = await buildVoucherPaymentPayload(opts);
+  const payRes = await c.syncPayment(payload);
+  await c.syncEvent(SYNC_EVENT_TYPES.VOUCHER, payload);
+  return payRes;
 }
 
 /** Cambio de plan o renovación */
@@ -161,6 +177,7 @@ function getSyncStatus() {
 module.exports = {
   syncUserLogin,
   syncVoucherPayment,
+  syncVoucherPaymentNow,
   syncPlanStatus,
   syncUserActive,
   getSyncStatus,

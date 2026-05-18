@@ -244,6 +244,7 @@ app.get(
 app.use('/api/printing', require('./routes/printing'));
 app.use('/api/master-admin', require('./routes/masterAdmin'));
 app.use('/api/central-sync', require('./routes/centralSync'));
+app.use('/api/platform-payments', require('./routes/platformPayments'));
 const billingRoutes = require('./routes/billing');
 app.use('/api/billing', billingRoutes);
 
@@ -339,6 +340,12 @@ async function start() {
   console.log('[printing] Bridge de impresión: rutas /api/printing/* y GET /api/printers (USB vía Node en esta máquina).');
   if (typeof billingRoutes.startBillingAutoRetryJob === 'function') {
     billingRoutes.startBillingAutoRetryJob();
+  }
+  try {
+    const { startPlatformPaymentPoller } = require('./services/platformPaymentService');
+    startPlatformPaymentPoller();
+  } catch (err) {
+    console.warn('[platform-payment] poller no iniciado:', err.message || err);
   }
   server.on('error', (err) => {
     if (err && err.code === 'EADDRINUSE') {
