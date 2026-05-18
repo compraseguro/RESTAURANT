@@ -161,16 +161,12 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
     : filtered;
 
   const linkClass = ({ isActive }) =>
-    `flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-sm ${
-      isActive
-        ? 'bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)] font-semibold border-l-2 border-[var(--ui-accent-muted)]'
-        : 'text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] hover:opacity-95'
-    }`;
+    `rf-nav-link ${isActive ? 'rf-nav-link--active' : ''}`;
 
   const isCollapsed = isMobile ? false : collapsed;
 
   return (
-    <aside className={`fixed left-0 top-0 h-full bg-[var(--ui-surface)] z-40 transition-all duration-300 flex flex-col border-r border-[color:var(--ui-sidebar-border)] ${
+    <aside className={`rf-sidebar fixed left-0 top-0 h-full bg-[var(--ui-surface)] z-40 transition-all duration-300 flex flex-col border-r border-[color:var(--ui-sidebar-border)] ${
       isMobile
         ? `w-72 max-w-[85vw] transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
         : (isCollapsed ? 'w-16' : 'w-60')
@@ -180,7 +176,7 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
           isCollapsed ? 'justify-center px-0' : 'gap-3 px-4'
         }`}
       >
-        <div className="w-9 h-9 bg-gradient-to-br from-[var(--ui-logo-from)] to-[var(--ui-logo-to)] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+        <div className="rf-sidebar-brand w-9 h-9 bg-gradient-to-br from-[var(--ui-logo-from)] to-[var(--ui-logo-to)] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
           <MdStorefront className="text-white text-lg" />
         </div>
         {!isCollapsed && <span className="font-bold text-base text-[var(--ui-body-text)] tracking-tight truncate">Resto-FADEY</span>}
@@ -240,11 +236,7 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
                     to={`/admin/caja?view=${option.id}`}
                     className={({ isActive }) => {
                       const selected = isActive && new URLSearchParams(location.search).get('view') === option.id;
-                      return `block px-2 py-1.5 rounded text-sm transition-colors ${
-                        selected
-                          ? 'bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)] font-medium'
-                          : 'text-[var(--ui-muted)] hover:bg-[var(--ui-sidebar-hover)] hover:text-[var(--ui-body-text)]'
-                      }`;
+                      return `rf-nav-sublink ${selected ? 'rf-nav-sublink--active' : ''}`;
                     }}
                   >
                     {option.label}
@@ -261,11 +253,7 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
                     to={`/admin/mi-restaurant?view=${option.id}`}
                     className={({ isActive }) => {
                       const selected = isActive && new URLSearchParams(location.search).get('view') === option.id;
-                      return `block px-2 py-1.5 rounded text-sm transition-colors ${
-                        selected
-                          ? 'bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)] font-medium'
-                          : 'text-[var(--ui-muted)] hover:bg-[var(--ui-sidebar-hover)] hover:text-[var(--ui-body-text)]'
-                      }`;
+                      return `rf-nav-sublink ${selected ? 'rf-nav-sublink--active' : ''}`;
                     }}
                   >
                     {option.label}
@@ -282,11 +270,7 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
                     to={`/admin/almacen?view=${option.id}`}
                     className={({ isActive }) => {
                       const selected = isActive && new URLSearchParams(location.search).get('view') === option.id;
-                      return `block px-2 py-1.5 rounded text-sm transition-colors ${
-                        selected
-                          ? 'bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)] font-medium'
-                          : 'text-[var(--ui-muted)] hover:bg-[var(--ui-sidebar-hover)] hover:text-[var(--ui-body-text)]'
-                      }`;
+                      return `rf-nav-sublink ${selected ? 'rf-nav-sublink--active' : ''}`;
                     }}
                   >
                     <span>{option.label}</span>

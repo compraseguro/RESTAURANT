@@ -6,8 +6,10 @@ import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import './index.css';
+import './styles/premium-ui.css';
 import { initOrientationRespect } from './orientationRespect';
 import { applyUiTheme, readStoredUiTheme } from './theme/uiTheme';
+import { premiumToastOptions } from './theme/toastOptions';
 import { registerServiceWorker } from './serviceWorkerRegister';
 
 applyUiTheme(readStoredUiTheme());
@@ -42,7 +44,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <AuthProvider>
             <CartProvider>
               <App />
-              <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+              <Toaster position="top-right" toastOptions={premiumToastOptions} gutter={10} />
             </CartProvider>
           </AuthProvider>
         </HashRouter>
@@ -51,7 +53,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <AuthProvider>
             <CartProvider>
               <App />
-              <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+              <Toaster position="top-right" toastOptions={premiumToastOptions} gutter={10} />
             </CartProvider>
           </AuthProvider>
         </BrowserRouter>

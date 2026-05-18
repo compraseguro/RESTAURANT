@@ -62,7 +62,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-[var(--ui-body-bg)]">
       {isMobile && mobileMenuOpen && (
-        <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setMobileMenuOpen(false)} />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 rf-modal-overlay" onClick={() => setMobileMenuOpen(false)} role="presentation" />
       )}
       <Sidebar
         collapsed={collapsed}
@@ -71,7 +71,7 @@ export default function Layout() {
         onClose={() => setMobileMenuOpen(false)}
       />
       <div className={`transition-all duration-300 ${isMobile ? 'ml-0' : (collapsed ? 'ml-16' : 'ml-60')}`}>
-        <header className="h-[var(--ui-shell-header-h)] shrink-0 bg-[var(--ui-surface)] flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 shadow-sm border-b border-[color:var(--ui-sidebar-border)]">
+        <header className="rf-shell-header h-[var(--ui-shell-header-h)] shrink-0 bg-[var(--ui-surface)] flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 border-b border-[color:var(--ui-sidebar-border)]">
           <div className="flex items-center gap-4">
             <button
               onClick={() => (isMobile ? setMobileMenuOpen(prev => !prev) : setCollapsed(!collapsed))}
@@ -107,7 +107,7 @@ export default function Layout() {
             </div>
           </div>
         </header>
-        <main className="p-3 sm:p-6 bg-[var(--ui-body-bg)] min-h-[calc(100vh-var(--ui-shell-header-h))]">
+        <main className="rf-main-content p-3 sm:p-6 bg-[var(--ui-body-bg)] min-h-[calc(100vh-var(--ui-shell-header-h))]">
           {isMozoBlocked ? (
             <div className="flex flex-col items-center justify-center py-32 text-center">
               <div className="w-24 h-24 bg-[var(--ui-surface)] rounded-3xl flex items-center justify-center mb-6 border border-[color:var(--ui-border)]">
@@ -128,7 +128,7 @@ export default function Layout() {
             </div>
           ) : checkingCaja ? (
             <div className="flex justify-center py-16">
-              <div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" />
+              <div className="rf-loader rf-loader--md" />
             </div>
           ) : (
             <Outlet />

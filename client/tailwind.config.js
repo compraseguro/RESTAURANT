@@ -1,8 +1,35 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx,css}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+      },
+      borderRadius: {
+        rf: '0.75rem',
+        'rf-lg': '1rem',
+        'rf-xl': '1.25rem',
+      },
+      boxShadow: {
+        rf: '0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
+        'rf-lg': '0 12px 32px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06)',
+        'rf-glow': '0 0 0 1px rgba(37, 99, 235, 0.2), 0 8px 24px rgba(37, 99, 235, 0.15)',
+      },
+      animation: {
+        'rf-in': 'rf-page-in 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+        'rf-modal': 'rf-modal-in 0.28s cubic-bezier(0.34, 1.2, 0.64, 1)',
+      },
+      keyframes: {
+        'rf-page-in': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'rf-modal-in': {
+          from: { opacity: '0', transform: 'scale(0.96) translateY(8px)' },
+          to: { opacity: '1', transform: 'scale(1) translateY(0)' },
+        },
+      },
       colors: {
         brand: {
           bg: '#111827',

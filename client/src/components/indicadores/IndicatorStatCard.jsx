@@ -8,7 +8,7 @@ export default function IndicatorStatCard({ icon: Icon, label, value, sub, trend
           ? 'border-sky-500/25'
           : 'border-gold-500/20';
   return (
-    <div className={`rounded-xl border ${accentRing} bg-[var(--ui-surface)] p-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5`}>
+    <div className={`stat-card-premium rounded-xl border ${accentRing} bg-[var(--ui-surface)] p-4`}>
       <div className="flex items-center gap-2 mb-1">
         {Icon ? <Icon className="text-lg shrink-0 text-gold-600" /> : null}
         <p className="text-xs text-[var(--ui-muted)] uppercase tracking-wide">{label}</p>

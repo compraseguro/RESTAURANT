@@ -112,7 +112,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--ui-body-bg)] text-[var(--ui-body-text)] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="rf-login-shell min-h-screen bg-[var(--ui-body-bg)] text-[var(--ui-body-text)] flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-96 h-96 bg-[var(--ui-accent)]/15 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-[var(--ui-accent)]/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none" />
       <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-[var(--ui-surface)]/30 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
@@ -135,7 +135,7 @@ export default function Login() {
           <h1 className="text-3xl font-bold text-[var(--ui-body-text)] tracking-tight px-1">{restaurantName}</h1>
         </div>
 
-        <div className="bg-[var(--ui-surface)] backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-[color:var(--ui-border)]">
+        <div className="rf-login-card bg-[var(--ui-surface)] backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-[color:var(--ui-border)]">
           {step === 1 && (
             <>
               <h2 className="text-xl font-bold text-[var(--ui-body-text)] mb-1">Iniciar Sesión</h2>

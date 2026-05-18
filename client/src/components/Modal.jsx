@@ -40,7 +40,7 @@ export default function Modal({
 
   const placementClass = placement === 'right' ? 'justify-end' : 'justify-center';
 
-  const overlayClass = isLight ? 'bg-black/40' : 'bg-black/75';
+  const overlayClass = isLight ? 'bg-black/40 rf-modal-overlay' : 'bg-black/70 rf-modal-overlay';
 
   const panelClass = isLight
     ? 'border border-[color:var(--ui-border)] bg-[var(--ui-surface)] shadow-xl text-[var(--ui-body-text)]'
@@ -73,7 +73,7 @@ export default function Modal({
         onClick={onClose}
       />
       <div
-        className={`relative z-10 rounded-2xl w-full ${sizeClass} ${maxHeightClass} flex flex-col overflow-hidden ${panelClass} ${dialogClassName}`.trim()}
+        className={`rf-modal-panel relative z-10 rounded-2xl w-full ${sizeClass} ${maxHeightClass} flex flex-col overflow-hidden ${panelClass} ${dialogClassName}`.trim()}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

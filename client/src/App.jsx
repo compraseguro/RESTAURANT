@@ -38,7 +38,7 @@ import { ADMIN_MODULE_PATHS, hasModulePermission, getDefaultStaffPath } from './
 
 function ProtectedRoute({ children, roles, moduleId }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-gold-500 border-t-transparent rounded-full" /></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="rf-loader rf-loader--md" /></div>;
   if (!user || user.type === 'customer') return <Navigate to="/" />;
   const hasPermission = moduleId ? hasModulePermission(user, moduleId) : true;
   if (roles && !roles.includes(user.role)) {

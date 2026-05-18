@@ -19,11 +19,11 @@ html {
   --ui-live-badge-success-text: #6ee7b7;
   --ui-live-badge-warn-bg: rgba(245, 158, 11, 0.15);
   --ui-live-badge-warn-text: #fcd34d;
-  --ui-body-bg: #111827;
-  --ui-body-text: #f9fafb;
-  --ui-muted: #9ca3af;
-  --ui-surface: #1f2937;
-  --ui-surface-2: #334155;
+  --ui-body-bg: #0f1419;
+  --ui-body-text: #f1f5f9;
+  --ui-muted: #94a3b8;
+  --ui-surface: #1a2332;
+  --ui-surface-2: #243044;
   --ui-border: rgba(59, 130, 246, 0.28);
   --ui-accent: #2563eb;
   --ui-accent-hover: #1d4ed8;
