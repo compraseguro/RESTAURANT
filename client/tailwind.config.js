@@ -4,7 +4,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Clash Grotesk', 'Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['Clash Display', 'Clash Grotesk', 'Inter', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         rf: '0.75rem',

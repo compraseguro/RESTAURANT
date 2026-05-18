@@ -179,7 +179,7 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
         <div className="rf-sidebar-brand w-9 h-9 bg-gradient-to-br from-[var(--ui-logo-from)] to-[var(--ui-logo-to)] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
           <MdStorefront className="text-white text-lg" />
         </div>
-        {!isCollapsed && <span className="font-bold text-base text-[var(--ui-body-text)] tracking-tight truncate">Resto-FADEY</span>}
+        {!isCollapsed && <span className="rf-font-display font-bold text-base text-[var(--ui-body-text)] tracking-tight truncate">Resto-FADEY</span>}
       </div>
 
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin">

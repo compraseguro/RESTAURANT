@@ -8,11 +8,11 @@ import { CartProvider } from './context/CartContext';
 import './index.css';
 import './styles/premium-ui.css';
 import { initOrientationRespect } from './orientationRespect';
-import { applyUiTheme, readStoredUiTheme } from './theme/uiTheme';
+import { bootstrapUiTheme } from './theme/uiTheme';
 import { premiumToastOptions } from './theme/toastOptions';
 import { registerServiceWorker } from './serviceWorkerRegister';
 
-applyUiTheme(readStoredUiTheme());
+bootstrapUiTheme();
 initOrientationRespect();
 registerServiceWorker();
 

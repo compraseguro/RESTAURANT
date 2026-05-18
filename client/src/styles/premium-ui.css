@@ -4,7 +4,8 @@
  */
 
 html {
-  --ui-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ui-font: 'Clash Grotesk', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ui-font-display: 'Clash Display', 'Clash Grotesk', 'Inter', system-ui, sans-serif;
   --ui-radius-sm: 0.5rem;
   --ui-radius-md: 0.75rem;
   --ui-radius-lg: 1rem;
@@ -34,7 +35,22 @@ body {
 }
 
 h1, h2, h3, h4 {
+  font-family: var(--ui-font-display);
   letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+.rf-font-display {
+  font-family: var(--ui-font-display);
+  letter-spacing: -0.02em;
+}
+
+.rf-sidebar .font-bold.truncate,
+.rf-login-shell h1,
+.rf-login-shell h2,
+.rf-page-title,
+.rf-modal-panel h2 {
+  font-family: var(--ui-font-display);
 }
 
 #root {
@@ -298,6 +314,26 @@ h1, h2, h3, h4 {
 .scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: var(--ui-accent-muted) transparent;
+}
+
+/* Gráficos Recharts — colores del tema activo */
+.recharts-cartesian-grid line {
+  stroke: color-mix(in srgb, var(--ui-border) 80%, transparent);
+}
+.recharts-text {
+  fill: var(--ui-muted);
+}
+.recharts-default-tooltip {
+  background: var(--ui-surface) !important;
+  border: 1px solid var(--ui-border) !important;
+  border-radius: var(--ui-radius-md) !important;
+  color: var(--ui-body-text) !important;
+  box-shadow: var(--ui-shadow-md) !important;
+}
+
+html[data-ui-theme='dark_elegance'] .rf-sidebar,
+html[data-ui-theme='gold_premium'] .rf-sidebar {
+  backdrop-filter: blur(10px);
 }
 
 @keyframes rf-page-in {

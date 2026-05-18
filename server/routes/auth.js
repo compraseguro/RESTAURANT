@@ -18,17 +18,16 @@ const { getActiveCajaById } = require('../cajaSettings');
 
 const router = express.Router();
 
-const UI_THEME_IDS = new Set(['light', 'dark', 'blue', 'gray', 'purple', 'green']);
+const { getValidUiThemeId } = require('../uiThemeCatalog');
 
 function readUiThemeFromStoredSettings() {
   const row = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
-  if (!row?.value) return 'blue';
+  if (!row?.value) return 'corporate_blue';
   try {
     const s = JSON.parse(row.value);
-    const t = String(s?.ui_theme || '').trim();
-    return UI_THEME_IDS.has(t) ? t : 'blue';
+    return getValidUiThemeId(s?.ui_theme);
   } catch (_) {
-    return 'blue';
+    return 'corporate_blue';
   }
 }
 

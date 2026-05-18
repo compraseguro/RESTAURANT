@@ -7,8 +7,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { MdDateRange, MdKeyboardArrowDown, MdKitchen, MdLocalBar, MdDeliveryDining, MdPointOfSale, MdTableBar, MdBolt, MdWarning } from 'react-icons/md';
 
+import { useChartTheme } from '../../theme/useChartTheme';
+
 const PAYMENT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#06b6d4', '#a855f7'];
-const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4'];
 const toInputDate = (date) => {
   const d = new Date(date);
   const y = d.getFullYear();
@@ -39,6 +40,7 @@ function ventaMesaKey(order) {
 }
 
 export default function Escritorio() {
+  const CHART_COLORS = useChartTheme();
   const [orders, setOrders] = useState([]);
   const [liveDash, setLiveDash] = useState(null);
   const [loading, setLoading] = useState(true);

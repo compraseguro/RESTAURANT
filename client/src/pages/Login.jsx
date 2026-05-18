@@ -132,13 +132,13 @@ export default function Login() {
               </div>
             )}
           </div>
-          <h1 className="text-3xl font-bold text-[var(--ui-body-text)] tracking-tight px-1">{restaurantName}</h1>
+          <h1 className="rf-font-display text-3xl font-bold text-[var(--ui-body-text)] tracking-tight px-1">{restaurantName}</h1>
         </div>
 
         <div className="rf-login-card bg-[var(--ui-surface)] backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-[color:var(--ui-border)]">
           {step === 1 && (
             <>
-              <h2 className="text-xl font-bold text-[var(--ui-body-text)] mb-1">Iniciar Sesión</h2>
+              <h2 className="rf-font-display text-xl font-bold text-[var(--ui-body-text)] mb-1">Iniciar Sesión</h2>
               <p className="text-sm text-[var(--ui-muted)] mb-6">Ingresa tus credenciales</p>
               <form onSubmit={handleContinue} className="space-y-5">
                 <div>

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../utils/api';
-import { applyUiTheme } from '../theme/uiTheme';
+import { applyUiThemeFromAppSettings } from '../theme/uiTheme';
 
 const AuthContext = createContext(null);
 
@@ -13,7 +13,9 @@ export function AuthProvider({ children }) {
     if (token) {
       api.get('/auth/me')
         .then((data) => {
-          if (data?.ui_theme) applyUiTheme(data.ui_theme);
+          if (data?.ui_theme) {
+            applyUiThemeFromAppSettings({ ui_theme: data.ui_theme }, data.id);
+          }
           setUser(data);
         })
         .catch(() => { localStorage.removeItem('token'); })
@@ -28,7 +30,9 @@ export function AuthProvider({ children }) {
     if (opts.photo_login) body.photo_login = opts.photo_login;
     const data = await api.post('/auth/login', body);
     localStorage.setItem('token', data.token);
-    if (data.user?.ui_theme) applyUiTheme(data.user.ui_theme);
+    if (data.user?.ui_theme) {
+      applyUiThemeFromAppSettings({ ui_theme: data.user.ui_theme }, data.user.id);
+    }
     setUser({ ...data.user, type: 'staff' });
     return data.user;
   };
@@ -36,7 +40,9 @@ export function AuthProvider({ children }) {
   const customerLogin = async (email, password) => {
     const data = await api.post('/auth/customer/login', { email, password });
     localStorage.setItem('token', data.token);
-    if (data.customer?.ui_theme) applyUiTheme(data.customer.ui_theme);
+    if (data.customer?.ui_theme) {
+      applyUiThemeFromAppSettings({ ui_theme: data.customer.ui_theme }, data.customer.id);
+    }
     setUser({ ...data.customer, type: 'customer' });
     return data.customer;
   };
@@ -44,7 +50,9 @@ export function AuthProvider({ children }) {
   const customerRegister = async (formData) => {
     const data = await api.post('/auth/customer/register', formData);
     localStorage.setItem('token', data.token);
-    if (data.customer?.ui_theme) applyUiTheme(data.customer.ui_theme);
+    if (data.customer?.ui_theme) {
+      applyUiThemeFromAppSettings({ ui_theme: data.customer.ui_theme }, data.customer.id);
+    }
     setUser({ ...data.customer, type: 'customer' });
     return data.customer;
   };

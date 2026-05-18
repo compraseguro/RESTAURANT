@@ -33,7 +33,8 @@ import {
   MdTableBar, MdPeopleAlt, MdRestaurantMenu, MdQrCode2, MdPalette,
   MdAutoGraph,
 } from 'react-icons/md';
-import { UI_THEME_OPTIONS, applyUiTheme, getValidUiThemeId } from '../../theme/uiTheme';
+import { applyUiThemeFromAppSettings } from '../../theme/uiTheme';
+import SettingsAppearancePanel from '../../components/settings/SettingsAppearancePanel';
 import { useSocket } from '../../hooks/useSocket';
 import { useConfigHub } from '../../hooks/useConfigHub';
 import SettingsConfigHubBanner from '../../components/settings/SettingsConfigHubBanner';
@@ -175,8 +176,10 @@ const DEFAULT_APP_SETTINGS = {
     requiere_foto_fin_jornada: 0,
     requiere_foto_asistencia: 0,
   },
-  /** Tema visual del panel: light | dark | blue | gray | purple | green */
-  ui_theme: 'blue',
+  /** Tema visual del panel — ver theme/themePresets.js */
+  ui_theme: 'corporate_blue',
+  ui_theme_mode: 'light',
+  ui_theme_custom: {},
 };
 
 /** Alineado con server/routes/auth readJornadaLaboralFlags (legacy requiere_foto_asistencia). */
@@ -397,12 +400,12 @@ export default function Settings() {
         const normalized = normalizeConfigPayload(cfg);
         setAppSettings(normalized);
         setAppSettingsSnapshot(serializeAppSettings(normalized));
-        applyUiTheme(normalized.ui_theme);
+        applyUiThemeFromAppSettings(normalized, currentUser?.id);
       })
       .catch(() => {
         setAppSettings(DEFAULT_APP_SETTINGS);
         setAppSettingsSnapshot(serializeAppSettings(DEFAULT_APP_SETTINGS));
-        applyUiTheme(DEFAULT_APP_SETTINGS.ui_theme);
+        applyUiThemeFromAppSettings(DEFAULT_APP_SETTINGS, currentUser?.id);
       });
   };
   const loadPrintingConfig = () => {
@@ -929,7 +932,7 @@ export default function Settings() {
       const normalized = normalizeConfigPayload(saved);
       setAppSettings(normalized);
       setAppSettingsSnapshot(serializeAppSettings(normalized));
-      applyUiTheme(normalized.ui_theme);
+      applyUiThemeFromAppSettings(normalized, currentUser?.id);
       if (activeSection === 'config_historial') loadAppSettingsHistory();
       if (!silent) toast.success('Configuración guardada');
     } catch (err) {
@@ -1083,7 +1086,7 @@ export default function Settings() {
       const normalized = normalizeConfigPayload(restored);
       setAppSettings(normalized);
       setAppSettingsSnapshot(serializeAppSettings(normalized));
-      applyUiTheme(normalized.ui_theme);
+      applyUiThemeFromAppSettings(normalized, currentUser?.id);
       if (activeSection === 'config_historial') loadAppSettingsHistory();
       toast.success('Configuración restaurada');
     } catch (err) {
@@ -1222,43 +1225,12 @@ export default function Settings() {
         ) : null}
         {activeSection ? <SettingsSectionInsights sectionId={activeSection} hub={configHub} /> : null}
         {activeSection === 'apariencia' && (
-          <div className="max-w-3xl space-y-4">
-            <div className="card">
-              <h3 className="text-lg font-semibold text-[var(--ui-body-text)] mb-1">Tema de color del sistema</h3>
-              <p className="text-sm text-[var(--ui-muted)] mb-4">
-                Define la paleta del panel (barra lateral, cabecera, fondos y estilos base como tarjetas y botones). Se guarda en la configuración del restaurante y se aplica a cada usuario al iniciar sesión.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {UI_THEME_OPTIONS.map((opt) => {
-                  const current = getValidUiThemeId(appSettings?.ui_theme);
-                  const selected = current === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => {
-                        setAppSettings((prev) => ({ ...prev, ui_theme: opt.id }));
-                        applyUiTheme(opt.id);
-                      }}
-                      className={`rounded-xl border p-4 text-left transition-all ${
-                        selected
-                          ? 'border-[var(--ui-accent-muted)] ring-2 ring-[var(--ui-accent-muted)]/50'
-                          : 'border-[color:var(--ui-border)] hover:border-[var(--ui-accent-muted)]'
-                      }`}
-                    >
-                      <p className="font-semibold text-[var(--ui-body-text)]">{opt.label}</p>
-                      <p className="text-xs text-[var(--ui-muted)] mt-0.5">{opt.description}</p>
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-[var(--ui-muted)] mt-4">
-                En esta sección los cambios se sincronizan automáticamente con el servidor en unos segundos.
-              </p>
-            </div>
-          </div>
+          <SettingsAppearancePanel
+            appSettings={appSettings}
+            setAppSettings={setAppSettings}
+            currentUserId={currentUser?.id}
+          />
         )}
-
         {activeSection === 'config_historial' && (
           <div className="mb-4 rounded-lg border border-slate-200 bg-white px-4 py-3">
             <div className="flex items-center justify-between mb-2">
