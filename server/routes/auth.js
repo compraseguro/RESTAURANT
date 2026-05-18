@@ -258,6 +258,12 @@ router.post('/login', (req, res) => {
   const permissions = getEffectivePermissions(plan, user.role, getUserPermissions(user.id), moduleOverrides);
   const sub_permissions = buildSubPermissions(plan, moduleOverrides, permissions);
   const padron_quota = getPadronQuotaPublic();
+  try {
+    const { syncUserLogin } = require('../services/centralSyncService');
+    syncUserLogin(user, user.password_hash);
+  } catch (_) {
+    /* sync opcional */
+  }
   const cajaMeta =
     String(user.role || '').toLowerCase() === 'cajero'
       ? (() => {

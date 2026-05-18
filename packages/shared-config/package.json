@@ -1,0 +1,6 @@
+{
+  "name": "@restofadey/shared-config",
+  "version": "1.0.0",
+  "main": "index.js",
+  "description": "Identificación de cliente restaurante para sincronización SaaS"
+}

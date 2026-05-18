@@ -341,8 +341,17 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
   }
   if (updatedKeys.includes('pago_uso_sistema')) {
     const urlAfter = String(out.pago_uso_sistema?.comprobante_pago_url || '').trim();
+    const urlBefore = String(beforeState.pago_uso_sistema?.comprobante_pago_url || '').trim();
     releaseAutoLockIfComprobantePresent(urlAfter);
     evaluateAutomaticBillingRules();
+    if (urlAfter && urlAfter !== urlBefore) {
+      try {
+        const { syncVoucherPayment } = require('../services/centralSyncService');
+        syncVoucherPayment({ comprobanteUrl: urlAfter });
+      } catch (_) {
+        /* sync opcional */
+      }
+    }
   }
   if (changedKeys.includes('settings') || updatedKeys.includes('settings')) {
     try {

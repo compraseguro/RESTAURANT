@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resto Fadey — Panel SaaS</title>
+  <style>
+    :root { --bg: #0f1419; --card: #1a2332; --accent: #c9a227; --text: #e8edf4; --muted: #8b9cb3; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    header { padding: 1rem 1.5rem; border-bottom: 1px solid #2a3548; display: flex; align-items: center; justify-content: space-between; }
+    h1 { margin: 0; font-size: 1.25rem; color: var(--accent); }
+    main { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .card { background: var(--card); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid #2a3548; }
+    .card h3 { margin: 0 0 .5rem; font-size: .85rem; color: var(--muted); font-weight: 500; }
+    .card .value { font-size: 1.75rem; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: .6rem .5rem; text-align: left; border-bottom: 1px solid #2a3548; }
+    th { color: var(--muted); font-weight: 500; }
+    .login-box { max-width: 360px; margin: 4rem auto; }
+    input { width: 100%; padding: .65rem; margin-bottom: .75rem; border-radius: 8px; border: 1px solid #2a3548; background: #0f1419; color: var(--text); }
+    button { background: var(--accent); color: #0f1419; border: none; padding: .65rem 1.25rem; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    button.secondary { background: transparent; color: var(--muted); border: 1px solid #2a3548; }
+    .hidden { display: none; }
+    a { color: var(--accent); }
+    .badge { display: inline-block; padding: .2rem .5rem; border-radius: 6px; font-size: .75rem; }
+    .badge.pending { background: #3d3520; color: #f0c674; }
+    .badge.approved { background: #1e3a2f; color: #6fcf97; }
+    .badge.rejected { background: #3a1e1e; color: #e88; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Resto Fadey · Panel SaaS</h1>
+    <span id="userLabel"></span>
+  </header>
+  <main>
+    <section id="loginSection" class="login-box card">
+      <h2 style="margin-top:0">Iniciar sesión</h2>
+      <p style="color:var(--muted);font-size:.9rem">Mismo correo y contraseña que en su POS (cuenta espejada).</p>
+      <input type="email" id="email" placeholder="Correo" autocomplete="username" />
+      <input type="password" id="password" placeholder="Contraseña" autocomplete="current-password" />
+      <button type="button" id="loginBtn">Entrar</button>
+      <p id="loginError" style="color:#e88;font-size:.85rem"></p>
+    </section>
+    <section id="dashboardSection" class="hidden">
+      <div class="grid" id="statsGrid"></div>
+      <div class="card" style="margin-bottom:1.5rem">
+        <h2 style="margin-top:0;font-size:1rem">Pagos recientes</h2>
+        <div style="overflow-x:auto">
+          <table id="paymentsTable"><thead><tr>
+            <th>Restaurante</th><th>Plan</th><th>Monto</th><th>Fecha</th><th>Estado</th><th>Voucher</th><th></th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0;font-size:1rem">Clientes</h2>
+        <table id="clientsTable"><thead><tr>
+          <th>ID</th><th>Nombre</th><th>Plan</th><th>Licencia</th><th>Última sync</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+  </main>
+  <script>
+    const API = '';
+    const tokenKey = 'rf_central_token';
+    let token = localStorage.getItem(tokenKey) || '';
+
+    const $ = (id) => document.getElementById(id);
+    async function api(path, opts = {}) {
+      const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+      if (token) headers.Authorization = 'Bearer ' + token;
+      const res = await fetch(API + path, { ...opts, headers });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      return data;
+    }
+
+    async function loadDashboard() {
+      const [fin, clients] = await Promise.all([
+        api('/api/admin/dashboard/financial'),
+        api('/api/admin/clients'),
+      ]);
+      $('statsGrid').innerHTML = [
+        ['Ingresos del mes', 'S/ ' + Number(fin.ingresos_mensuales || 0).toFixed(2)],
+        ['Licencias activas', String(fin.licencias_activas || 0)],
+        ['Crecimiento mensual', fin.crecimiento_mensual_pct != null ? fin.crecimiento_mensual_pct + '%' : '—'],
+        ['Clientes premium', String((fin.clientes_premium || []).length)],
+      ].map(([h, v]) => '<div class="card"><h3>' + h + '</h3><div class="value">' + v + '</div></div>').join('');
+
+      const pt = $('paymentsTable').querySelector('tbody');
+      const allPay = await api('/api/admin/payments');
+      pt.innerHTML = allPay.slice(0, 30).map(function (p) {
+        var actions = p.estado === 'pending'
+          ? '<button data-id="' + p.id + '" data-act="approved">Aprobar</button> <button class="secondary" data-id="' + p.id + '" data-act="rejected">Rechazar</button>'
+          : '';
+        return '<tr><td>' + (p.restaurante || p.restaurant_name || '—') + '</td><td>' + (p.plan || '—') + '</td><td>'
+          + (p.monto != null ? 'S/ ' + Number(p.monto).toFixed(2) : '—') + '</td><td>' + (p.fecha || '—') + '</td><td><span class="badge '
+          + p.estado + '">' + p.estado + '</span></td><td>'
+          + (p.voucher ? '<a href="' + p.voucher + '" target="_blank">Ver</a>' : '—') + '</td><td>' + actions + '</td></tr>';
+      }).join('');
+      pt.querySelectorAll('button[data-act]').forEach(function (btn) {
+        btn.onclick = async function () {
+          await api('/api/admin/payments/' + btn.dataset.id, {
+            method: 'PATCH',
+            body: JSON.stringify({ estado: btn.dataset.act }),
+          });
+          loadDashboard();
+        };
+      });
+      $('clientsTable').querySelector('tbody').innerHTML = clients.map(function (c) {
+        return '<tr><td><code>' + c.client_id + '</code></td><td>' + (c.restaurant_name || '—')
+          + '</td><td>' + (c.plan || '—') + '</td><td>' + (c.license_status || '—')
+          + '</td><td>' + (c.last_sync_at || '—') + '</td></tr>';
+      }).join('');
+    }
+
+    $('loginBtn').onclick = async function () {
+      $('loginError').textContent = '';
+      try {
+        const data = await api('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email: $('email').value, password: $('password').value }),
+        });
+        token = data.token;
+        localStorage.setItem(tokenKey, token);
+        $('userLabel').textContent = data.user?.full_name || data.user?.email;
+        $('loginSection').classList.add('hidden');
+        $('dashboardSection').classList.remove('hidden');
+        await loadDashboard();
+      } catch (e) {
+        $('loginError').textContent = e.message;
+      }
+    };
+
+    if (token) {
+      $('loginSection').classList.add('hidden');
+      $('dashboardSection').classList.remove('hidden');
+      loadDashboard().catch(function () {
+        localStorage.removeItem(tokenKey);
+        token = '';
+        $('loginSection').classList.remove('hidden');
+        $('dashboardSection').classList.add('hidden');
+      });
+    }
+  </script>
+</body>
+</html>

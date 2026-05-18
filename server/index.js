@@ -243,6 +243,7 @@ app.get(
 );
 app.use('/api/printing', require('./routes/printing'));
 app.use('/api/master-admin', require('./routes/masterAdmin'));
+app.use('/api/central-sync', require('./routes/centralSync'));
 const billingRoutes = require('./routes/billing');
 app.use('/api/billing', billingRoutes);
 

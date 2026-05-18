@@ -703,6 +703,14 @@ function setControlConfig(patch = {}, actorName = '') {
   if (patch.billing_date !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(String(next.billing_date || '').trim())) {
     syncPagoUsoProximaFechaFromBillingAnchor(next.billing_date);
   }
+  if (patch.service_plan !== undefined || patch.billing_date !== undefined) {
+    try {
+      const { syncPlanStatus } = require('./services/centralSyncService');
+      syncPlanStatus({ renewal: patch.billing_date !== undefined });
+    } catch (_) {
+      /* sync opcional */
+    }
+  }
   return next;
 }
 

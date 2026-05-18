@@ -2,8 +2,15 @@
   "name": "restaurant-platform",
   "version": "1.0.2",
   "description": "Plataforma completa para restaurante - Admin, Cocina, POS, Cliente, Delivery",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/central-platform"
+  ],
   "main": "electron/main.js",
   "scripts": {
+    "central": "npm run start -w @restofadey/central-platform",
+    "central:dev": "npm run dev -w @restofadey/central-platform",
     "server": "node server/index.js",
     "client": "cd client && npm run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",

@@ -1,0 +1,10 @@
+{
+  "name": "@restofadey/shared-api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@restofadey/shared-config": "1.0.0",
+    "@restofadey/shared-types": "1.0.0"
+  },
+  "description": "Cliente HTTP para sincronizar eventos hacia restofadey.pe"
+}

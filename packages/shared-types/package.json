@@ -1,0 +1,6 @@
+{
+  "name": "@restofadey/shared-types",
+  "version": "1.0.0",
+  "main": "index.js",
+  "description": "Tipos y constantes de eventos SaaS Resto Fadey"
+}

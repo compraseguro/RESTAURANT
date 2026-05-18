@@ -1,0 +1,80 @@
+# Arquitectura SaaS Resto Fadey
+
+## Principio
+
+Cada restaurante mantiene su **web service independiente** y base de datos aislada. La plataforma central (`https://restofadey.pe`) agrega solo datos SaaS: clientes, pagos, licencias, métricas y usuarios para el dashboard.
+
+```
+┌─────────────────────┐     eventos SaaS      ┌──────────────────────────┐
+│ Web Service Cliente │ ────────────────────► │ Plataforma Central         │
+│ (POS + API Node)    │  Bearer API_SECRET  │ restofadey.pe              │
+│ SQLite local        │                     │ SQLite/Postgres central    │
+└─────────────────────┘                     └──────────────────────────┘
+        │                                              │
+        ▼                                              ▼
+  Ventas, cocina,                              Pagos, vouchers,
+  inventario (NO sync)                           planes, licencias,
+                                               dashboard financiero
+```
+
+## Estructura del monorepo
+
+```
+/apps
+  /central-platform      → API + panel admin SaaS
+  /restaurant-pos-template → documentación de despliegue POS
+/packages
+  /shared-types          → tipos de eventos
+  /shared-auth           → JWT + Bearer entre servicios
+  /shared-api            → cliente HTTP de sincronización
+  /shared-config         → clientId, webServiceId, licenseKey
+/server + /client        → implementación POS actual (plantilla viva)
+```
+
+## Eventos sincronizados
+
+| Evento | Endpoint central |
+|--------|------------------|
+| Comprobante / pago | `POST /api/payments` |
+| Login usuario | `POST /api/sync/events` + `POST /api/sync/users` |
+| Plan / renovación | `POST /api/sync/events` |
+| Licencia | `POST /api/sync/events` |
+
+**No se sincroniza:** pedidos, ventas de caja, cocina, inventario, kardex.
+
+## Autenticación
+
+- **POS → Central:** `Authorization: Bearer {API_SECRET_KEY}`
+- **Dashboard central:** `POST /api/auth/login` (usuarios espejados desde POS en el primer login con email)
+- **JWT:** `JWT_SECRET` en cada entorno
+
+## Identificación por cliente
+
+| Variable | Uso |
+|----------|-----|
+| `CLIENT_ID` | Tenant SaaS |
+| `RESTAURANT_ID` | Restaurante lógico |
+| `WEBSERVICE_ID` | Instancia de despliegue |
+| `LICENSE_KEY` | Validación de licencia |
+
+## Panel administrativo central
+
+- URL local: `http://localhost:4000/admin`
+- Producción: `https://restofadey.pe/admin` (mismo servicio detrás del dominio)
+- APIs: `/api/admin/dashboard/financial`, `/api/admin/payments`, `/api/admin/clients`
+
+## Arranque local
+
+```bash
+# Plataforma central
+npm run central
+
+# POS cliente (raíz del repo)
+npm run dev
+```
+
+## Despliegue
+
+1. Desplegar `apps/central-platform` en el host de `restofadey.pe`.
+2. Cada restaurante despliega su copia POS con variables `CLIENT_*` únicas.
+3. Usar el mismo `API_SECRET_KEY` en central y en cada POS autorizado.

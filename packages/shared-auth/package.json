@@ -1,0 +1,9 @@
+{
+  "name": "@restofadey/shared-auth",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  },
+  "description": "Autenticación JWT y Bearer entre web services y plataforma central"
+}
