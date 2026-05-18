@@ -118,13 +118,13 @@ router.put('/', authenticateToken, requireRole('admin', 'master_admin'), (req, r
     nextBillingPanelJson = JSON.stringify(mergeBillingPanelStored(prevStr, b.billing_panel));
   }
 
-  /** SUNAT / series: maestro siempre; admin del restaurante solo si el maestro lo habilitó en el control. */
+  /**
+   * Bot SUNAT / series electrónicas: solo maestro o admin con permiso explícito del maestro.
+   * Los datos de «Mi empresa» (RUC, razón social, dirección fiscal, nombre comercial) los puede
+   * editar siempre el administrador del restaurante.
+   */
   if (!adminMayEditBillingBot) {
-    company_ruc = null;
-    legal_name = null;
-    billing_nombre_comercial = null;
     billing_emisor_ubigeo = null;
-    billing_emisor_direccion = null;
     billing_emisor_provincia = null;
     billing_emisor_departamento = null;
     billing_emisor_distrito = null;

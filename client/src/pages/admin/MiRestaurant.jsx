@@ -379,17 +379,52 @@ export default function MiRestaurant() {
         toast.success('Configuración guardada');
         return;
       }
-      const saved = await api.put('/restaurant', { ...restaurant, profile });
+      const saved = await api.put('/restaurant', buildRestaurantPutPayload(restaurant, profile));
+      skipAutosaveRef.current = true;
       setRestaurant(saved);
       if (saved?.profile) setProfile(mergeMiRestaurantProfile(defaultMiRestaurantProfile(), saved.profile));
-      skipAutosaveRef.current = true;
       toast.success('Guardado correctamente');
     } catch (err) {
       toast.error(err.message);
     }
   };
 
-  const update = (f, v) => setRestaurant(prev => ({ ...prev, [f]: v }));
+  const buildRestaurantPutPayload = useCallback((r, profilePayload) => ({
+    name: r?.name,
+    address: r?.address,
+    phone: r?.phone,
+    email: r?.email,
+    logo: r?.logo,
+    tax_rate: r?.tax_rate,
+    currency: r?.currency,
+    currency_symbol: r?.currency_symbol,
+    delivery_enabled: r?.delivery_enabled,
+    delivery_fee: r?.delivery_fee,
+    delivery_min_order: r?.delivery_min_order,
+    delivery_radius_km: r?.delivery_radius_km,
+    schedule: r?.schedule,
+    company_ruc: r?.company_ruc,
+    legal_name: r?.legal_name,
+    billing_nombre_comercial: r?.billing_nombre_comercial,
+    billing_emisor_ubigeo: r?.billing_emisor_ubigeo,
+    billing_emisor_direccion: r?.billing_emisor_direccion,
+    billing_emisor_provincia: r?.billing_emisor_provincia,
+    billing_emisor_departamento: r?.billing_emisor_departamento,
+    billing_emisor_distrito: r?.billing_emisor_distrito,
+    billing_series_boleta: r?.billing_series_boleta,
+    billing_series_factura: r?.billing_series_factura,
+    profile: profilePayload,
+  }), []);
+
+  const update = (f, v) => {
+    setRestaurant((prev) => {
+      const next = { ...(prev || {}), [f]: v };
+      if (f === 'billing_emisor_direccion') {
+        next.address = v;
+      }
+      return next;
+    });
+  };
   const updateBilling = (f, v) => setBillingConfig(prev => ({ ...prev, [f]: v }));
   const updateAppCfg = (section, field, value) => setAppConfig(prev => ({
     ...prev,
@@ -420,7 +455,8 @@ export default function MiRestaurant() {
     if (!restaurant || profileValidation.length) return;
     setAutosaveStatus('Guardando…');
     try {
-      const saved = await api.put('/restaurant', { ...restaurant, profile });
+      const saved = await api.put('/restaurant', buildRestaurantPutPayload(restaurant, profile));
+      skipAutosaveRef.current = true;
       setRestaurant(saved);
       if (saved?.profile) setProfile(mergeMiRestaurantProfile(defaultMiRestaurantProfile(), saved.profile));
       setAutosaveStatus('Guardado automático');
@@ -428,7 +464,7 @@ export default function MiRestaurant() {
       setAutosaveStatus('');
       toast.error(err.message || 'No se pudo guardar');
     }
-  }, [restaurant, profile, profileValidation]);
+  }, [restaurant, profile, profileValidation, buildRestaurantPutPayload]);
 
   useEffect(() => {
     if (activeView !== 'mi_empresa' || !restaurant) return undefined;
