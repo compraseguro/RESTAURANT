@@ -5,7 +5,11 @@
 const { queryOne } = require('../database');
 const { getControlConfig } = require('../masterAdminService');
 const { normalizePlan } = require('../servicePlan');
-const { readClientIdentity, isCentralSyncConfigured } = require('../../packages/shared-config');
+const {
+  readClientIdentity,
+  isCentralSyncConfigured,
+  getCentralSyncConfigDiagnostics,
+} = require('../../packages/shared-config');
 const { createCentralSyncClient } = require('../../packages/shared-api');
 const { SYNC_EVENT_TYPES, PAYMENT_STATUSES } = require('../../packages/shared-types');
 
@@ -165,12 +169,16 @@ function syncUserActive(user) {
 
 function getSyncStatus() {
   const identity = readClientIdentity();
+  const diagnostics = getCentralSyncConfigDiagnostics(identity);
   return {
-    configured: isCentralSyncConfigured(identity),
+    configured: diagnostics.configured,
     centralPlatformUrl: identity.centralPlatformUrl,
     clientId: identity.clientId,
     webServiceId: identity.webServiceId,
     restaurantId: identity.restaurantId,
+    hasPublicApiUrl: diagnostics.hasPublicApiUrl,
+    missingEnvVars: diagnostics.missing,
+    paymentsEndpoint: `${identity.centralPlatformUrl || ''}/api/payments`,
   };
 }
 

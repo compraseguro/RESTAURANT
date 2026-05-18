@@ -77,7 +77,7 @@ export default function Dashboard() {
           <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
               <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <MdAccountBalance className="text-xl text-slate-600" />
+                <MdAccountBalance className="text-xl text-[var(--ui-muted)]" />
                 Finanzas del mes ({data.financeMonth.month_key || 'actual'})
               </h3>
               <p className="text-xs text-gray-500 mt-1 max-w-2xl">
@@ -100,7 +100,7 @@ export default function Dashboard() {
             </div>
             <div className="rounded-xl bg-white border border-gray-100 p-3">
               <p className="text-xs text-gray-500">Compras / insumos</p>
-              <p className="text-lg font-bold text-slate-800 tabular-nums">{formatCurrency(data.financeMonth.purchases_total)}</p>
+              <p className="text-lg font-bold rf-section-title tabular-nums">{formatCurrency(data.financeMonth.purchases_total)}</p>
             </div>
             <div className="rounded-xl bg-white border border-gray-100 p-3">
               <p className="text-xs text-gray-500 flex items-center gap-1">

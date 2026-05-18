@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Temas: Configuración → Apariencia (`data-ui-theme` en <html>) */
+/* Temas: Configuración → Apariencia (`data-ui-theme` + `data-ui-color-scheme` en <html>) */
 html {
   --ui-shell-header-h: 3.5rem;
   --ui-live-success-text: #6ee7b7;
@@ -40,8 +40,12 @@ html {
   color-scheme: dark;
 }
 
+html:not([data-ui-color-scheme]) {
+  color-scheme: dark;
+}
+
 /* Claro: alto contraste — texto y bordes casi negros, fondos blancos (colores de acento/estado no se tocan en componentes) */
-html[data-ui-theme='light'] {
+html[data-ui-color-scheme='light'] {
   --ui-live-success-text: #047857;
   --ui-live-warning-text: #92400e;
   --ui-live-info-text: #0369a1;
@@ -187,225 +191,281 @@ html[data-ui-theme='green'] {
   }
 
   /* Oscuro: .bg-white de Tailwind → superficie (evita “papel” blanco). Claro: blanco real */
-  html:not([data-ui-theme='light']) .bg-white {
+  html[data-ui-color-scheme='dark'] .bg-white {
     background-color: var(--ui-surface-2) !important;
     color: var(--ui-body-text) !important;
   }
-  html[data-ui-theme='light'] .bg-white {
+  html[data-ui-color-scheme='light'] .bg-white {
     background-color: #ffffff !important;
     color: #000000 !important;
   }
 }
 
 /*
- * Modo claro (`html[data-ui-theme='light']`): texto oscuro en todo #root cuando se usaron utilidades
+ * Modo claro (temas premium + legacy `light`, vía `data-ui-color-scheme='light'`): texto oscuro en #root
  * pensadas para fondo oscuro (#F9FAFB, text-white en tarjetas, slate-100, etc.).
  * `data-ui-isolate="dark-surface"` revierte en login, modales oscuros, toolbar oscuro del escritorio, etc.
  */
-html[data-ui-theme='light'] #root .text-\[\#F9FAFB\] {
+html[data-ui-color-scheme='light'] #root .text-\[\#F9FAFB\] {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .text-\[\#E5E7EB\] {
+html[data-ui-color-scheme='light'] #root .text-\[\#E5E7EB\] {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .text-\[\#E2E8F0\] {
+html[data-ui-color-scheme='light'] #root .text-\[\#E2E8F0\] {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .text-\[\#D1D5DB\] {
+html[data-ui-color-scheme='light'] #root .text-\[\#D1D5DB\] {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .text-\[\#CBD5E1\] {
+html[data-ui-color-scheme='light'] #root .text-\[\#CBD5E1\] {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .text-\[\#9CA3AF\] {
+html[data-ui-color-scheme='light'] #root .text-\[\#9CA3AF\] {
   color: #262626 !important;
 }
-html[data-ui-theme='light'] #root .text-\[\#94A3B8\] {
+html[data-ui-color-scheme='light'] #root .text-\[\#94A3B8\] {
   color: #262626 !important;
 }
-html[data-ui-theme='light'] #root .text-\[\#A1A1AA\] {
+html[data-ui-color-scheme='light'] #root .text-\[\#A1A1AA\] {
   color: #262626 !important;
 }
-html[data-ui-theme='light'] #root .text-\[\#BFDBFE\] {
+html[data-ui-color-scheme='light'] #root .text-\[\#BFDBFE\] {
   color: #1d4ed8 !important;
 }
-html[data-ui-theme='light'] #root .text-\[\#93C5FD\] {
+html[data-ui-color-scheme='light'] #root .text-\[\#93C5FD\] {
   color: #2563eb !important;
 }
-html[data-ui-theme='light'] #root .text-\[\#DBEAFE\] {
+html[data-ui-color-scheme='light'] #root .text-\[\#DBEAFE\] {
   color: #1e40af !important;
 }
+html[data-ui-color-scheme='light'] #root .text-\[\#f9fafb\],
+html[data-ui-color-scheme='light'] #root .text-\[\#F8FAFC\] {
+  color: #0f172a !important;
+}
+html[data-ui-color-scheme='light'] #root .text-\[\#e5e7eb\],
+html[data-ui-color-scheme='light'] #root .text-\[\#d1d5db\],
+html[data-ui-color-scheme='light'] #root .text-\[\#cbd5e1\],
+html[data-ui-color-scheme='light'] #root .text-\[\#9ca3af\],
+html[data-ui-color-scheme='light'] #root .text-\[\#94a3b8\] {
+  color: #334155 !important;
+}
+html[data-ui-color-scheme='light'] #root .text-\[\#f3f4f6\],
+html[data-ui-color-scheme='light'] #root .text-\[\#f1f5f9\],
+html[data-ui-color-scheme='light'] #root .text-\[\#e2e8f0\] {
+  color: #0f172a !important;
+}
 
-html[data-ui-theme='light'] #root .text-white {
+html[data-ui-color-scheme='light'] #root .text-neutral-500,
+html[data-ui-color-scheme='light'] #root .text-neutral-600 {
+  color: #404040 !important;
+}
+html[data-ui-color-scheme='light'] #root .text-neutral-700,
+html[data-ui-color-scheme='light'] #root .text-neutral-800,
+html[data-ui-color-scheme='light'] #root .text-neutral-900 {
+  color: #0f172a !important;
+}
+
+html[data-ui-color-scheme='light'] #root .text-white {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .btn-primary,
-html[data-ui-theme='light'] #root .btn-success,
-html[data-ui-theme='light'] #root .btn-danger,
-html[data-ui-theme='light'] #root .btn-warning,
-html[data-ui-theme='light'] #root .btn-info {
+html[data-ui-color-scheme='light'] #root .btn-primary,
+html[data-ui-color-scheme='light'] #root .btn-success,
+html[data-ui-color-scheme='light'] #root .btn-danger,
+html[data-ui-color-scheme='light'] #root .btn-warning,
+html[data-ui-color-scheme='light'] #root .btn-info {
   color: #ffffff !important;
 }
-html[data-ui-theme='light'] #root button.text-white[class*='bg-red-'],
-html[data-ui-theme='light'] #root button.text-white[class*='bg-blue-'],
-html[data-ui-theme='light'] #root button.text-white[class*='bg-emerald-'],
-html[data-ui-theme='light'] #root button.text-white[class*='bg-green-'],
-html[data-ui-theme='light'] #root button.text-white[class*='bg-indigo-'],
-html[data-ui-theme='light'] #root button.text-white[class*='bg-sky-'],
-html[data-ui-theme='light'] #root button.text-white[class*='bg-amber-'],
-html[data-ui-theme='light'] #root button.text-white[class*='bg-orange-'],
-html[data-ui-theme='light'] #root button.text-white[class*='bg-purple-'],
-html[data-ui-theme='light'] #root button.text-white[class*='bg-violet-'],
-html[data-ui-theme='light'] #root button.text-white[class*='bg-gradient-'],
-html[data-ui-theme='light'] #root button.text-white[class*='bg-['],
-html[data-ui-theme='light'] #root a.text-white[class*='bg-'] {
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-red-'],
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-blue-'],
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-emerald-'],
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-green-'],
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-indigo-'],
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-sky-'],
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-amber-'],
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-orange-'],
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-purple-'],
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-violet-'],
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-gradient-'],
+html[data-ui-color-scheme='light'] #root button.text-white[class*='bg-['],
+html[data-ui-color-scheme='light'] #root a.text-white[class*='bg-'] {
   color: #ffffff !important;
 }
 
 /* Grises de Tailwind demasiado claros sobre fondo claro (p. ej. Escritorio / tarjetas) */
-html[data-ui-theme='light'] #root .text-slate-50,
-html[data-ui-theme='light'] #root .text-slate-100,
-html[data-ui-theme='light'] #root .text-slate-200 {
+html[data-ui-color-scheme='light'] #root .text-slate-50,
+html[data-ui-color-scheme='light'] #root .text-slate-100,
+html[data-ui-color-scheme='light'] #root .text-slate-200 {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .text-slate-300,
-html[data-ui-theme='light'] #root .text-slate-400 {
+html[data-ui-color-scheme='light'] #root .text-slate-300,
+html[data-ui-color-scheme='light'] #root .text-slate-400 {
   color: #262626 !important;
 }
-html[data-ui-theme='light'] #root .text-slate-500,
-html[data-ui-theme='light'] #root .text-slate-600 {
+html[data-ui-color-scheme='light'] #root .text-slate-500,
+html[data-ui-color-scheme='light'] #root .text-slate-600 {
   color: #262626 !important;
 }
-html[data-ui-theme='light'] #root .text-slate-700,
-html[data-ui-theme='light'] #root .text-slate-800,
-html[data-ui-theme='light'] #root .text-slate-900 {
+html[data-ui-color-scheme='light'] #root .text-slate-700,
+html[data-ui-color-scheme='light'] #root .text-slate-800,
+html[data-ui-color-scheme='light'] #root .text-slate-900 {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .text-gray-50,
-html[data-ui-theme='light'] #root .text-gray-100,
-html[data-ui-theme='light'] #root .text-gray-200 {
+html[data-ui-color-scheme='light'] #root .text-gray-50,
+html[data-ui-color-scheme='light'] #root .text-gray-100,
+html[data-ui-color-scheme='light'] #root .text-gray-200 {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .text-gray-300,
-html[data-ui-theme='light'] #root .text-gray-400 {
+html[data-ui-color-scheme='light'] #root .text-gray-300,
+html[data-ui-color-scheme='light'] #root .text-gray-400 {
   color: #262626 !important;
 }
-html[data-ui-theme='light'] #root .text-gray-500,
-html[data-ui-theme='light'] #root .text-gray-600 {
+html[data-ui-color-scheme='light'] #root .text-gray-500,
+html[data-ui-color-scheme='light'] #root .text-gray-600 {
   color: #262626 !important;
 }
-html[data-ui-theme='light'] #root .text-gray-700,
-html[data-ui-theme='light'] #root .text-gray-800,
-html[data-ui-theme='light'] #root .text-gray-900 {
+html[data-ui-color-scheme='light'] #root .text-gray-700,
+html[data-ui-color-scheme='light'] #root .text-gray-800,
+html[data-ui-color-scheme='light'] #root .text-gray-900 {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .text-zinc-50,
-html[data-ui-theme='light'] #root .text-zinc-100,
-html[data-ui-theme='light'] #root .text-zinc-200 {
+html[data-ui-color-scheme='light'] #root .text-zinc-50,
+html[data-ui-color-scheme='light'] #root .text-zinc-100,
+html[data-ui-color-scheme='light'] #root .text-zinc-200 {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .text-zinc-300,
-html[data-ui-theme='light'] #root .text-zinc-400 {
+html[data-ui-color-scheme='light'] #root .text-zinc-300,
+html[data-ui-color-scheme='light'] #root .text-zinc-400 {
   color: #262626 !important;
 }
-html[data-ui-theme='light'] #root .text-neutral-50,
-html[data-ui-theme='light'] #root .text-neutral-100,
-html[data-ui-theme='light'] #root .text-neutral-200 {
+html[data-ui-color-scheme='light'] #root .text-neutral-50,
+html[data-ui-color-scheme='light'] #root .text-neutral-100,
+html[data-ui-color-scheme='light'] #root .text-neutral-200 {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .text-neutral-300,
-html[data-ui-theme='light'] #root .text-neutral-400 {
+html[data-ui-color-scheme='light'] #root .text-neutral-300,
+html[data-ui-color-scheme='light'] #root .text-neutral-400 {
   color: #262626 !important;
 }
 
 /*
- * Paleta `slate` extendida invierte índices (p. ej. slate-50 ≈ #111827) para el tema oscuro por defecto.
- * En tema claro, restaurar fondos claros habituales para utilidades bg-slate-50…200 y hovers usadas como grises suaves.
- * No remapear bg-slate-600+: p. ej. Clientes usa slate-700/800 esperando el gris claro de esa paleta invertida.
+ * Tema oscuro: text-slate-600+ son tonos oscuros de la escala estándar → ilegibles sobre fondo oscuro.
  */
-html[data-ui-theme='light'] #root .bg-slate-50 {
+html[data-ui-color-scheme='dark'] #root .text-slate-600,
+html[data-ui-color-scheme='dark'] #root .text-slate-700,
+html[data-ui-color-scheme='dark'] #root .text-slate-800,
+html[data-ui-color-scheme='dark'] #root .text-slate-900 {
+  color: var(--ui-body-text) !important;
+}
+html[data-ui-color-scheme='dark'] #root .text-slate-400,
+html[data-ui-color-scheme='dark'] #root .text-slate-500 {
+  color: var(--ui-muted) !important;
+}
+html[data-ui-color-scheme='dark'] #root .text-gray-600,
+html[data-ui-color-scheme='dark'] #root .text-gray-700,
+html[data-ui-color-scheme='dark'] #root .text-gray-800,
+html[data-ui-color-scheme='dark'] #root .text-gray-900 {
+  color: var(--ui-body-text) !important;
+}
+html[data-ui-color-scheme='dark'] #root .text-gray-400,
+html[data-ui-color-scheme='dark'] #root .text-gray-500 {
+  color: var(--ui-muted) !important;
+}
+html[data-ui-color-scheme='dark'] #root .text-neutral-600,
+html[data-ui-color-scheme='dark'] #root .text-neutral-700,
+html[data-ui-color-scheme='dark'] #root .text-neutral-800,
+html[data-ui-color-scheme='dark'] #root .text-neutral-900 {
+  color: var(--ui-body-text) !important;
+}
+html[data-ui-color-scheme='dark'] #root .text-neutral-400,
+html[data-ui-color-scheme='dark'] #root .text-neutral-500 {
+  color: var(--ui-muted) !important;
+}
+
+/* Tema claro: utilidades hex pensadas para UI oscura (POS, modales legacy) */
+html[data-ui-color-scheme='light'] #root .bg-slate-50 {
   background-color: #f8fafc !important;
 }
-html[data-ui-theme='light'] #root .bg-slate-50\/60 {
+html[data-ui-color-scheme='light'] #root .bg-slate-50\/60 {
   background-color: rgb(248 250 252 / 0.6) !important;
 }
-html[data-ui-theme='light'] #root .bg-slate-50\/80 {
+html[data-ui-color-scheme='light'] #root .bg-slate-50\/80 {
   background-color: rgb(248 250 252 / 0.8) !important;
 }
-html[data-ui-theme='light'] #root .bg-slate-100 {
+html[data-ui-color-scheme='light'] #root .bg-slate-100 {
   background-color: #f1f5f9 !important;
 }
-html[data-ui-theme='light'] #root .bg-slate-200 {
+html[data-ui-color-scheme='light'] #root .bg-slate-200 {
   background-color: #e2e8f0 !important;
 }
-html[data-ui-theme='light'] #root .hover\:bg-slate-50:hover {
+html[data-ui-color-scheme='light'] #root .hover\:bg-slate-50:hover {
   background-color: #f8fafc !important;
 }
-html[data-ui-theme='light'] #root .hover\:bg-slate-100:hover {
+html[data-ui-color-scheme='light'] #root .hover\:bg-slate-100:hover {
   background-color: #f1f5f9 !important;
 }
-html[data-ui-theme='light'] #root .hover\:bg-slate-200:hover {
+html[data-ui-color-scheme='light'] #root .hover\:bg-slate-200:hover {
   background-color: #e2e8f0 !important;
 }
 
 /* Divisores: slate-100 en paleta invertida es oscuro; en claro usar línea gris estándar */
-html[data-ui-theme='light'] #root .border-slate-100 {
+html[data-ui-color-scheme='light'] #root .border-slate-100 {
   border-color: #e5e7eb !important;
 }
 
 /*
  * Superficies oscuras aisladas: mantener texto claro aunque el tema global sea claro.
  */
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#F9FAFB\] {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#F9FAFB\] {
   color: #f9fafb !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#E5E7EB\] {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#E5E7EB\] {
   color: #e5e7eb !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#E2E8F0\] {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#E2E8F0\] {
   color: #e2e8f0 !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#D1D5DB\] {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#D1D5DB\] {
   color: #d1d5db !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#CBD5E1\] {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#CBD5E1\] {
   color: #cbd5e1 !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#9CA3AF\] {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#9CA3AF\] {
   color: #9ca3af !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#94A3B8\] {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#94A3B8\] {
   color: #94a3b8 !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#BFDBFE\] {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#BFDBFE\] {
   color: #bfdbfe !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#93C5FD\] {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#93C5FD\] {
   color: #93c5fd !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#DBEAFE\] {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-\[\#DBEAFE\] {
   color: #dbeafe !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-white {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-white {
   color: #ffffff !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-300,
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-400 {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-300,
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-400 {
   color: #94a3b8 !important;
 }
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-100,
-html[data-ui-theme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-200 {
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-100,
+html[data-ui-color-scheme='light'] #root [data-ui-isolate='dark-surface'] .text-slate-200 {
   color: #f1f5f9 !important;
 }
 
 /* Badges: colores definidos en @layer con utilidades embebidas */
-html[data-ui-theme='light'] #root .badge-pending,
-html[data-ui-theme='light'] #root .badge-preparing,
-html[data-ui-theme='light'] #root .badge-ready,
-html[data-ui-theme='light'] #root .badge-delivered {
+html[data-ui-color-scheme='light'] #root .badge-pending,
+html[data-ui-color-scheme='light'] #root .badge-preparing,
+html[data-ui-color-scheme='light'] #root .badge-ready,
+html[data-ui-color-scheme='light'] #root .badge-delivered {
   color: #000000 !important;
 }
-html[data-ui-theme='light'] #root .badge-cancelled {
+html[data-ui-color-scheme='light'] #root .badge-cancelled {
   color: #ffffff !important;
 }
 
@@ -632,17 +692,17 @@ html[data-ui-theme='light'] #root .badge-cancelled {
     color: var(--ui-body-text);
     border: 1px solid var(--ui-border);
   }
-  html:not([data-ui-theme='light']) .card .text-slate-500 {
+  html[data-ui-color-scheme='dark'] .card .text-slate-500 {
     color: #e5e7eb !important;
   }
-  html[data-ui-theme='light'] .card .text-slate-500 {
+  html[data-ui-color-scheme='light'] .card .text-slate-500 {
     color: #262626 !important;
   }
-  html:not([data-ui-theme='light']) .card .text-slate-800,
-  html:not([data-ui-theme='light']) .card .text-slate-700 {
+  html[data-ui-color-scheme='dark'] .card .text-slate-800,
+  html[data-ui-color-scheme='dark'] .card .text-slate-700 {
     color: var(--ui-body-text) !important;
   }
-  html:not([data-ui-theme='light']) .card .text-slate-600 {
+  html[data-ui-color-scheme='dark'] .card .text-slate-600 {
     color: var(--ui-muted) !important;
   }
 
@@ -669,13 +729,13 @@ html[data-ui-theme='light'] #root .badge-cancelled {
   }
 
   /* Informe de productos (lista de cierres): sin filas blancas en tema oscuro */
-  html:not([data-ui-theme='light']) .informe-productos-table tbody tr {
+  html[data-ui-color-scheme='dark'] .informe-productos-table tbody tr {
     background-color: transparent;
   }
-  html:not([data-ui-theme='light']) .informe-productos-table tbody tr.informe-productos-row-selected {
+  html[data-ui-color-scheme='dark'] .informe-productos-table tbody tr.informe-productos-row-selected {
     background-color: color-mix(in srgb, var(--ui-accent-muted) 22%, transparent);
   }
-  html[data-ui-theme='light'] .informe-productos-table tbody tr.informe-productos-row-selected {
+  html[data-ui-color-scheme='light'] .informe-productos-table tbody tr.informe-productos-row-selected {
     background-color: rgb(224 242 254 / 0.85);
   }
 
@@ -703,7 +763,7 @@ html[data-ui-theme='light'] #root .badge-cancelled {
     overflow: hidden;
   }
 
-  html[data-ui-theme='light'] .contract-page-scroll {
+  html[data-ui-color-scheme='light'] .contract-page-scroll {
     background: #e8ecf1;
   }
 
@@ -847,16 +907,16 @@ html[data-ui-theme='light'] #root .badge-cancelled {
     border: 0;
   }
 
-  html:not([data-ui-theme='light']) .bg-white .text-slate-900,
-  html:not([data-ui-theme='light']) .bg-white .text-slate-800,
-  html:not([data-ui-theme='light']) .bg-white .text-slate-700 {
+  html[data-ui-color-scheme='dark'] .bg-white .text-slate-900,
+  html[data-ui-color-scheme='dark'] .bg-white .text-slate-800,
+  html[data-ui-color-scheme='dark'] .bg-white .text-slate-700 {
     color: var(--ui-body-text) !important;
   }
-  html:not([data-ui-theme='light']) .bg-white .text-slate-600 {
+  html[data-ui-color-scheme='dark'] .bg-white .text-slate-600 {
     color: #e5e7eb !important;
   }
-  html:not([data-ui-theme='light']) .bg-white .text-slate-500,
-  html:not([data-ui-theme='light']) .bg-white .text-slate-400 {
+  html[data-ui-color-scheme='dark'] .bg-white .text-slate-500,
+  html[data-ui-color-scheme='dark'] .bg-white .text-slate-400 {
     color: #f9fafb !important;
   }
   .badge {
@@ -965,75 +1025,75 @@ html[data-ui-theme='light'] #root .badge-cancelled {
 
 /* Inventario y kardex: en temas oscuros forzar controles oscuros (UA); en claro usar tokens --ui-* */
 @layer components {
-  html:not([data-ui-theme='light']) .logistica-kardex-module {
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module {
     color-scheme: dark;
   }
-  html:not([data-ui-theme='light']) .logistica-kardex-module input:not([type="checkbox"]):not([type="radio"]),
-  html:not([data-ui-theme='light']) .logistica-kardex-module select,
-  html:not([data-ui-theme='light']) .logistica-kardex-module textarea {
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module input:not([type="checkbox"]):not([type="radio"]),
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module select,
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module textarea {
     background-color: #1f2937 !important;
     color: #f9fafb !important;
     -webkit-text-fill-color: #f9fafb;
     border: 1px solid rgba(59, 130, 246, 0.35) !important;
   }
-  html:not([data-ui-theme='light']) .logistica-kardex-module input::placeholder,
-  html:not([data-ui-theme='light']) .logistica-kardex-module textarea::placeholder {
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module input::placeholder,
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module textarea::placeholder {
     color: #9ca3af !important;
     opacity: 1;
   }
-  html:not([data-ui-theme='light']) .logistica-kardex-module select option {
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module select option {
     background-color: #1f2937;
     color: #f9fafb;
   }
-  html:not([data-ui-theme='light']) .logistica-kardex-module input[type="date"]::-webkit-calendar-picker-indicator {
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(0.9);
     opacity: 0.75;
   }
-  html:not([data-ui-theme='light']) .logistica-kardex-module input:-webkit-autofill,
-  html:not([data-ui-theme='light']) .logistica-kardex-module input:-webkit-autofill:hover,
-  html:not([data-ui-theme='light']) .logistica-kardex-module input:-webkit-autofill:focus {
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module input:-webkit-autofill,
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module input:-webkit-autofill:hover,
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module input:-webkit-autofill:focus {
     -webkit-box-shadow: 0 0 0 1000px #1f2937 inset !important;
     -webkit-text-fill-color: #f9fafb !important;
   }
-  html:not([data-ui-theme='light']) .logistica-kardex-module thead th {
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module thead th {
     background-color: #1f2937 !important;
     color: #e5e7eb !important;
   }
-  html:not([data-ui-theme='light']) .logistica-kardex-module thead {
+  html[data-ui-color-scheme='dark'] .logistica-kardex-module thead {
     --tw-bg-opacity: 1;
   }
 
-  html[data-ui-theme='light'] .logistica-kardex-module {
+  html[data-ui-color-scheme='light'] .logistica-kardex-module {
     color-scheme: light;
   }
-  html[data-ui-theme='light'] .logistica-kardex-module input:not([type="checkbox"]):not([type="radio"]),
-  html[data-ui-theme='light'] .logistica-kardex-module select,
-  html[data-ui-theme='light'] .logistica-kardex-module textarea {
+  html[data-ui-color-scheme='light'] .logistica-kardex-module input:not([type="checkbox"]):not([type="radio"]),
+  html[data-ui-color-scheme='light'] .logistica-kardex-module select,
+  html[data-ui-color-scheme='light'] .logistica-kardex-module textarea {
     background-color: var(--ui-input-bg) !important;
     color: var(--ui-body-text) !important;
     -webkit-text-fill-color: var(--ui-body-text);
     border: 1px solid var(--ui-input-border) !important;
   }
-  html[data-ui-theme='light'] .logistica-kardex-module input::placeholder,
-  html[data-ui-theme='light'] .logistica-kardex-module textarea::placeholder {
+  html[data-ui-color-scheme='light'] .logistica-kardex-module input::placeholder,
+  html[data-ui-color-scheme='light'] .logistica-kardex-module textarea::placeholder {
     color: var(--ui-muted) !important;
     opacity: 0.85;
   }
-  html[data-ui-theme='light'] .logistica-kardex-module select option {
+  html[data-ui-color-scheme='light'] .logistica-kardex-module select option {
     background-color: var(--ui-input-bg);
     color: var(--ui-body-text);
   }
-  html[data-ui-theme='light'] .logistica-kardex-module input[type="date"]::-webkit-calendar-picker-indicator {
+  html[data-ui-color-scheme='light'] .logistica-kardex-module input[type="date"]::-webkit-calendar-picker-indicator {
     filter: none;
     opacity: 0.75;
   }
-  html[data-ui-theme='light'] .logistica-kardex-module input:-webkit-autofill,
-  html[data-ui-theme='light'] .logistica-kardex-module input:-webkit-autofill:hover,
-  html[data-ui-theme='light'] .logistica-kardex-module input:-webkit-autofill:focus {
+  html[data-ui-color-scheme='light'] .logistica-kardex-module input:-webkit-autofill,
+  html[data-ui-color-scheme='light'] .logistica-kardex-module input:-webkit-autofill:hover,
+  html[data-ui-color-scheme='light'] .logistica-kardex-module input:-webkit-autofill:focus {
     -webkit-box-shadow: 0 0 0 1000px var(--ui-input-bg) inset !important;
     -webkit-text-fill-color: var(--ui-body-text) !important;
   }
-  html[data-ui-theme='light'] .logistica-kardex-module thead th {
+  html[data-ui-color-scheme='light'] .logistica-kardex-module thead th {
     background-color: var(--ui-surface-2) !important;
     color: var(--ui-body-text) !important;
   }

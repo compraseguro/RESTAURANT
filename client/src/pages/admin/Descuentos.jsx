@@ -68,13 +68,13 @@ export default function Descuentos() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-slate-800">Descuentos</h1>
+        <h1 className="text-2xl font-bold rf-page-title">Descuentos</h1>
         <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2"><MdAdd /> Nuevo Descuento</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-        <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center"><MdDiscount className="text-emerald-600" /></div><div><p className="text-xs text-slate-500">Descuentos Activos</p><p className="text-xl font-bold">{descuentos.filter(d => d.active).length}</p></div></div>
-        <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center"><MdDiscount className="text-slate-500" /></div><div><p className="text-xs text-slate-500">Total</p><p className="text-xl font-bold">{descuentos.length}</p></div></div>
+        <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center"><MdDiscount className="text-emerald-600" /></div><div><p className="text-xs ui-text-muted">Descuentos Activos</p><p className="text-xl font-bold">{descuentos.filter(d => d.active).length}</p></div></div>
+        <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center"><MdDiscount className="ui-text-muted" /></div><div><p className="text-xs ui-text-muted">Total</p><p className="text-xl font-bold">{descuentos.length}</p></div></div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
@@ -83,19 +83,19 @@ export default function Descuentos() {
             <div key={d.id} className={`flex items-center justify-between p-4 rounded-lg border ${d.active ? 'border-slate-100' : 'border-slate-100 opacity-50'}`}>
               <div className="flex items-center gap-4">
                 <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${d.active ? 'bg-gold-100' : 'bg-slate-100'}`}>
-                  <span className={`text-lg font-bold ${d.active ? 'text-gold-700' : 'text-slate-500'}`}>
+                  <span className={`text-lg font-bold ${d.active ? 'text-gold-700' : 'ui-text-muted'}`}>
                     {d.type === 'percentage' ? `${d.value}%` : `S/${d.value}`}
                   </span>
                 </div>
                 <div>
-                  <p className="font-bold text-slate-800">{d.name}</p>
-                  <p className="text-sm text-slate-500">{d.conditions}</p>
-                  <p className="text-xs text-slate-400">Aplica a: {d.applies_to === 'all' ? 'Todos los productos' : 'Total de la cuenta'}</p>
+                  <p className="font-bold rf-section-title">{d.name}</p>
+                  <p className="text-sm ui-text-muted">{d.conditions}</p>
+                  <p className="text-xs text-[var(--ui-muted)]">Aplica a: {d.applies_to === 'all' ? 'Todos los productos' : 'Total de la cuenta'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => toggleActive(d.id)} className={`text-xs px-3 py-1.5 rounded-lg ${d.active ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>{d.active ? 'Desactivar' : 'Activar'}</button>
-                <button onClick={() => deleteDesc(d.id)} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"><MdDelete /></button>
+                <button onClick={() => toggleActive(d.id)} className={`text-xs px-3 py-1.5 rounded-lg ${d.active ? 'bg-slate-100 text-[var(--ui-muted)] hover:bg-slate-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>{d.active ? 'Desactivar' : 'Activar'}</button>
+                <button onClick={() => deleteDesc(d.id)} className="p-2 hover:bg-red-50 rounded-lg text-[var(--ui-muted)] hover:text-red-600"><MdDelete /></button>
               </div>
             </div>
           ))}
@@ -104,13 +104,13 @@ export default function Descuentos() {
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nuevo Descuento" size="md">
         <form onSubmit={handleCreate} className="space-y-4">
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input-field" required /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input-field" required /></div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label><select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="input-field"><option value="percentage">Porcentaje (%)</option><option value="fixed">Monto Fijo (S/)</option></select></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Valor</label><input type="number" step="0.01" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} className="input-field" required /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Tipo</label><select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="input-field"><option value="percentage">Porcentaje (%)</option><option value="fixed">Monto Fijo (S/)</option></select></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Valor</label><input type="number" step="0.01" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} className="input-field" required /></div>
           </div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Aplica a</label><select value={form.appliesTo} onChange={e => setForm({ ...form, appliesTo: e.target.value })} className="input-field"><option value="all">Todos los productos</option><option value="total">Total de la cuenta</option></select></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Condiciones</label><textarea value={form.conditions} onChange={e => setForm({ ...form, conditions: e.target.value })} className="input-field" rows="2" placeholder="Condiciones para aplicar el descuento" /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Aplica a</label><select value={form.appliesTo} onChange={e => setForm({ ...form, appliesTo: e.target.value })} className="input-field"><option value="all">Todos los productos</option><option value="total">Total de la cuenta</option></select></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Condiciones</label><textarea value={form.conditions} onChange={e => setForm({ ...form, conditions: e.target.value })} className="input-field" rows="2" placeholder="Condiciones para aplicar el descuento" /></div>
           <div className="flex gap-3"><button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button><button type="submit" className="btn-primary flex-1">Crear</button></div>
         </form>
       </Modal>

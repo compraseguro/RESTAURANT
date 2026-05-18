@@ -252,24 +252,61 @@ async function registerPendingComprobantePayment({ comprobanteUrl, monto = null,
   writePagoUso(pago);
   notifyPaymentPending();
 
+  await pushComprobanteToCentral({ comprobanteUrl: url, referencia: ref });
+
+  return getPublicPlatformPaymentState();
+}
+
+function recordCentralSyncResult(pago, result) {
+  const pp = { ...(pago.platform_payment || {}) };
+  pp.last_central_sync_at = new Date().toISOString();
+  if (result?.skipped) {
+    pp.last_central_sync_ok = false;
+    pp.last_central_sync_error = `Sync omitido: ${result.reason || 'central_not_configured'}`;
+  } else if (result?.ok) {
+    pp.last_central_sync_ok = true;
+    pp.last_central_sync_error = '';
+    if (result?.data?.paymentId) pp.central_payment_id = result.data.paymentId;
+  } else {
+    pp.last_central_sync_ok = false;
+    const detail = result?.data?.error || result?.error || `HTTP ${result?.status || '?'}`;
+    pp.last_central_sync_error = String(detail).slice(0, 500);
+    console.warn('[platform-payment] sync central falló:', pp.last_central_sync_error);
+  }
+  pago.platform_payment = pp;
+  writePagoUso(pago);
+  return pp;
+}
+
+/** Envía (o reenvía) el comprobante actual a POST /api/payments */
+async function pushComprobanteToCentral({ comprobanteUrl, referencia } = {}) {
+  const pago = readPagoUso();
+  const url = String(comprobanteUrl || pago.comprobante_pago_url || '').trim();
+  if (!url) return { ok: false, error: 'sin_comprobante_url' };
+
+  if (!isCentralSyncConfigured()) {
+    const diag = require('../../packages/shared-config').getCentralSyncConfigDiagnostics();
+    const result = { skipped: true, reason: `faltan variables: ${diag.missing.join(', ')}` };
+    recordCentralSyncResult(pago, result);
+    return result;
+  }
+
+  const ref = String(referencia || pago.platform_payment?.referencia || '').trim() || generateReferencia();
   try {
     const { syncVoucherPaymentNow } = require('./centralSyncService');
     const syncResult = await syncVoucherPaymentNow({
       comprobanteUrl: url,
       reference: ref,
-      amount: pago.platform_payment.monto,
+      amount: pago.platform_payment?.monto ?? null,
       status: PAYMENT_STATUSES.PENDING,
     });
-    if (syncResult?.ok && syncResult?.data?.paymentId) {
-      pago = readPagoUso();
-      pago.platform_payment.central_payment_id = syncResult.data.paymentId;
-      writePagoUso(pago);
-    }
+    recordCentralSyncResult(readPagoUso(), syncResult);
+    return syncResult;
   } catch (err) {
-    console.warn('[platform-payment] sync central:', err.message || err);
+    const result = { ok: false, error: err.message || String(err) };
+    recordCentralSyncResult(readPagoUso(), result);
+    return result;
   }
-
-  return getPublicPlatformPaymentState();
 }
 
 async function pollAndApplyPaymentStatus() {
@@ -329,6 +366,10 @@ function getPublicPlatformPaymentState() {
     plan_activo: approved,
     mensaje_aprobado: approved ? 'Tu pago ha sido aprobado correctamente.' : '',
     historial_count: Array.isArray(pp.historial) ? pp.historial.length : 0,
+    last_central_sync_ok: pp.last_central_sync_ok ?? null,
+    last_central_sync_error: String(pp.last_central_sync_error || ''),
+    last_central_sync_at: pp.last_central_sync_at || null,
+    central_payment_id: pp.central_payment_id || null,
   };
 }
 
@@ -357,4 +398,5 @@ module.exports = {
   applyPaymentApproved,
   applyPaymentRejected,
   fetchCentralStatus,
+  pushComprobanteToCentral,
 };

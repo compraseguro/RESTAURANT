@@ -537,7 +537,7 @@ export default function Reports() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Informes</h1>
+      <h1 className="text-2xl font-bold text-[var(--ui-body-text)] mb-6 rf-page-title">Informes</h1>
       <div className="mb-6">
         <div className="flex flex-wrap gap-2">
           {sectionCards.map(section => {
@@ -546,11 +546,7 @@ export default function Reports() {
               <button
                 key={section.id}
                 onClick={() => setReportSection(section.id)}
-                className={`px-4 py-2 rounded-lg border text-sm font-semibold transition-colors ${
-                  isActive
-                    ? 'border-[#3B82F6] text-[#F9FAFB] bg-transparent'
-                    : 'border-[#3B82F6]/30 text-[#9CA3AF] hover:border-[#3B82F6] hover:text-[#F9FAFB]'
-                }`}
+                className={`rf-tab-btn ${isActive ? 'rf-tab-btn--active' : ''}`}
               >
                 {section.title}
               </button>
@@ -558,7 +554,7 @@ export default function Reports() {
           })}
         </div>
         {activeSectionMeta?.desc && (
-          <p className="text-sm text-[#9CA3AF] mt-3">{activeSectionMeta.desc}</p>
+          <p className="text-sm text-[var(--ui-muted)] mt-3">{activeSectionMeta.desc}</p>
         )}
       </div>
 
@@ -566,7 +562,7 @@ export default function Reports() {
         <>
       <div className="flex gap-2 mb-6 flex-wrap">
         {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.id ? 'bg-gold-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border'}`}>
+          <button key={t.id} type="button" onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${tab === t.id ? 'bg-gold-600 text-white border-gold-600' : 'bg-[var(--ui-surface)] text-[var(--ui-body-text)] border-[color:var(--ui-border)] hover:bg-[var(--ui-surface-2)]'}`}>
             <t.icon /> {t.label}
           </button>
         ))}
@@ -575,10 +571,10 @@ export default function Reports() {
       {tab === 'daily' && dailyData && (
         <div>
           <div className="flex items-center gap-3 mb-4">
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${dailyData.register_open ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${dailyData.register_open ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-[var(--ui-muted)]'}`}>
               Caja: {dailyData.register_open ? 'Abierta' : 'Cerrada'}
             </span>
-            <span className="text-sm text-slate-500">Fecha: {dailyData.date}</span>
+            <span className="text-sm text-[var(--ui-muted)]">Fecha: {dailyData.date}</span>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
@@ -586,7 +582,7 @@ export default function Reports() {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center"><MdAttachMoney className="text-emerald-600 text-xl" /></div>
                 <div>
-                  <p className="text-xs text-slate-500">Ventas Hoy</p>
+                  <p className="text-xs text-[var(--ui-muted)]">Ventas Hoy</p>
                   <p className="text-xl font-bold text-emerald-600">{formatCurrency(dailyData.sales?.total_sales)}</p>
                 </div>
               </div>
@@ -595,7 +591,7 @@ export default function Reports() {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center"><MdReceipt className="text-sky-600 text-xl" /></div>
                 <div>
-                  <p className="text-xs text-slate-500">Pedidos</p>
+                  <p className="text-xs text-[var(--ui-muted)]">Pedidos</p>
                   <p className="text-xl font-bold text-sky-600">{dailyData.sales?.order_count || 0}</p>
                 </div>
               </div>
@@ -604,7 +600,7 @@ export default function Reports() {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gold-100 rounded-xl flex items-center justify-center"><MdTrendingUp className="text-gold-600 text-xl" /></div>
                 <div>
-                  <p className="text-xs text-slate-500">IGV</p>
+                  <p className="text-xs text-[var(--ui-muted)]">IGV</p>
                   <p className="text-xl font-bold text-gold-600">{formatCurrency(dailyData.sales?.total_tax)}</p>
                 </div>
               </div>
@@ -613,7 +609,7 @@ export default function Reports() {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center"><MdAttachMoney className="text-sky-600 text-xl" /></div>
                 <div>
-                  <p className="text-xs text-slate-500">Descuentos</p>
+                  <p className="text-xs text-[var(--ui-muted)]">Descuentos</p>
                   <p className="text-xl font-bold text-sky-600">{formatCurrency(dailyData.sales?.total_discount)}</p>
                 </div>
               </div>
@@ -622,7 +618,7 @@ export default function Reports() {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center"><MdVolunteerActivism className="text-violet-600 text-xl" /></div>
                 <div>
-                  <p className="text-xs text-slate-500">Propinas</p>
+                  <p className="text-xs text-[var(--ui-muted)]">Propinas</p>
                   <p className="text-xl font-bold text-violet-600">{formatCurrency(dailyData.sales?.total_tips)}</p>
                 </div>
               </div>
@@ -631,7 +627,7 @@ export default function Reports() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <div className="card">
-              <h3 className="font-bold text-slate-800 mb-4">Ventas por Hora</h3>
+              <h3 className="font-bold rf-section-title mb-4">Ventas por Hora</h3>
               {dailyData.hourly?.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={dailyData.hourly}>
@@ -642,11 +638,11 @@ export default function Reports() {
                     <Bar dataKey="total" fill="#f04438" radius={[4, 4, 0, 0]} name="Ventas" />
                   </BarChart>
                 </ResponsiveContainer>
-              ) : <p className="text-slate-400 text-center py-8">Sin datos hoy</p>}
+              ) : <p className="text-[var(--ui-muted)] text-center py-8">Sin datos hoy</p>}
             </div>
 
             <div className="card">
-              <h3 className="font-bold text-slate-800 mb-4">Métodos de Pago</h3>
+              <h3 className="font-bold rf-section-title mb-4">Métodos de Pago</h3>
               {dailyData.paymentMethods?.length > 0 ? (
                 <div>
                   <ResponsiveContainer width="100%" height={180}>
@@ -669,22 +665,22 @@ export default function Reports() {
                     ))}
                   </div>
                 </div>
-              ) : <p className="text-slate-400 text-center py-8">Sin ventas hoy</p>}
+              ) : <p className="text-[var(--ui-muted)] text-center py-8">Sin ventas hoy</p>}
             </div>
           </div>
 
           {dailyData.orders?.length > 0 && (
             <div className="card">
-              <h3 className="font-bold text-slate-800 mb-4">Pedidos del Día ({dailyData.orders.length})</h3>
+              <h3 className="font-bold rf-section-title mb-4">Pedidos del Día ({dailyData.orders.length})</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-100">
-                      <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">#</th>
-                      <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Mesa</th>
-                      <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Estado</th>
-                      <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Pago</th>
-                      <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Total</th>
+                      <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">#</th>
+                      <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Mesa</th>
+                      <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Estado</th>
+                      <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Pago</th>
+                      <th className="text-right py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -723,23 +719,23 @@ export default function Reports() {
         <div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="card">
-              <p className="text-sm text-slate-500">Ventas del Mes</p>
+              <p className="text-sm text-[var(--ui-muted)]">Ventas del Mes</p>
               <p className="text-2xl font-bold text-emerald-600">{formatCurrency(monthlyData.totalMonth?.total)}</p>
-              <p className="text-xs text-slate-400">{monthlyData.totalMonth?.orders || 0} pedidos</p>
+              <p className="text-xs text-[var(--ui-muted)]">{monthlyData.totalMonth?.orders || 0} pedidos</p>
             </div>
             <div className="card">
-              <p className="text-sm text-slate-500">IGV del Mes</p>
+              <p className="text-sm text-[var(--ui-muted)]">IGV del Mes</p>
               <p className="text-2xl font-bold text-gold-600">{formatCurrency(monthlyData.totalMonth?.tax)}</p>
             </div>
             <div className="card">
-              <p className="text-sm text-slate-500">Cajas Cerradas</p>
+              <p className="text-sm text-[var(--ui-muted)]">Cajas Cerradas</p>
               <p className="text-2xl font-bold text-sky-600">{monthlyData.closedRegistersMonth || 0}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <div className="card">
-              <h3 className="font-bold text-slate-800 mb-4">Ventas Diarias (último mes)</h3>
+              <h3 className="font-bold rf-section-title mb-4">Ventas Diarias (último mes)</h3>
               {monthlyData.dailySales?.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <LineChart data={[...monthlyData.dailySales].reverse()}>
@@ -750,11 +746,11 @@ export default function Reports() {
                     <Line type="monotone" dataKey="total" stroke="#f04438" strokeWidth={2} dot={{ fill: '#f04438', r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
-              ) : <p className="text-slate-400 text-center py-8">Sin datos</p>}
+              ) : <p className="text-[var(--ui-muted)] text-center py-8">Sin datos</p>}
             </div>
 
             <div className="card">
-              <h3 className="font-bold text-slate-800 mb-4">Ventas Mensuales</h3>
+              <h3 className="font-bold rf-section-title mb-4">Ventas Mensuales</h3>
               {monthlyData.monthlySales?.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={[...monthlyData.monthlySales].reverse()}>
@@ -765,7 +761,7 @@ export default function Reports() {
                     <Bar dataKey="total" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              ) : <p className="text-slate-400 text-center py-8">Sin datos</p>}
+              ) : <p className="text-[var(--ui-muted)] text-center py-8">Sin datos</p>}
             </div>
           </div>
 
@@ -781,7 +777,7 @@ export default function Reports() {
               { id: 'month', label: 'Mes' },
               { id: 'all', label: 'Todo' },
             ].map(p => (
-              <button key={p.id} onClick={() => setRankingPeriod(p.id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${rankingPeriod === p.id ? 'bg-gold-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border'}`}>
+              <button key={p.id} onClick={() => setRankingPeriod(p.id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${rankingPeriod === p.id ? 'bg-gold-600 text-white' : 'bg-white text-[var(--ui-muted)] hover:bg-slate-100 border'}`}>
                 {p.label}
               </button>
             ))}
@@ -790,7 +786,7 @@ export default function Reports() {
           {ranking.length > 0 ? (
             <div>
               <div className="card mb-6">
-                <h3 className="font-bold text-slate-800 mb-4">Top Productos</h3>
+                <h3 className="font-bold rf-section-title mb-4">Top Productos</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={ranking.slice(0, 10)} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -803,15 +799,15 @@ export default function Reports() {
               </div>
 
               <div className="card">
-                <h3 className="font-bold text-slate-800 mb-4">Ranking Completo</h3>
+                <h3 className="font-bold rf-section-title mb-4">Ranking Completo</h3>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-100">
-                      <th className="text-center py-2 px-3 text-xs text-slate-400 uppercase w-12">#</th>
-                      <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Producto</th>
-                      <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Vendidos</th>
-                      <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Ingresos</th>
-                      <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Pedidos</th>
+                      <th className="text-center py-2 px-3 text-xs text-[var(--ui-muted)] uppercase w-12">#</th>
+                      <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Producto</th>
+                      <th className="text-right py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Vendidos</th>
+                      <th className="text-right py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Ingresos</th>
+                      <th className="text-right py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Pedidos</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -822,12 +818,12 @@ export default function Reports() {
                             <span className={`inline-flex w-7 h-7 rounded-full items-center justify-center text-xs font-bold text-white ${i === 0 ? 'bg-gold-400' : i === 1 ? 'bg-slate-400' : 'bg-gold-700'}`}>
                               {i + 1}
                             </span>
-                          ) : <span className="text-slate-400">{i + 1}</span>}
+                          ) : <span className="text-[var(--ui-muted)]">{i + 1}</span>}
                         </td>
                         <td className="py-2 px-3 font-medium">{p.product_name}</td>
                         <td className="py-2 px-3 text-right font-bold">{p.total_sold}</td>
                         <td className="py-2 px-3 text-right text-emerald-600 font-medium">{formatCurrency(p.total_revenue)}</td>
-                        <td className="py-2 px-3 text-right text-slate-500">{p.order_count}</td>
+                        <td className="py-2 px-3 text-right text-[var(--ui-muted)]">{p.order_count}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -835,7 +831,7 @@ export default function Reports() {
               </div>
             </div>
           ) : (
-            <div className="card text-center py-12 text-slate-400">
+            <div className="card text-center py-12 text-[var(--ui-muted)]">
               <MdEmojiEvents className="text-5xl mx-auto mb-3 opacity-40" />
               <p className="font-medium">Sin datos de ventas</p>
               <p className="text-sm">Los rankings se generan con las ventas realizadas</p>
@@ -852,18 +848,18 @@ export default function Reports() {
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2">
                 <MdShoppingCart className="text-[#3B82F6] text-xl" />
-                <h3 className="font-bold text-slate-800">Cierres de caja con ventas</h3>
+                <h3 className="font-bold rf-section-title">Cierres de caja con ventas</h3>
               </div>
               <button
                 type="button"
                 onClick={() => loadMonthly().then(setMonthlyData).catch(console.error)}
-                className="text-xs px-2 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1"
+                className="text-xs px-2 py-1 rounded-lg border border-slate-200 text-[var(--ui-muted)] hover:bg-slate-50 inline-flex items-center gap-1"
               >
                 <MdRefresh className="text-sm" /> Actualizar lista
               </button>
             </div>
             {!(monthlyData?.closedRegisters || []).length ? (
-              <p className="text-slate-500">Aún no hay cierres de caja. Tras un cierre, aparecerá aquí y podrás abrir el informe.</p>
+              <p className="text-[var(--ui-muted)]">Aún no hay cierres de caja. Tras un cierre, aparecerá aquí y podrás abrir el informe.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="informe-productos-table w-full text-sm">
@@ -1007,25 +1003,25 @@ export default function Reports() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <MdPointOfSale className="text-[#3B82F6] text-xl" />
-              <h3 className="font-bold text-slate-800">Reporte de Caja</h3>
+              <h3 className="font-bold rf-section-title">Reporte de Caja</h3>
             </div>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-[var(--ui-muted)]">
               Cierres registrados: {(monthlyData?.closedRegisters || []).length}
             </span>
           </div>
           {(monthlyData?.closedRegisters || []).length === 0 ? (
-            <p className="text-slate-500">No hay cierres de caja registrados todavía.</p>
+            <p className="text-[var(--ui-muted)]">No hay cierres de caja registrados todavía.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100">
-                    <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Caja cerrada</th>
-                    <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Cajero</th>
-                    <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Inicio de turno</th>
-                    <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Hora de cierre</th>
-                    <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Venta total</th>
-                    <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Acciones</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Caja cerrada</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Cajero</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Inicio de turno</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Hora de cierre</th>
+                    <th className="text-right py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Venta total</th>
+                    <th className="text-right py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1033,14 +1029,14 @@ export default function Reports() {
                     <tr key={r.id} className="border-b border-slate-50">
                       <td className="py-2 px-3 font-medium">{r.id.slice(0, 8).toUpperCase()}</td>
                       <td className="py-2 px-3">{r.user_name || '-'}</td>
-                      <td className="py-2 px-3 text-slate-500">{formatDateTime(r.opened_at)}</td>
-                      <td className="py-2 px-3 text-slate-500">{formatDateTime(r.closed_at)}</td>
+                      <td className="py-2 px-3 text-[var(--ui-muted)]">{formatDateTime(r.opened_at)}</td>
+                      <td className="py-2 px-3 text-[var(--ui-muted)]">{formatDateTime(r.closed_at)}</td>
                       <td className="py-2 px-3 text-right font-bold">{formatCurrency(r.total_sales || 0)}</td>
                       <td className="py-2 px-3">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => openClosedRegisterDetail(r)}
-                            className="text-xs px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 inline-flex items-center gap-1"
+                            className="text-xs px-3 py-1.5 bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] rounded-lg hover:bg-[var(--ui-sidebar-hover)] inline-flex items-center gap-1"
                           >
                             <MdVisibility /> Ver detalle
                           </button>
@@ -1063,15 +1059,15 @@ export default function Reports() {
 
       {reportSection === 'compras' && (
         <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Compras recepcionadas</h3>
+          <h3 className="font-bold rf-section-title mb-4">Compras recepcionadas</h3>
           {purchaseGroups.length === 0 ? (
-            <p className="text-slate-500">No hay compras registradas.</p>
+            <p className="text-[var(--ui-muted)]">No hay compras registradas.</p>
           ) : (
             <div className="space-y-4">
               {purchaseGroups.map(group => (
                 <div key={group.id} className="border border-slate-200 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="font-semibold text-slate-800">Compra {group.id.slice(0, 8)}</p>
+                    <p className="font-semibold rf-section-title">Compra {group.id.slice(0, 8)}</p>
                     <p className="font-bold text-red-700">{formatCurrency(group.total)}</p>
                   </div>
                   {group.items.map(item => (
@@ -1165,13 +1161,13 @@ export default function Reports() {
           {financeOverview && !financeLoading ? <FinanceBusinessIntelPanel overview={financeOverview} /> : null}
 
           <div className="card">
-            <h3 className="font-bold text-slate-800 mb-2">Registrar pérdida</h3>
-            <p className="text-sm text-slate-600 mb-4">
+            <h3 className="font-bold rf-section-title mb-2">Registrar pérdida</h3>
+            <p className="text-sm text-[var(--ui-muted)] mb-4">
               Incluye mermas, daños, reembolsos y gastos extra. Opcional: detalle en JSON (productos y cantidades).
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Categoría</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-1">Categoría</label>
                 <select
                   className="input-field"
                   value={lossForm.category}
@@ -1183,7 +1179,7 @@ export default function Reports() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Monto (S/)</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-1">Monto (S/)</label>
                 <input
                   type="number"
                   min="0.01"
@@ -1194,7 +1190,7 @@ export default function Reports() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs text-slate-500 mb-1">Concepto</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-1">Concepto</label>
                 <input
                   className="input-field"
                   value={lossForm.concept}
@@ -1203,7 +1199,7 @@ export default function Reports() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Fecha (opcional, ISO)</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-1">Fecha (opcional, ISO)</label>
                 <input
                   className="input-field"
                   value={lossForm.occurred_at}
@@ -1212,7 +1208,7 @@ export default function Reports() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs text-slate-500 mb-1">Detalle ítems (JSON opcional)</label>
+                <label className="block text-xs text-[var(--ui-muted)] mb-1">Detalle ítems (JSON opcional)</label>
                 <textarea
                   className="input-field min-h-[72px] font-mono text-xs"
                   value={lossForm.itemsText}
@@ -1228,9 +1224,9 @@ export default function Reports() {
 
           <div className="card">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <h3 className="font-bold text-slate-800">Detalle de pérdidas</h3>
+              <h3 className="font-bold rf-section-title">Detalle de pérdidas</h3>
               <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-500">Filtrar categoría</label>
+                <label className="text-xs text-[var(--ui-muted)]">Filtrar categoría</label>
                 <select
                   className="input-field w-auto text-sm"
                   value={lossCategoryFilter}
@@ -1243,11 +1239,11 @@ export default function Reports() {
                 </select>
               </div>
             </div>
-            <p className="text-sm font-semibold text-slate-700 mb-3">
+            <p className="text-sm font-semibold text-[var(--ui-body-text)] mb-3">
               Total pérdidas (eventos en rango): {formatCurrency(lossEvents?.loss_events_total)}
             </p>
             {!lossEvents?.events?.length ? (
-              <p className="text-slate-500">No hay eventos en este rango.</p>
+              <p className="text-[var(--ui-muted)]">No hay eventos en este rango.</p>
             ) : (
               <div className="ui-data-table">
                 <table>
@@ -1288,26 +1284,26 @@ export default function Reports() {
 
       {reportSection === 'facturacion' && (
         <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Facturación electrónica</h3>
-          <p className="text-slate-600 mb-4">Resumen de comprobantes electrónicos emitidos.</p>
+          <h3 className="font-bold rf-section-title mb-4">Facturación electrónica</h3>
+          <p className="text-[var(--ui-muted)] mb-4">Resumen de comprobantes electrónicos emitidos.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="bg-slate-50 rounded-lg p-3">
-              <p className="text-xs text-slate-500">Pedidos pagados hoy</p>
-              <p className="text-xl font-bold text-slate-800">
+              <p className="text-xs text-[var(--ui-muted)]">Pedidos pagados hoy</p>
+              <p className="text-xl font-bold text-[var(--ui-body-text)]">
                 {(dailyData?.orders || []).filter(o => o.payment_status === 'paid' && o.status !== 'cancelled').length}
               </p>
             </div>
             <div className="bg-slate-50 rounded-lg p-3">
-              <p className="text-xs text-slate-500">Monto facturable hoy</p>
-              <p className="text-xl font-bold text-slate-800">
+              <p className="text-xs text-[var(--ui-muted)]">Monto facturable hoy</p>
+              <p className="text-xl font-bold text-[var(--ui-body-text)]">
                 {formatCurrency((dailyData?.orders || [])
                   .filter(o => o.payment_status === 'paid' && o.status !== 'cancelled')
                   .reduce((sum, o) => sum + Number(o.total || 0), 0))}
               </p>
             </div>
             <div className="bg-slate-50 rounded-lg p-3">
-              <p className="text-xs text-slate-500">Comprobantes emitidos</p>
-              <p className="text-xl font-bold text-slate-800">{billingDocuments.length}</p>
+              <p className="text-xs text-[var(--ui-muted)]">Comprobantes emitidos</p>
+              <p className="text-xl font-bold text-[var(--ui-body-text)]">{billingDocuments.length}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
@@ -1360,12 +1356,12 @@ export default function Reports() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Comprobante</th>
-                  <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Cliente</th>
-                  <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Total</th>
-                  <th className="text-left py-2 px-3 text-xs text-slate-400 uppercase">Estado</th>
-                  <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">Acciones</th>
-                  <th className="text-right py-2 px-3 text-xs text-slate-400 uppercase">PDF</th>
+                  <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Comprobante</th>
+                  <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Cliente</th>
+                  <th className="text-right py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Total</th>
+                  <th className="text-left py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Estado</th>
+                  <th className="text-right py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">Acciones</th>
+                  <th className="text-right py-2 px-3 text-xs text-[var(--ui-muted)] uppercase">PDF</th>
                 </tr>
               </thead>
               <tbody>
@@ -1381,7 +1377,7 @@ export default function Reports() {
                           : doc.provider_status === 'error'
                             ? 'bg-red-100 text-red-700'
                             : doc.provider_status === 'local'
-                              ? 'bg-slate-100 text-slate-700'
+                              ? 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)]'
                               : 'bg-amber-100 text-amber-700'
                       }`}>
                         {doc.provider_status === 'local' ? 'local (nota)' : doc.provider_status}
@@ -1389,7 +1385,7 @@ export default function Reports() {
                     </td>
                     <td className="py-2 px-3 text-right">
                       {doc.provider_status === 'local' ? (
-                        <span className="text-xs text-slate-500">Nota local</span>
+                        <span className="text-xs text-[var(--ui-muted)]">Nota local</span>
                       ) : ['error', 'pending', 'sent'].includes(doc.provider_status) ? (
                         <button
                           type="button"
@@ -1400,7 +1396,7 @@ export default function Reports() {
                           <MdRefresh /> {retryingDocId === doc.id ? 'Enviando...' : 'Reintentar'}
                         </button>
                       ) : (
-                        <span className="text-xs text-slate-400">OK</span>
+                        <span className="text-xs text-[var(--ui-muted)]">OK</span>
                       )}
                     </td>
                     <td className="py-2 px-3 text-right align-middle">
@@ -1429,14 +1425,14 @@ export default function Reports() {
                           </a>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="text-xs text-[var(--ui-muted)]">—</span>
                       )}
                     </td>
                   </tr>
                 ))}
                 {billingDocuments.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-6 text-center text-slate-400">Sin comprobantes emitidos todavía.</td>
+                    <td colSpan={6} className="py-6 text-center text-[var(--ui-muted)]">Sin comprobantes emitidos todavía.</td>
                   </tr>
                 )}
               </tbody>
@@ -1447,7 +1443,7 @@ export default function Reports() {
 
       {reportSection === 'inventario' && (
         <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Movimientos de inventario</h3>
+          <h3 className="font-bold rf-section-title mb-4">Movimientos de inventario</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="bg-red-50 rounded-lg p-3">
               <p className="text-xs text-red-600">Productos con stock bajo</p>
@@ -1506,7 +1502,7 @@ export default function Reports() {
         size="lg"
       >
         {loadingClosedRegister && (
-          <div className="py-8 text-center text-slate-500">Cargando detalle...</div>
+          <div className="py-8 text-center text-[var(--ui-muted)]">Cargando detalle...</div>
         )}
         {selectedClosedRegister && !loadingClosedRegister && (
           <div className="space-y-4">
@@ -1521,12 +1517,12 @@ export default function Reports() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="bg-slate-50 rounded-lg p-3">
-                <p className="text-xs text-slate-500">Cajero</p>
-                <p className="font-semibold text-slate-800">{selectedClosedRegister.user_name}</p>
+                <p className="text-xs text-[var(--ui-muted)]">Cajero</p>
+                <p className="font-semibold rf-section-title">{selectedClosedRegister.user_name}</p>
               </div>
               <div className="bg-slate-50 rounded-lg p-3">
-                <p className="text-xs text-slate-500">Apertura / Cierre</p>
-                <p className="font-semibold text-slate-800">
+                <p className="text-xs text-[var(--ui-muted)]">Apertura / Cierre</p>
+                <p className="font-semibold rf-section-title">
                   {formatDateTime(selectedClosedRegister.opened_at)} - {formatDateTime(selectedClosedRegister.closed_at)}
                 </p>
               </div>
@@ -1561,18 +1557,18 @@ export default function Reports() {
             </div>
 
             <div className="bg-white border border-slate-200 rounded-lg p-3">
-              <p className="text-sm font-semibold text-slate-800 mb-2">Arqueo</p>
+              <p className="text-sm font-semibold rf-section-title mb-2">Arqueo</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                 <div>
-                  <p className="text-xs text-slate-500">Efectivo esperado</p>
+                  <p className="text-xs text-[var(--ui-muted)]">Efectivo esperado</p>
                   <p className="font-medium">{formatCurrency(selectedClosedRegister.arqueo?.expected_cash)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Efectivo contado</p>
+                  <p className="text-xs text-[var(--ui-muted)]">Efectivo contado</p>
                   <p className="font-medium">{formatCurrency(selectedClosedRegister.arqueo?.counted_cash)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Diferencia</p>
+                  <p className="text-xs text-[var(--ui-muted)]">Diferencia</p>
                   <p className={`font-bold ${(selectedClosedRegister.arqueo?.difference || 0) < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                     {formatCurrency(selectedClosedRegister.arqueo?.difference)}
                   </p>
@@ -1581,11 +1577,11 @@ export default function Reports() {
             </div>
 
             <div className="bg-white border border-slate-200 rounded-lg p-3">
-              <p className="text-sm font-semibold text-slate-800 mb-2">Detalle por denominación</p>
+              <p className="text-sm font-semibold rf-section-title mb-2">Detalle por denominación</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                 {Object.entries(DENOMINATION_LABELS).map(([key, label]) => (
                   <div key={key} className="flex items-center justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-600">{label}</span>
+                    <span className="text-[var(--ui-muted)]">{label}</span>
                     <span className="font-medium">{selectedClosedRegister.arqueo?.denominations?.[key] || 0}</span>
                   </div>
                 ))}
@@ -1595,13 +1591,13 @@ export default function Reports() {
             {Array.isArray(selectedClosedRegister.movements) &&
               selectedClosedRegister.movements.filter((m) => m.type === 'income').length > 0 && (
                 <div className="bg-white border border-slate-200 rounded-lg p-3">
-                  <p className="text-sm font-semibold text-slate-800 mb-2">Ingresos</p>
+                  <p className="text-sm font-semibold rf-section-title mb-2">Ingresos</p>
                   <div className="space-y-1">
                     {selectedClosedRegister.movements
                       .filter((mv) => mv.type === 'income')
                       .map((mv) => (
                         <div key={mv.id} className="text-sm flex justify-between border-b border-slate-100 py-1">
-                          <span className="text-slate-600">{formatDateTime(mv.created_at)} · {mv.concept || 'Sin concepto'}</span>
+                          <span className="text-[var(--ui-muted)]">{formatDateTime(mv.created_at)} · {mv.concept || 'Sin concepto'}</span>
                           <span className="font-medium text-emerald-600">{formatCurrency(mv.amount || 0)}</span>
                         </div>
                       ))}
@@ -1611,13 +1607,13 @@ export default function Reports() {
             {Array.isArray(selectedClosedRegister.movements) &&
               selectedClosedRegister.movements.filter((m) => m.type === 'expense').length > 0 && (
                 <div className="bg-white border border-slate-200 rounded-lg p-3">
-                  <p className="text-sm font-semibold text-slate-800 mb-2">Egresos</p>
+                  <p className="text-sm font-semibold rf-section-title mb-2">Egresos</p>
                   <div className="space-y-1">
                     {selectedClosedRegister.movements
                       .filter((mv) => mv.type === 'expense')
                       .map((mv) => (
                         <div key={mv.id} className="text-sm flex justify-between border-b border-slate-100 py-1">
-                          <span className="text-slate-600">{formatDateTime(mv.created_at)} · {mv.concept || 'Sin concepto'}</span>
+                          <span className="text-[var(--ui-muted)]">{formatDateTime(mv.created_at)} · {mv.concept || 'Sin concepto'}</span>
                           <span className="font-medium text-red-600">{formatCurrency(mv.amount || 0)}</span>
                         </div>
                       ))}
@@ -1627,14 +1623,14 @@ export default function Reports() {
             {Array.isArray(selectedClosedRegister.notes_list) &&
               selectedClosedRegister.notes_list.filter((n) => n.note_type === 'debit').length > 0 && (
                 <div className="bg-white border border-slate-200 rounded-lg p-3">
-                  <p className="text-sm font-semibold text-slate-800 mb-2">Notas de débito</p>
+                  <p className="text-sm font-semibold rf-section-title mb-2">Notas de débito</p>
                   <div className="space-y-1">
                     {selectedClosedRegister.notes_list
                       .filter((note) => note.note_type === 'debit')
                       .map((note) => (
                         <div key={note.id} className="text-sm flex justify-between border-b border-slate-100 py-1">
-                          <span className="text-slate-600">{formatDateTime(note.created_at)} · {note.reason || 'Sin motivo'}</span>
-                          <span className="font-medium text-slate-800">{formatCurrency(note.amount || 0)}</span>
+                          <span className="text-[var(--ui-muted)]">{formatDateTime(note.created_at)} · {note.reason || 'Sin motivo'}</span>
+                          <span className="font-medium text-[var(--ui-body-text)]">{formatCurrency(note.amount || 0)}</span>
                         </div>
                       ))}
                   </div>
@@ -1643,14 +1639,14 @@ export default function Reports() {
             {Array.isArray(selectedClosedRegister.notes_list) &&
               selectedClosedRegister.notes_list.filter((n) => n.note_type === 'credit').length > 0 && (
                 <div className="bg-white border border-slate-200 rounded-lg p-3">
-                  <p className="text-sm font-semibold text-slate-800 mb-2">Notas de crédito</p>
+                  <p className="text-sm font-semibold rf-section-title mb-2">Notas de crédito</p>
                   <div className="space-y-1">
                     {selectedClosedRegister.notes_list
                       .filter((note) => note.note_type === 'credit')
                       .map((note) => (
                         <div key={note.id} className="text-sm flex justify-between border-b border-slate-100 py-1">
-                          <span className="text-slate-600">{formatDateTime(note.created_at)} · {note.reason || 'Sin motivo'}</span>
-                          <span className="font-medium text-slate-800">{formatCurrency(note.amount || 0)}</span>
+                          <span className="text-[var(--ui-muted)]">{formatDateTime(note.created_at)} · {note.reason || 'Sin motivo'}</span>
+                          <span className="font-medium text-[var(--ui-body-text)]">{formatCurrency(note.amount || 0)}</span>
                         </div>
                       ))}
                   </div>
@@ -1658,20 +1654,20 @@ export default function Reports() {
               )}
 
             <div className="bg-slate-50 rounded-lg p-3">
-              <p className="text-xs text-slate-500 mb-1">Observaciones</p>
-              <p className="text-sm text-slate-700">{selectedClosedRegister.arqueo?.observations || selectedClosedRegister.notes || 'Sin observaciones'}</p>
+              <p className="text-xs text-[var(--ui-muted)] mb-1">Observaciones</p>
+              <p className="text-sm text-[var(--ui-body-text)]">{selectedClosedRegister.arqueo?.observations || selectedClosedRegister.notes || 'Sin observaciones'}</p>
             </div>
             {Array.isArray(selectedClosedRegister.sold_products) && selectedClosedRegister.sold_products.length > 0 && (
               <div className="bg-white border border-slate-200 rounded-lg p-3">
-                <p className="text-sm font-semibold text-slate-800 mb-2">Detalle por producto (ventas de la caja)</p>
+                <p className="text-sm font-semibold rf-section-title mb-2">Detalle por producto (ventas de la caja)</p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-100">
-                        <th className="text-left py-2 px-2 text-xs text-slate-400 uppercase">Producto</th>
-                        <th className="text-right py-2 px-2 text-xs text-slate-400 uppercase">Cantidad</th>
-                        <th className="text-right py-2 px-2 text-xs text-slate-400 uppercase">Precio</th>
-                        <th className="text-right py-2 px-2 text-xs text-slate-400 uppercase">Total</th>
+                        <th className="text-left py-2 px-2 text-xs text-[var(--ui-muted)] uppercase">Producto</th>
+                        <th className="text-right py-2 px-2 text-xs text-[var(--ui-muted)] uppercase">Cantidad</th>
+                        <th className="text-right py-2 px-2 text-xs text-[var(--ui-muted)] uppercase">Precio</th>
+                        <th className="text-right py-2 px-2 text-xs text-[var(--ui-muted)] uppercase">Total</th>
                       </tr>
                     </thead>
                     <tbody>

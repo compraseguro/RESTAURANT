@@ -391,7 +391,7 @@ export default function MasterAdmin() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="card lg:col-span-2">
               <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="font-semibold text-slate-800">Administradores compradores</h3>
+                <h3 className="font-semibold rf-section-title">Administradores compradores</h3>
                 <button
                   type="button"
                   className="btn-primary flex items-center gap-2"
@@ -405,7 +405,7 @@ export default function MasterAdmin() {
                   <div key={u.id} className="border rounded-lg px-3 py-2 flex items-center justify-between">
                     <div>
                       <p className="font-medium text-sm text-slate-800">{u.full_name}</p>
-                      <p className="text-xs text-slate-500">{u.username} · {u.email}</p>
+                      <p className="text-xs ui-text-muted">{u.username} · {u.email}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-xs px-2 py-1 rounded-full ${Number(u.is_active || 0) === 1 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
@@ -422,7 +422,7 @@ export default function MasterAdmin() {
                     </div>
                   </div>
                 ))}
-                {adminUsers.length === 0 && <p className="text-sm text-slate-500">No hay administradores registrados.</p>}
+                {adminUsers.length === 0 && <p className="text-sm ui-text-muted">No hay administradores registrados.</p>}
               </div>
             </div>
           </div>
@@ -430,15 +430,15 @@ export default function MasterAdmin() {
 
         {tab === 'plan' && (
           <div className="card">
-            <h2 className="font-semibold text-slate-800 mb-2">Plan comercial del restaurante</h2>
-            <p className="text-sm text-slate-500 mb-4">
+            <h2 className="font-semibold rf-section-title mb-2">Plan comercial del restaurante</h2>
+            <p className="text-sm ui-text-muted mb-4">
               Elija el plan y active o desactive módulos y submódulos incluidos en ese plan. Los cambios aplican al guardar; el personal debe{' '}
               <strong>volver a iniciar sesión</strong> o recargar la página.
             </p>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Plan activo</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Plan activo</label>
                   <select
                     className="input-field"
                     value={
@@ -484,7 +484,7 @@ export default function MasterAdmin() {
                     </option>
                   </select>
                 </div>
-                <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
+                <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-[var(--ui-muted)]">
                   Desactivar un módulo oculta su entrada en el menú. Desactivar un submódulo (p. ej. una vista de Caja) oculta solo esa opción si el módulo
                   padre sigue activo.
                 </div>
@@ -507,7 +507,7 @@ export default function MasterAdmin() {
                 </div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 max-h-[min(70vh,560px)] overflow-y-auto">
-                <h3 className="text-sm font-semibold text-slate-800 mb-3">Módulos del plan seleccionado</h3>
+                <h3 className="text-sm font-semibold rf-section-title mb-3">Módulos del plan seleccionado</h3>
                 {(() => {
                   const planKey =
                     control.service_plan === 'basico' || control.service_plan === 'básico'
@@ -526,7 +526,7 @@ export default function MasterAdmin() {
                   };
                   const isOn = (key) => planModuleDraft[key] !== false;
                   return tree.length === 0 ? (
-                    <p className="text-sm text-slate-500">No hay datos de catálogo. Recargue la página.</p>
+                    <p className="text-sm ui-text-muted">No hay datos de catálogo. Recargue la página.</p>
                   ) : (
                     <ul className="space-y-3">
                       {tree.map((node) => {
@@ -552,7 +552,7 @@ export default function MasterAdmin() {
                                     <li key={ck}>
                                       <label
                                         className={`flex items-center justify-between gap-2 text-sm ${
-                                          parentOn ? 'cursor-pointer text-slate-700' : 'text-slate-400 cursor-not-allowed'
+                                          parentOn ? 'cursor-pointer text-slate-700' : 'text-[var(--ui-muted)] cursor-not-allowed'
                                         }`}
                                       >
                                         <span>{ch.label}</span>
@@ -614,21 +614,21 @@ export default function MasterAdmin() {
 
         {tab === 'facturacion' && (
           <div className="card">
-            <h2 className="font-semibold text-slate-800 mb-2">Fecha de facturación y bloqueo automático</h2>
-            <p className="text-xs text-slate-500 mb-3">
+            <h2 className="font-semibold rf-section-title mb-2">Fecha de facturación y bloqueo automático</h2>
+            <p className="text-xs ui-text-muted mb-3">
               La fecha es la <strong>ancla del ciclo</strong> (p. ej. día de venta o alta). No exige pago ese mismo día: los avisos y el bloqueo automático por mora se calculan contra la <strong>próxima fecha de cobro</strong> (Pago por uso → próxima facturación, según periodo mensual o semestral).
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Fecha de referencia del ciclo</label>
+                <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Fecha de referencia del ciclo</label>
                 <input className="input-field" type="date" value={control.billing_date || ''} onChange={(e) => setDashboard((p) => ({ ...p, control: { ...(p?.control || {}), billing_date: e.target.value } }))} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Avisar antes (días)</label>
+                <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Avisar antes (días)</label>
                 <input className="input-field" type="number" min="1" max="30" value={control.notify_days_before ?? 5} onChange={(e) => setDashboard((p) => ({ ...p, control: { ...(p?.control || {}), notify_days_before: Number(e.target.value || 5) } }))} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Bloqueo automático por mora</label>
+                <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Bloqueo automático por mora</label>
                 <select className="input-field" value={Number(control.auto_block_on_overdue || 0) === 1 ? '1' : '0'} onChange={(e) => setDashboard((p) => ({ ...p, control: { ...(p?.control || {}), auto_block_on_overdue: Number(e.target.value) } }))}>
                   <option value="1">Activo</option>
                   <option value="0">Inactivo</option>
@@ -636,14 +636,14 @@ export default function MasterAdmin() {
               </div>
             </div>
             <div className="mt-6 border-t border-slate-200 pt-4">
-              <h3 className="text-sm font-semibold text-slate-800 mb-2">Consultas DNI / RUC (padrón en caja)</h3>
-              <p className="text-xs text-slate-500 mb-3">
+              <h3 className="text-sm font-semibold rf-section-title mb-2">Consultas DNI / RUC (padrón en caja)</h3>
+              <p className="text-xs ui-text-muted mb-3">
                 Por defecto no hay límite. Si indica un número, el sistema permitirá como máximo esa cantidad de consultas exitosas al mes (zona horaria
                 Lima). El contador se muestra al personal en la caja.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Límite mensual (vacío = ilimitado)</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Límite mensual (vacío = ilimitado)</label>
                   <input
                     className="input-field"
                     type="number"
@@ -669,7 +669,7 @@ export default function MasterAdmin() {
                     }}
                   />
                 </div>
-                <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
+                <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-[var(--ui-muted)]">
                   Uso este mes (Lima):{' '}
                   <strong>
                     {(() => {
@@ -723,13 +723,13 @@ export default function MasterAdmin() {
         {tab === 'notificaciones' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="card">
-              <h2 className="font-semibold text-slate-800 mb-3">Publicar notificación para administradores</h2>
+              <h2 className="font-semibold rf-section-title mb-3">Publicar notificación para administradores</h2>
               <form onSubmit={sendNotification} className="space-y-3">
                 <input className="input-field" placeholder="Título" value={notifyForm.title} onChange={(e) => setNotifyForm((p) => ({ ...p, title: e.target.value }))} required />
                 <textarea className="input-field" rows={4} placeholder="Mensaje" value={notifyForm.message} onChange={(e) => setNotifyForm((p) => ({ ...p, message: e.target.value }))} required />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Duración</label>
+                    <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Duración</label>
                     <input
                       type="number"
                       min="1"
@@ -740,7 +740,7 @@ export default function MasterAdmin() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Unidad</label>
+                    <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Unidad</label>
                     <select
                       className="input-field"
                       value={notifyForm.duration_unit}
@@ -752,7 +752,7 @@ export default function MasterAdmin() {
                     </select>
                   </div>
                   <div className="flex items-end">
-                    <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                    <label className="inline-flex items-center gap-2 text-sm text-[var(--ui-body-text)]">
                       <input
                         type="checkbox"
                         checked={notifyForm.no_expiry}
@@ -763,9 +763,9 @@ export default function MasterAdmin() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Imagen (opcional)</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Imagen (opcional)</label>
                   <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => uploadImage(e.target.files?.[0])} />
-                  {uploadingImage && <p className="text-xs text-slate-500 mt-1">Subiendo imagen...</p>}
+                  {uploadingImage && <p className="text-xs ui-text-muted mt-1">Subiendo imagen...</p>}
                   {notifyForm.image_url && <p className="text-xs text-emerald-700 mt-1">Imagen cargada: {notifyForm.image_url}</p>}
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -775,7 +775,7 @@ export default function MasterAdmin() {
               </form>
             </div>
             <div className="card">
-              <h3 className="font-semibold text-slate-800 mb-2">Historial de notificaciones</h3>
+              <h3 className="font-semibold rf-section-title mb-2">Historial de notificaciones</h3>
               <div className="space-y-2 max-h-[480px] overflow-auto pr-1">
                 {notifications.map((n) => (
                   <div key={n.id} className="border rounded-lg p-3">
@@ -795,7 +795,7 @@ export default function MasterAdmin() {
                         </button>
                       </div>
                     </div>
-                    <p className="text-xs text-slate-500 mb-2">{new Date(n.created_at).toLocaleString('es-PE')} · {n.created_by}</p>
+                    <p className="text-xs ui-text-muted mb-2">{new Date(n.created_at).toLocaleString('es-PE')} · {n.created_by}</p>
                     <p className={`text-xs mb-2 ${n.expires_at && new Date(n.expires_at).getTime() <= Date.now() ? 'text-red-600' : 'text-emerald-600'}`}>{getRemainingLabel(n.expires_at)}</p>
                     {n.image_url ? (
                       <div className="mb-2 rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -806,10 +806,10 @@ export default function MasterAdmin() {
                         />
                       </div>
                     ) : null}
-                    <p className="text-sm text-slate-700">{n.message}</p>
+                    <p className="text-sm text-[var(--ui-body-text)]">{n.message}</p>
                   </div>
                 ))}
-                {notifications.length === 0 && <p className="text-sm text-slate-500">No hay notificaciones publicadas.</p>}
+                {notifications.length === 0 && <p className="text-sm ui-text-muted">No hay notificaciones publicadas.</p>}
               </div>
             </div>
           </div>
@@ -817,13 +817,13 @@ export default function MasterAdmin() {
 
         {tab === 'bloqueo' && (
           <div className="card">
-            <h2 className="font-semibold text-slate-800 mb-3">Bloqueo total del sistema</h2>
+            <h2 className="font-semibold rf-section-title mb-3">Bloqueo total del sistema</h2>
             <div className={`rounded-lg border p-3 mb-3 ${lockEnabled ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
               Estado actual: <strong>{lockEnabled ? 'BLOQUEADO' : 'OPERATIVO'}</strong>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Motivo de bloqueo</label>
+                <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Motivo de bloqueo</label>
                 <input className="input-field" value={control.global_lock_reason || ''} onChange={(e) => setDashboard((p) => ({ ...p, control: { ...(p?.control || {}), global_lock_reason: e.target.value } }))} />
               </div>
               <div className="flex items-end gap-2">
@@ -835,7 +835,7 @@ export default function MasterAdmin() {
                 </button>
               </div>
             </div>
-            <p className="text-xs text-slate-500 mt-3">Cuando está activo, ningún usuario estándar podrá ingresar ni operar hasta que lo desactives.</p>
+            <p className="text-xs ui-text-muted mt-3">Cuando está activo, ningún usuario estándar podrá ingresar ni operar hasta que lo desactives.</p>
           </div>
         )}
       </div>
@@ -855,7 +855,7 @@ export default function MasterAdmin() {
             <strong>Usuario actual:</strong> {creds.username}
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña actual *</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Contraseña actual *</label>
             <input
               type="password"
               className="input-field"
@@ -865,7 +865,7 @@ export default function MasterAdmin() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nuevo usuario (opcional)</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nuevo usuario (opcional)</label>
             <input
               className="input-field"
               value={masterCredForm.new_username}
@@ -874,7 +874,7 @@ export default function MasterAdmin() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nueva contraseña (opcional)</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nueva contraseña (opcional)</label>
             <input
               type="password"
               className="input-field"
@@ -884,7 +884,7 @@ export default function MasterAdmin() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar nueva contraseña</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Confirmar nueva contraseña</label>
             <input
               type="password"
               className="input-field"
@@ -924,7 +924,7 @@ export default function MasterAdmin() {
             <button
               type="button"
               onClick={() => setShowBuyerPassword((prev) => !prev)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+              className="absolute right-3 top-1/2 -translate-y-1/2 ui-text-muted hover:text-slate-700"
               aria-label={showBuyerPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
               {showBuyerPassword ? <MdVisibilityOff /> : <MdVisibility />}
@@ -944,7 +944,7 @@ export default function MasterAdmin() {
           <input className="input-field" placeholder="URL de imagen (opcional)" value={editNotifyForm.image_url} onChange={(e) => setEditNotifyForm((p) => ({ ...p, image_url: e.target.value }))} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Duración</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Duración</label>
               <input
                 type="number"
                 min="1"
@@ -955,7 +955,7 @@ export default function MasterAdmin() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Unidad</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Unidad</label>
               <select
                 className="input-field"
                 value={editNotifyForm.duration_unit}
@@ -967,7 +967,7 @@ export default function MasterAdmin() {
               </select>
             </div>
             <div className="flex items-end">
-              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <label className="inline-flex items-center gap-2 text-sm text-[var(--ui-body-text)]">
                 <input
                   type="checkbox"
                   checked={editNotifyForm.no_expiry}
@@ -1031,19 +1031,19 @@ export default function MasterAdmin() {
       <Modal isOpen={showEditBuyerModal} onClose={() => setShowEditBuyerModal(false)} title="Editar credenciales del administrador comprador">
         <form onSubmit={submitEditBuyer} className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Usuario</label>
             <input className="input-field" value={editBuyerForm.username} onChange={(e) => setEditBuyerForm((p) => ({ ...p, username: e.target.value }))} required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre completo</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre completo</label>
             <input className="input-field" value={editBuyerForm.full_name} onChange={(e) => setEditBuyerForm((p) => ({ ...p, full_name: e.target.value }))} required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Email</label>
             <input type="email" className="input-field" value={editBuyerForm.email} onChange={(e) => setEditBuyerForm((p) => ({ ...p, email: e.target.value }))} required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nueva contraseña (opcional)</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nueva contraseña (opcional)</label>
             <div className="relative">
               <input
                 className="input-field pr-10"
@@ -1055,7 +1055,7 @@ export default function MasterAdmin() {
               <button
                 type="button"
                 onClick={() => setShowEditBuyerPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 ui-text-muted hover:text-slate-700"
                 aria-label={showEditBuyerPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
                 {showEditBuyerPassword ? <MdVisibilityOff /> : <MdVisibility />}
@@ -1074,22 +1074,22 @@ export default function MasterAdmin() {
           <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setPreviewNotification(null)} />
           <aside className="fixed top-0 right-0 h-screen w-full md:w-1/2 bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-800">Vista previa de notificación</h3>
+              <h3 className="text-lg font-bold rf-section-title">Vista previa de notificación</h3>
               <button
                 type="button"
                 onClick={() => setPreviewNotification(null)}
-                className="p-2 rounded-lg hover:bg-slate-100 text-slate-600"
+                className="p-2 rounded-lg hover:bg-slate-100 text-[var(--ui-muted)]"
                 aria-label="Cerrar vista previa"
               >
                 <MdClose className="text-xl" />
               </button>
             </div>
             <div className="p-5 overflow-y-auto">
-              <h4 className="text-2xl font-bold text-slate-900 mb-2">{previewNotification.title}</h4>
-              <p className="text-sm text-slate-500 mb-4">
+              <h4 className="text-2xl font-bold rf-page-title mb-2">{previewNotification.title}</h4>
+              <p className="text-sm ui-text-muted mb-4">
                 {new Date(previewNotification.created_at).toLocaleString('es-PE')} · {previewNotification.created_by}
               </p>
-              <p className="text-sm text-slate-600 mb-4">{getRemainingLabel(previewNotification.expires_at)}</p>
+              <p className="text-sm text-[var(--ui-muted)] mb-4">{getRemainingLabel(previewNotification.expires_at)}</p>
               {previewNotification.image_url ? (
                 <div className="mb-4 rounded-xl border border-slate-200 bg-white overflow-hidden">
                   <img
@@ -1099,7 +1099,7 @@ export default function MasterAdmin() {
                   />
                 </div>
               ) : (
-                <p className="mb-4 text-sm text-slate-400">Esta notificación no tiene imagen.</p>
+                <p className="mb-4 text-sm text-[var(--ui-muted)]">Esta notificación no tiene imagen.</p>
               )}
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-800 text-base leading-relaxed whitespace-pre-wrap">
                 {previewNotification.message}

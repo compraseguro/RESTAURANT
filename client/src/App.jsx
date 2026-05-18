@@ -74,7 +74,7 @@ function DefaultPage() {
       <div className="min-h-[50vh] flex items-center justify-center">
         <div className="card max-w-md text-center">
           <h2 className="text-xl font-bold mb-2">Sin módulos asignados</h2>
-          <p className="text-slate-400 text-sm">Este usuario no tiene permisos activos. Solicita acceso al administrador.</p>
+          <p className="text-[var(--ui-muted)] text-sm">Este usuario no tiene permisos activos. Solicita acceso al administrador.</p>
         </div>
       </div>
     );

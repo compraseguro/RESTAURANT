@@ -117,7 +117,7 @@ function CreateProductModal({
     <Modal isOpen={isOpen} onClose={onClose} title="Nuevo producto" size="sm" placement="right">
       <form onSubmit={handleCreateItem} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+          <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre</label>
           <input
             value={itemForm.name}
             onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
@@ -127,7 +127,7 @@ function CreateProductModal({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+          <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Descripción</label>
           <input
             value={itemForm.description}
             onChange={e => setItemForm({ ...itemForm, description: e.target.value })}
@@ -137,7 +137,7 @@ function CreateProductModal({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Precio venta</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Precio venta</label>
             <input
               type="number"
               step="0.01"
@@ -149,7 +149,7 @@ function CreateProductModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Precio compra (opc.)</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Precio compra (opc.)</label>
             <input
               type="number"
               step="0.01"
@@ -162,7 +162,7 @@ function CreateProductModal({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Stock inicial</label>
+          <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Stock inicial</label>
           <input
             type="number"
             min="0"
@@ -173,7 +173,7 @@ function CreateProductModal({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Categoría de producto</label>
+          <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Categoría de producto</label>
           <select
             value={itemForm.category_id}
             onChange={e => setItemForm({ ...itemForm, category_id: e.target.value })}
@@ -191,7 +191,7 @@ function CreateProductModal({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Almacén destino</label>
+          <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Almacén destino</label>
           <select
             value={itemForm.stock_warehouse}
             onChange={e => setItemForm({ ...itemForm, stock_warehouse: e.target.value })}
@@ -202,7 +202,7 @@ function CreateProductModal({
             ))}
           </select>
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-[var(--ui-body-text)] cursor-pointer">
           <input
             type="checkbox"
             checked={Number(itemForm.note_required || 0) === 1}
@@ -994,8 +994,8 @@ export default function Almacen() {
 
         {activeView === 'requerimiento' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <h3 className="font-bold text-slate-800 mb-2">Requerimiento interno</h3>
-            <p className="text-slate-500 mb-4">Nuevo requerimiento tomará todos los productos con stock bajo para descargar plantilla en Excel.</p>
+            <h3 className="font-bold rf-section-title mb-2">Requerimiento interno</h3>
+            <p className="ui-text-muted mb-4">Nuevo requerimiento tomará todos los productos con stock bajo para descargar plantilla en Excel.</p>
             <button className="btn-primary" onClick={openNewRequirement}>
               Nuevo requerimiento
             </button>
@@ -1004,18 +1004,18 @@ export default function Almacen() {
 
         {activeView === 'recepcion' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <h3 className="font-bold text-slate-800 mb-2">Recepción de mercadería</h3>
-            <p className="text-slate-500 mb-4">
+            <h3 className="font-bold rf-section-title mb-2">Recepción de mercadería</h3>
+            <p className="ui-text-muted mb-4">
               Se usa el último requerimiento descargado. Ingresa cantidad y costo para recepcionar compra.
               Puedes <strong>agregar productos adicionales</strong> no incluidos en el requerimiento (existente o nuevo).
             </p>
             {!latestRequirement?.items?.length ? (
-              <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <div className="text-sm ui-text-muted bg-slate-50 border border-slate-200 rounded-lg p-4">
                 No hay requerimientos descargados. Primero crea uno en Requerimiento.
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="text-xs text-slate-500">
+                <div className="text-xs ui-text-muted">
                   Requerimiento: <strong>{latestRequirement.id?.slice(0, 8)}</strong> · Estado: <strong>{latestRequirement.status}</strong>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1041,7 +1041,7 @@ export default function Almacen() {
                         <tr key={item.id} className="border-b border-slate-100">
                           <td className="p-2.5 font-medium text-slate-700">{item.product_name}</td>
                           <td className="p-2.5 text-red-600 font-semibold">{item.current_stock}</td>
-                          <td className="p-2.5 text-slate-600">{item.warehouse_name || '-'}</td>
+                          <td className="p-2.5 text-[var(--ui-muted)]">{item.warehouse_name || '-'}</td>
                           <td className="p-2.5">
                             <input
                               type="number"
@@ -1080,7 +1080,7 @@ export default function Almacen() {
                                 })()
                               : (products.find((p) => p.id === line.product_id)?.stock ?? '—')}
                           </td>
-                          <td className="p-2.5 text-slate-600">
+                          <td className="p-2.5 text-[var(--ui-muted)]">
                             <select
                               className="input-field py-1.5 text-sm"
                               value={line.warehouse_id}
@@ -1128,7 +1128,7 @@ export default function Almacen() {
                   </table>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Notas</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Notas</label>
                   <input
                     value={receptionNotes}
                     onChange={e => setReceptionNotes(e.target.value)}
@@ -1146,21 +1146,21 @@ export default function Almacen() {
 
         {activeView === 'ir_modulo_gastos' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <h3 className="font-bold text-slate-800 mb-2">Módulo de gastos</h3>
-            <p className="text-slate-500 mb-4">Gastos separados por compra, con fecha y detalle de productos recepcionados.</p>
+            <h3 className="font-bold rf-section-title mb-2">Módulo de gastos</h3>
+            <p className="ui-text-muted mb-4">Gastos separados por compra, con fecha y detalle de productos recepcionados.</p>
             <div className="space-y-4">
               {expenseGroups.length === 0 && (
-                <p className="text-sm text-slate-500">Aún no hay gastos registrados.</p>
+                <p className="text-sm ui-text-muted">Aún no hay gastos registrados.</p>
               )}
               {expenseGroups.map(group => (
                 <div key={group.id} className="border border-slate-200 rounded-xl p-4 bg-slate-50/60">
                   <div className="flex items-start justify-between mb-3">
-                    <p className="font-semibold text-slate-800">
+                    <p className="font-semibold rf-section-title">
                       Compra {group.requirement_id ? `· Req ${group.requirement_id.slice(0, 8)}` : ''}
                     </p>
-                    <p className="text-xs text-slate-500">{formatDateTime(group.created_at)}</p>
+                    <p className="text-xs ui-text-muted">{formatDateTime(group.created_at)}</p>
                   </div>
-                  <div className="grid grid-cols-12 text-xs text-slate-500 border-b border-slate-200 pb-1 mb-1.5">
+                  <div className="grid grid-cols-12 text-xs ui-text-muted border-b border-slate-200 pb-1 mb-1.5">
                     <div className="col-span-7">Lista de productos</div>
                     <div className="col-span-3 text-right">Precio por unidad</div>
                     <div className="col-span-2 text-right">Cantidad comprada</div>
@@ -1205,7 +1205,7 @@ export default function Almacen() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Almacén de ingreso</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Almacén de ingreso</label>
               <select
                 className="input-field"
                 value={receptionAddDraft.warehouse_id}
@@ -1223,7 +1223,7 @@ export default function Almacen() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Producto o insumo</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Producto o insumo</label>
               <select
                 className="input-field"
                 value={receptionAddDraft.pickValue}
@@ -1253,7 +1253,7 @@ export default function Almacen() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cantidad</label>
+                <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Cantidad</label>
                 <input
                   type="number"
                   min="0"
@@ -1263,7 +1263,7 @@ export default function Almacen() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Costo unitario</label>
+                <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Costo unitario</label>
                 <input
                   type="number"
                   min="0"
@@ -1310,7 +1310,7 @@ export default function Almacen() {
           size="lg"
         >
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-[var(--ui-muted)]">
               Incluye productos de almacén (stock ≤ 10) e <strong>insumos kardex</strong> bajo el mínimo (en U o en kg/L,
               según se configuró al crear el insumo). Puedes desmarcar filas.
             </p>
@@ -1338,7 +1338,7 @@ export default function Almacen() {
                         {p.name}
                         {p.isKardex && <span className="ml-1 text-xs text-amber-700">(Kardex)</span>}
                       </td>
-                      <td className="p-2.5 text-slate-500">
+                      <td className="p-2.5 ui-text-muted">
                         {p.isKardex ? 'Kardex insumos' : (p.category_name || 'Sin categoría')}
                       </td>
                       <td className="p-2.5 text-red-600 font-semibold">
@@ -1451,7 +1451,7 @@ export default function Almacen() {
                   className={`text-xs px-3 py-1.5 rounded-lg ${
                     canDelete
                       ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                      : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : 'bg-slate-100 text-[var(--ui-muted)] cursor-not-allowed'
                   }`}
                 >
                   Eliminar almacén
@@ -1482,7 +1482,7 @@ export default function Almacen() {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
         <div className="relative mb-4">
-          <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)]" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -1492,7 +1492,7 @@ export default function Almacen() {
         </div>
         {selectedIsInsumosWarehouse && (
           <div className="flex flex-wrap gap-2 mb-4">
-            <span className="text-xs text-slate-500 self-center">Ver:</span>
+            <span className="text-xs ui-text-muted self-center">Ver:</span>
             {[
               { id: 'all', label: 'Todos' },
               { id: 'cocina', label: 'Solo cocina' },
@@ -1593,7 +1593,7 @@ export default function Almacen() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-slate-500 border-b">
+              <tr className="text-left ui-text-muted border-b">
                 <th className="pb-2 font-medium">Producto</th>
                 <th className="pb-2 font-medium">Tipo</th>
                 <th className="pb-2 font-medium">Precio venta</th>
@@ -1610,7 +1610,7 @@ export default function Almacen() {
               {productsForSelectedWarehouse.map(p => (
                 <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
                   <td className="py-3 font-medium">{p.name}</td>
-                  <td className="py-3 text-slate-500">{p.category_name || '-'}</td>
+                  <td className="py-3 ui-text-muted">{p.category_name || '-'}</td>
                   <td className="py-3">{formatCurrency(p.price)}</td>
                   <td className="py-3 text-[var(--ui-muted)]">
                     {p.purchase_price != null && Number(p.purchase_price) > 0
@@ -1645,7 +1645,7 @@ export default function Almacen() {
               ))}
               {productsForSelectedWarehouse.length === 0 && (
                 <tr>
-                  <td colSpan="10" className="py-10 text-center text-slate-400">
+                  <td colSpan="10" className="py-10 text-center text-[var(--ui-muted)]">
                     {selectedWarehouseView
                       ? 'No hay productos en este almacén'
                       : 'Selecciona un almacén para ver sus productos'}
@@ -1659,23 +1659,23 @@ export default function Almacen() {
 
       <Modal isOpen={!!stockModal} onClose={closeStockModal} title={`Ajustar Stock - ${stockModal?.name}`} size="sm">
         <div className="space-y-4">
-          <div className="text-sm text-slate-500 space-y-1">
+          <div className="text-sm ui-text-muted space-y-1">
             <p>Stock total: <strong>{stockModal?.stock}</strong> unidades</p>
             <p>Almacén principal: <strong>{stockModal?.stock_main || 0}</strong></p>
             <p>Almacén cocina: <strong>{stockModal?.stock_kitchen || 0}</strong></p>
           </div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Cantidad</label><input type="number" min="1" value={stockChange} onChange={e => setStockChange(e.target.value)} className="input-field" placeholder="0" /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Cantidad</label><input type="number" min="1" value={stockChange} onChange={e => setStockChange(e.target.value)} className="input-field" placeholder="0" /></div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Almacén</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Almacén</label>
             <select value={stockWarehouse} onChange={e => setStockWarehouse(e.target.value)} className="input-field">
               {warehouses.map(w => (
                 <option key={w.id} value={w.id}>{w.name}</option>
               ))}
             </select>
           </div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Motivo</label><input value={stockReason} onChange={e => setStockReason(e.target.value)} className="input-field" placeholder="Motivo del ajuste" /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Motivo</label><input value={stockReason} onChange={e => setStockReason(e.target.value)} className="input-field" placeholder="Motivo del ajuste" /></div>
           <div className="border-t border-[color:var(--ui-border)] pt-4 space-y-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Precio de compra (opcional)</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Precio de compra (opcional)</label>
             <input
               type="number"
               step="0.01"
@@ -1706,7 +1706,7 @@ export default function Almacen() {
           {showDeleteFlow && (
             <div className="space-y-3 border border-red-200 bg-red-50 rounded-lg p-3">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Motivo de eliminación</label>
+                <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Motivo de eliminación</label>
                 <input
                   value={deleteReason}
                   onChange={e => setDeleteReason(e.target.value)}
@@ -1721,7 +1721,7 @@ export default function Almacen() {
                 className={`w-full px-4 py-2.5 rounded-lg font-medium transition-colors ${
                   deleteReason.trim()
                     ? 'bg-red-700 text-white hover:bg-red-800'
-                    : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                    : 'bg-slate-200 ui-text-muted cursor-not-allowed'
                 }`}
               >
                 Eliminar
@@ -1783,7 +1783,7 @@ export default function Almacen() {
             </label>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del almacén</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre del almacén</label>
             <input
               value={warehouseForm.name}
               onChange={e => setWarehouseForm({ ...warehouseForm, name: e.target.value })}
@@ -1793,7 +1793,7 @@ export default function Almacen() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Descripción</label>
             <textarea
               value={warehouseForm.description}
               onChange={e => setWarehouseForm({ ...warehouseForm, description: e.target.value })}

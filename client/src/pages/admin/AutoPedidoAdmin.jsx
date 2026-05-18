@@ -295,7 +295,7 @@ export default function AutoPedidoAdmin() {
   return (
     <div>
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h1 className="text-2xl font-bold rf-page-title flex items-center gap-2">
           <MdQrCode2 className="text-[var(--ui-accent)]" />
           Auto pedido (QR)
         </h1>
@@ -332,7 +332,7 @@ export default function AutoPedidoAdmin() {
                 {p.image ? (
                   <img src={resolveMediaUrl(p.image)} alt={p.name} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Sin imagen</div>
+                  <div className="w-full h-full flex items-center justify-center text-xs text-[var(--ui-muted)]">Sin imagen</div>
                 )}
               </div>
               <p className="text-sm font-semibold text-[var(--ui-body-text)] truncate">{p.name}</p>
@@ -348,7 +348,7 @@ export default function AutoPedidoAdmin() {
                 />
                 <label
                   htmlFor={`product-image-${p.id}`}
-                  className={`text-xs py-1.5 rounded-lg text-center border ${canSave ? 'border-[color:var(--ui-border)] text-[var(--ui-accent)] cursor-pointer hover:bg-[var(--ui-sidebar-hover)]' : 'border-slate-500/40 text-slate-500'}`}
+                  className={`text-xs py-1.5 rounded-lg text-center border ${canSave ? 'border-[color:var(--ui-border)] text-[var(--ui-accent)] cursor-pointer hover:bg-[var(--ui-sidebar-hover)]' : 'border-slate-500/40 ui-text-muted'}`}
                 >
                   Agregar imagen
                 </label>
@@ -374,7 +374,7 @@ export default function AutoPedidoAdmin() {
 
           <div className="flex-1 min-w-0 flex flex-col">
             <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-              <h2 className="text-lg font-semibold text-slate-800">Cartas</h2>
+              <h2 className="text-lg font-semibold rf-section-title">Cartas</h2>
               <div className="flex gap-2">
                 <button type="button" onClick={addRow} className="btn-secondary text-sm inline-flex items-center gap-1">
                   <MdAdd /> Añadir
@@ -393,12 +393,12 @@ export default function AutoPedidoAdmin() {
             )}
             <div className="space-y-3">
               {cartas.length === 0 && (
-                <p className="text-slate-500 text-sm">No hay cartas. Añade una y sube un archivo o indica una URL.</p>
+                <p className="ui-text-muted text-sm">No hay cartas. Añade una y sube un archivo o indica una URL.</p>
               )}
               {cartas.map((c, i) => (
                 <div key={c.id || i} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border border-slate-200 rounded-lg p-3">
                   <div className="md:col-span-3">
-                    <label className="block text-xs text-slate-500 mb-1">Nombre</label>
+                    <label className="block text-xs ui-text-muted mb-1">Nombre</label>
                     <input
                       className="input-field"
                       value={c.name}
@@ -407,7 +407,7 @@ export default function AutoPedidoAdmin() {
                     />
                   </div>
                   <div className="md:col-span-6">
-                    <label className="block text-xs text-slate-500 mb-1">URL (imagen o PDF)</label>
+                    <label className="block text-xs ui-text-muted mb-1">URL (imagen o PDF)</label>
                     <input
                       className="input-field font-mono text-sm"
                       value={c.url}
@@ -417,7 +417,7 @@ export default function AutoPedidoAdmin() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <span className="block text-xs text-slate-500 mb-1">Archivo</span>
+                    <span className="block text-xs ui-text-muted mb-1">Archivo</span>
                     <input
                       type="file"
                       accept="image/*,.pdf,application/pdf"
@@ -464,16 +464,16 @@ export default function AutoPedidoAdmin() {
       </div>
 
       <div className="card">
-        <h2 className="text-lg font-semibold text-slate-800 mb-2">Enlaces y QR por mesa</h2>
-        <p className="text-sm text-slate-500 mb-4">Imprime o muestra el QR en cada mesa. El cliente solo verá la vista de auto pedido.</p>
+        <h2 className="text-lg font-semibold rf-section-title mb-2">Enlaces y QR por mesa</h2>
+        <p className="text-sm ui-text-muted mb-4">Imprime o muestra el QR en cada mesa. El cliente solo verá la vista de auto pedido.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {tables.map((t) => {
             const url = selfOrderUrlForTable(t.number);
             const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}`;
             return (
               <div key={t.id} className="border border-slate-200 rounded-xl p-4 flex flex-col items-center text-center">
-                <p className="font-semibold text-slate-800">{t.name}</p>
-                <p className="text-xs text-slate-500 mb-2">Mesa {t.number}</p>
+                <p className="font-semibold rf-section-title">{t.name}</p>
+                <p className="text-xs ui-text-muted mb-2">Mesa {t.number}</p>
                 <img src={qrSrc} alt="" className="w-40 h-40 mb-2 bg-white p-1 rounded" />
                 <button
                   type="button"
@@ -486,7 +486,7 @@ export default function AutoPedidoAdmin() {
             );
           })}
         </div>
-        {tables.length === 0 && <p className="text-slate-500 text-sm">No hay mesas configuradas. Créalas en Configuración → Salones y Mesas.</p>}
+        {tables.length === 0 && <p className="ui-text-muted text-sm">No hay mesas configuradas. Créalas en Configuración → Salones y Mesas.</p>}
       </div>
 
       <Modal
@@ -497,7 +497,7 @@ export default function AutoPedidoAdmin() {
       >
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Nombre</label>
+            <label className="block text-xs ui-text-muted mb-1">Nombre</label>
             <input
               className="input-field"
               value={productForm.name}
@@ -505,7 +505,7 @@ export default function AutoPedidoAdmin() {
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Precio</label>
+            <label className="block text-xs ui-text-muted mb-1">Precio</label>
             <input
               type="number"
               min="0"
@@ -516,7 +516,7 @@ export default function AutoPedidoAdmin() {
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Categoría</label>
+            <label className="block text-xs ui-text-muted mb-1">Categoría</label>
             <select
               className="input-field"
               value={productForm.category_id}

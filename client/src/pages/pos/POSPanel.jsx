@@ -2276,8 +2276,8 @@ export default function POSPanel() {
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
               <div>
                 <MdPointOfSale className="text-5xl text-gold-500 mb-2" />
-                <h2 className="text-xl font-bold text-slate-800">Cajas del local</h2>
-                <p className="text-sm text-slate-500">
+                <h2 className="text-xl font-bold text-[var(--ui-body-text)]">Cajas del local</h2>
+                <p className="text-sm ui-text-muted">
                   AGREGUE EL MONTO DE APERTURA PARA ABRIR UN TURNO DE CAJA O SELECCIONE UN TURNO YA ABIERTO PARA INSPECCIONAR.
                 </p>
               </div>
@@ -2293,9 +2293,9 @@ export default function POSPanel() {
             </div>
 
             <div className="mb-6 text-left">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Monto de apertura (nuevos turnos)</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Monto de apertura (nuevos turnos)</label>
               <div className="relative max-w-xs">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">S/</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)] font-medium">S/</span>
                 <input
                   type="number"
                   step="0.01"
@@ -2306,7 +2306,7 @@ export default function POSPanel() {
                   className="input-field pl-10 text-lg font-bold text-center"
                 />
               </div>
-              <p className="text-xs text-slate-400 mt-1">Se usa al pulsar «Abrir turno» en una caja sin sesión activa.</p>
+              <p className="text-xs text-[var(--ui-muted)] mt-1">Se usa al pulsar «Abrir turno» en una caja sin sesión activa.</p>
             </div>
 
             {!cajaStations.length ? (
@@ -2323,14 +2323,14 @@ export default function POSPanel() {
                       className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-left flex flex-col gap-3"
                     >
                       <div>
-                        <p className="font-semibold text-slate-800">{st.name}</p>
+                        <p className="font-semibold rf-section-title">{st.name}</p>
                         {op ? (
-                          <p className="text-xs text-slate-500 mt-1">
+                          <p className="text-xs ui-text-muted mt-1">
                             Turno abierto · {op.cajero_name || 'Usuario'}{' '}
                             {op.opened_at ? `· ${formatPeDateTimeLine(op.opened_at)}` : ''}
                           </p>
                         ) : (
-                          <p className="text-xs text-slate-500 mt-1">Sin turno abierto</p>
+                          <p className="text-xs ui-text-muted mt-1">Sin turno abierto</p>
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2 mt-auto">
@@ -2369,16 +2369,16 @@ export default function POSPanel() {
           <MdPointOfSale className="text-6xl text-gold-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">Abrir Caja</h2>
           {cajaStations[0]?.name ? (
-            <p className="text-sm text-slate-600 mb-2">
-              Caja asignada: <span className="font-semibold text-slate-800">{cajaStations[0].name}</span>
+            <p className="text-sm text-[var(--ui-muted)] mb-2">
+              Caja asignada: <span className="font-semibold rf-section-title">{cajaStations[0].name}</span>
             </p>
           ) : null}
-          <p className="text-slate-500 mb-6">Ingresa el monto inicial y abre la caja para comenzar a operar</p>
+          <p className="ui-text-muted mb-6">Ingresa el monto inicial y abre la caja para comenzar a operar</p>
 
           <div className="mb-4 text-left">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Monto de apertura</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Monto de apertura</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">S/</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)] font-medium">S/</span>
               <input
                 type="number"
                 step="0.01"
@@ -2390,7 +2390,7 @@ export default function POSPanel() {
                 autoFocus
               />
             </div>
-            <p className="text-xs text-slate-400 mt-1">Dinero en efectivo al iniciar el turno</p>
+            <p className="text-xs text-[var(--ui-muted)] mt-1">Dinero en efectivo al iniciar el turno</p>
           </div>
 
           <button
@@ -2541,8 +2541,8 @@ export default function POSPanel() {
                     <MdTableRestaurant className={`${isOccupied ? 'text-red-600' : 'text-emerald-600'} text-xl`} />
                   </div>
                   <div>
-                    <p className="font-bold text-slate-800">{table.name}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="font-bold rf-section-title">{table.name}</p>
+                    <p className="text-xs ui-text-muted">
                       {isOccupied ? `${table.orders.length} pedido(s)` : 'Sin pedidos activos'}
                     </p>
                   </div>
@@ -2563,7 +2563,7 @@ export default function POSPanel() {
             >
               <MdDeliveryDining /> Delivery en caja
             </h2>
-            <p className="text-sm text-slate-500 mb-3">
+            <p className="text-sm ui-text-muted mb-3">
               Un recuadro por pedido delivery pendiente de cobro. Al cobrar, desaparece de esta lista.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
@@ -2586,8 +2586,8 @@ export default function POSPanel() {
                         <MdDeliveryDining className="text-sky-700 text-xl" />
                       </div>
                       <div>
-                        <p className="font-bold text-slate-800">{slot.name}</p>
-                        <p className="text-xs text-slate-500">Pedido #{slot.orders?.[0]?.order_number ?? '—'}</p>
+                        <p className="font-bold rf-section-title">{slot.name}</p>
+                        <p className="text-xs ui-text-muted">Pedido #{slot.orders?.[0]?.order_number ?? '—'}</p>
                       </div>
                     </div>
                     <p className="text-xs font-semibold text-sky-800">
@@ -2778,22 +2778,22 @@ export default function POSPanel() {
             <MdReceipt className="text-indigo-600 text-xl" />
           </div>
           <div>
-            <p className="text-xs text-slate-500">Reservas</p>
+            <p className="text-xs ui-text-muted">Reservas</p>
             <p className="text-xl font-bold text-indigo-700">{reservationQueue.length}</p>
           </div>
         </button>
         )}
         <div className="card flex items-center gap-3">
           <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center"><MdTableRestaurant className="text-sky-600 text-xl" /></div>
-          <div><p className="text-xs text-slate-500">Total Mesas</p><p className="text-xl font-bold">{tables.length}</p></div>
+          <div><p className="text-xs ui-text-muted">Total Mesas</p><p className="text-xl font-bold">{tables.length}</p></div>
         </div>
         <div className="card flex items-center gap-3">
           <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center"><MdPeople className="text-red-600 text-xl" /></div>
-          <div><p className="text-xs text-slate-500">Ocupadas</p><p className="text-xl font-bold text-red-600">{occupiedTables.length}</p></div>
+          <div><p className="text-xs ui-text-muted">Ocupadas</p><p className="text-xl font-bold text-red-600">{occupiedTables.length}</p></div>
         </div>
         <div className="card flex items-center gap-3">
           <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center"><MdCheckCircle className="text-emerald-600 text-xl" /></div>
-          <div><p className="text-xs text-slate-500">Disponibles</p><p className="text-xl font-bold text-emerald-600">{tables.length - occupiedTables.length}</p></div>
+          <div><p className="text-xs ui-text-muted">Disponibles</p><p className="text-xl font-bold text-emerald-600">{tables.length - occupiedTables.length}</p></div>
         </div>
         <div className="card flex items-center gap-3">
           <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
@@ -2822,26 +2822,26 @@ export default function POSPanel() {
       {activeCajaOption === 'reservas' && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-slate-800">Reservas para cobro</h3>
-            <span className="text-xs text-slate-500">Total: {reservationQueue.length}</span>
+            <h3 className="font-bold rf-section-title">Reservas para cobro</h3>
+            <span className="text-xs ui-text-muted">Total: {reservationQueue.length}</span>
           </div>
           {reservationQueue.length === 0 ? (
-            <p className="text-slate-500">No hay reservas pendientes.</p>
+            <p className="ui-text-muted">No hay reservas pendientes.</p>
           ) : (
             <div className="space-y-3">
               {reservationQueue.map((entry) => (
                 <div key={entry.reservation.id} className="border border-slate-200 rounded-lg p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="font-semibold text-slate-800">{entry.reservation.client_name}</p>
-                      <p className="text-xs text-slate-500">{entry.reservation.date} · {entry.reservation.time} · {entry.reservation.guests} comensales</p>
+                      <p className="font-semibold rf-section-title">{entry.reservation.client_name}</p>
+                      <p className="text-xs ui-text-muted">{entry.reservation.date} · {entry.reservation.time} · {entry.reservation.guests} comensales</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-slate-500">Total pedido</p>
+                      <p className="text-xs ui-text-muted">Total pedido</p>
                       <p className="font-bold text-emerald-700">{formatCurrency(entry.total)}</p>
                     </div>
                   </div>
-                  <div className="mt-2 text-xs text-slate-600">
+                  <div className="mt-2 text-xs text-[var(--ui-muted)]">
                     {entry.reservation.notes || 'Sin nota adicional'}
                   </div>
                   <div className="mt-3 flex justify-end">
@@ -2862,11 +2862,11 @@ export default function POSPanel() {
 
       {activeCajaOption === 'apertura_cierre' && (
         <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Apertura y cierre</h3>
+          <h3 className="font-bold rf-section-title mb-4">Apertura y cierre</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Apertura</p><p className="font-bold">{formatCurrency(openingAmt)}</p></div>
-            <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Efectivo esperado</p><p className="font-bold">{formatCurrency(expectedRounded)}</p></div>
-            <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Ventas del turno</p><p className="font-bold">{formatCurrency(registerSales)}</p></div>
+            <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs ui-text-muted">Apertura</p><p className="font-bold">{formatCurrency(openingAmt)}</p></div>
+            <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs ui-text-muted">Efectivo esperado</p><p className="font-bold">{formatCurrency(expectedRounded)}</p></div>
+            <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs ui-text-muted">Ventas del turno</p><p className="font-bold">{formatCurrency(registerSales)}</p></div>
           </div>
           <button onClick={prepareClose} className="btn-primary">Ir al cierre de caja</button>
         </div>
@@ -2874,7 +2874,7 @@ export default function POSPanel() {
 
       {activeCajaOption === 'cierres_caja' && (
         <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Historial de cierres de caja</h3>
+          <h3 className="font-bold rf-section-title mb-4">Historial de cierres de caja</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b"><th className="text-left py-2">Cajero</th><th className="text-left py-2">Apertura</th><th className="text-left py-2">Cierre</th><th className="text-right py-2">Ventas</th></tr></thead>
@@ -2895,7 +2895,7 @@ export default function POSPanel() {
 
       {activeCajaOption === 'ingresos' && (
         <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Ingresos</h3>
+          <h3 className="font-bold rf-section-title mb-4">Ingresos</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <input className="input-field" type="number" min="0" step="0.01" placeholder="Monto" value={movementForm.amount} onChange={e => setMovementForm({ ...movementForm, amount: e.target.value })} />
             <input className="input-field md:col-span-2" placeholder="Concepto" value={movementForm.concept} onChange={e => setMovementForm({ ...movementForm, concept: e.target.value })} />
@@ -2909,7 +2909,7 @@ export default function POSPanel() {
 
       {activeCajaOption === 'egresos' && (
         <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Egresos</h3>
+          <h3 className="font-bold rf-section-title mb-4">Egresos</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <input className="input-field" type="number" min="0" step="0.01" placeholder="Monto" value={movementForm.amount} onChange={e => setMovementForm({ ...movementForm, amount: e.target.value })} />
             <input className="input-field md:col-span-2" placeholder="Concepto" value={movementForm.concept} onChange={e => setMovementForm({ ...movementForm, concept: e.target.value })} />
@@ -2923,7 +2923,7 @@ export default function POSPanel() {
 
       {activeCajaOption === 'notas_credito' && (
         <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Notas de credito</h3>
+          <h3 className="font-bold rf-section-title mb-4">Notas de credito</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <input className="input-field" type="number" min="0" step="0.01" placeholder="Monto" value={noteForm.amount} onChange={e => setNoteForm({ ...noteForm, amount: e.target.value })} />
             <input className="input-field md:col-span-2" placeholder="Motivo" value={noteForm.reason} onChange={e => setNoteForm({ ...noteForm, reason: e.target.value })} />
@@ -2937,7 +2937,7 @@ export default function POSPanel() {
 
       {activeCajaOption === 'notas_debito' && (
         <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Notas de debito</h3>
+          <h3 className="font-bold rf-section-title mb-4">Notas de debito</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <input className="input-field" type="number" min="0" step="0.01" placeholder="Monto" value={noteForm.amount} onChange={e => setNoteForm({ ...noteForm, amount: e.target.value })} />
             <input className="input-field md:col-span-2" placeholder="Motivo" value={noteForm.reason} onChange={e => setNoteForm({ ...noteForm, reason: e.target.value })} />
@@ -2951,7 +2951,7 @@ export default function POSPanel() {
 
       {activeCajaOption === 'consulta_precios' && (
         <div className="card">
-          <h3 className="font-bold text-slate-800 mb-4">Consulta de precios</h3>
+          <h3 className="font-bold rf-section-title mb-4">Consulta de precios</h3>
           <div className="flex gap-2 mb-3">
             <input className="input-field" placeholder="Buscar por producto o categoría..." value={priceQuery} onChange={e => setPriceQuery(e.target.value)} />
             <button onClick={searchPrices} className="btn-primary">Buscar</button>
@@ -2963,7 +2963,7 @@ export default function POSPanel() {
                 {priceResults.map(p => (
                   <tr key={p.id} className="border-b border-slate-50">
                     <td className="py-2">{p.name}</td>
-                    <td className="py-2 text-slate-500">{p.category_name || '-'}</td>
+                    <td className="py-2 ui-text-muted">{p.category_name || '-'}</td>
                     <td className="py-2 text-right font-semibold">{formatCurrency(p.price)}</td>
                     <td className="py-2 text-right">{showStockInOrderingUI(p) ? p.stock : ''}</td>
                   </tr>
@@ -2975,7 +2975,7 @@ export default function POSPanel() {
       )}
       {activeCajaOption === 'impresora' && (
         <div className="card max-w-3xl">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><MdPrint /> Configuración de Impresora (Caja)</h3>
+          <h3 className="font-bold rf-section-title mb-4 flex items-center gap-2"><MdPrint /> Configuración de Impresora (Caja)</h3>
           {!hasElectronPrinting() && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
               <p className="text-sm text-amber-800">La impresión automática está disponible solo en la aplicación de escritorio.</p>
@@ -2988,7 +2988,7 @@ export default function POSPanel() {
               <div className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                    <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Tipo</label>
                     <select
                       className="input-field"
                       value={cfg.tipo || 'usb'}
@@ -3002,7 +3002,7 @@ export default function POSPanel() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Ancho de papel</label>
+                    <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Ancho de papel</label>
                     <select
                       className="input-field"
                       value={cajaPaperWidth}
@@ -3022,7 +3022,7 @@ export default function POSPanel() {
                   </div>
                   {(cfg.tipo || 'usb') === 'usb' ? (
                     <div className="md:col-span-1">
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Impresora USB</label>
+                      <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Impresora USB</label>
                       <select
                         className="input-field"
                         value={cfg.nombre || ''}
@@ -3040,7 +3040,7 @@ export default function POSPanel() {
                   ) : (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">IP</label>
+                        <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">IP</label>
                         <input
                           className="input-field"
                           value={cfg.ip || ''}
@@ -3051,7 +3051,7 @@ export default function POSPanel() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Puerto</label>
+                        <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Puerto</label>
                         <input
                           className="input-field"
                           type="number"
@@ -3535,7 +3535,7 @@ export default function POSPanel() {
         <div className="space-y-3">
           {mesaTableAction?.type && (mesaTableAction.type === 'move' || mesaTableAction.type === 'merge') && (
             <div>
-              <label className="block text-sm text-slate-700 mb-1">
+              <label className="block text-sm text-[var(--ui-body-text)] mb-1">
                 {mesaTableAction.type === 'merge' ? 'Primera mesa' : 'Mesa origen'}
               </label>
               <select
@@ -3562,7 +3562,7 @@ export default function POSPanel() {
           )}
           {mesaTableAction?.type && (mesaTableAction.type === 'merge' || mesaTableAction.type === 'move') && (
             <div>
-              <label className="block text-sm text-slate-700 mb-1">
+              <label className="block text-sm text-[var(--ui-body-text)] mb-1">
                 {mesaTableAction.type === 'merge' ? 'Segunda mesa' : 'Mesa destino'}
               </label>
               <select
@@ -4185,7 +4185,7 @@ export default function POSPanel() {
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Tipo documento</label>
+              <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">Tipo documento</label>
               <select
                 className="input-field"
                 value={customerForm.doc_type}
@@ -4196,7 +4196,7 @@ export default function POSPanel() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">N° documento</label>
+              <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">N° documento</label>
               <input
                 className="input-field"
                 value={customerForm.doc_number}
@@ -4206,7 +4206,7 @@ export default function POSPanel() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Nombre / Razón social</label>
+            <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">Nombre / Razón social</label>
             <input
               className="input-field"
               value={customerForm.name}
@@ -4216,7 +4216,7 @@ export default function POSPanel() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Teléfono (opcional)</label>
+              <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">Teléfono (opcional)</label>
               <input
                 className="input-field"
                 value={customerForm.phone}
@@ -4224,7 +4224,7 @@ export default function POSPanel() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Email (opcional)</label>
+              <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">Email (opcional)</label>
               <input
                 className="input-field"
                 type="text"
@@ -4238,7 +4238,7 @@ export default function POSPanel() {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Dirección (opcional)</label>
+            <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">Dirección (opcional)</label>
             <input
               className="input-field"
               value={customerForm.address}

@@ -58,7 +58,7 @@ export default function BillingSunatManualForm({
   const inputCls = isDark
     ? 'input-field bg-[#0f172a] border-slate-600 text-slate-100'
     : 'input-field';
-  const labelCls = isDark ? 'text-slate-300' : 'text-[var(--ui-muted)]';
+  const labelCls = isDark ? 'text-[var(--ui-muted)]' : 'text-[var(--ui-muted)]';
   const sectionCls = isDark
     ? 'rounded-lg border border-slate-600 bg-slate-900/50 p-4 space-y-3'
     : 'rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-4 space-y-3';

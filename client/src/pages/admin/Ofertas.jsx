@@ -159,7 +159,7 @@ export default function Ofertas() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-slate-800">Ofertas</h1>
+        <h1 className="text-2xl font-bold rf-page-title">Ofertas</h1>
         <button
           type="button"
           onClick={() => setShowModal(true)}
@@ -175,16 +175,16 @@ export default function Ofertas() {
             <MdLocalOffer className="text-emerald-600" />
           </div>
           <div>
-            <p className="text-xs text-slate-500">Ofertas Activas</p>
+            <p className="text-xs ui-text-muted">Ofertas Activas</p>
             <p className="text-xl font-bold">{ofertas.filter((o) => o.active).length}</p>
           </div>
         </div>
         <div className="card flex items-center gap-3">
           <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-            <MdLocalOffer className="text-slate-500" />
+            <MdLocalOffer className="ui-text-muted" />
           </div>
           <div>
-            <p className="text-xs text-slate-500">Total Ofertas</p>
+            <p className="text-xs ui-text-muted">Total Ofertas</p>
             <p className="text-xl font-bold">{ofertas.length}</p>
           </div>
         </div>
@@ -199,46 +199,46 @@ export default function Ofertas() {
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <h3 className="font-bold text-slate-800">{o.name}</h3>
+                  <h3 className="font-bold rf-section-title">{o.name}</h3>
                   <span
                     className={`px-2 py-0.5 rounded-full text-xs font-medium ${o.type === 'promo' ? 'bg-sky-100 text-sky-700' : 'bg-sky-100 text-sky-700'}`}
                   >
                     {o.type === 'promo' ? 'Promoción' : 'Combo'}
                   </span>
                   <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${o.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${o.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 ui-text-muted'}`}
                   >
                     {o.active ? 'Activa' : 'Inactiva'}
                   </span>
                 </div>
-                <p className="text-sm text-slate-500 mb-2">{o.description}</p>
-                <p className="text-xs text-slate-400">
+                <p className="text-sm ui-text-muted mb-2">{o.description}</p>
+                <p className="text-xs text-[var(--ui-muted)]">
                   <MdCalendarToday className="inline mr-1" />
                   {o.start_date} al {o.end_date}
                 </p>
-                <p className="text-xs text-slate-500 mt-2 break-words">
-                  <span className="font-medium text-slate-600">Productos vinculados: </span>
+                <p className="text-xs ui-text-muted mt-2 break-words">
+                  <span className="font-medium text-[var(--ui-muted)]">Productos vinculados: </span>
                   {formatOfferProductsLine(o)}
                 </p>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-[var(--ui-muted)] mt-1">
                   Mismos IDs que en el menú y caja: al venderse, el kardex aplica recetas/insumos de esos platos.
                 </p>
               </div>
               <div className="text-right ml-4 flex-shrink-0">
                 <p className="text-2xl font-bold text-gold-600">{o.discount}%</p>
-                <p className="text-xs text-slate-400">descuento</p>
+                <p className="text-xs text-[var(--ui-muted)]">descuento</p>
                 <div className="flex gap-2 mt-3 justify-end">
                   <button
                     type="button"
                     onClick={() => toggleActive(o.id)}
-                    className={`text-xs px-3 py-1.5 rounded-lg ${o.active ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-600'}`}
+                    className={`text-xs px-3 py-1.5 rounded-lg ${o.active ? 'bg-slate-100 text-[var(--ui-muted)]' : 'bg-emerald-50 text-emerald-600'}`}
                   >
                     {o.active ? 'Desactivar' : 'Activar'}
                   </button>
                   <button
                     type="button"
                     onClick={() => deleteOferta(o.id)}
-                    className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"
+                    className="p-1.5 hover:bg-red-50 rounded-lg text-[var(--ui-muted)] hover:text-red-600"
                     aria-label="Eliminar oferta"
                   >
                     <MdDelete />
@@ -261,7 +261,7 @@ export default function Ofertas() {
       >
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre</label>
             <input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -270,7 +270,7 @@ export default function Ofertas() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Descripción</label>
             <textarea
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -280,7 +280,7 @@ export default function Ofertas() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Tipo</label>
               <select
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
@@ -291,7 +291,7 @@ export default function Ofertas() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Descuento (%)</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Descuento (%)</label>
               <input
                 type="number"
                 value={form.discount}
@@ -306,7 +306,7 @@ export default function Ofertas() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Inicio</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Inicio</label>
               <input
                 type="date"
                 value={form.startDate}
@@ -316,7 +316,7 @@ export default function Ofertas() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Fin</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Fin</label>
               <input
                 type="date"
                 value={form.endDate}
@@ -328,14 +328,14 @@ export default function Ofertas() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">
               Productos aplicables (vinculados al menú / caja e inventario)
             </label>
-            <p className="text-xs text-slate-500 mb-2">
+            <p className="text-xs ui-text-muted mb-2">
               Selecciona los platos del catálogo. Al cobrarlos, se descontarán insumos vía receta como en una venta normal.
             </p>
             <div className="relative mb-2">
-              <MdSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <MdSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--ui-muted)]" />
               <input
                 type="search"
                 value={productSearch}
@@ -347,7 +347,7 @@ export default function Ofertas() {
             </div>
             <div className="max-h-52 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/80 p-2 space-y-1.5">
               {filteredCatalog.length === 0 && (
-                <p className="text-sm text-slate-500 py-3 text-center">No hay productos que mostrar.</p>
+                <p className="text-sm ui-text-muted py-3 text-center">No hay productos que mostrar.</p>
               )}
               {filteredCatalog.map((p) => {
                 const checked = form.productIds.includes(p.id);
@@ -366,13 +366,13 @@ export default function Ofertas() {
                     />
                     <span className="font-medium truncate flex-1">{p.name}</span>
                     {p.category_name && (
-                      <span className="text-xs text-slate-500 truncate max-w-[120px]">{p.category_name}</span>
+                      <span className="text-xs ui-text-muted truncate max-w-[120px]">{p.category_name}</span>
                     )}
                   </label>
                 );
               })}
             </div>
-            <p className="text-xs text-slate-500 mt-1.5">
+            <p className="text-xs ui-text-muted mt-1.5">
               Seleccionados: <strong>{form.productIds.length}</strong>
               {form.productIds.length === 0 && ' (opcional: puedes guardar sin productos)'}
             </p>

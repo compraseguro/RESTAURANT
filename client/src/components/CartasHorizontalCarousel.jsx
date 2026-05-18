@@ -57,7 +57,7 @@ export default function CartasHorizontalCarousel({ cartas = [], className = '', 
 
   if (len === 0) {
     return (
-      <div className={`flex items-center justify-center text-slate-500 text-sm p-8 ${className}`}>
+      <div className={`flex items-center justify-center ui-text-muted text-sm p-8 ${className}`}>
         Sin cartas configuradas
       </div>
     );

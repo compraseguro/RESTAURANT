@@ -189,15 +189,15 @@ export default function Delivery() {
   return (
     <div>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
-        <h1 className="text-2xl font-bold text-slate-800">Delivery</h1>
+        <h1 className="text-2xl font-bold rf-page-title">Delivery</h1>
         {!isMozo && (
           <div className="flex flex-wrap gap-2">
             <button onClick={openNewOrder} className="btn-primary flex items-center gap-2 text-sm">
               <MdAdd /> Nuevo Pedido
             </button>
-            <button onClick={() => setTab('active')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'active' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Activos ({activeOrders.length})</button>
-            <button onClick={() => setTab('today')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'today' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Hoy ({todayDeliveries.length})</button>
-            <button onClick={() => setTab('completed')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'completed' ? 'bg-gold-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}`}>Completados ({completedOrders.length})</button>
+            <button onClick={() => setTab('active')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'active' ? 'bg-gold-600 text-white' : 'bg-white border text-[var(--ui-muted)] hover:bg-slate-50'}`}>Activos ({activeOrders.length})</button>
+            <button onClick={() => setTab('today')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'today' ? 'bg-gold-600 text-white' : 'bg-white border text-[var(--ui-muted)] hover:bg-slate-50'}`}>Hoy ({todayDeliveries.length})</button>
+            <button onClick={() => setTab('completed')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'completed' ? 'bg-gold-600 text-white' : 'bg-white border text-[var(--ui-muted)] hover:bg-slate-50'}`}>Completados ({completedOrders.length})</button>
           </div>
         )}
       </div>
@@ -206,7 +206,7 @@ export default function Delivery() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-10 text-center max-w-lg mx-auto">
           <MdDeliveryDining className="text-5xl text-gold-500 mx-auto mb-4" />
           <p className="text-slate-700 font-medium mb-1">Registrar pedido a domicilio</p>
-          <p className="text-sm text-slate-500 mb-6">Aquí solo puedes crear el pedido. El seguimiento lo gestionan caja y administración.</p>
+          <p className="text-sm ui-text-muted mb-6">Aquí solo puedes crear el pedido. El seguimiento lo gestionan caja y administración.</p>
           <button type="button" onClick={openNewOrder} className="btn-primary inline-flex items-center gap-2 px-6 py-3 text-base">
             <MdAdd /> Nuevo pedido de delivery
           </button>
@@ -214,13 +214,13 @@ export default function Delivery() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-            <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-gold-100 rounded-xl flex items-center justify-center"><MdTimer className="text-gold-600" /></div><div><p className="text-xs text-slate-500">En proceso</p><p className="text-xl font-bold">{activeOrders.length}</p></div></div>
-            <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center"><MdCheck className="text-emerald-600" /></div><div><p className="text-xs text-slate-500">Entregados hoy</p><p className="text-xl font-bold">{todayDeliveries.length}</p></div></div>
-            <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center"><MdDeliveryDining className="text-sky-600" /></div><div><p className="text-xs text-slate-500">Total Delivery</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(orders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + (o.total || 0), 0))}</p></div></div>
+            <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-gold-100 rounded-xl flex items-center justify-center"><MdTimer className="text-gold-600" /></div><div><p className="text-xs ui-text-muted">En proceso</p><p className="text-xl font-bold">{activeOrders.length}</p></div></div>
+            <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center"><MdCheck className="text-emerald-600" /></div><div><p className="text-xs ui-text-muted">Entregados hoy</p><p className="text-xl font-bold">{todayDeliveries.length}</p></div></div>
+            <div className="card flex items-center gap-3"><div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center"><MdDeliveryDining className="text-sky-600" /></div><div><p className="text-xs ui-text-muted">Total Delivery</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(orders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + (o.total || 0), 0))}</p></div></div>
           </div>
 
           {displayed.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm border p-12 text-center text-slate-400"><MdDeliveryDining className="text-5xl mx-auto mb-3" /><p className="font-medium">No hay pedidos de delivery {tab === 'active' ? 'activos' : tab === 'today' ? 'entregados hoy' : 'completados'}</p></div>
+            <div className="bg-white rounded-xl shadow-sm border p-12 text-center text-[var(--ui-muted)]"><MdDeliveryDining className="text-5xl mx-auto mb-3" /><p className="font-medium">No hay pedidos de delivery {tab === 'active' ? 'activos' : tab === 'today' ? 'entregados hoy' : 'completados'}</p></div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {displayed.map((o) => {
@@ -232,13 +232,13 @@ export default function Delivery() {
                       <span className="font-bold text-lg">#{o.order_number}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[o.status]}`}>{statusNames[o.status]}</span>
                     </div>
-                    <p className="text-xs text-slate-400">{formatDateTime(o.created_at)}</p>
+                    <p className="text-xs text-[var(--ui-muted)]">{formatDateTime(o.created_at)}</p>
                   </div>
                   <div className="space-y-1 mb-3 text-sm">
-                    {o.customer_name && <p className="text-slate-600 flex items-center gap-1"><MdPerson className="text-slate-400" />{o.customer_name}</p>}
-                    <div className="text-slate-600 flex flex-col gap-1.5">
+                    {o.customer_name && <p className="text-[var(--ui-muted)] flex items-center gap-1"><MdPerson className="text-[var(--ui-muted)]" />{o.customer_name}</p>}
+                    <div className="text-[var(--ui-muted)] flex flex-col gap-1.5">
                       <p className="flex items-start gap-1">
-                        <MdLocationOn className="text-slate-400 shrink-0 mt-0.5" />
+                        <MdLocationOn className="text-[var(--ui-muted)] shrink-0 mt-0.5" />
                         <span className="break-words">{o.delivery_address || 'Sin dirección'}</span>
                       </p>
                       {mapsUrl && (
@@ -252,24 +252,24 @@ export default function Delivery() {
                         </a>
                       )}
                     </div>
-                    {o.notes && <p className="text-slate-500 flex items-center gap-1"><MdPhone className="text-slate-400" />{o.notes}</p>}
-                    <p className="text-slate-600 text-sm">
-                      <span className="text-slate-500">Modalidad de pago:</span>{' '}
+                    {o.notes && <p className="ui-text-muted flex items-center gap-1"><MdPhone className="text-[var(--ui-muted)]" />{o.notes}</p>}
+                    <p className="text-[var(--ui-muted)] text-sm">
+                      <span className="ui-text-muted">Modalidad de pago:</span>{' '}
                       <span className="font-medium">{labelDeliveryPaymentModality(o.delivery_payment_modality) || '—'}</span>
                       {o.payment_status === 'paid' ? (
-                        <span className="text-slate-500"> · Caja: {PAYMENT_METHODS[o.payment_method] || o.payment_method}</span>
+                        <span className="ui-text-muted"> · Caja: {PAYMENT_METHODS[o.payment_method] || o.payment_method}</span>
                       ) : null}
                     </p>
                   </div>
                   <div className="border-t border-slate-100 pt-3 mb-3">
-                    <p className="text-xs font-semibold text-slate-500 mb-1">Detalle de lo pedido</p>
+                    <p className="text-xs font-semibold ui-text-muted mb-1">Detalle de lo pedido</p>
                     {(o.items || []).map((it, i) => (
-                      <div key={i} className="flex justify-between text-sm py-0.5"><span>{it.quantity}x {it.product_name}</span><span className="text-slate-500">{formatCurrency(it.subtotal)}</span></div>
+                      <div key={i} className="flex justify-between text-sm py-0.5"><span>{it.quantity}x {it.product_name}</span><span className="ui-text-muted">{formatCurrency(it.subtotal)}</span></div>
                     ))}
                   </div>
                   <div className="flex items-center justify-between border-t border-slate-100 pt-3">
                     <div>
-                      <p className="text-xs text-slate-500">Total compra</p>
+                      <p className="text-xs ui-text-muted">Total compra</p>
                       <p className="font-bold text-lg">{formatCurrency(o.total)}</p>
                     </div>
                     {tab === 'active' && ['pending', 'preparing', 'ready'].includes(o.status) && (
@@ -293,19 +293,19 @@ export default function Delivery() {
           <div className="flex-1 flex flex-col">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1"><MdPerson className="inline mr-1" />Cliente *</label>
+                <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1"><MdPerson className="inline mr-1" />Cliente *</label>
                 <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nombre del cliente" className="input-field text-sm" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1"><MdPhone className="inline mr-1" />Teléfono</label>
+                <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1"><MdPhone className="inline mr-1" />Teléfono</label>
                 <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="999 888 777" className="input-field text-sm" />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-slate-600 mb-1"><MdHome className="inline mr-1" />Dirección de entrega *</label>
+                <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1"><MdHome className="inline mr-1" />Dirección de entrega *</label>
                 <input value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} placeholder="Av. ejemplo 123, distrito" className="input-field text-sm" />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-slate-600 mb-1">Modalidad de pago</label>
+                <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">Modalidad de pago</label>
                 <select
                   value={deliveryPaymentModality}
                   onChange={(e) => setDeliveryPaymentModality(e.target.value)}
@@ -315,20 +315,20 @@ export default function Delivery() {
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
-                <p className="text-[11px] text-slate-500 mt-1">Anticipado o contra entrega; el medio de pago en caja lo registra caja al cobrar.</p>
+                <p className="text-[11px] ui-text-muted mt-1">Anticipado o contra entrega; el medio de pago en caja lo registra caja al cobrar.</p>
               </div>
             </div>
 
             <div className="mb-3">
               <div className="relative">
-                <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)]" />
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar producto..." className="input-field pl-10" />
               </div>
             </div>
             <div className="flex gap-2 flex-wrap mb-3">
-              <button onClick={() => setSelectedCat('all')} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${selectedCat === 'all' ? 'bg-gold-600 text-white' : 'bg-slate-100 text-slate-600'}`}>Todos</button>
+              <button onClick={() => setSelectedCat('all')} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${selectedCat === 'all' ? 'bg-gold-600 text-white' : 'bg-slate-100 text-[var(--ui-muted)]'}`}>Todos</button>
               {categories.map(c => (
-                <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${selectedCat === c.id ? 'bg-gold-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{c.name}</button>
+                <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${selectedCat === c.id ? 'bg-gold-600 text-white' : 'bg-slate-100 text-[var(--ui-muted)]'}`}>{c.name}</button>
               ))}
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -338,7 +338,7 @@ export default function Delivery() {
                     <p className="font-medium text-sm truncate">{p.name}</p>
                     <p className="text-gold-600 font-bold text-sm mt-1">{formatCurrency(p.price)}</p>
                     {showStockInOrderingUI(p) ? (
-                      <p className="text-xs text-slate-400">Stock: {p.stock}</p>
+                      <p className="text-xs text-[var(--ui-muted)]">Stock: {p.stock}</p>
                     ) : null}
                   </button>
                 ))}
@@ -347,14 +347,14 @@ export default function Delivery() {
           </div>
 
           <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l pt-4 lg:pt-0 lg:pl-4 flex flex-col">
-            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+            <h3 className="font-bold rf-section-title mb-3 flex items-center gap-2">
               <MdShoppingCart /> Pedido
               {cart.length > 0 && <span className="text-xs bg-gold-100 text-gold-600 px-2 py-0.5 rounded-full">{cart.length}</span>}
             </h3>
 
             <div className="flex-1 overflow-y-auto">
               {cart.length === 0 ? (
-                <p className="text-center text-slate-400 text-sm py-8">Selecciona productos</p>
+                <p className="text-center text-[var(--ui-muted)] text-sm py-8">Selecciona productos</p>
               ) : (
                 cart.map((item) => {
                   const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
@@ -414,7 +414,7 @@ export default function Delivery() {
                             value={item.notes || ''}
                             onChange={(e) => updateItemNote(item.product_id, e.target.value)}
                             placeholder="Escribe una nota para cocina/bar..."
-                            className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                            className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 placeholder:ui-text-muted focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                             rows={2}
                           />
                         </div>

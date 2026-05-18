@@ -30,7 +30,7 @@ export default function TicketPreviewPanel({ restaurant, profile }) {
 
   return (
     <div className="rounded-xl border border-[color:var(--ui-border)] bg-slate-900 p-4 lg:sticky lg:top-4">
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Vista previa del ticket</p>
+      <p className="text-xs font-semibold text-[var(--ui-muted)] uppercase tracking-wide mb-2">Vista previa del ticket</p>
       {welcome ? (
         <p className="text-[10px] text-amber-200/90 mb-2 border border-amber-500/30 rounded px-2 py-1">{welcome}</p>
       ) : null}
@@ -40,7 +40,7 @@ export default function TicketPreviewPanel({ restaurant, profile }) {
       {promo ? (
         <p className="text-[10px] text-sky-200/90 mt-2 border border-sky-500/30 rounded px-2 py-1">{promo}</p>
       ) : null}
-      <p className="text-[10px] text-slate-500 mt-2">Ancho simulado: {widthMm} mm · Los cambios se reflejan al escribir.</p>
+      <p className="text-[10px] ui-text-muted mt-2">Ancho simulado: {widthMm} mm · Los cambios se reflejan al escribir.</p>
     </div>
   );
 }

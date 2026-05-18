@@ -128,7 +128,9 @@ export function applyUiTheme(id, opts = {}) {
     if (typeof window !== 'undefined' && window.matchMedia) {
       autoModeMedia = window.matchMedia('(prefers-color-scheme: dark)');
       autoModeListener = () => {
-        document.documentElement.style.colorScheme = resolveAutoColorScheme();
+        const cs = resolveAutoColorScheme();
+        document.documentElement.setAttribute('data-ui-color-scheme', cs);
+        document.documentElement.style.colorScheme = cs;
         dispatchThemeChange(themeId);
       };
       autoModeMedia.addEventListener('change', autoModeListener);
@@ -143,6 +145,7 @@ export function applyUiTheme(id, opts = {}) {
   if (typeof document !== 'undefined') {
     document.documentElement.setAttribute('data-ui-theme', themeId);
     document.documentElement.setAttribute('data-ui-theme-mode', validMode);
+    document.documentElement.setAttribute('data-ui-color-scheme', colorScheme);
     document.documentElement.style.colorScheme = colorScheme;
     applyCssVariables(mergedVars);
     try {

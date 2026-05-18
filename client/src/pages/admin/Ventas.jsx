@@ -407,10 +407,10 @@ export default function Ventas() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-        <div className="card"><p className="text-xs text-slate-500">Total Ventas</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{formatCurrency(totals.total)}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Cobrado</p><p className="text-xl font-bold text-emerald-400">{formatCurrency(totals.paid)}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Pendiente</p><p className="text-xl font-bold text-amber-300">{formatCurrency(totals.pending)}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Transacciones</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{totals.count}</p></div>
+        <div className="card"><p className="text-xs ui-text-muted">Total Ventas</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{formatCurrency(totals.total)}</p></div>
+        <div className="card"><p className="text-xs ui-text-muted">Cobrado</p><p className="text-xl font-bold text-emerald-400">{formatCurrency(totals.paid)}</p></div>
+        <div className="card"><p className="text-xs ui-text-muted">Pendiente</p><p className="text-xl font-bold text-amber-300">{formatCurrency(totals.pending)}</p></div>
+        <div className="card"><p className="text-xs ui-text-muted">Transacciones</p><p className="text-xl font-bold text-[var(--ui-body-text)]">{totals.count}</p></div>
       </div>
 
       <div className="rounded-xl shadow-sm border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-5">
@@ -555,12 +555,12 @@ export default function Ventas() {
               </div>
             ) : null}
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><p className="text-slate-500">Fecha</p><p className="font-medium">{formatDateTime(selected.created_at)}</p></div>
-              <div><p className="text-slate-500">Tipo</p><p className="font-medium">{selected.type === 'dine_in' ? `Mesa ${selected.table_number}` : selected.type}</p></div>
-              <div><p className="text-slate-500">Metodo de Pago</p><p className="font-medium">{payNames[selected.payment_method] || selected.payment_method}</p></div>
-              <div><p className="text-slate-500">Estado</p><p className="font-medium">{selected.payment_status === 'paid' ? 'Pagado' : selected.payment_status === 'pending' ? 'Pendiente' : 'Reembolsado'}</p></div>
+              <div><p className="ui-text-muted">Fecha</p><p className="font-medium">{formatDateTime(selected.created_at)}</p></div>
+              <div><p className="ui-text-muted">Tipo</p><p className="font-medium">{selected.type === 'dine_in' ? `Mesa ${selected.table_number}` : selected.type}</p></div>
+              <div><p className="ui-text-muted">Metodo de Pago</p><p className="font-medium">{payNames[selected.payment_method] || selected.payment_method}</p></div>
+              <div><p className="ui-text-muted">Estado</p><p className="font-medium">{selected.payment_status === 'paid' ? 'Pagado' : selected.payment_status === 'pending' ? 'Pendiente' : 'Reembolsado'}</p></div>
               <div className="col-span-2">
-                <p className="text-slate-500">Comprobante</p>
+                <p className="ui-text-muted">Comprobante</p>
                 <p className="font-medium">{(() => { const doc = getOrderDocument(selected); return `${docNames[doc.doc_type] || doc.doc_type} - ${doc.full_number}`; })()}</p>
               </div>
             </div>

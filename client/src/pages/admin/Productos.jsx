@@ -474,7 +474,7 @@ export default function Productos() {
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan="7" className="p-8 text-center text-slate-400">
+                    <tr><td colSpan="7" className="p-8 text-center text-[var(--ui-muted)]">
                       <MdRestaurantMenu className="text-4xl mx-auto mb-2 opacity-30" />
                       <p>No se encontraron productos</p>
                     </td></tr>
@@ -489,11 +489,11 @@ export default function Productos() {
       {activeTab === 'combos' && (
         <div>
           <div className="flex justify-between items-center mb-4">
-            <p className="text-sm text-slate-500">{combos.length} combos registrados</p>
+            <p className="text-sm ui-text-muted">{combos.length} combos registrados</p>
             <button onClick={() => { setComboForm({ name: '', description: '', price: '', items: [] }); setShowComboModal(true); }} className="btn-primary flex items-center gap-2 text-sm"><MdAdd /> Nuevo Combo</button>
           </div>
           {combos.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400">
+            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-[var(--ui-muted)]">
               <MdLunchDining className="text-5xl mx-auto mb-3 opacity-30" />
               <p className="font-medium">No hay combos creados</p>
               <p className="text-sm mt-1">Crea combos para ofrecer paquetes de productos</p>
@@ -502,10 +502,10 @@ export default function Productos() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {combos.map(c => (
                 <div key={c.id} className="bg-white rounded-xl border border-slate-200 p-5">
-                  <h3 className="font-bold text-slate-800">{c.name}</h3>
-                  <p className="text-sm text-slate-500 mt-1">{c.description}</p>
+                  <h3 className="font-bold rf-section-title">{c.name}</h3>
+                  <p className="text-sm ui-text-muted mt-1">{c.description}</p>
                   <p className="text-xl font-bold text-gold-600 mt-2">{formatCurrency(c.price)}</p>
-                  <p className="text-xs text-slate-400 mt-2">Incluye: {(Array.isArray(c.items) ? c.items.map(i => i.product_name || i.name).filter(Boolean).join(', ') : '') || '-'}</p>
+                  <p className="text-xs text-[var(--ui-muted)] mt-2">Incluye: {(Array.isArray(c.items) ? c.items.map(i => i.product_name || i.name).filter(Boolean).join(', ') : '') || '-'}</p>
                 </div>
               ))}
             </div>
@@ -516,7 +516,7 @@ export default function Productos() {
       {activeTab === 'modificadores' && (
         <div>
           <div className="flex justify-between items-center mb-4">
-            <p className="text-sm text-slate-500">{modifiers.length} modificadores</p>
+            <p className="text-sm ui-text-muted">{modifiers.length} modificadores</p>
             <button onClick={() => { setModForm({ name: '', options: '', required: false }); setShowModModal(true); }} className="btn-primary flex items-center gap-2 text-sm"><MdAdd /> Nuevo Modificador</button>
           </div>
           <div className="space-y-3">
@@ -524,9 +524,9 @@ export default function Productos() {
               <div key={m.id} className={`bg-white rounded-xl border border-slate-200 p-5 ${!m.active ? 'opacity-50' : ''}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
-                    <h3 className="font-bold text-slate-800">{m.name}</h3>
+                    <h3 className="font-bold rf-section-title">{m.name}</h3>
                     {m.required && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">Obligatorio</span>}
-                    <span className={`px-2 py-0.5 text-xs rounded-full ${m.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{m.active ? 'Activo' : 'Inactivo'}</span>
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${m.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 ui-text-muted'}`}>{m.active ? 'Activo' : 'Inactivo'}</span>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={async () => {
@@ -536,7 +536,7 @@ export default function Productos() {
                       } catch (err) {
                         toast.error(err.message);
                       }
-                    }} className="text-xs px-3 py-1.5 bg-slate-100 rounded-lg hover:bg-slate-200 text-slate-600">{m.active ? 'Desactivar' : 'Activar'}</button>
+                    }} className="text-xs px-3 py-1.5 bg-slate-100 rounded-lg hover:bg-slate-200 text-[var(--ui-muted)]">{m.active ? 'Desactivar' : 'Activar'}</button>
                     <button onClick={async () => {
                       try {
                         await api.delete(`/admin-modules/modifiers/${m.id}`);
@@ -544,7 +544,7 @@ export default function Productos() {
                       } catch (err) {
                         toast.error(err.message);
                       }
-                    }} className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600"><MdDelete /></button>
+                    }} className="p-1.5 hover:bg-red-50 rounded-lg text-[var(--ui-muted)] hover:text-red-600"><MdDelete /></button>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -561,7 +561,7 @@ export default function Productos() {
       <Modal isOpen={showProductModal} onClose={() => setShowProductModal(false)} title={editProduct ? 'Editar Producto' : 'Nuevo Producto'} size="lg">
         <form onSubmit={handleProductSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Producto</label><input value={productForm.name} onChange={e => setProductForm({ ...productForm, name: e.target.value })} className="input-field" required placeholder="Ej: Lomo Saltado" /></div>
+            <div className="col-span-2"><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre del Producto</label><input value={productForm.name} onChange={e => setProductForm({ ...productForm, name: e.target.value })} className="input-field" required placeholder="Ej: Lomo Saltado" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -580,7 +580,7 @@ export default function Productos() {
               className={`py-2 rounded-lg border text-sm font-medium ${
                 productForm.process_type === 'transformed'
                   ? 'bg-emerald-600 border-emerald-600 text-white'
-                  : 'bg-white border-slate-200 text-slate-600'
+                  : 'bg-white border-slate-200 text-[var(--ui-muted)]'
               }`}
             >
               Transformado
@@ -600,24 +600,24 @@ export default function Productos() {
               className={`py-2 rounded-lg border text-sm font-medium ${
                 productForm.process_type === 'non_transformed'
                   ? 'bg-sky-600 border-sky-600 text-white'
-                  : 'bg-white border-slate-200 text-slate-600'
+                  : 'bg-white border-slate-200 text-[var(--ui-muted)]'
               }`}
             >
               No transformado
             </button>
           </div>
           {productForm.process_type === 'non_transformed' && (
-            <p className="text-xs text-slate-500 -mt-2">
+            <p className="text-xs ui-text-muted -mt-2">
               Producto no transformado: se gestiona como inventario vendible en Movimiento interno según su categoría.
             </p>
           )}
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label><textarea value={productForm.description} onChange={e => setProductForm({ ...productForm, description: e.target.value })} className="input-field" rows="2" placeholder="Descripción del producto..." /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Descripción</label><textarea value={productForm.description} onChange={e => setProductForm({ ...productForm, description: e.target.value })} className="input-field" rows="2" placeholder="Descripción del producto..." /></div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Precio (S/)</label><input type="number" step="0.01" value={productForm.price} onChange={e => setProductForm({ ...productForm, price: e.target.value })} className="input-field" required placeholder="0.00" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Precio (S/)</label><input type="number" step="0.01" value={productForm.price} onChange={e => setProductForm({ ...productForm, price: e.target.value })} className="input-field" required placeholder="0.00" /></div>
             <div>
               {productForm.process_type === 'non_transformed' ? (
                 <>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Stock inicial</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Stock inicial</label>
                   <input
                     type="number"
                     value={productForm.stock}
@@ -629,7 +629,7 @@ export default function Productos() {
                 </>
               ) : (
                 <>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Insumo a descontar</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Insumo a descontar</label>
                   <select
                     className="input-field text-sm"
                     value={
@@ -666,7 +666,7 @@ export default function Productos() {
                   </select>
                   {(productForm.kardex_insumo_modo === 'unidad' || productForm.kardex_insumo_modo === 'peso') && (
                     <>
-                      <label className="block text-xs text-slate-500 mt-2 mb-0.5">Insumo</label>
+                      <label className="block text-xs ui-text-muted mt-2 mb-0.5">Insumo</label>
                       <select
                         value={productForm.kardex_insumo_id}
                         onChange={e => setProductForm({ ...productForm, kardex_insumo_id: e.target.value })}
@@ -701,7 +701,7 @@ export default function Productos() {
                   )}
                   {productForm.kardex_insumo_id && productForm.kardex_insumo_modo === 'unidad' ? (
                     <div className="mt-2">
-                      <label className="block text-xs text-slate-500 mb-0.5">Fracción (a / b) por plato</label>
+                      <label className="block text-xs ui-text-muted mb-0.5">Fracción (a / b) por plato</label>
                       <div className="flex flex-wrap items-center gap-2">
                         <input
                           type="number"
@@ -711,7 +711,7 @@ export default function Productos() {
                           onChange={e => setProductForm({ ...productForm, kardex_insumo_num: e.target.value })}
                           className="input-field w-16 text-sm py-1.5"
                         />
-                        <span className="text-slate-500 font-medium">/</span>
+                        <span className="ui-text-muted font-medium">/</span>
                         <input
                           type="number"
                           min="0.01"
@@ -725,7 +725,7 @@ export default function Productos() {
                   ) : null}
                   {productForm.kardex_insumo_id && productForm.kardex_insumo_modo === 'peso' ? (
                     <div className="mt-2">
-                      <label className="block text-xs text-slate-500 mb-0.5">Gramos por plato</label>
+                      <label className="block text-xs ui-text-muted mb-0.5">Gramos por plato</label>
                       <input
                         type="number"
                         min="0.1"
@@ -741,7 +741,7 @@ export default function Productos() {
                 </>
               )}
             </div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría *</label>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Categoría *</label>
               <select
                 required
                 value={productForm.category_id}
@@ -757,7 +757,7 @@ export default function Productos() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Área de producción</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Área de producción</label>
               <select
                 value={productForm.production_area}
                 onChange={e => setProductForm({ ...productForm, production_area: e.target.value })}
@@ -768,7 +768,7 @@ export default function Productos() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Impuesto</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Impuesto</label>
               <select
                 value={productForm.tax_type}
                 onChange={e => setProductForm({ ...productForm, tax_type: e.target.value })}
@@ -780,7 +780,7 @@ export default function Productos() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Modificador</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Modificador</label>
               <select
                 value={productForm.modifier_id}
                 onChange={e => setProductForm({ ...productForm, modifier_id: e.target.value })}
@@ -795,7 +795,7 @@ export default function Productos() {
           </div>
           {productForm.process_type === 'non_transformed' && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Almacén destino</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Almacén destino</label>
               <select
                 value={productForm.stock_warehouse_id}
                 onChange={e => setProductForm({ ...productForm, stock_warehouse_id: e.target.value })}
@@ -830,8 +830,8 @@ export default function Productos() {
 
       <Modal isOpen={showCatModal} onClose={() => setShowCatModal(false)} title={editCat ? 'Editar Categoría' : 'Nueva Categoría'} size="sm">
         <form onSubmit={handleCatSubmit} className="space-y-4">
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label><input value={catForm.name} onChange={e => setCatForm({ ...catForm, name: e.target.value })} className="input-field" required placeholder="Ej: Entradas" /></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label><textarea value={catForm.description} onChange={e => setCatForm({ ...catForm, description: e.target.value })} className="input-field" rows="2" placeholder="Descripción..." /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre</label><input value={catForm.name} onChange={e => setCatForm({ ...catForm, name: e.target.value })} className="input-field" required placeholder="Ej: Entradas" /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Descripción</label><textarea value={catForm.description} onChange={e => setCatForm({ ...catForm, description: e.target.value })} className="input-field" rows="2" placeholder="Descripción..." /></div>
           <div className="flex gap-3"><button type="button" onClick={() => setShowCatModal(false)} className="btn-secondary flex-1">Cancelar</button><button type="submit" className="btn-primary flex-1">{editCat ? 'Guardar' : 'Crear'}</button></div>
         </form>
       </Modal>
@@ -856,11 +856,11 @@ export default function Productos() {
             toast.error(err.message);
           }
         }} className="space-y-4">
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Combo</label><input value={comboForm.name} onChange={e => setComboForm({ ...comboForm, name: e.target.value })} className="input-field" required /></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label><textarea value={comboForm.description} onChange={e => setComboForm({ ...comboForm, description: e.target.value })} className="input-field" rows="2" /></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Precio</label><input type="number" step="0.01" value={comboForm.price} onChange={e => setComboForm({ ...comboForm, price: e.target.value })} className="input-field" required /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre del Combo</label><input value={comboForm.name} onChange={e => setComboForm({ ...comboForm, name: e.target.value })} className="input-field" required /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Descripción</label><textarea value={comboForm.description} onChange={e => setComboForm({ ...comboForm, description: e.target.value })} className="input-field" rows="2" /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Precio</label><input type="number" step="0.01" value={comboForm.price} onChange={e => setComboForm({ ...comboForm, price: e.target.value })} className="input-field" required /></div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Productos incluidos</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Productos incluidos</label>
             <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-1">
               {products.filter(p => p.is_active).map(p => (
                 <label key={p.id} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 rounded cursor-pointer text-sm">
@@ -868,7 +868,7 @@ export default function Productos() {
                     if (e.target.checked) setComboForm({ ...comboForm, items: [...comboForm.items, p.name] });
                     else setComboForm({ ...comboForm, items: comboForm.items.filter(i => i !== p.name) });
                   }} className="rounded text-gold-500" />
-                  {p.name} <span className="text-slate-400 ml-auto">{formatCurrency(p.price)}</span>
+                  {p.name} <span className="text-[var(--ui-muted)] ml-auto">{formatCurrency(p.price)}</span>
                 </label>
               ))}
             </div>
@@ -879,8 +879,8 @@ export default function Productos() {
 
       <Modal isOpen={showModModal} onClose={() => setShowModModal(false)} title="Nuevo Modificador" size="sm">
         <form onSubmit={handleModSubmit} className="space-y-4">
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Grupo</label><input value={modForm.name} onChange={e => setModForm({ ...modForm, name: e.target.value })} className="input-field" required placeholder="Ej: Tamaño, Cocción, Extras" /></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Opciones (separadas por coma)</label><textarea value={modForm.options} onChange={e => setModForm({ ...modForm, options: e.target.value })} className="input-field" rows="2" required placeholder="Pequeño, Mediano, Grande" /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre del Grupo</label><input value={modForm.name} onChange={e => setModForm({ ...modForm, name: e.target.value })} className="input-field" required placeholder="Ej: Tamaño, Cocción, Extras" /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Opciones (separadas por coma)</label><textarea value={modForm.options} onChange={e => setModForm({ ...modForm, options: e.target.value })} className="input-field" rows="2" required placeholder="Pequeño, Mediano, Grande" /></div>
           <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={modForm.required} onChange={e => setModForm({ ...modForm, required: e.target.checked })} className="rounded text-gold-500" /><span>Selección obligatoria</span></label>
           <div className="flex gap-3"><button type="button" onClick={() => setShowModModal(false)} className="btn-secondary flex-1">Cancelar</button><button type="submit" className="btn-primary flex-1">Crear</button></div>
         </form>

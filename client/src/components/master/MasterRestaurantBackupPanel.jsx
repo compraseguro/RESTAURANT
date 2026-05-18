@@ -95,7 +95,7 @@ export default function MasterRestaurantBackupPanel({ onAfterMutate, cardClassNa
   };
 
   const titleCls = textTone === 'slate' ? 'font-bold text-slate-900' : 'font-bold text-[var(--ui-body-text)]';
-  const bodyCls = textTone === 'slate' ? 'text-sm text-slate-600' : 'text-sm text-[var(--ui-muted)]';
+  const bodyCls = textTone === 'slate' ? 'text-sm text-[var(--ui-muted)]' : 'text-sm text-[var(--ui-muted)]';
 
   return (
     <>
@@ -145,7 +145,7 @@ export default function MasterRestaurantBackupPanel({ onAfterMutate, cardClassNa
         size="md"
       >
         <form onSubmit={submitResetOperational} className="space-y-4">
-          <p className={textTone === 'slate' ? 'text-sm text-slate-600' : 'text-sm text-[var(--ui-muted)]'}>
+          <p className={textTone === 'slate' ? 'text-sm text-[var(--ui-muted)]' : 'text-sm text-[var(--ui-muted)]'}>
             Se borrarán ventas, pedidos, caja, clientes, productos y demás datos operativos. El{' '}
             <strong>contrato del servicio</strong> (texto y firmas guardados en Mi Restaurante) no se elimina.
           </p>

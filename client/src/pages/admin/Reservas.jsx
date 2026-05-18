@@ -231,7 +231,7 @@ export default function Reservas() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-slate-800">Reservas</h1>
+        <h1 className="text-2xl font-bold rf-page-title">Reservas</h1>
         <button
           onClick={() => {
             resetForm();
@@ -249,7 +249,7 @@ export default function Reservas() {
             <MdCalendarToday className="text-sky-600" />
           </div>
           <div>
-            <p className="text-xs text-slate-500">Hoy</p>
+            <p className="text-xs ui-text-muted">Hoy</p>
             <p className="text-xl font-bold">{todayReservas.length}</p>
           </div>
         </div>
@@ -258,7 +258,7 @@ export default function Reservas() {
             <MdEventSeat className="text-emerald-600" />
           </div>
           <div>
-            <p className="text-xs text-slate-500">Confirmadas</p>
+            <p className="text-xs ui-text-muted">Confirmadas</p>
             <p className="text-xl font-bold">{visibleReservas.filter((r) => r.status === 'confirmed').length}</p>
           </div>
         </div>
@@ -267,7 +267,7 @@ export default function Reservas() {
             <MdPerson className="text-gold-600" />
           </div>
           <div>
-            <p className="text-xs text-slate-500">Comensales esperados</p>
+            <p className="text-xs ui-text-muted">Comensales esperados</p>
             <p className="text-xl font-bold">{todayReservas.reduce((s, r) => s + r.guests, 0)}</p>
           </div>
         </div>
@@ -275,7 +275,7 @@ export default function Reservas() {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
         {visibleReservas.length === 0 ? (
-          <div className="text-center py-12 text-slate-400">
+          <div className="text-center py-12 text-[var(--ui-muted)]">
             <MdEventSeat className="text-5xl mx-auto mb-3" />
             <p className="font-medium">No hay reservas activas</p>
             <p className="text-sm">Las canceladas no se muestran aquí · Crea una nueva reserva para comenzar</p>
@@ -289,20 +289,20 @@ export default function Reservas() {
                     <span className="font-bold text-gold-700">{r.client_name[0]}</span>
                   </div>
                   <div>
-                    <p className="font-bold text-slate-800">{r.client_name}</p>
-                    <p className="text-sm text-slate-500">
+                    <p className="font-bold rf-section-title">{r.client_name}</p>
+                    <p className="text-sm ui-text-muted">
                       <MdCalendarToday className="inline text-xs mr-1" />
                       {r.date} · <MdAccessTime className="inline text-xs mr-1" />
                       {r.time} · {r.guests} personas
                     </p>
                     {r.phone && (
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-[var(--ui-muted)]">
                         <MdPhone className="inline text-xs mr-1" />
                         {r.phone}
                       </p>
                     )}
                     {r.notes && (
-                      <p className="text-xs text-slate-500 mt-1 max-w-[520px] truncate">
+                      <p className="text-xs ui-text-muted mt-1 max-w-[520px] truncate">
                         Nota: {r.notes}
                       </p>
                     )}
@@ -338,7 +338,7 @@ export default function Reservas() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Cliente</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre del Cliente</label>
             <input
               value={form.client_name}
               onChange={(e) => {
@@ -387,7 +387,7 @@ export default function Reservas() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Teléfono</label>
               <input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -396,7 +396,7 @@ export default function Reservas() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Comensales</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Comensales</label>
               <input
                 type="number"
                 min="1"
@@ -409,16 +409,16 @@ export default function Reservas() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Fecha</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Fecha</label>
               <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="input-field" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Hora</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Hora</label>
               <input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} className="input-field" required />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Mesa</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Mesa</label>
             <select value={form.table_id} onChange={(e) => setForm({ ...form, table_id: e.target.value })} className="input-field">
               <option value="">Sin asignar</option>
               {tables.map((t) => (
@@ -489,7 +489,7 @@ export default function Reservas() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Notas</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Notas</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}

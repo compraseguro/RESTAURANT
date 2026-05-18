@@ -342,25 +342,34 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
     const urlAfter = String(out.pago_uso_sistema?.comprobante_pago_url || '').trim();
     const urlBefore = String(beforeState.pago_uso_sistema?.comprobante_pago_url || '').trim();
     evaluateAutomaticBillingRules();
-    if (urlAfter && urlAfter !== urlBefore) {
-      try {
-        const { isCentralSyncConfigured } = require('../../packages/shared-config');
-        const {
-          registerPendingComprobantePayment,
-          legacyConfirmComprobanteOnUpload,
-        } = require('../services/platformPaymentService');
-        if (isCentralSyncConfigured()) {
-          registerPendingComprobantePayment({
-            comprobanteUrl: urlAfter,
-            monto: out.pago_uso_sistema?.monto_comprobante ?? null,
-          }).catch((err) => {
-            console.warn('[platform-payment] registro pendiente:', err.message || err);
-          });
-        } else {
-          legacyConfirmComprobanteOnUpload(urlAfter);
+    if (urlAfter) {
+      const urlChanged = urlAfter !== urlBefore;
+      const pp = out.pago_uso_sistema?.platform_payment || {};
+      const needsResync = !pp.last_central_sync_ok && pp.last_central_sync_ok !== true;
+      if (urlChanged || needsResync) {
+        try {
+          const { isCentralSyncConfigured } = require('../../packages/shared-config');
+          const {
+            registerPendingComprobantePayment,
+            legacyConfirmComprobanteOnUpload,
+            pushComprobanteToCentral,
+          } = require('../services/platformPaymentService');
+          if (isCentralSyncConfigured()) {
+            const run = urlChanged
+              ? registerPendingComprobantePayment({
+                comprobanteUrl: urlAfter,
+                monto: out.pago_uso_sistema?.monto_comprobante ?? null,
+              })
+              : pushComprobanteToCentral({ comprobanteUrl: urlAfter });
+            run.catch((err) => {
+              console.warn('[platform-payment] registro pendiente:', err.message || err);
+            });
+          } else {
+            if (urlChanged) legacyConfirmComprobanteOnUpload(urlAfter);
+          }
+        } catch (err) {
+          console.warn('[platform-payment]:', err.message || err);
         }
-      } catch (err) {
-        console.warn('[platform-payment]:', err.message || err);
       }
     }
   }

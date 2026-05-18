@@ -38,6 +38,42 @@ h1, h2, h3, h4 {
   font-family: var(--ui-font-display);
   letter-spacing: -0.02em;
   font-weight: 600;
+  color: var(--ui-body-text);
+}
+
+/* Utilidades semánticas — preferir en módulos nuevos */
+.ui-text-body {
+  color: var(--ui-body-text);
+}
+.ui-text-muted {
+  color: var(--ui-muted);
+}
+.rf-page-title {
+  color: var(--ui-body-text);
+}
+.rf-section-title {
+  color: var(--ui-body-text);
+}
+.rf-section-desc {
+  color: var(--ui-muted);
+}
+
+/* Pestañas de sección (Informes, etc.) */
+.rf-tab-btn {
+  @apply px-4 py-2 rounded-lg border text-sm font-semibold transition-colors;
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-body-text);
+}
+.rf-tab-btn:hover:not(:disabled) {
+  border-color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 10%, var(--ui-surface));
+}
+.rf-tab-btn--active {
+  border-color: var(--ui-accent);
+  background: var(--ui-accent);
+  color: #fff;
+  box-shadow: var(--ui-shadow-sm);
 }
 
 .rf-font-display {

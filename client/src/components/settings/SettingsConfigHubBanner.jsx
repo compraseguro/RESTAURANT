@@ -12,7 +12,7 @@ export default function SettingsConfigHubBanner({ hub, loading, onRefresh, secti
           {loading ? 'Sincronizando…' : 'Tiempo real'}
         </div>
         {insights?.open_status ? (
-          <span className={`text-xs px-2 py-0.5 rounded-full ${insights.open_status.is_open ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+          <span className={`text-xs px-2 py-0.5 rounded-full ${insights.open_status.is_open ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-[var(--ui-muted)]'}`}>
             Local: {insights.open_status.reason}
             {insights.open_status.hours ? ` (${insights.open_status.hours})` : ''}
           </span>

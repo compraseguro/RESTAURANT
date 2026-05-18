@@ -1241,7 +1241,7 @@ export default function Settings() {
                 <button onClick={loadAppSettingsHistory} className="text-xs text-sky-600 hover:underline">Actualizar</button>
               </div>
             </div>
-            <p className="text-xs text-slate-500 mb-3">
+            <p className="text-xs ui-text-muted mb-3">
               Consulta y restaura versiones anteriores de la configuración del sistema. Los cambios en otras secciones siguen registrándose aquí.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -1287,9 +1287,9 @@ export default function Settings() {
               </select>
             </div>
             {settingsHistoryLoading ? (
-              <p className="text-xs text-slate-500">Cargando historial...</p>
+              <p className="text-xs ui-text-muted">Cargando historial...</p>
             ) : settingsHistoryFiltered.length === 0 ? (
-              <p className="text-xs text-slate-500">Aún no hay cambios registrados.</p>
+              <p className="text-xs ui-text-muted">Aún no hay cambios registrados.</p>
             ) : (
               <div className="space-y-2">
                 {settingsHistoryFiltered.map(item => (
@@ -1298,7 +1298,7 @@ export default function Settings() {
                       <p className="text-xs font-medium text-slate-700 truncate">
                         {Array.isArray(item.changed_keys) && item.changed_keys.length ? item.changed_keys.join(', ') : 'sin cambios'}
                       </p>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-[11px] ui-text-muted">
                         {formatDateTime(item.created_at)} · {item.actor_name || 'Sistema'}
                       </p>
                     </div>
@@ -1320,7 +1320,7 @@ export default function Settings() {
                   </div>
                 ))}
                 <div className="pt-2 flex items-center justify-between">
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] ui-text-muted">
                     {historyPageStart}-{historyPageEnd} de {historyTotal}
                   </p>
                   <div className="flex items-center gap-2">
@@ -1349,10 +1349,10 @@ export default function Settings() {
         {!activeSection && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
-              <MdSettings className="text-4xl text-slate-300" />
+              <MdSettings className="text-4xl text-[var(--ui-muted)]" />
             </div>
             <h2 className="text-xl font-bold text-slate-700 mb-2">Configuración del Sistema</h2>
-            <p className="text-sm text-slate-400 max-w-md">Selecciona una opción del menú lateral para configurar los parámetros de tu restaurante.</p>
+            <p className="text-sm text-[var(--ui-muted)] max-w-md">Selecciona una opción del menú lateral para configurar los parámetros de tu restaurante.</p>
           </div>
         )}
 
@@ -1370,7 +1370,7 @@ export default function Settings() {
         {activeSection === 'locales' && restaurant && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Locales registrados</p>
+              <p className="text-sm ui-text-muted">Locales registrados</p>
               <button
                 onClick={() => openSettingsCrudModal('locales')}
                 className="btn-primary flex items-center gap-2 text-sm"
@@ -1384,9 +1384,9 @@ export default function Settings() {
                       <MdStorefront className="text-2xl text-gold-600" />
                     </div>
                     <div>
-                      <p className="font-bold text-slate-800">{loc.name}</p>
-                      <p className="text-sm text-slate-500">{loc.address || 'Sin dirección'}</p>
-                      <p className="text-sm text-slate-400">{loc.phone || 'Sin teléfono'}</p>
+                      <p className="font-bold rf-section-title">{loc.name}</p>
+                      <p className="text-sm ui-text-muted">{loc.address || 'Sin dirección'}</p>
+                      <p className="text-sm text-[var(--ui-muted)]">{loc.phone || 'Sin teléfono'}</p>
                       {loc.whatsapp ? (
                         <a href={`https://wa.me/${String(loc.whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-xs text-emerald-600 hover:underline mt-0.5 inline-block">
                           WhatsApp
@@ -1400,16 +1400,16 @@ export default function Settings() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => toggleAppSection('locales', i)} className={`px-3 py-1 text-xs rounded-full ${loc.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                    <button onClick={() => toggleAppSection('locales', i)} className={`px-3 py-1 text-xs rounded-full ${loc.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 ui-text-muted'}`}>
                       {loc.active ? 'Activo' : 'Inactivo'}
                     </button>
                     <button
                       onClick={() => openSettingsCrudModal('locales', i)}
-                      className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"
+                      className="p-2 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)]"
                     ><MdEdit /></button>
                     <button
                       onClick={() => deleteAppSectionItem('locales', i, `el local "${loc.name}"`)}
-                      className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]"
+                      className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]"
                     ><MdDelete /></button>
                   </div>
                 </div>
@@ -1446,7 +1446,7 @@ export default function Settings() {
         {activeSection === 'almacenes' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Gestión de almacenes y áreas de producción</p>
+              <p className="text-sm ui-text-muted">Gestión de almacenes y áreas de producción</p>
               <button
                 onClick={() => openSettingsCrudModal('almacenes')}
                 className="btn-primary flex items-center gap-2 text-sm"
@@ -1457,12 +1457,12 @@ export default function Settings() {
                 <div key={`${wh.name}-${i}`} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center"><MdWarehouse className="text-sky-600" /></div>
-                    <div><p className="font-medium">{wh.name}</p><p className="text-sm text-slate-500">{wh.description || 'Sin descripción'}</p></div>
+                    <div><p className="font-medium">{wh.name}</p><p className="text-sm ui-text-muted">{wh.description || 'Sin descripción'}</p></div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => toggleAppSection('almacenes', i)} className={`px-2 py-1 text-xs rounded-full ${wh.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{wh.active ? 'Activo' : 'Inactivo'}</button>
-                    <button onClick={() => openSettingsCrudModal('almacenes', i)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><MdEdit /></button>
-                    <button onClick={() => deleteAppSectionItem('almacenes', i, `el almacén "${wh.name}"`)} className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]"><MdDelete /></button>
+                    <button onClick={() => toggleAppSection('almacenes', i)} className={`px-2 py-1 text-xs rounded-full ${wh.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 ui-text-muted'}`}>{wh.active ? 'Activo' : 'Inactivo'}</button>
+                    <button onClick={() => openSettingsCrudModal('almacenes', i)} className="p-2 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)]"><MdEdit /></button>
+                    <button onClick={() => deleteAppSectionItem('almacenes', i, `el almacén "${wh.name}"`)} className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]"><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1482,25 +1482,25 @@ export default function Settings() {
         {activeSection === 'cajas' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">
+              <p className="text-sm ui-text-muted">
                 Defina aquí cada caja física; luego vincúlela a un usuario con rol Cajero en Usuarios.
               </p>
               <button onClick={() => openSettingsCrudModal('cajas')} className="btn-primary flex items-center gap-2 text-sm"><MdAdd /> Nueva Caja</button>
             </div>
             <div className="card">
               {!(appSettings.cajas || []).length && (
-                <p className="text-sm text-slate-500 py-6 text-center">Aún no hay cajas. Use «Nueva Caja» para crear la primera.</p>
+                <p className="text-sm ui-text-muted py-6 text-center">Aún no hay cajas. Use «Nueva Caja» para crear la primera.</p>
               )}
               {(appSettings.cajas || []).map((caja, i) => (
                 <div key={String(caja.id || '').trim() || `${caja.name}-${i}`} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center"><MdPointOfSale className="text-sky-600" /></div>
-                    <div><p className="font-medium">{caja.name}</p><p className="text-sm text-slate-500">{caja.description || 'Sin descripción'}</p></div>
+                    <div><p className="font-medium">{caja.name}</p><p className="text-sm ui-text-muted">{caja.description || 'Sin descripción'}</p></div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => toggleAppSection('cajas', i)} className={`px-2 py-1 text-xs rounded-full ${caja.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{caja.active ? 'Activa' : 'Inactiva'}</button>
-                    <button onClick={() => openSettingsCrudModal('cajas', i)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><MdEdit /></button>
-                    <button onClick={() => deleteAppSectionItem('cajas', i, `la caja "${caja.name}"`)} className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]"><MdDelete /></button>
+                    <button onClick={() => toggleAppSection('cajas', i)} className={`px-2 py-1 text-xs rounded-full ${caja.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 ui-text-muted'}`}>{caja.active ? 'Activa' : 'Inactiva'}</button>
+                    <button onClick={() => openSettingsCrudModal('cajas', i)} className="p-2 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)]"><MdEdit /></button>
+                    <button onClick={() => deleteAppSectionItem('cajas', i, `la caja "${caja.name}"`)} className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]"><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1515,24 +1515,24 @@ export default function Settings() {
         {activeSection === 'comprobantes' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Configuración de comprobantes de venta</p>
+              <p className="text-sm ui-text-muted">Configuración de comprobantes de venta</p>
               <button className="btn-primary flex items-center gap-2 text-sm" onClick={() => openSettingsCrudModal('comprobantes')}><MdAdd /> Nuevo Comprobante</button>
             </div>
             <div className="card space-y-4">
-              <h3 className="font-semibold text-slate-800">Tipos de Comprobante</h3>
+              <h3 className="font-semibold rf-section-title">Tipos de Comprobante</h3>
               {(appSettings.comprobantes || []).map((tipo, i) => (
                 <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                   <div className="flex items-center gap-3">
-                    <MdReceipt className="text-slate-400 text-xl" />
-                    <div><p className="font-medium text-sm">{tipo.name}</p><p className="text-xs text-slate-400">Serie: {tipo.series || '-'}</p></div>
+                    <MdReceipt className="text-[var(--ui-muted)] text-xl" />
+                    <div><p className="font-medium text-sm">{tipo.name}</p><p className="text-xs text-[var(--ui-muted)]">Serie: {tipo.series || '-'}</p></div>
                   </div>
                   <div className="flex items-center gap-2">
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" checked={!!tipo.active} onChange={() => toggleAppSection('comprobantes', i)} className="sr-only peer" />
                       <div className="w-9 h-5 bg-slate-300 peer-checked:bg-gold-600 rounded-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
                     </label>
-                    <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('comprobantes', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('comprobantes', i, `el comprobante "${tipo.name}"`)}><MdDelete /></button>
+                    <button className="p-2 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)]" onClick={() => openSettingsCrudModal('comprobantes', i)}><MdEdit /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('comprobantes', i, `el comprobante "${tipo.name}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1569,7 +1569,7 @@ export default function Settings() {
                   <p className={`text-sm font-semibold ${printingLinkStatus.connected ? 'text-emerald-700' : 'text-rose-700'}`}>
                     {printingLinkStatus.connected ? 'Vinculación activa' : 'Sin vinculación'}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs ui-text-muted mt-1">
                     {printingLinkStatus.checking
                       ? 'Verificando vínculo…'
                       : `${printingLinkStatus.source}${printingLinkStatus.detail ? ` · ${printingLinkStatus.detail}` : ''}`}
@@ -1608,10 +1608,10 @@ export default function Settings() {
               const moduleNetworkPrinters = detectedNetworkPrintersByModule[moduleKey] || [];
               return (
                 <div key={moduleKey} className="card space-y-3">
-                  <h3 className="font-semibold text-slate-800">{moduleLabel}</h3>
+                  <h3 className="font-semibold rf-section-title">{moduleLabel}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                      <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Tipo</label>
                       <select
                         className="input-field"
                         value={cfg.tipo || 'usb'}
@@ -1625,7 +1625,7 @@ export default function Settings() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Ancho de papel</label>
+                      <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Ancho de papel</label>
                       <select
                         className="input-field"
                         value={Number(cfg.anchoPapel ?? cfg.paperWidth ?? 80)}
@@ -1652,7 +1652,7 @@ export default function Settings() {
 
                     {(cfg.tipo || 'usb') === 'usb' ? (
                       <div className="md:col-span-1 space-y-2">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Impresora USB</label>
+                        <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Impresora USB</label>
                         <select
                           className="input-field"
                           value={cfg.nombre || ''}
@@ -1678,7 +1678,7 @@ export default function Settings() {
                     ) : (
                       <>
                         <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">IP</label>
+                          <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">IP</label>
                           <input
                             className="input-field"
                             value={cfg.ip || ''}
@@ -1690,7 +1690,7 @@ export default function Settings() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Puerto</label>
+                          <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Puerto</label>
                           <input
                             className="input-field"
                             type="number"
@@ -1704,7 +1704,7 @@ export default function Settings() {
                           />
                         </div>
                         <div className="md:col-span-1 space-y-2">
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Impresoras de red detectadas</label>
+                          <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Impresoras de red detectadas</label>
                           <select
                             className="input-field"
                             value=""
@@ -1758,7 +1758,7 @@ export default function Settings() {
 
                   {moduleKey !== 'caja' && (
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={`text-xs px-2 py-1 rounded-full border ${Boolean(cfg.autoPrint) ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                      <span className={`text-xs px-2 py-1 rounded-full border ${Boolean(cfg.autoPrint) ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-[var(--ui-muted)] border-slate-200'}`}>
                         {Boolean(cfg.autoPrint) ? 'Impresora activa' : 'Impresora desactivada'}
                       </span>
                       <button
@@ -1794,11 +1794,11 @@ export default function Settings() {
         {/* IMPUESTOS */}
         {activeSection === 'impuestos' && restaurant && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-500">Configuración de impuestos aplicables</p>
+            <p className="text-sm ui-text-muted">Configuración de impuestos aplicables</p>
             <div className="card space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Tasa de Impuesto (%)</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Tasa de Impuesto (%)</label>
                   <input
                     type="number"
                     step="0.1"
@@ -1810,10 +1810,10 @@ export default function Settings() {
                     }}
                     className="input-field"
                   />
-                  <p className="text-xs text-slate-400 mt-1">IGV Perú: 18%</p>
+                  <p className="text-xs text-[var(--ui-muted)] mt-1">IGV Perú: 18%</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Impuesto</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre del Impuesto</label>
                   <input
                     className="input-field"
                     value={appSettings.impuestos?.name || 'IGV'}
@@ -1821,7 +1821,7 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Incluido en precio</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Incluido en precio</label>
                   <select
                     className="input-field"
                     value={appSettings.impuestos?.included_in_price ? '1' : '0'}
@@ -1843,24 +1843,24 @@ export default function Settings() {
         {activeSection === 'tarjetas' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Tarjetas de crédito/débito aceptadas</p>
+              <p className="text-sm ui-text-muted">Tarjetas de crédito/débito aceptadas</p>
               <button className="btn-primary flex items-center gap-2 text-sm" onClick={() => openSettingsCrudModal('tarjetas')}><MdAdd /> Nueva Tarjeta</button>
             </div>
             <div className="card">
               {(appSettings.tarjetas || []).map((t, i) => (
                 <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                   <div className="flex items-center gap-3">
-                    <MdCreditCard className="text-slate-400 text-xl" />
+                    <MdCreditCard className="text-[var(--ui-muted)] text-xl" />
                     <p className="font-medium text-sm">{t.name}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400">Comisión: {Number(t.fee_percent || 0).toFixed(1)}%</span>
+                    <span className="text-xs text-[var(--ui-muted)]">Comisión: {Number(t.fee_percent || 0).toFixed(1)}%</span>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" checked={!!t.active} onChange={() => toggleAppSection('tarjetas', i)} className="sr-only peer" />
                       <div className="w-9 h-5 bg-slate-300 peer-checked:bg-gold-600 rounded-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
                     </label>
-                    <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('tarjetas', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('tarjetas', i, `la tarjeta "${t.name}"`)}><MdDelete /></button>
+                    <button className="p-2 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)]" onClick={() => openSettingsCrudModal('tarjetas', i)}><MdEdit /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('tarjetas', i, `la tarjeta "${t.name}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -1875,7 +1875,7 @@ export default function Settings() {
         {activeSection === 'turnos' && restaurant && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Horarios y turnos del restaurante</p>
+              <p className="text-sm ui-text-muted">Horarios y turnos del restaurante</p>
               <button onClick={saveRestaurant} className="btn-primary flex items-center gap-2 text-sm"><MdSave /> Guardar</button>
             </div>
             <div className="card">
@@ -1887,7 +1887,7 @@ export default function Settings() {
                       <span className="font-medium text-sm">{DAY_NAMES[day]}</span>
                     </label>
                     <input type="time" value={restaurant.schedule[day]?.open || '11:00'} onChange={e => updateSchedule(day, 'open', e.target.value)} className="input-field w-auto" disabled={!restaurant.schedule[day]?.enabled} />
-                    <span className="text-slate-400">a</span>
+                    <span className="text-[var(--ui-muted)]">a</span>
                     <input type="time" value={restaurant.schedule[day]?.close || '23:00'} onChange={e => updateSchedule(day, 'close', e.target.value)} className="input-field w-auto" disabled={!restaurant.schedule[day]?.enabled} />
                   </div>
                 ))}
@@ -1953,13 +1953,13 @@ export default function Settings() {
               <div className="card space-y-4">
                 <div>
                   <p className="text-sm font-semibold text-slate-700">Fotos de inicio y fin de jornada</p>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs ui-text-muted mt-1">
                     Solo se muestran las jornadas del día actual (fecha local del servidor). Indique asistencia para que
                     cuenten en tiempo trabajado.
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Usuario</label>
+                  <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">Usuario</label>
                   <select
                     className="input-field max-w-md"
                     value={attendanceGalleryUserId}
@@ -1974,18 +1974,18 @@ export default function Settings() {
                   </select>
                 </div>
                 {attendanceGalleryLoading ? (
-                  <p className="text-sm text-slate-500">Cargando…</p>
+                  <p className="text-sm ui-text-muted">Cargando…</p>
                 ) : !attendanceGalleryUserId ? (
-                  <p className="text-sm text-slate-500">Elija un usuario para ver las fotos guardadas.</p>
+                  <p className="text-sm ui-text-muted">Elija un usuario para ver las fotos guardadas.</p>
                 ) : attendanceGallerySessions.length === 0 ? (
-                  <p className="text-sm text-slate-500">No hay jornadas registradas hoy para este usuario.</p>
+                  <p className="text-sm ui-text-muted">No hay jornadas registradas hoy para este usuario.</p>
                 ) : (
                   <>
                     <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
                       {attendanceGallerySessions.map((row) => (
                         <div key={row.id} className="rounded-lg border border-slate-200 p-3 space-y-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-xs font-medium text-slate-600">Clasificación (tiempo trabajado)</span>
+                            <span className="text-xs font-medium text-[var(--ui-muted)]">Clasificación (tiempo trabajado)</span>
                             <select
                               className="input-field w-48 text-sm"
                               value={attendanceGalleryDraft[row.id] || 'asistente'}
@@ -2001,8 +2001,8 @@ export default function Settings() {
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <p className="text-xs font-medium text-slate-600 mb-1">Inicio</p>
-                              <p className="text-xs text-slate-500 mb-2">{row.login_at ? formatDateTime(row.login_at) : '—'}</p>
+                              <p className="text-xs font-medium text-[var(--ui-muted)] mb-1">Inicio</p>
+                              <p className="text-xs ui-text-muted mb-2">{row.login_at ? formatDateTime(row.login_at) : '—'}</p>
                               {row.photo_login ? (
                                 <img
                                   src={row.photo_login}
@@ -2011,12 +2011,12 @@ export default function Settings() {
                                   className="w-full max-h-48 object-contain rounded-md bg-slate-50 border border-slate-100"
                                 />
                               ) : (
-                                <p className="text-xs text-slate-400">Sin foto</p>
+                                <p className="text-xs text-[var(--ui-muted)]">Sin foto</p>
                               )}
                             </div>
                             <div>
-                              <p className="text-xs font-medium text-slate-600 mb-1">Fin</p>
-                              <p className="text-xs text-slate-500 mb-2">{row.logout_at ? formatDateTime(row.logout_at) : '—'}</p>
+                              <p className="text-xs font-medium text-[var(--ui-muted)] mb-1">Fin</p>
+                              <p className="text-xs ui-text-muted mb-2">{row.logout_at ? formatDateTime(row.logout_at) : '—'}</p>
                               {row.photo_logout ? (
                                 <img
                                   src={row.photo_logout}
@@ -2025,7 +2025,7 @@ export default function Settings() {
                                   className="w-full max-h-48 object-contain rounded-md bg-slate-50 border border-slate-100"
                                 />
                               ) : (
-                                <p className="text-xs text-slate-400">Sin foto</p>
+                                <p className="text-xs text-[var(--ui-muted)]">Sin foto</p>
                               )}
                             </div>
                           </div>
@@ -2053,7 +2053,7 @@ export default function Settings() {
         {activeSection === 'monedas' && restaurant && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Monedas disponibles en el sistema</p>
+              <p className="text-sm ui-text-muted">Monedas disponibles en el sistema</p>
               <button className="btn-primary flex items-center gap-2 text-sm" onClick={() => openSettingsCrudModal('monedas')}>
                 <MdAdd /> Nueva Moneda
               </button>
@@ -2063,15 +2063,15 @@ export default function Settings() {
                 <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gold-100 rounded-lg flex items-center justify-center font-bold text-gold-700">{m.symbol}</div>
-                    <div><p className="font-medium text-sm">{m.name}</p><p className="text-xs text-slate-400">{m.code}</p></div>
+                    <div><p className="font-medium text-sm">{m.name}</p><p className="text-xs text-[var(--ui-muted)]">{m.code}</p></div>
                   </div>
                   <div className="flex items-center gap-2">
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" checked={!!m.active} onChange={() => toggleAppSection('monedas', i)} className="sr-only peer" />
                       <div className="w-9 h-5 bg-slate-300 peer-checked:bg-gold-600 rounded-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
                     </label>
-                    <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('monedas', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('monedas', i, `la moneda "${m.code}"`)}><MdDelete /></button>
+                    <button className="p-2 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)]" onClick={() => openSettingsCrudModal('monedas', i)}><MdEdit /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('monedas', i, `la moneda "${m.code}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -2085,17 +2085,17 @@ export default function Settings() {
         {/* MONEDA DE FACTURACIÓN */}
         {activeSection === 'moneda_facturacion' && restaurant && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-500">Moneda predeterminada para la facturación</p>
+            <p className="text-sm ui-text-muted">Moneda predeterminada para la facturación</p>
             <div className="card space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Moneda Principal</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Moneda Principal</label>
                   <select className="input-field" value={restaurant.currency} onChange={e => updateR('currency', e.target.value)}>
                     <option value="PEN">Sol Peruano (PEN)</option><option value="USD">Dólar (USD)</option><option value="EUR">Euro (EUR)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Símbolo</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Símbolo</label>
                   <input value={restaurant.currency_symbol} onChange={e => updateR('currency_symbol', e.target.value)} className="input-field" />
                 </div>
               </div>
@@ -2110,7 +2110,7 @@ export default function Settings() {
         {activeSection === 'cuentas_transferencia' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Cuentas bancarias para transferencias</p>
+              <p className="text-sm ui-text-muted">Cuentas bancarias para transferencias</p>
               <button className="btn-primary flex items-center gap-2 text-sm" onClick={() => openSettingsCrudModal('cuentas_transferencia')}><MdAdd /> Nueva Cuenta</button>
             </div>
             <div className="card">
@@ -2118,10 +2118,10 @@ export default function Settings() {
                 <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center"><MdAccountBalanceWallet className="text-sky-600" /></div>
-                    <div><p className="font-medium text-sm">{c.bank}</p><p className="text-xs text-slate-400">{c.type} · {c.account}</p></div>
+                    <div><p className="font-medium text-sm">{c.bank}</p><p className="text-xs text-[var(--ui-muted)]">{c.type} · {c.account}</p></div>
                   </div>
-                  <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('cuentas_transferencia', i)}><MdEdit /></button>
-                  <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('cuentas_transferencia', i, `la cuenta de ${c.bank}`)}><MdDelete /></button>
+                  <button className="p-2 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)]" onClick={() => openSettingsCrudModal('cuentas_transferencia', i)}><MdEdit /></button>
+                  <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('cuentas_transferencia', i, `la cuenta de ${c.bank}`)}><MdDelete /></button>
                 </div>
               ))}
             </div>
@@ -2135,23 +2135,23 @@ export default function Settings() {
         {activeSection === 'marcas' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Marcas registradas en el sistema</p>
+              <p className="text-sm ui-text-muted">Marcas registradas en el sistema</p>
               <button className="btn-primary flex items-center gap-2 text-sm" onClick={() => openSettingsCrudModal('marcas')}><MdAdd /> Nueva Marca</button>
             </div>
             <div className="card">
               {!(appSettings.marcas || []).length ? (
-                <div className="text-center py-8 text-slate-400">
+                <div className="text-center py-8 text-[var(--ui-muted)]">
                   <MdLabel className="text-4xl mx-auto mb-2" />
                   <p className="text-sm">No hay marcas registradas</p>
                   <p className="text-xs mt-1">Agrega marcas para organizar tus productos</p>
                 </div>
               ) : (appSettings.marcas || []).map((m, i) => (
                 <div key={`${m.name}-${i}`} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
-                  <div className="flex items-center gap-3"><MdLabel className="text-slate-400" /><p className="text-sm font-medium">{m.name}</p></div>
+                  <div className="flex items-center gap-3"><MdLabel className="text-[var(--ui-muted)]" /><p className="text-sm font-medium">{m.name}</p></div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => toggleAppSection('marcas', i)} className={`px-2 py-1 text-xs rounded-full ${m.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{m.active ? 'Activa' : 'Inactiva'}</button>
-                    <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('marcas', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('marcas', i, `la marca "${m.name}"`)}><MdDelete /></button>
+                    <button onClick={() => toggleAppSection('marcas', i)} className={`px-2 py-1 text-xs rounded-full ${m.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 ui-text-muted'}`}>{m.active ? 'Activa' : 'Inactiva'}</button>
+                    <button className="p-2 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)]" onClick={() => openSettingsCrudModal('marcas', i)}><MdEdit /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('marcas', i, `la marca "${m.name}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -2165,7 +2165,7 @@ export default function Settings() {
         {/* CATEGORÍA ANULAR VENTA */}
         {activeSection === 'categoria_anular' && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-500">Motivos de anulación de venta</p>
+            <p className="text-sm ui-text-muted">Motivos de anulación de venta</p>
             <div className="flex justify-between items-center">
               <div />
               <button className="btn-primary flex items-center gap-2 text-sm" onClick={() => openSettingsCrudModal('categoria_anular')}><MdAdd /> Nuevo Motivo</button>
@@ -2178,8 +2178,8 @@ export default function Settings() {
                     <p className="text-sm font-medium">{motivo}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('categoria_anular', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('categoria_anular', i, `el motivo "${motivo}"`)}><MdDelete /></button>
+                    <button className="p-2 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)]" onClick={() => openSettingsCrudModal('categoria_anular', i)}><MdEdit /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('categoria_anular', i, `el motivo "${motivo}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -2194,23 +2194,23 @@ export default function Settings() {
         {activeSection === 'formas_pago' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-500">Métodos de pago aceptados</p>
+              <p className="text-sm ui-text-muted">Métodos de pago aceptados</p>
               <button className="btn-primary flex items-center gap-2 text-sm" onClick={() => openSettingsCrudModal('formas_pago')}><MdAdd /> Nueva Forma de Pago</button>
             </div>
             <div className="card">
               {(appSettings.formas_pago || []).map((fp, i) => (
                 <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                   <div className="flex items-center gap-3">
-                    <MdPayment className="text-slate-400 text-xl" />
-                    <div><p className="font-medium text-sm">{fp.name}</p><p className="text-xs text-slate-400">{fp.desc}</p></div>
+                    <MdPayment className="text-[var(--ui-muted)] text-xl" />
+                    <div><p className="font-medium text-sm">{fp.name}</p><p className="text-xs text-[var(--ui-muted)]">{fp.desc}</p></div>
                   </div>
                   <div className="flex items-center gap-2">
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" checked={!!fp.active} onChange={() => toggleAppSection('formas_pago', i)} className="sr-only peer" />
                       <div className="w-9 h-5 bg-slate-300 peer-checked:bg-gold-600 rounded-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
                     </label>
-                    <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400" onClick={() => openSettingsCrudModal('formas_pago', i)}><MdEdit /></button>
-                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('formas_pago', i, `la forma de pago "${fp.name}"`)}><MdDelete /></button>
+                    <button className="p-2 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)]" onClick={() => openSettingsCrudModal('formas_pago', i)}><MdEdit /></button>
+                    <button className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]" onClick={() => deleteAppSectionItem('formas_pago', i, `la forma de pago "${fp.name}"`)}><MdDelete /></button>
                   </div>
                 </div>
               ))}
@@ -2256,7 +2256,7 @@ export default function Settings() {
                     {(dom.entries || []).map((e) => (
                       <div key={e.key} className="rounded-lg border border-slate-100 p-3 bg-slate-50/80">
                         <label className="block text-sm font-medium text-slate-800">{e.label}</label>
-                        {e.description ? <p className="text-xs text-slate-500 mt-0.5 mb-2">{e.description}</p> : null}
+                        {e.description ? <p className="text-xs ui-text-muted mt-0.5 mb-2">{e.description}</p> : null}
                         {e.value_type === 'boolean' && (
                           <label className="inline-flex items-center gap-2 mt-1 cursor-pointer">
                             <input
@@ -2265,7 +2265,7 @@ export default function Settings() {
                               onChange={(ev) => setBizDraft((p) => ({ ...p, [e.key]: ev.target.checked }))}
                               className="rounded border-slate-300"
                             />
-                            <span className="text-sm text-slate-600">{bizDraft[e.key] ? 'Activo' : 'Inactivo'}</span>
+                            <span className="text-sm text-[var(--ui-muted)]">{bizDraft[e.key] ? 'Activo' : 'Inactivo'}</span>
                           </label>
                         )}
                         {e.value_type === 'number' && (
@@ -2330,12 +2330,12 @@ export default function Settings() {
               <div className="card">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-medium text-sm">Últimos cambios</h3>
-                  <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setBizHistRows(null)}>Cerrar</button>
+                  <button type="button" className="text-xs ui-text-muted hover:underline" onClick={() => setBizHistRows(null)}>Cerrar</button>
                 </div>
                 <div className="overflow-x-auto max-h-64 overflow-y-auto text-xs">
                   <table className="w-full">
                     <thead>
-                      <tr className="text-left text-slate-500 border-b">
+                      <tr className="text-left ui-text-muted border-b">
                         <th className="py-1 pr-2">Parámetro</th>
                         <th className="py-1 pr-2">Antes</th>
                         <th className="py-1 pr-2">Después</th>
@@ -2395,7 +2395,7 @@ export default function Settings() {
             <form onSubmit={submitSettingsCrudModal} className="space-y-4">
               {(SETTINGS_SECTION_FORMS[settingsCrudModal.section]?.fields || []).map(field => (
                 <div key={field.key}>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">{field.label}</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">{field.label}</label>
                   {field.type === 'select' && field.options ? (
                     <select
                       value={settingsCrudForm[field.key] ?? ''}
@@ -2437,7 +2437,7 @@ export default function Settings() {
         >
           {!historyPreview ? null : (
             <div className="space-y-4">
-              <div className="text-xs text-slate-500">
+              <div className="text-xs ui-text-muted">
                 {formatDateTime(historyPreview.created_at)} · {historyPreview.actor_name || 'Sistema'}
               </div>
               {(getHistoryDiff(historyPreview) || []).map(diff => (
@@ -2445,11 +2445,11 @@ export default function Settings() {
                   <p className="text-sm font-semibold text-slate-700">{diff.key}</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <p className="text-[11px] text-slate-500 mb-1">Antes</p>
+                      <p className="text-[11px] ui-text-muted mb-1">Antes</p>
                       <pre className="text-[11px] bg-slate-50 border border-slate-200 rounded p-2 overflow-auto max-h-40">{diff.beforeText}</pre>
                     </div>
                     <div>
-                      <p className="text-[11px] text-slate-500 mb-1">Después</p>
+                      <p className="text-[11px] ui-text-muted mb-1">Después</p>
                       <pre className="text-[11px] bg-emerald-50 border border-emerald-200 rounded p-2 overflow-auto max-h-40">{diff.afterText}</pre>
                     </div>
                   </div>
@@ -2566,7 +2566,7 @@ function UsersSection({
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-slate-500">{users.length} usuario(s) registrado(s)</p>
+        <p className="text-sm ui-text-muted">{users.length} usuario(s) registrado(s)</p>
         <button onClick={openNewUser} className="btn-primary flex items-center gap-2 text-sm"><MdAdd /> Nuevo Usuario</button>
       </div>
 
@@ -2577,7 +2577,7 @@ function UsersSection({
           return (
             <div key={key} className="card flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${role.color}`}><Icon className="text-xl" /></div>
-              <div><p className="text-xs text-slate-500">{role.label}</p><p className="text-lg font-bold">{count}</p></div>
+              <div><p className="text-xs ui-text-muted">{role.label}</p><p className="text-lg font-bold">{count}</p></div>
             </div>
           );
         })}
@@ -2587,10 +2587,10 @@ function UsersSection({
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="text-left p-3 font-semibold text-slate-600">Usuario</th>
-              <th className="text-left p-3 font-semibold text-slate-600">Rol</th>
-              <th className="text-center p-3 font-semibold text-slate-600">Estado</th>
-              <th className="text-center p-3 font-semibold text-slate-600">Acciones</th>
+              <th className="text-left p-3 font-semibold text-[var(--ui-muted)]">Usuario</th>
+              <th className="text-left p-3 font-semibold text-[var(--ui-muted)]">Rol</th>
+              <th className="text-center p-3 font-semibold text-[var(--ui-muted)]">Estado</th>
+              <th className="text-center p-3 font-semibold text-[var(--ui-muted)]">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -2602,11 +2602,11 @@ function UsersSection({
                   <td className="p-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-bold text-slate-600">{u.full_name[0]}</span>
+                        <span className="text-sm font-bold text-[var(--ui-muted)]">{u.full_name[0]}</span>
                       </div>
                       <div>
-                        <p className="font-bold text-slate-800">{u.full_name}</p>
-                        <p className="text-xs text-slate-400">@{u.username}</p>
+                        <p className="font-bold rf-section-title">{u.full_name}</p>
+                        <p className="text-xs text-[var(--ui-muted)]">@{u.username}</p>
                       </div>
                     </div>
                   </td>
@@ -2615,7 +2615,7 @@ function UsersSection({
                       <RoleIcon className="text-sm" /> {roleInfo.label}
                     </span>
                     {String(u.role || '').toLowerCase() === 'cajero' && String(u.caja_station_id || '').trim() && (
-                      <p className="text-[10px] text-slate-400 mt-1">
+                      <p className="text-[10px] text-[var(--ui-muted)] mt-1">
                         Caja: {cajaNameById.get(String(u.caja_station_id).trim()) || '—'}
                       </p>
                     )}
@@ -2634,7 +2634,7 @@ function UsersSection({
                         <MdSecurity className="text-sm" /> Permisos POS
                       </button>
                       {u.id !== currentUser?.id && (
-                        <button onClick={() => handleDelete(u)} className="p-1.5 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]">
+                        <button onClick={() => handleDelete(u)} className="p-1.5 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]">
                           <MdDelete className="text-sm" />
                         </button>
                       )}
@@ -2651,27 +2651,27 @@ function UsersSection({
       <Modal isOpen={showModal} onClose={closeUserModal} title={editUser ? 'Editar Usuario' : 'Nuevo Usuario'} size="md">
         <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre Completo</label>
             <input type="text" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} className="input-field" required placeholder="Nombre del empleado" autoComplete="off" name="user-create-full-name" />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Usuario</label><input type="text" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} className="input-field" required placeholder="usuario" autoComplete="off" name="user-create-username" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Email</label><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input-field" required placeholder="email@ejemplo.com" autoComplete="off" name="user-create-email" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Usuario</label><input type="text" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} className="input-field" required placeholder="usuario" autoComplete="off" name="user-create-username" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Email</label><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="input-field" required placeholder="email@ejemplo.com" autoComplete="off" name="user-create-email" /></div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña {editUser && <span className="text-slate-400 font-normal">(dejar vacío para no cambiar)</span>}</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Contraseña {editUser && <span className="text-[var(--ui-muted)] font-normal">(dejar vacío para no cambiar)</span>}</label>
             <div className="relative">
               <input type={showPw ? 'text' : 'password'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} className="input-field pr-10" required={!editUser} placeholder={editUser ? 'Escribe nueva contraseña' : '••••••••'} minLength={editUser ? 0 : 4} autoComplete="new-password" name="user-create-password" />
-              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showPw ? <MdVisibilityOff /> : <MdVisibility />}</button>
+              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)] hover:text-[var(--ui-muted)]">{showPw ? <MdVisibilityOff /> : <MdVisibility />}</button>
             </div>
             {editUser && (
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-[var(--ui-muted)] mt-1">
                 Por seguridad no se puede mostrar la contraseña actual. Puedes ingresar una nueva y verla con el icono de ojo.
               </p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Rol</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-2">Rol</label>
             <div className="grid grid-cols-3 gap-3">
               {Object.entries(ROLES).map(([key, role]) => {
                 const Icon = role.icon;
@@ -2688,9 +2688,9 @@ function UsersSection({
                     }
                     className={`p-3 rounded-xl border-2 text-center transition-all ${form.role === key ? 'border-gold-500 bg-gold-50' : 'border-slate-200 hover:border-slate-300'}`}
                   >
-                    <Icon className={`text-2xl mx-auto mb-1 ${form.role === key ? 'text-gold-600' : 'text-slate-400'}`} />
+                    <Icon className={`text-2xl mx-auto mb-1 ${form.role === key ? 'text-gold-600' : 'text-[var(--ui-muted)]'}`} />
                     <p className="text-xs font-medium">{role.label}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{role.desc}</p>
+                    <p className="text-[10px] text-[var(--ui-muted)] mt-0.5">{role.desc}</p>
                   </button>
                 );
               })}
@@ -2698,7 +2698,7 @@ function UsersSection({
           </div>
           {String(form.role || '').toLowerCase() === 'cajero' && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Caja asignada</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Caja asignada</label>
               <select
                 value={String(form.caja_station_id || '')}
                 onChange={(e) => setForm({ ...form, caja_station_id: e.target.value })}
@@ -2715,16 +2715,16 @@ function UsersSection({
                 </p>
               )}
               {cajaOptionsForForm.length > 0 && (
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-[var(--ui-muted)] mt-1">
                   Si es el primer cajero del local, puede dejar «Seleccione» y se vinculará solo a la Caja Principal.
                 </p>
               )}
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label><input type="text" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input-field" placeholder="999 999 999" autoComplete="off" name="user-create-phone" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Teléfono</label><input type="text" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input-field" placeholder="999 999 999" autoComplete="off" name="user-create-phone" /></div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Estado</label>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Estado</label>
               <select
                 value={Number(form.is_active || 0) === 1 ? 1 : 0}
                 onChange={(e) => setForm({ ...form, is_active: Number(e.target.value || 0) === 1 ? 1 : 0 })}
@@ -2750,10 +2750,10 @@ function UsersSection({
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-sm text-slate-500">Rol actual: <span className="font-semibold text-slate-700">{ROLES[permsUser?.role]?.label}</span></p>
-                <p className="text-xs text-slate-400 mt-0.5">Los módulos marcados serán accesibles para este usuario</p>
+                <p className="text-sm ui-text-muted">Rol actual: <span className="font-semibold text-slate-700">{ROLES[permsUser?.role]?.label}</span></p>
+                <p className="text-xs text-[var(--ui-muted)] mt-0.5">Los módulos marcados serán accesibles para este usuario</p>
               </div>
-              <button onClick={resetToDefaults} className="text-xs px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">
+              <button onClick={resetToDefaults} className="text-xs px-3 py-1.5 bg-slate-100 text-[var(--ui-muted)] rounded-lg hover:bg-slate-200">
                 Restaurar por defecto
               </button>
             </div>
@@ -2773,11 +2773,11 @@ function UsersSection({
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isEnabled ? 'bg-emerald-100' : 'bg-slate-200'}`}>
-                        <Icon className={`text-lg ${isEnabled ? 'text-emerald-600' : 'text-slate-400'}`} />
+                        <Icon className={`text-lg ${isEnabled ? 'text-emerald-600' : 'text-[var(--ui-muted)]'}`} />
                       </div>
                       <div>
-                        <p className={`text-sm font-medium ${isEnabled ? 'text-emerald-800' : 'text-slate-500'}`}>{mod.label}</p>
-                        {isDefault && <p className="text-[10px] text-slate-400">Incluido por defecto en rol {ROLES[permsUser?.role]?.label}</p>}
+                        <p className={`text-sm font-medium ${isEnabled ? 'text-emerald-800' : 'ui-text-muted'}`}>{mod.label}</p>
+                        {isDefault && <p className="text-[10px] text-[var(--ui-muted)]">Incluido por defecto en rol {ROLES[permsUser?.role]?.label}</p>}
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer" onClick={e => e.stopPropagation()}>
@@ -2900,7 +2900,7 @@ function SalonMesasSection() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <p className="text-sm text-slate-500">{salones.length} salón(es) · {tables.length} mesa(s) en total</p>
+        <p className="text-sm ui-text-muted">{salones.length} salón(es) · {tables.length} mesa(s) en total</p>
         <button onClick={openNewSalon} className="btn-primary flex items-center gap-2 text-sm"><MdAdd /> Nuevo Salón</button>
       </div>
 
@@ -2914,24 +2914,24 @@ function SalonMesasSection() {
                   <MdTableRestaurant className="text-xl text-gold-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800">{salon.name}</h3>
-                  {salon.description && <p className="text-xs text-slate-400">{salon.description}</p>}
+                  <h3 className="font-bold rf-section-title">{salon.name}</h3>
+                  {salon.description && <p className="text-xs text-[var(--ui-muted)]">{salon.description}</p>}
                 </div>
-                <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-xs rounded-full">{mesasSalon.length} mesas</span>
+                <span className="px-2 py-0.5 bg-slate-100 ui-text-muted text-xs rounded-full">{mesasSalon.length} mesas</span>
               </div>
               <div className="flex items-center gap-1">
                 <button onClick={() => openNewMesa(salon.id)} className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 text-xs rounded-lg hover:bg-emerald-100 font-medium">
                   <MdAdd /> Agregar Mesa
                 </button>
-                <button onClick={() => openEditSalon(salon)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400"><MdEdit /></button>
-                <button onClick={() => deleteSalon(salon)} className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]"><MdDelete /></button>
+                <button onClick={() => openEditSalon(salon)} className="p-2 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)]"><MdEdit /></button>
+                <button onClick={() => deleteSalon(salon)} className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]"><MdDelete /></button>
               </div>
             </div>
 
             {mesasSalon.length === 0 ? (
               <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-xl">
-                <MdTableRestaurant className="text-3xl text-slate-300 mx-auto mb-2" />
-                <p className="text-sm text-slate-400">No hay mesas en este salón</p>
+                <MdTableRestaurant className="text-3xl text-[var(--ui-muted)] mx-auto mb-2" />
+                <p className="text-sm text-[var(--ui-muted)]">No hay mesas en este salón</p>
                 <button onClick={() => openNewMesa(salon.id)} className="text-xs text-gold-600 font-medium mt-1 hover:underline">Agregar primera mesa</button>
               </div>
             ) : (
@@ -2939,11 +2939,11 @@ function SalonMesasSection() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="text-left p-3 font-semibold text-slate-600">Mesa</th>
-                      <th className="text-left p-3 font-semibold text-slate-600">Nombre</th>
-                      <th className="text-center p-3 font-semibold text-slate-600">Personas</th>
-                      <th className="text-center p-3 font-semibold text-slate-600">Estado</th>
-                      <th className="text-center p-3 font-semibold text-slate-600 w-28">Acciones</th>
+                      <th className="text-left p-3 font-semibold text-[var(--ui-muted)]">Mesa</th>
+                      <th className="text-left p-3 font-semibold text-[var(--ui-muted)]">Nombre</th>
+                      <th className="text-center p-3 font-semibold text-[var(--ui-muted)]">Personas</th>
+                      <th className="text-center p-3 font-semibold text-[var(--ui-muted)]">Estado</th>
+                      <th className="text-center p-3 font-semibold text-[var(--ui-muted)] w-28">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2962,7 +2962,7 @@ function SalonMesasSection() {
                         </td>
                         <td className="p-3 font-medium text-slate-700">{t.name || `Mesa ${t.number}`}</td>
                         <td className="p-3 text-center">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-full text-xs font-medium text-slate-600">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-full text-xs font-medium text-[var(--ui-muted)]">
                             <MdPeople className="text-sm" /> {t.capacity}
                           </span>
                         </td>
@@ -2970,7 +2970,7 @@ function SalonMesasSection() {
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                             t.status === 'occupied' ? 'bg-[#DBEAFE] text-[#1D4ED8]' :
                             t.status === 'reserved' ? 'bg-gold-100 text-gold-700' :
-                            t.status === 'maintenance' ? 'bg-slate-200 text-slate-600' :
+                            t.status === 'maintenance' ? 'bg-slate-200 text-[var(--ui-muted)]' :
                             'bg-emerald-100 text-emerald-700'
                           }`}>
                             {t.status === 'occupied' ? 'Ocupada' : t.status === 'reserved' ? 'Reservada' : t.status === 'maintenance' ? 'Mantenimiento' : 'Disponible'}
@@ -2978,8 +2978,8 @@ function SalonMesasSection() {
                         </td>
                         <td className="p-3">
                           <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => openEditMesa(t)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600"><MdEdit className="text-sm" /></button>
-                            <button onClick={() => deleteMesa(t)} className="p-1.5 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-slate-400 hover:text-[var(--ui-accent)]"><MdDelete className="text-sm" /></button>
+                            <button onClick={() => openEditMesa(t)} className="p-1.5 hover:bg-slate-100 rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-muted)]"><MdEdit className="text-sm" /></button>
+                            <button onClick={() => deleteMesa(t)} className="p-1.5 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-accent)]"><MdDelete className="text-sm" /></button>
                           </div>
                         </td>
                       </tr>
@@ -2995,8 +2995,8 @@ function SalonMesasSection() {
       {/* SALON MODAL */}
       <Modal isOpen={showSalonModal} onClose={() => setShowSalonModal(false)} title={editSalon ? 'Editar Salón' : 'Nuevo Salón'} size="sm">
         <form onSubmit={handleSalonSubmit} className="space-y-4">
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Salón</label><input value={salonForm.name} onChange={e => setSalonForm({ ...salonForm, name: e.target.value })} className="input-field" required placeholder="Ej: Terraza, Segundo Piso" /></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label><textarea value={salonForm.description} onChange={e => setSalonForm({ ...salonForm, description: e.target.value })} className="input-field" rows="2" placeholder="Descripción del salón..." /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre del Salón</label><input value={salonForm.name} onChange={e => setSalonForm({ ...salonForm, name: e.target.value })} className="input-field" required placeholder="Ej: Terraza, Segundo Piso" /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Descripción</label><textarea value={salonForm.description} onChange={e => setSalonForm({ ...salonForm, description: e.target.value })} className="input-field" rows="2" placeholder="Descripción del salón..." /></div>
           <div className="flex gap-3"><button type="button" onClick={() => setShowSalonModal(false)} className="btn-secondary flex-1">Cancelar</button><button type="submit" className="btn-primary flex-1">{editSalon ? 'Guardar' : 'Crear Salón'}</button></div>
         </form>
       </Modal>
@@ -3005,12 +3005,12 @@ function SalonMesasSection() {
       <Modal isOpen={showMesaModal} onClose={() => setShowMesaModal(false)} title={editMesa ? 'Editar Mesa' : 'Nueva Mesa'} size="sm">
         <form onSubmit={handleMesaSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Número</label><input type="number" value={mesaForm.number} onChange={e => setMesaForm({ ...mesaForm, number: parseInt(e.target.value) })} className="input-field" required min="1" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Capacidad (personas)</label><input type="number" value={mesaForm.capacity} onChange={e => setMesaForm({ ...mesaForm, capacity: parseInt(e.target.value) })} className="input-field" required min="1" max="20" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Número</label><input type="number" value={mesaForm.number} onChange={e => setMesaForm({ ...mesaForm, number: parseInt(e.target.value) })} className="input-field" required min="1" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Capacidad (personas)</label><input type="number" value={mesaForm.capacity} onChange={e => setMesaForm({ ...mesaForm, capacity: parseInt(e.target.value) })} className="input-field" required min="1" max="20" /></div>
           </div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre (opcional)</label><input value={mesaForm.name} onChange={e => setMesaForm({ ...mesaForm, name: e.target.value })} className="input-field" placeholder={`Mesa ${mesaForm.number}`} /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre (opcional)</label><input value={mesaForm.name} onChange={e => setMesaForm({ ...mesaForm, name: e.target.value })} className="input-field" placeholder={`Mesa ${mesaForm.number}`} /></div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Salón</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Salón</label>
             <select value={mesaForm.zone} onChange={e => setMesaForm({ ...mesaForm, zone: e.target.value })} className="input-field">
               {salones.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>

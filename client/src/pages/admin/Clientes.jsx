@@ -176,43 +176,43 @@ export default function Clientes() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-slate-800">Clientes</h1>
+        <h1 className="text-2xl font-bold rf-page-title">Clientes</h1>
         <button onClick={openNew} className="btn-primary flex items-center gap-2"><MdAdd /> Nuevo Cliente</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-        <div className="card"><p className="text-xs text-slate-500">Total Clientes</p><p className="text-xl font-bold">{clientes.length}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Visitas Totales</p><p className="text-xl font-bold">{totalVisits}</p></div>
-        <div className="card"><p className="text-xs text-slate-500">Ingreso por Clientes</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(totalIncome)}</p></div>
+        <div className="card"><p className="text-xs ui-text-muted">Total Clientes</p><p className="text-xl font-bold">{clientes.length}</p></div>
+        <div className="card"><p className="text-xs ui-text-muted">Visitas Totales</p><p className="text-xl font-bold">{totalVisits}</p></div>
+        <div className="card"><p className="text-xs ui-text-muted">Ingreso por Clientes</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(totalIncome)}</p></div>
       </div>
 
       <div className="card p-5">
         <div className="relative mb-4">
-          <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)]" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nombre o teléfono..." className="input-field pl-9" />
         </div>
         {loading ? (
-          <div className="text-center py-10 text-slate-400">Cargando clientes...</div>
+          <div className="text-center py-10 text-[var(--ui-muted)]">Cargando clientes...</div>
         ) : (
         <div className="space-y-3">
           {filtered.map(c => (
-            <div key={c.id} className="p-4 rounded-lg border border-slate-700 bg-slate-800/40 hover:bg-slate-700/40">
+            <div key={c.id} className="p-4 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] hover:bg-[color-mix(in_srgb,var(--ui-accent)_6%,var(--ui-surface-2))]">
               <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-gold-100 rounded-full flex items-center justify-center"><span className="font-bold text-gold-700 text-lg">{c.name[0]}</span></div>
                 <div>
-                  <p className="font-bold text-slate-100">{c.name}</p>
-                  <p className="text-sm text-slate-300"><MdPhone className="inline text-xs" /> {c.phone} · <MdEmail className="inline text-xs" /> {c.email}</p>
-                  <p className="text-xs text-slate-400">{Number(c.visits || 0)} visitas · Última: {c.last_visit || '-'} · Total: {formatCurrency(c.total_spent || 0)}</p>
+                  <p className="font-bold text-[var(--ui-body-text)]">{c.name}</p>
+                  <p className="text-sm text-[var(--ui-muted)]"><MdPhone className="inline text-xs" /> {c.phone} · <MdEmail className="inline text-xs" /> {c.email}</p>
+                  <p className="text-xs text-[var(--ui-muted)]">{Number(c.visits || 0)} visitas · Última: {c.last_visit || '-'} · Total: {formatCurrency(c.total_spent || 0)}</p>
                   <p className="text-xs text-sky-300 mt-1">
                     Pedidos pendientes: <strong>{(pendingOrdersByCustomer[c.id] || []).length}</strong>
                   </p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => setExpandedClientId(prev => prev === c.id ? '' : c.id)} className="p-2 hover:bg-slate-700 rounded-lg text-slate-300"><MdReceipt /></button>
-                <button onClick={(e) => { e.stopPropagation(); openEdit(c); }} className="p-2 hover:bg-slate-700 rounded-lg text-slate-300"><MdEdit /></button>
-                <button onClick={(e) => { e.stopPropagation(); deleteClient(c.id); }} className="p-2 hover:bg-red-900/40 rounded-lg text-slate-300 hover:text-red-300"><MdDelete /></button>
+                <button type="button" onClick={() => setExpandedClientId(prev => prev === c.id ? '' : c.id)} className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)]"><MdReceipt /></button>
+                <button type="button" onClick={(e) => { e.stopPropagation(); openEdit(c); }} className="p-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)]"><MdEdit /></button>
+                <button onClick={(e) => { e.stopPropagation(); deleteClient(c.id); }} className="p-2 hover:bg-red-900/40 rounded-lg text-[var(--ui-muted)] hover:text-red-300"><MdDelete /></button>
               </div>
               </div>
               {expandedClientId === c.id && (
@@ -222,7 +222,7 @@ export default function Clientes() {
                     <p className="text-xs text-slate-700">No tiene pedidos pendientes.</p>
                   ) : (
                     <div className="space-y-2">
-                      <div className="grid grid-cols-[minmax(4.5rem,0.85fr)_minmax(0,1fr)_2.25rem_4.25rem] gap-x-2 border-b border-slate-200 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      <div className="grid grid-cols-[minmax(4.5rem,0.85fr)_minmax(0,1fr)_2.25rem_4.25rem] gap-x-2 border-b border-slate-200 pb-1 text-[10px] font-semibold uppercase tracking-wide ui-text-muted">
                         <span>Fecha</span>
                         <span className="min-w-0">Pedido</span>
                         <span className="text-right">Cant.</span>
@@ -279,7 +279,7 @@ export default function Clientes() {
               )}
             </div>
           ))}
-          {filtered.length === 0 && <p className="text-center py-8 text-slate-400">No se encontraron clientes</p>}
+          {filtered.length === 0 && <p className="text-center py-8 text-[var(--ui-muted)]">No se encontraron clientes</p>}
         </div>
         )}
       </div>
@@ -289,13 +289,13 @@ export default function Clientes() {
           {/* Campos señuelo para desviar autofill agresivo del navegador */}
           <input type="text" name="fake-username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
           <input type="password" name="fake-password" autoComplete="current-password" className="hidden" tabIndex={-1} aria-hidden="true" />
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input-field" required /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre Completo</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input-field" required /></div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label><input name="customer-create-phone" autoComplete="off" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input-field" /></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Email</label><input type="text" name="customer-create-email" autoComplete="off" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} onBlur={e => setForm(prev => ({ ...prev, email: normalizeCustomerEmail(e.target.value) }))} className="input-field" placeholder="@gmail.com" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Teléfono</label><input name="customer-create-phone" autoComplete="off" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="input-field" /></div>
+            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Email</label><input type="text" name="customer-create-email" autoComplete="off" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} onBlur={e => setForm(prev => ({ ...prev, email: normalizeCustomerEmail(e.target.value) }))} className="input-field" placeholder="@gmail.com" /></div>
           </div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Dirección</label><input name="customer-create-address" autoComplete="off" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="input-field" /></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Contraseña {editClient ? '(opcional para actualizar)' : '(opcional, por defecto cliente123)'}</label><input type="password" name="customer-create-password" autoComplete="new-password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} className="input-field" /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Dirección</label><input name="customer-create-address" autoComplete="off" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="input-field" /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Contraseña {editClient ? '(opcional para actualizar)' : '(opcional, por defecto cliente123)'}</label><input type="password" name="customer-create-password" autoComplete="new-password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} className="input-field" /></div>
           <div className="flex gap-3"><button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button><button type="submit" className="btn-primary flex-1">{editClient ? 'Guardar' : 'Registrar'}</button></div>
         </form>
       </Modal>
