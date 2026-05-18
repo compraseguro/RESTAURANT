@@ -539,6 +539,10 @@ export default function POSPanel() {
         phone: String(restaurantRes?.phone || '').trim(),
         email: String(restaurantRes?.email || '').trim(),
         company_ruc: String(restaurantRes?.company_ruc || '').trim(),
+        profile:
+          restaurantRes?.profile && typeof restaurantRes.profile === 'object'
+            ? restaurantRes.profile
+            : undefined,
       });
       const visibleCategories = cats.filter(c => !WAREHOUSE_CATEGORY_NAMES.has((c.name || '').toUpperCase()));
       const visibleCategoryIds = new Set(visibleCategories.map(c => c.id));

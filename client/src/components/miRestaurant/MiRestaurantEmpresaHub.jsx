@@ -259,7 +259,10 @@ export default function MiRestaurantEmpresaHub({
             <Field label="Pie personalizado">
               <textarea className="input-field min-h-[60px]" value={t.custom_footer || ''} onChange={(e) => onProfileSection('ticket', 'custom_footer', e.target.value)} />
             </Field>
-            <p className="text-xs text-[var(--ui-muted)]">La impresión real usa la configuración de impresoras en Configuración → Impresoras.</p>
+            <p className="text-xs text-[var(--ui-muted)]">
+              Elija el tipo de ticket en la vista previa (precuenta, pedido, delivery, nota de venta, boleta, factura).
+              La impresión real usa la misma plantilla y la configuración de impresoras en Configuración → Impresoras.
+            </p>
           </div>
           <TicketPreviewPanel restaurant={restaurant} profile={profile} />
         </div>

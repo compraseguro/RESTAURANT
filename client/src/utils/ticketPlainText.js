@@ -530,6 +530,28 @@ export function restaurantThermalBrandLine(restaurant = {}) {
   return tradeRaw ? tradeRaw.toUpperCase() : '';
 }
 
+/** Pie y promos configurados en Mi Restaurante → Tickets. */
+function appendConfiguredTicketFooter(lines, restaurant, widthMm, { includePromo = true } = {}) {
+  const w = thermalCharWidth(widthMm);
+  const inner = thermalInnerWidth(widthMm);
+  const sep = insetSeparator(widthMm);
+  const ticketCfg = restaurant?.profile?.ticket || {};
+  const footerMsg =
+    String(ticketCfg.footer_message || ticketCfg.custom_footer || '').trim()
+    || String(restaurant?.profile?.messages?.ticket || '').trim()
+    || 'GRACIAS POR SU PREFERENCIA';
+  for (const seg of wrapThermalLine(footerMsg, inner)) {
+    lines.push(centerThermalLine(seg, w));
+  }
+  if (includePromo) {
+    const promo = String(ticketCfg.promo_message || '').trim();
+    if (promo) {
+      lines.push(sep);
+      for (const seg of wrapThermalLine(promo, inner)) lines.push(centerThermalLine(seg, w));
+    }
+  }
+}
+
 /** Texto plano para precuenta de caja. */
 /** Precuenta: «PARA LLEVAR» no se imprime aquí (solo en comanda cocina/bar). */
 export function buildPrecuentaPlainText({
@@ -582,19 +604,7 @@ export function buildPrecuentaPlainText({
   }
   lines.push(padLeftRight('TOTAL A PAGAR:', formatCurrencyFn(payableTotal), w));
   lines.push(sep);
-  const ticketCfg = restaurant?.profile?.ticket || {};
-  const footerMsg =
-    String(ticketCfg.footer_message || ticketCfg.custom_footer || '').trim()
-    || String(restaurant?.profile?.messages?.ticket || '').trim()
-    || 'GRACIAS POR SU PREFERENCIA';
-  for (const seg of wrapThermalLine(footerMsg, inner)) {
-    lines.push(centerThermalLine(seg, w));
-  }
-  const promo = String(ticketCfg.promo_message || '').trim();
-  if (promo) {
-    lines.push(sep);
-    for (const seg of wrapThermalLine(promo, inner)) lines.push(centerThermalLine(seg, w));
-  }
+  appendConfiguredTicketFooter(lines, restaurant, widthMm);
   lines.push('');
   return stripThermalDebugFooter(lines.join('\n'));
 }
@@ -650,7 +660,7 @@ export function buildNotaVentaPlainText({
   }
   lines.push(padLeftRight('TOTAL:', formatCurrencyFn(total), w));
   lines.push(sep);
-  lines.push(centerThermalLine('GRACIAS POR SU PREFERENCIA', w));
+  appendConfiguredTicketFooter(lines, restaurant, widthMm);
   lines.push('');
   return stripThermalDebugFooter(lines.join('\n'));
 }
@@ -717,7 +727,7 @@ export function buildBoletaFacturaPlainText({
   }
   lines.push(sep);
   lines.push(centerThermalLine('Representacion impresa. Conserve su comprobante.', w));
-  lines.push(centerThermalLine('GRACIAS POR SU PREFERENCIA', w));
+  appendConfiguredTicketFooter(lines, restaurant, widthMm, { includePromo: false });
   lines.push('');
   return stripThermalDebugFooter(lines.join('\n'));
 }
