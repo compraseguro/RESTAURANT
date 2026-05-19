@@ -758,6 +758,7 @@ module.exports = {
   getNotifications,
   getActiveNotifications,
   addNotification,
+  clearNotificationsByTitle,
   updateNotification,
   deleteNotification,
   evaluateAutomaticBillingRules,
