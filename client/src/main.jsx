@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import './i18n';
 import { BrowserRouter, HashRouter } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
@@ -11,6 +12,7 @@ import { initOrientationRespect } from './orientationRespect';
 import { bootstrapUiTheme } from './theme/uiTheme';
 import { premiumToastOptions } from './theme/toastOptions';
 import { registerServiceWorker } from './serviceWorkerRegister';
+import i18n from './i18n';
 
 bootstrapUiTheme();
 initOrientationRespect();
@@ -24,11 +26,11 @@ class ErrorBoundary extends React.Component {
       const showDebug = import.meta.env.DEV;
       return (
         <div style={{ padding: 40, fontFamily: 'monospace' }}>
-          <h1 style={{ color: 'red' }}>Error en la aplicación</h1>
+          <h1 style={{ color: 'red' }}>{i18n.t('common:app.unexpectedError')}</h1>
           <pre style={{ background: '#fee', padding: 20, borderRadius: 8, whiteSpace: 'pre-wrap' }}>
-            {showDebug ? `${this.state.error?.message}\n${this.state.error?.stack}` : 'Ocurrió un error inesperado. Recarga la página.'}
+            {showDebug ? `${this.state.error?.message}\n${this.state.error?.stack}` : i18n.t('common:app.unexpectedError')}
           </pre>
-          <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '8px 16px', cursor: 'pointer' }}>Recargar</button>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '8px 16px', cursor: 'pointer' }}>{i18n.t('common:app.reload')}</button>
         </div>
       );
     }

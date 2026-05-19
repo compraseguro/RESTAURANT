@@ -1,0 +1,49 @@
+{
+  "nav": {
+    "escritorio": "Dashboard",
+    "caja": "POS / Cashier",
+    "mesas": "Tables",
+    "cocina": "Kitchen",
+    "bar": "Bar",
+    "delivery": "Delivery",
+    "reservas": "Reservations",
+    "auto_pedido": "QR self-order",
+    "clientes": "Customers",
+    "creditos": "Credits",
+    "ofertas": "Offers",
+    "descuentos": "Discounts",
+    "almacen": "Warehouse & Inventory",
+    "productos": "Products",
+    "informes": "Reports",
+    "ventas": "Sales",
+    "indicadores": "Analytics",
+    "mi_restaurant": "My Restaurant",
+    "tiempo_trabajado": "Work time",
+    "configuracion": "Settings"
+  },
+  "cajaSub": {
+    "cobrar": "Checkout",
+    "apertura_cierre": "Open & close",
+    "cierres_caja": "Register closings",
+    "ingresos": "Income",
+    "egresos": "Expenses",
+    "notas_credito": "Credit notes",
+    "notas_debito": "Debit notes",
+    "consulta_precios": "Price lookup"
+  },
+  "miRestaurantSub": {
+    "mi_empresa": "My business",
+    "facturacion_electronica": "E-invoicing",
+    "pagos_sistema": "Credit payments",
+    "contrato": "Contract",
+    "pago_uso_sistema": "System usage fee",
+    "informacion": "Information"
+  },
+  "almacenSub": {
+    "movimiento_interno": "Internal transfer",
+    "ir_modulo_logistica": "Inventory & kardex",
+    "requerimiento": "Requisition",
+    "recepcion": "Receiving",
+    "ir_modulo_gastos": "Go to expenses module"
+  }
+}

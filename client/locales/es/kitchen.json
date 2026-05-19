@@ -1,0 +1,36 @@
+{
+  "panel": {
+    "kitchenTitle": "Panel de Cocina",
+    "barTitle": "Panel de Bar",
+    "activeOrders": "{{count}} pedidos activos",
+    "activeOrders_one": "{{count}} pedido activo",
+    "backToOps": "Volver al Centro Operativo",
+    "filterAll": "Todos",
+    "filterTables": "Mesas",
+    "filterDelivery": "Delivery",
+    "printTicket": "Imprimir comanda",
+    "prepare": "PREPARAR",
+    "ready": "LISTO",
+    "emptyTitle": "No hay pedidos pendientes en {{station}}",
+    "emptyHint": "Los nuevos pedidos aparecerán aquí automáticamente",
+    "stationKitchen": "cocina",
+    "stationBar": "bar",
+    "orderNumber": "Pedido #{{number}}",
+    "table": "Mesa {{number}}",
+    "customer": "Cliente",
+    "delivery": "Delivery",
+    "timeNow": "Ahora",
+    "timeMinutes": "{{count}} min",
+    "timeHours": "{{hours}}h {{minutes}}m"
+  },
+  "toast": {
+    "sentToStation": "Comanda enviada a {{station}}",
+    "noItems": "El pedido no tiene ítems para {{station}}",
+    "printFailed": "No se pudo imprimir comanda",
+    "preparing": "Marcado en preparación",
+    "markedReady": "Marcado como listo",
+    "newOrder": "Nuevo pedido",
+    "orderUpdated": "Comanda actualizada",
+    "newOrderNumber": "Nuevo pedido #{{number}} ({{station}})"
+  }
+}

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
@@ -29,6 +31,7 @@ function isBarItem(item = {}) {
 const normalizePaperWidthMm = normalizeThermalPaperWidthMm;
 
 export default function KitchenPanel({ station = 'cocina' }) {
+  const { t } = useTranslation('kitchen');
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
   const { user } = useAuth();
@@ -38,7 +41,8 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const emit = useSocketEmit();
   const isBar = station === 'bar';
   const StationIcon = isBar ? MdLocalBar : MdKitchen;
-  const panelTitle = isBar ? 'Panel de Bar' : 'Panel de Cocina';
+  const panelTitle = isBar ? t('panel.barTitle') : t('panel.kitchenTitle');
+  const stationLabel = isBar ? t('panel.stationBar') : t('panel.stationKitchen');
   const canReturnToAdmin = user?.role === 'admin' && !location.pathname.startsWith('/admin');
 
   const playStationAlert = () => {
@@ -96,7 +100,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
         items = getStationItems(payloadOrder?.items || []);
       }
       if (!items.length) {
-        if (!silent) toast.error(`El pedido no tiene ítems para ${isBar ? 'bar' : 'cocina'}`);
+        if (!silent) toast.error(t('toast.noItems', { station: stationLabel }));
         return false;
       }
       const cfg = await api.printing.get('/printing/config');
@@ -132,10 +136,10 @@ export default function KitchenPanel({ station = 'cocina' }) {
         paperWidth: paper,
         anchoPapel: paper,
       });
-      if (!silent) toast.success(`Comanda enviada a ${isBar ? 'bar' : 'cocina'}`);
+      if (!silent) toast.success(t('toast.sentToStation', { station: stationLabel }));
       return true;
     } catch (err) {
-      if (!silent) toast.error(err?.message || 'No se pudo imprimir comanda');
+      if (!silent) toast.error(err?.message || t('toast.printFailed'));
       return false;
     }
   };
@@ -145,21 +149,23 @@ export default function KitchenPanel({ station = 'cocina' }) {
     playStationAlert();
     const num = order?.order_number;
     toast.success(
-      num != null ? `${toastLabel} #${num} (${isBar ? 'bar' : 'cocina'})` : toastLabel,
+      num != null
+        ? t('toast.newOrderNumber', { number: num, station: stationLabel })
+        : toastLabel,
       { icon: '🔔', duration: 5000 }
     );
   };
 
-  useSocket('new-order', (order) => handleKitchenIncomingOrder(order, 'Nuevo pedido'));
+  useSocket('new-order', (order) => handleKitchenIncomingOrder(order, t('toast.newOrder')));
   /** Mesa/salón: ítems nuevos van por PUT /orders/:id/lines — antes no había evento para imprimir en cocina. */
-  useSocket('order-lines-updated', (order) => handleKitchenIncomingOrder(order, 'Comanda actualizada'));
+  useSocket('order-lines-updated', (order) => handleKitchenIncomingOrder(order, t('toast.orderUpdated')));
 
   useSocket('order-update', () => loadOrders());
 
   const updateStatus = async (orderId, status) => {
     try {
       await api.put(`/orders/${orderId}/status`, { status });
-      toast.success(status === 'preparing' ? 'Marcado en preparación' : 'Marcado como listo');
+      toast.success(status === 'preparing' ? t('toast.preparing') : t('toast.markedReady'));
       loadOrders();
     } catch (err) { toast.error(err.message); }
   };
@@ -170,9 +176,9 @@ export default function KitchenPanel({ station = 'cocina' }) {
     const d = parseApiDate(created);
     if (!d) return '';
     const diff = Math.floor((Date.now() - d.getTime()) / 60000);
-    if (diff < 1) return 'Ahora';
-    if (diff < 60) return `${diff} min`;
-    return `${Math.floor(diff / 60)}h ${diff % 60}m`;
+    if (diff < 1) return t('panel.timeNow');
+    if (diff < 60) return t('panel.timeMinutes', { count: diff });
+    return t('panel.timeHours', { hours: Math.floor(diff / 60), minutes: diff % 60 });
   };
 
   const isKitchenOrderOverdue = (created) => {
@@ -190,12 +196,19 @@ export default function KitchenPanel({ station = 'cocina' }) {
           <StationIcon className="text-3xl text-[var(--ui-body-text)]" />
           <div>
             <h1 className="text-xl font-bold">{panelTitle}</h1>
-            <p className="text-[var(--ui-muted)] text-sm">{orders.length} pedidos activos</p>
+            <p className="text-[var(--ui-muted)] text-sm">
+              {t('panel.activeOrders', { count: orders.length })}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <LanguageSwitcher compact />
           <div className="flex flex-wrap items-center gap-2">
-            {[{ v: 'all', l: 'Todos' }, { v: 'dine_in', l: 'Mesas' }, { v: 'delivery', l: 'Delivery' }].map(f => (
+            {[
+              { v: 'all', l: t('panel.filterAll') },
+              { v: 'dine_in', l: t('panel.filterTables') },
+              { v: 'delivery', l: t('panel.filterDelivery') },
+            ].map(f => (
               <button
                 key={f.v}
                 type="button"
@@ -209,11 +222,11 @@ export default function KitchenPanel({ station = 'cocina' }) {
           </div>
           {canReturnToAdmin && (
             <button onClick={() => navigate('/admin')} className="px-3 py-2 bg-[var(--ui-accent)] hover:bg-[var(--ui-accent-hover)] rounded-lg text-white border border-[color:var(--ui-border)] text-sm font-medium">
-              Volver al Centro Operativo
+              {t('panel.backToOps')}
             </button>
           )}
           <button type="button" onClick={() => setEndShiftOpen(true)} className="px-3 py-2 hover:bg-[var(--ui-sidebar-hover)] rounded-lg text-[var(--ui-muted)] hover:text-[var(--ui-body-text)] border border-[color:var(--ui-border)] text-sm font-medium inline-flex items-center gap-2">
-            <MdLogout className="text-lg" /> Finalizar jornada
+            <MdLogout className="text-lg" /> {t('common:layout.endShift')}
           </button>
         </div>
       </header>
@@ -247,9 +260,9 @@ export default function KitchenPanel({ station = 'cocina' }) {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-lg font-bold leading-tight text-[var(--ui-body-text)]" title={order.customer_name}>
-                        {order.customer_name || 'Cliente'}
+                        {order.customer_name || t('panel.customer')}
                       </p>
-                      <p className="mt-1 text-xs text-[var(--ui-muted)]">Pedido #{order.order_number}</p>
+                      <p className="mt-1 text-xs text-[var(--ui-muted)]">{t('panel.orderNumber', { number: order.order_number })}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1 text-sm">
                       <MdAccessTime className={isOverdue ? 'text-red-400' : 'text-[var(--ui-muted)]'} />
@@ -260,13 +273,13 @@ export default function KitchenPanel({ station = 'cocina' }) {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       {order.type === 'delivery' ? (
-                        <span className="text-lg font-bold tracking-tight text-[var(--ui-body-text)]">Delivery</span>
+                        <span className="text-lg font-bold tracking-tight text-[var(--ui-body-text)]">{t('panel.delivery')}</span>
                       ) : (
                         <span className="text-lg font-bold text-[var(--ui-body-text)]">#{order.order_number}</span>
                       )}
                       <TypeIcon className="text-xl shrink-0 text-[var(--ui-body-text)]" />
                       {order.table_number ? (
-                        <span className="rounded border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-2 py-0.5 text-sm text-[var(--ui-body-text)]">Mesa {order.table_number}</span>
+                        <span className="rounded border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-2 py-0.5 text-sm text-[var(--ui-body-text)]">{t('panel.table', { number: order.table_number })}</span>
                       ) : null}
                     </div>
                     <div className="flex items-center gap-1 text-sm">
@@ -303,8 +316,8 @@ export default function KitchenPanel({ station = 'cocina' }) {
                 <div className="flex gap-2 items-stretch">
                   <button
                     type="button"
-                    title="Imprimir comanda"
-                    aria-label="Imprimir comanda"
+                    title={t('panel.printTicket')}
+                    aria-label={t('panel.printTicket')}
                     onClick={() => void printOrderForStation(order)}
                     className="shrink-0 w-10 h-10 min-w-[2.5rem] rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] hover:bg-[var(--ui-sidebar-hover)] text-[var(--ui-body-text)] transition-colors inline-flex items-center justify-center"
                   >
@@ -316,7 +329,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
                       onClick={() => updateStatus(order.id, 'preparing')}
                       className="flex-1 min-h-[2.5rem] py-2.5 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] hover:from-[#1D4ED8] hover:to-[#1E40AF] rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2"
                     >
-                      <StationIcon /> PREPARAR
+                      <StationIcon /> {t('panel.prepare')}
                     </button>
                   ) : (
                     <button
@@ -324,7 +337,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
                       onClick={() => updateStatus(order.id, 'ready')}
                       className="flex-1 min-h-[2.5rem] py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
                     >
-                      <MdCheckCircle /> LISTO
+                      <MdCheckCircle /> {t('panel.ready')}
                     </button>
                   )}
                 </div>
@@ -336,8 +349,8 @@ export default function KitchenPanel({ station = 'cocina' }) {
         {orders.length === 0 && (
           <div className="col-span-full text-center py-20">
             <StationIcon className="text-6xl text-[var(--ui-muted)] mx-auto mb-4" />
-            <p className="text-xl text-[var(--ui-body-text)]">No hay pedidos pendientes en {isBar ? 'bar' : 'cocina'}</p>
-            <p className="text-[var(--ui-muted)] mt-2">Los nuevos pedidos aparecerán aquí automáticamente</p>
+            <p className="text-xl text-[var(--ui-body-text)]">{t('panel.emptyTitle', { station: stationLabel })}</p>
+            <p className="text-[var(--ui-muted)] mt-2">{t('panel.emptyHint')}</p>
           </div>
         )}
       </div>

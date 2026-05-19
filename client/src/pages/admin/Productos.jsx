@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api, formatCurrency, formatInsumoQty, formatInsumoWithUnit } from '../../utils/api';
 import { useSocket } from '../../hooks/useSocket';
 import { showStockInOrderingUI } from '../../utils/productStockDisplay';
@@ -9,14 +10,36 @@ import {
   MdTune, MdClose, MdCheck, MdToggleOn, MdToggleOff, MdDownload
 } from 'react-icons/md';
 
-const TABS = [
-  { id: 'platos', label: 'Platos y bebidas', icon: MdRestaurantMenu },
-  { id: 'combos', label: 'Combos', icon: MdLunchDining },
-  { id: 'modificadores', label: 'Modificadores', icon: MdTune },
-];
 const HIDDEN_PRODUCT_CATEGORY_NAMES = new Set(['PRODUCTOS ALMACEN', 'INSUMOS']);
 
+const EMPTY_PRODUCT_FORM = {
+  name: '',
+  description: '',
+  price: '',
+  purchase_price: '',
+  category_id: '',
+  stock: 0,
+  is_active: 1,
+  process_type: 'transformed',
+  stock_warehouse_id: '',
+  production_area: 'cocina',
+  tax_type: 'inafecto',
+  modifier_id: '',
+  note_required: 0,
+  kardex_insumo_id: '',
+  kardex_insumo_num: '1',
+  kardex_insumo_den: '1',
+  kardex_insumo_modo: '',
+  kardex_insumo_gramos: '0',
+};
+
 export default function Productos() {
+  const { t } = useTranslation('inventory');
+  const TABS = useMemo(() => [
+    { id: 'platos', label: t('tabs.dishes'), icon: MdRestaurantMenu },
+    { id: 'combos', label: t('tabs.combos'), icon: MdLunchDining },
+    { id: 'modificadores', label: t('tabs.modifiers'), icon: MdTune },
+  ], [t]);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -30,25 +53,7 @@ export default function Productos() {
 
   const [showProductModal, setShowProductModal] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
-  const [productForm, setProductForm] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category_id: '',
-    stock: 0,
-    is_active: 1,
-    process_type: 'transformed',
-    stock_warehouse_id: '',
-    production_area: 'cocina',
-    tax_type: 'inafecto',
-    modifier_id: '',
-    note_required: 0,
-    kardex_insumo_id: '',
-    kardex_insumo_num: '1',
-    kardex_insumo_den: '1',
-    kardex_insumo_modo: '',
-    kardex_insumo_gramos: '0',
-  });
+  const [productForm, setProductForm] = useState({ ...EMPTY_PRODUCT_FORM });
 
   const [showCatModal, setShowCatModal] = useState(false);
   const [editCat, setEditCat] = useState(null);
@@ -127,23 +132,9 @@ export default function Productos() {
   const openNewProduct = () => {
     setEditProduct(null);
     setProductForm({
-      name: '',
-      description: '',
-      price: '',
+      ...EMPTY_PRODUCT_FORM,
       category_id: selectedCat || (visibleCategories[0]?.id || ''),
-      stock: 0,
-      is_active: 1,
-      process_type: 'transformed',
       stock_warehouse_id: defaultWarehouseId,
-      production_area: 'cocina',
-      tax_type: 'inafecto',
-      modifier_id: '',
-      note_required: 0,
-      kardex_insumo_id: '',
-      kardex_insumo_num: '1',
-      kardex_insumo_den: '1',
-      kardex_insumo_modo: '',
-      kardex_insumo_gramos: '0',
     });
     setShowProductModal(true);
   };
@@ -154,6 +145,10 @@ export default function Productos() {
       name: p.name,
       description: p.description || '',
       price: p.price,
+      purchase_price:
+        p.purchase_price != null && Number(p.purchase_price) > 0
+          ? String(p.purchase_price)
+          : '',
       category_id: p.category_id || '',
       stock: p.stock,
       is_active: p.is_active,
@@ -194,11 +189,11 @@ export default function Productos() {
       const warehouseId = productForm.stock_warehouse_id || '';
 
       if (isNonTransformed && !warehouseId) {
-        toast.error('Selecciona un almacén destino');
+        toast.error(t('validation.selectWarehouse'));
         return;
       }
       if (!String(productForm.category_id || '').trim()) {
-        toast.error('Selecciona una categoría para el producto');
+        toast.error(t('validation.selectCategory'));
         return;
       }
       if (
@@ -206,8 +201,17 @@ export default function Productos() {
         && (productForm.kardex_insumo_modo === 'unidad' || productForm.kardex_insumo_modo === 'peso')
         && !String(productForm.kardex_insumo_id || '').trim()
       ) {
-        toast.error('Selecciona un insumo o, en la primera lista, deja el valor en blanco para no vincular kardex');
+        toast.error(t('products.kardexInsumo'));
         return;
+      }
+
+      const rawPurchase = String(productForm.purchase_price ?? '').trim();
+      if (rawPurchase !== '') {
+        const pp = parseFloat(rawPurchase);
+        if (!Number.isFinite(pp) || pp < 0) {
+          toast.error(t('products.invalidPurchasePrice'));
+          return;
+        }
       }
 
       const kn = parseFloat(productForm.kardex_insumo_num) || 1;
@@ -216,11 +220,12 @@ export default function Productos() {
       const hasK = !isNonTransformed && String(productForm.kardex_insumo_id || '').trim();
       const modoPeso = hasK && productForm.kardex_insumo_modo === 'peso';
       if (modoPeso && kg <= 0) {
-        toast.error('Indica gramos de insumo por plato (mayor a 0).');
+        toast.error(t('products.gramsPositive'));
         return;
       }
       const payload = {
         ...productForm,
+        purchase_price: rawPurchase === '' ? null : parseFloat(rawPurchase),
         stock: isNonTransformed ? stockAmount : 0,
         stock_warehouse_id: isNonTransformed ? warehouseId : '',
         kardex_insumo_id: !isNonTransformed ? (productForm.kardex_insumo_id || '').trim() : '',
@@ -238,7 +243,7 @@ export default function Productos() {
             quantity: stockAmount,
           });
         }
-        toast.success('Producto actualizado');
+        toast.success(t('toast.productUpdated'));
       } else {
         const created = await api.post('/products', payload);
         if (isNonTransformed) {
@@ -248,7 +253,7 @@ export default function Productos() {
             quantity: stockAmount,
           });
         }
-        toast.success('Producto creado');
+        toast.success(t('toast.productCreated'));
       }
       setShowProductModal(false);
       load();
@@ -258,14 +263,14 @@ export default function Productos() {
   const toggleProductActive = async (p) => {
     try {
       await api.put(`/products/${p.id}`, { is_active: p.is_active ? 0 : 1 });
-      toast.success(p.is_active ? 'Producto desactivado' : 'Producto activado');
+      toast.success(p.is_active ? t('toast.productDeactivated') : t('toast.productActivated'));
       load();
     } catch (err) { toast.error(err.message); }
   };
 
   const deleteProduct = async (p) => {
-    if (!confirm(`¿Eliminar "${p.name}"?`)) return;
-    try { await api.delete(`/products/${p.id}`); toast.success('Eliminado'); load(); } catch (err) { toast.error(err.message); }
+    if (!confirm(t('products.deleteConfirm', { name: p.name }))) return;
+    try { await api.delete(`/products/${p.id}`); toast.success(t('toast.deleted')); load(); } catch (err) { toast.error(err.message); }
   };
 
   const openNewCat = () => { setEditCat(null); setCatForm({ name: '', description: '' }); setShowCatModal(true); };
@@ -276,14 +281,21 @@ export default function Productos() {
     try {
       if (editCat) {
         await api.put(`/categories/${editCat.id}`, catForm);
-        toast.success('Categoría actualizada');
+        toast.success(t('toast.categoryUpdated'));
       } else {
         await api.post('/categories', catForm);
-        toast.success('Categoría creada');
+        toast.success(t('toast.categoryCreated'));
       }
       setShowCatModal(false);
       load();
-    } catch (err) { toast.error(err.message); }
+    } catch (err) {
+      const msg = String(err?.message || '').trim();
+      toast.error(
+        msg && !/^internal server error$/i.test(msg)
+          ? msg
+          : t('toast.categorySaveError'),
+      );
+    }
   };
 
   const deleteCat = async (c) => {
@@ -305,7 +317,7 @@ export default function Productos() {
       });
       setShowModModal(false);
       setModForm({ name: '', options: '', required: false });
-      toast.success('Modificador creado');
+      toast.success(t('toast.modifierCreated'));
       load();
     } catch (err) {
       toast.error(err.message);
@@ -317,7 +329,7 @@ export default function Productos() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-[var(--ui-body-text)]">Categorías</h1>
+        <h1 className="text-2xl font-bold text-[var(--ui-body-text)]">{t('categories.title')}</h1>
         <div />
       </div>
 
@@ -350,7 +362,7 @@ export default function Productos() {
                 <input
                   value={categoryFilter}
                   onChange={e => setCategoryFilter(e.target.value)}
-                  placeholder="Filtrar categorías"
+                  placeholder={t('categories.filter')}
                   className="input-field w-full text-sm py-1.5 px-3"
                 />
               </div>
@@ -360,7 +372,7 @@ export default function Productos() {
                   onClick={openNewCat}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 text-sm btn-primary mb-1 justify-center"
                 >
-                  <MdAdd className="text-base" /> Añadir nueva categoría
+                  <MdAdd className="text-base" /> {t('categories.add')}
                 </button>
               </div>
               <nav className="max-h-[60vh] overflow-y-auto">
@@ -382,10 +394,10 @@ export default function Productos() {
                         </span>
                       </button>
                       <div className="hidden group-hover:flex items-center pr-2 gap-0.5">
-                        <button type="button" onClick={() => openEditCat(cat)} className="p-1 hover:bg-[var(--ui-sidebar-hover)] rounded text-[var(--ui-accent)] text-xs" title="Editar">
+                        <button type="button" onClick={() => openEditCat(cat)} className="p-1 hover:bg-[var(--ui-sidebar-hover)] rounded text-[var(--ui-accent)] text-xs" title={t('table.edit')}>
                           <MdEdit />
                         </button>
-                        <button type="button" onClick={() => deleteCat(cat)} className="p-1 hover:bg-[var(--ui-sidebar-hover)] rounded text-[var(--ui-accent)] hover:text-red-500 text-xs" title="Eliminar">
+                        <button type="button" onClick={() => deleteCat(cat)} className="p-1 hover:bg-[var(--ui-sidebar-hover)] rounded text-[var(--ui-accent)] hover:text-red-500 text-xs" title={t('table.delete')}>
                           <MdDelete />
                         </button>
                       </div>
@@ -398,16 +410,16 @@ export default function Productos() {
 
           <div className="flex-1 min-w-0">
             <button type="button" onClick={openNewProduct} className="w-full py-3.5 btn-primary font-semibold rounded-xl mb-4 flex items-center justify-center gap-2 transition-colors shadow-sm">
-              <MdAdd className="text-xl" /> Nuevo producto
+              <MdAdd className="text-xl" /> {t('categories.newProduct')}
             </button>
 
             <div className="flex items-center gap-3 mb-3">
               <div className="relative flex-1">
                 <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)]" />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Filtrar producto" className="input-field pl-9 py-2" />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('categories.filterProduct')} className="input-field pl-9 py-2" />
               </div>
               <label className="flex items-center gap-2 text-sm text-[var(--ui-body-text)] cursor-pointer whitespace-nowrap">
-                Ver Anulados
+                {t('categories.showCancelled')}
                 <button type="button" onClick={() => setShowInactive(!showInactive)} className="text-2xl">
                   {showInactive ? <MdToggleOn className="text-gold-500" /> : <MdToggleOff className="text-[var(--ui-muted)]" />}
                 </button>
@@ -415,19 +427,23 @@ export default function Productos() {
             </div>
 
             <p className="text-sm text-[var(--ui-muted)] mb-3 font-medium">
-              Mostrando {selectedCat ? getCatName(selectedCat) : 'sin categoría seleccionada'} · {filtered.length} productos
+              {t('categories.showing', {
+                category: selectedCat ? getCatName(selectedCat) : t('categories.noCategory'),
+                count: filtered.length,
+              })}
             </p>
 
             <div className="bg-[var(--ui-surface)] rounded-xl border border-[color:var(--ui-border)] overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[color:var(--ui-border)] bg-[var(--ui-surface-2)]">
-                    <th className="text-left p-3 font-semibold text-[var(--ui-body-text)]">Producto</th>
-                    <th className="text-left p-3 font-semibold text-[var(--ui-body-text)] w-20">Cód.</th>
-                    <th className="text-left p-3 font-semibold text-[var(--ui-body-text)] w-28">Categoría</th>
-                    <th className="text-right p-3 font-semibold text-[var(--ui-body-text)] w-24">Precio</th>
-                    <th className="text-center p-3 font-semibold text-[var(--ui-body-text)] w-24">Stock</th>
-                    <th className="text-center p-3 font-semibold text-[var(--ui-body-text)] w-24">¿Activo?</th>
+                    <th className="text-left p-3 font-semibold text-[var(--ui-body-text)]">{t('table.product')}</th>
+                    <th className="text-left p-3 font-semibold text-[var(--ui-body-text)] w-20">{t('table.code')}</th>
+                    <th className="text-left p-3 font-semibold text-[var(--ui-body-text)] w-28">{t('table.category')}</th>
+                    <th className="text-right p-3 font-semibold text-[var(--ui-body-text)] w-24">{t('table.salePrice')}</th>
+                    <th className="text-right p-3 font-semibold text-[var(--ui-body-text)] w-24">{t('table.purchasePrice')}</th>
+                    <th className="text-center p-3 font-semibold text-[var(--ui-body-text)] w-24">{t('table.stock')}</th>
+                    <th className="text-center p-3 font-semibold text-[var(--ui-body-text)] w-24">{t('table.active')}</th>
                     <th className="text-center p-3 font-semibold text-[var(--ui-body-text)] w-20"></th>
                   </tr>
                 </thead>
@@ -441,6 +457,11 @@ export default function Productos() {
                       <td className="p-3 text-[var(--ui-muted)]">#{String(idx + 1).padStart(2, '0')}</td>
                       <td className="p-3"><span className="text-xs px-2 py-0.5 bg-[var(--ui-surface-2)] rounded-full text-[var(--ui-body-text)] border border-[color:var(--ui-border)]">{getCatName(p.category_id)}</span></td>
                       <td className="p-3 text-right font-bold text-[var(--ui-body-text)]">{formatCurrency(p.price)}</td>
+                      <td className="p-3 text-right text-[var(--ui-muted)]">
+                        {p.purchase_price != null && Number(p.purchase_price) > 0
+                          ? formatCurrency(p.purchase_price)
+                          : '—'}
+                      </td>
                       <td className="p-3 text-center">
                         {showStockInOrderingUI(p) ? (
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.stock > 10 ? 'bg-emerald-100 text-emerald-700' : p.stock > 0 ? 'bg-gold-100 text-gold-700' : 'bg-red-100 text-red-700'}`}>{p.stock}</span>
@@ -449,9 +470,9 @@ export default function Productos() {
                       <td className="p-3 text-center">
                         <button onClick={() => toggleProductActive(p)}>
                           {p.is_active ? (
-                            <span className="text-emerald-600 flex items-center justify-center gap-1 text-xs font-medium"><MdCheck /> Sí</span>
+                            <span className="text-emerald-600 flex items-center justify-center gap-1 text-xs font-medium"><MdCheck /> {t('table.yes')}</span>
                           ) : (
-                            <span className="text-red-500 flex items-center justify-center gap-1 text-xs font-medium"><MdClose /> No</span>
+                            <span className="text-red-500 flex items-center justify-center gap-1 text-xs font-medium"><MdClose /> {t('table.no')}</span>
                           )}
                         </button>
                       </td>
@@ -461,22 +482,22 @@ export default function Productos() {
                             onClick={() => openEditProduct(p)}
                             className="px-2.5 py-1.5 text-xs rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center gap-1"
                           >
-                            <MdEdit className="text-sm" /> Editar
+                            <MdEdit className="text-sm" /> {t('table.edit')}
                           </button>
                           <button
                             onClick={() => deleteProduct(p)}
                             className="px-2.5 py-1.5 text-xs rounded-lg bg-red-50 text-red-600 hover:bg-red-100 flex items-center gap-1"
                           >
-                            <MdDelete className="text-sm" /> Eliminar
+                            <MdDelete className="text-sm" /> {t('table.delete')}
                           </button>
                         </div>
                       </td>
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan="7" className="p-8 text-center text-[var(--ui-muted)]">
+                    <tr><td colSpan="8" className="p-8 text-center text-[var(--ui-muted)]">
                       <MdRestaurantMenu className="text-4xl mx-auto mb-2 opacity-30" />
-                      <p>No se encontraron productos</p>
+                      <p>{t('table.noProducts')}</p>
                     </td></tr>
                   )}
                 </tbody>
@@ -558,10 +579,10 @@ export default function Productos() {
         </div>
       )}
 
-      <Modal isOpen={showProductModal} onClose={() => setShowProductModal(false)} title={editProduct ? 'Editar Producto' : 'Nuevo Producto'} size="lg">
+      <Modal isOpen={showProductModal} onClose={() => setShowProductModal(false)} title={editProduct ? t('products.editTitle') : t('products.newTitle')} size="lg">
         <form onSubmit={handleProductSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2"><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Nombre del Producto</label><input value={productForm.name} onChange={e => setProductForm({ ...productForm, name: e.target.value })} className="input-field" required placeholder="Ej: Lomo Saltado" /></div>
+            <div className="col-span-2"><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">{t('products.name')}</label><input value={productForm.name} onChange={e => setProductForm({ ...productForm, name: e.target.value })} className="input-field" required placeholder={t('products.namePlaceholder')} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -583,7 +604,7 @@ export default function Productos() {
                   : 'bg-white border-slate-200 text-[var(--ui-muted)]'
               }`}
             >
-              Transformado
+              {t('products.transformed')}
             </button>
             <button
               type="button"
@@ -603,21 +624,39 @@ export default function Productos() {
                   : 'bg-white border-slate-200 text-[var(--ui-muted)]'
               }`}
             >
-              No transformado
+              {t('products.nonTransformed')}
             </button>
           </div>
           {productForm.process_type === 'non_transformed' && (
             <p className="text-xs ui-text-muted -mt-2">
-              Producto no transformado: se gestiona como inventario vendible en Movimiento interno según su categoría.
+              {t('products.nonTransformedHint')}
             </p>
           )}
-          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Descripción</label><textarea value={productForm.description} onChange={e => setProductForm({ ...productForm, description: e.target.value })} className="input-field" rows="2" placeholder="Descripción del producto..." /></div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Precio (S/)</label><input type="number" step="0.01" value={productForm.price} onChange={e => setProductForm({ ...productForm, price: e.target.value })} className="input-field" required placeholder="0.00" /></div>
+          <div><label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">{t('products.description')}</label><textarea value={productForm.description} onChange={e => setProductForm({ ...productForm, description: e.target.value })} className="input-field" rows="2" placeholder={t('products.descriptionPlaceholder')} /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">{t('products.salePrice')}</label>
+              <input type="number" step="0.01" min="0" value={productForm.price} onChange={e => setProductForm({ ...productForm, price: e.target.value })} className="input-field" required placeholder="0.00" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">{t('products.purchasePrice')}</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={productForm.purchase_price}
+                onChange={e => setProductForm({ ...productForm, purchase_price: e.target.value })}
+                className="input-field"
+                placeholder={t('products.purchasePricePlaceholder')}
+              />
+              <p className="text-xs ui-text-muted mt-1">{t('products.purchasePriceHint')}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               {productForm.process_type === 'non_transformed' ? (
                 <>
-                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Stock inicial</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">{t('products.initialStock')}</label>
                   <input
                     type="number"
                     value={productForm.stock}

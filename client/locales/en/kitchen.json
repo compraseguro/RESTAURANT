@@ -1,0 +1,36 @@
+{
+  "panel": {
+    "kitchenTitle": "Kitchen Display",
+    "barTitle": "Bar Display",
+    "activeOrders": "{{count}} active orders",
+    "activeOrders_one": "{{count}} active order",
+    "backToOps": "Back to operations hub",
+    "filterAll": "All",
+    "filterTables": "Tables",
+    "filterDelivery": "Delivery",
+    "printTicket": "Print ticket",
+    "prepare": "START",
+    "ready": "READY",
+    "emptyTitle": "No pending orders in {{station}}",
+    "emptyHint": "New orders will appear here automatically",
+    "stationKitchen": "kitchen",
+    "stationBar": "bar",
+    "orderNumber": "Order #{{number}}",
+    "table": "Table {{number}}",
+    "customer": "Customer",
+    "delivery": "Delivery",
+    "timeNow": "Now",
+    "timeMinutes": "{{count}} min",
+    "timeHours": "{{hours}}h {{minutes}}m"
+  },
+  "toast": {
+    "sentToStation": "Ticket sent to {{station}}",
+    "noItems": "This order has no items for {{station}}",
+    "printFailed": "Could not print ticket",
+    "preparing": "Marked as preparing",
+    "markedReady": "Marked as ready",
+    "newOrder": "New order",
+    "orderUpdated": "Order updated",
+    "newOrderNumber": "New order #{{number}} ({{station}})"
+  }
+}

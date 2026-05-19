@@ -1,0 +1,21 @@
+{
+  "title": "POS / Cashier",
+  "checkout": "Checkout",
+  "openRegister": "Open register",
+  "closeRegister": "Close register",
+  "precuenta": "Pre-bill",
+  "pay": "Charge",
+  "table": "Table",
+  "quickSale": "Quick sale",
+  "toast": {
+    "orderSent": "Order added to {{table}}",
+    "orderSentKitchen": "Could not send order to kitchen/bar. Please try again.",
+    "orderUpdated": "Order updated",
+    "ordersUpdated": "Orders updated",
+    "sendingOrder": "Sending order…",
+    "savingOrder": "Saving changes…",
+    "quickSaleDone": "Quick sale completed",
+    "registerOpened": "Register opened",
+    "paymentApproved": "Payment approved"
+  }
+}

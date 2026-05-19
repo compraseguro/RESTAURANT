@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const { normalizeSqlParams } = require('./utils/sqlBind');
 
 const DEFAULT_DB_PATH = path.join(__dirname, '..', 'restaurant.db');
 const DB_PATH = path.resolve(process.env.DB_PATH || DEFAULT_DB_PATH);
@@ -26,7 +27,8 @@ function getDb() {
 }
 
 function saveDb() {
-  if (db) {
+  if (!db) return;
+  try {
     const parentDir = path.dirname(DB_PATH);
     if (!fs.existsSync(parentDir)) {
       fs.mkdirSync(parentDir, { recursive: true });
@@ -34,6 +36,16 @@ function saveDb() {
     const data = db.export();
     const buffer = Buffer.from(data);
     fs.writeFileSync(DB_PATH, buffer);
+  } catch (err) {
+    console.error(JSON.stringify({
+      level: 'error',
+      msg: 'save_db_failed',
+      path: DB_PATH,
+      error: err?.message || String(err),
+    }));
+    throw new Error(
+      'No se pudo guardar la base de datos. Cierre otras instancias del programa o verifique permisos del disco.',
+    );
   }
 }
 
@@ -1950,7 +1962,8 @@ async function initDatabase() {
 
 function queryAll(sql, params = []) {
   const stmt = db.prepare(sql);
-  if (params.length) stmt.bind(params);
+  const safeParams = normalizeSqlParams(params);
+  if (safeParams.length) stmt.bind(safeParams);
   const results = [];
   while (stmt.step()) {
     results.push(stmt.getAsObject());
@@ -1961,7 +1974,8 @@ function queryAll(sql, params = []) {
 
 function queryOne(sql, params = []) {
   const stmt = db.prepare(sql);
-  if (params.length) stmt.bind(params);
+  const safeParams = normalizeSqlParams(params);
+  if (safeParams.length) stmt.bind(safeParams);
   let result = null;
   if (stmt.step()) {
     result = stmt.getAsObject();
@@ -1971,8 +1985,9 @@ function queryOne(sql, params = []) {
 }
 
 function runSql(sql, params = []) {
-  if (params.length) {
-    db.run(sql, params);
+  const safeParams = normalizeSqlParams(params);
+  if (safeParams.length) {
+    db.run(sql, safeParams);
   } else {
     db.run(sql);
   }
@@ -1986,7 +2001,8 @@ function withTransaction(work) {
       queryAll,
       queryOne,
       run(sql, params = []) {
-        if (params.length) db.run(sql, params);
+        const safeParams = normalizeSqlParams(params);
+        if (safeParams.length) db.run(sql, safeParams);
         else db.run(sql);
       },
     };

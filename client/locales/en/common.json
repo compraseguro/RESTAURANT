@@ -1,0 +1,69 @@
+{
+  "language": {
+    "label": "Language",
+    "es": "Español",
+    "en": "English",
+    "pt": "Português",
+    "it": "Italiano",
+    "fr": "Français"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "filter": "Filter",
+    "refresh": "Refresh",
+    "back": "Back",
+    "continue": "Continue",
+    "submit": "Submit",
+    "print": "Print",
+    "export": "Export",
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "retry": "Retry"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "paid": "Paid",
+    "cancelled": "Cancelled"
+  },
+  "roles": {
+    "admin": "Administrator",
+    "cajero": "Cashier",
+    "mozo": "Waiter",
+    "cocina": "Kitchen",
+    "bar": "Bar",
+    "delivery": "Delivery",
+    "master_admin": "Master"
+  },
+  "layout": {
+    "masterPanel": "Master panel",
+    "registerClosed": "Register closed",
+    "registerNotOpenTitle": "Register not open",
+    "registerNotOpenBody": "You cannot work until a register is opened. Ask a cashier or administrator to open the register.",
+    "waitingRegister": "Waiting for register to open…",
+    "endShift": "End shift",
+    "brandName": "Resto-FADEY"
+  },
+  "app": {
+    "loading": "Loading…",
+    "noModulesTitle": "No modules assigned",
+    "noModulesBody": "This user has no active permissions. Contact your administrator.",
+    "unexpectedError": "An unexpected error occurred. Reload the page.",
+    "reload": "Reload"
+  },
+  "toast": {
+    "saved": "Saved successfully",
+    "deleted": "Deleted",
+    "updated": "Updated",
+    "actionDone": "Action completed",
+    "connectionError": "Connection error. Check your network and try again."
+  }
+}

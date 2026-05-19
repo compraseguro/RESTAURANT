@@ -45,7 +45,11 @@ function createOrderInTransaction(tx, orderId, body, actor) {
     ['admin', 'cajero', 'mozo', 'cocina', 'bar'].includes(String(actor.user.role || ''));
 
   const restaurant = tx.queryOne('SELECT * FROM restaurants LIMIT 1');
-  const seq = tx.queryOne('SELECT current_number FROM order_sequence WHERE id = 1') || { current_number: 0 };
+  let seq = tx.queryOne('SELECT current_number FROM order_sequence WHERE id = 1');
+  if (!seq) {
+    tx.run('INSERT INTO order_sequence (id, current_number) VALUES (1, 0)');
+    seq = { current_number: 0 };
+  }
   const orderNumber = Number(seq.current_number || 0) + 1;
   tx.run('UPDATE order_sequence SET current_number = ? WHERE id = 1', [orderNumber]);
 

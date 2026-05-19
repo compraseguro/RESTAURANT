@@ -1,0 +1,11 @@
+{
+  "title": "Informes",
+  "sales": "Ventas",
+  "billing": "Facturación",
+  "dateRange": "Rango de fechas",
+  "from": "Desde",
+  "to": "Hasta",
+  "total": "Total",
+  "exportPdf": "Exportar PDF",
+  "noData": "Sin datos en el período seleccionado"
+}

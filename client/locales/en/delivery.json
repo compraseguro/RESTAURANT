@@ -1,0 +1,8 @@
+{
+  "title": "Delivery",
+  "driver": "Driver",
+  "address": "Address",
+  "assign": "Assign",
+  "delivered": "Delivered",
+  "onTheWay": "On the way"
+}

@@ -34,6 +34,7 @@ import {
   MdAutoGraph,
 } from 'react-icons/md';
 import { applyUiThemeFromAppSettings } from '../../theme/uiTheme';
+import { setAppLocale } from '../../i18n';
 import SettingsAppearancePanel from '../../components/settings/SettingsAppearancePanel';
 import { useSocket } from '../../hooks/useSocket';
 import { useConfigHub } from '../../hooks/useConfigHub';
@@ -401,6 +402,8 @@ export default function Settings() {
         setAppSettings(normalized);
         setAppSettingsSnapshot(serializeAppSettings(normalized));
         applyUiThemeFromAppSettings(normalized, currentUser?.id);
+        const uiLang = String(normalized?.regional?.language || '').toLowerCase();
+        if (uiLang === 'es' || uiLang === 'en') void setAppLocale(uiLang);
       })
       .catch(() => {
         setAppSettings(DEFAULT_APP_SETTINGS);
@@ -933,6 +936,8 @@ export default function Settings() {
       setAppSettings(normalized);
       setAppSettingsSnapshot(serializeAppSettings(normalized));
       applyUiThemeFromAppSettings(normalized, currentUser?.id);
+      const uiLang = String(normalized?.regional?.language || '').toLowerCase();
+      if (uiLang === 'es' || uiLang === 'en') void setAppLocale(uiLang);
       if (activeSection === 'config_historial') loadAppSettingsHistory();
       if (!silent) toast.success('Configuración guardada');
     } catch (err) {

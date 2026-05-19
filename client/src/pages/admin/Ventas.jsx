@@ -1,13 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api, formatCurrency, formatDateTime } from '../../utils/api';
 import toast from 'react-hot-toast';
 import { useSocket } from '../../hooks/useSocket';
 import { MdSearch, MdVisibility, MdEdit, MdSave, MdPrint, MdTableChart, MdCancel, MdDownload } from 'react-icons/md';
 import Modal from '../../components/Modal';
+import i18n from '../../i18n';
 
-const payNames = { efectivo: 'Efectivo', yape: 'Yape', plin: 'Plin', tarjeta: 'Tarjeta', online: 'Online' };
 const statusColors = { paid: 'bg-emerald-100 text-emerald-700', pending: 'bg-gold-100 text-gold-700', refunded: 'bg-red-100 text-red-700' };
-const docNames = { nota_venta: 'Nota de Venta', boleta: 'Boleta', factura: 'Factura' };
+
+function payLabel(method) {
+  if (!method) return '';
+  const key = `paymentMethods.${method}`;
+  const tr = i18n.t(key, { ns: 'sales', defaultValue: '' });
+  return tr || method;
+}
+
+function docLabel(docType) {
+  if (!docType) return '';
+  const key = `docTypes.${docType}`;
+  const tr = i18n.t(key, { ns: 'sales', defaultValue: '' });
+  return tr || docType;
+}
 
 function getOrderDocument(order) {
   const docType = order.sale_document_type || order.document?.doc_type || 'nota_venta';
@@ -35,10 +49,10 @@ function orderReceiptHtml(order) {
         </style>
       </head>
       <body>
-        <h2>${docNames[doc.doc_type] || doc.doc_type} ${doc.full_number}</h2>
+        <h2>${docLabel(doc.doc_type)} ${doc.full_number}</h2>
         <p class="muted">Venta #${order.order_number} · ${new Date(`${order.created_at}Z`).toLocaleString('es-PE')}</p>
         <p><strong>Cliente:</strong> ${order.customer_name || 'PUBLICO GENERAL'}</p>
-        <p><strong>Pago:</strong> ${payNames[order.payment_method] || order.payment_method}</p>
+        <p><strong>Pago:</strong> ${payLabel(order.payment_method)}</p>
         <table><tbody>${itemsHtml}</tbody></table>
         <p class="total">Total: S/ ${Number(order.total || 0).toFixed(2)}</p>
       </body>
@@ -110,7 +124,7 @@ function toTemplateRow(order, localName = '-') {
   const numero = parts[1] || String(order.order_number || '').padStart(8, '0');
   const isCancelled = order.status === 'cancelled';
   const isPaid = order.payment_status === 'paid';
-  const paymentLabel = payNames[order.payment_method] || order.payment_method || '';
+  const paymentLabel = payLabel(order.payment_method);
   const mesa = order.type === 'dine_in' ? `M${String(order.table_number || '0').padStart(2, '0')}` : '-';
   const requester = order.created_by_user_name || '-';
   return [
@@ -123,7 +137,7 @@ function toTemplateRow(order, localName = '-') {
     getShiftLabel(order.created_at),
     order.customer_name || 'PUBLICO GENERAL',
     '00000000',
-    `${docNames[doc.doc_type] || doc.doc_type}`,
+    `${docLabel(doc.doc_type)}`,
     serie,
     numero,
     paymentLabel,
@@ -212,7 +226,11 @@ function downloadAllSalesExcel(orders) {
   URL.revokeObjectURL(url);
 }
 
+const PAYMENT_METHOD_KEYS = ['efectivo', 'yape', 'plin', 'tarjeta', 'online'];
+const DOC_TYPE_KEYS = ['nota_venta', 'boleta', 'factura'];
+
 export default function Ventas() {
+  const { t } = useTranslation('sales');
   const [orders, setOrders] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState('');
@@ -384,24 +402,24 @@ export default function Ventas() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[var(--ui-body-text)] mb-3">Ventas</h1>
+      <h1 className="text-2xl font-bold text-[var(--ui-body-text)] mb-3">{t('title')}</h1>
 
       <div className="flex flex-wrap gap-2 mb-5">
         {[
-          { id: 'activas', label: 'Ventas activas' },
-          { id: 'anuladas', label: 'Ventas anuladas' },
-        ].map((t) => (
+          { id: 'activas', label: t('tabs.active') },
+          { id: 'anuladas', label: t('tabs.voided') },
+        ].map((tab) => (
           <button
-            key={t.id}
+            key={tab.id}
             type="button"
-            onClick={() => setSaleTab(t.id)}
+            onClick={() => setSaleTab(tab.id)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border ${
-              saleTab === t.id
+              saleTab === tab.id
                 ? 'bg-[var(--ui-accent)] text-white border-[color:var(--ui-accent)] shadow-md'
                 : 'bg-[var(--ui-surface-2)] text-[var(--ui-body-text)] border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)]'
             }`}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -483,10 +501,10 @@ export default function Ventas() {
                     <td className="py-2.5 text-[var(--ui-body-text)]">{mesero}</td>
                     <td className="py-2.5 text-[var(--ui-body-text)]">{o.customer_name || 'PUBLICO GENERAL'}</td>
                     <td className="py-2.5">
-                      <p className="font-medium text-[var(--ui-body-text)]">{docNames[doc.doc_type] || doc.doc_type}</p>
+                      <p className="font-medium text-[var(--ui-body-text)]">{docLabel(doc.doc_type)}</p>
                       <p className="text-xs text-[var(--ui-muted)]">{doc.full_number}</p>
                     </td>
-                    <td className="py-2.5 font-medium text-[var(--ui-body-text)]">{payNames[o.payment_method] || o.payment_method} (S/): {Number(o.total || 0).toFixed(2)}</td>
+                    <td className="py-2.5 font-medium text-[var(--ui-body-text)]">{payLabel(o.payment_method)} (S/): {Number(o.total || 0).toFixed(2)}</td>
                     <td className="py-2.5 font-bold text-[var(--ui-body-text)]">{formatCurrency(o.total)}</td>
                     <td className="py-2.5">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${activeSale ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
@@ -528,17 +546,17 @@ export default function Ventas() {
                   <div>
                     <label className="block text-xs text-[var(--ui-muted)] mb-1">Metodo de pago</label>
                     <select className="input-field text-sm" value={editPaymentMethod} onChange={e => setEditPaymentMethod(e.target.value)}>
-                      {Object.entries(payNames).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
+                      {PAYMENT_METHOD_KEYS.map((value) => (
+                        <option key={value} value={value}>{payLabel(value)}</option>
                       ))}
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs text-[var(--ui-muted)] mb-1">Comprobante</label>
                     <select className="input-field text-sm" value={editDocType} onChange={e => setEditDocType(e.target.value)}>
-                      <option value="nota_venta">Nota de Venta</option>
-                      <option value="boleta">Boleta</option>
-                      <option value="factura">Factura</option>
+                      {DOC_TYPE_KEYS.map((value) => (
+                        <option key={value} value={value}>{docLabel(value)}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -557,11 +575,11 @@ export default function Ventas() {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><p className="ui-text-muted">Fecha</p><p className="font-medium">{formatDateTime(selected.created_at)}</p></div>
               <div><p className="ui-text-muted">Tipo</p><p className="font-medium">{selected.type === 'dine_in' ? `Mesa ${selected.table_number}` : selected.type}</p></div>
-              <div><p className="ui-text-muted">Metodo de Pago</p><p className="font-medium">{payNames[selected.payment_method] || selected.payment_method}</p></div>
-              <div><p className="ui-text-muted">Estado</p><p className="font-medium">{selected.payment_status === 'paid' ? 'Pagado' : selected.payment_status === 'pending' ? 'Pendiente' : 'Reembolsado'}</p></div>
+              <div><p className="ui-text-muted">Metodo de Pago</p><p className="font-medium">{payLabel(selected.payment_method)}</p></div>
+              <div><p className="ui-text-muted">Estado</p><p className="font-medium">{t(`status.${selected.payment_status}`, { defaultValue: selected.payment_status })}</p></div>
               <div className="col-span-2">
                 <p className="ui-text-muted">Comprobante</p>
-                <p className="font-medium">{(() => { const doc = getOrderDocument(selected); return `${docNames[doc.doc_type] || doc.doc_type} - ${doc.full_number}`; })()}</p>
+                <p className="font-medium">{(() => { const doc = getOrderDocument(selected); return `${docLabel(doc.doc_type)} - ${doc.full_number}`; })()}</p>
               </div>
             </div>
             <div className="border-t border-[color:var(--ui-border)] pt-3">

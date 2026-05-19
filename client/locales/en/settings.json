@@ -1,0 +1,11 @@
+{
+  "title": "Settings",
+  "general": "General",
+  "printers": "Printers",
+  "appearance": "Appearance",
+  "users": "Users",
+  "language": {
+    "title": "System language",
+    "hint": "Saved in this browser. Affects menus, buttons, and POS messages."
+  }
+}

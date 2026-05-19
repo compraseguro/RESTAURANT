@@ -1,0 +1,8 @@
+{
+  "title": "Delivery",
+  "driver": "Repartidor",
+  "address": "Dirección",
+  "assign": "Asignar",
+  "delivered": "Entregado",
+  "onTheWay": "En camino"
+}

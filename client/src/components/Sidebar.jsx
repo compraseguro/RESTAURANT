@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
 import { ADMIN_MODULE_PATHS, hasModulePermission } from '../utils/staffModuleAccess';
@@ -12,43 +13,29 @@ import {
   MdInsights, MdStorefront, MdSettings, MdLogout, MdTableBar, MdAccessTime, MdKitchen, MdLocalBar, MdQrCode2,
 } from 'react-icons/md';
 
-/** Icono y texto por módulo; rutas y roles salen de `ADMIN_MODULE_PATHS` para no desincronizar con App.jsx. */
+/** Icono por módulo; etiqueta vía i18n `dashboard:nav.*`. */
 const SIDEBAR_LINK_META = {
-  escritorio: { icon: MdDashboard, label: 'Escritorio', end: true },
-  caja: { icon: MdPointOfSale, label: 'Caja' },
-  mesas: { icon: MdTableBar, label: 'Mesas' },
-  cocina: { icon: MdKitchen, label: 'Cocina' },
-  bar: { icon: MdLocalBar, label: 'Bar' },
-  delivery: { icon: MdDeliveryDining, label: 'Delivery' },
-  reservas: { icon: MdEventSeat, label: 'Reservas' },
-  auto_pedido: { icon: MdQrCode2, label: 'Auto pedido (QR)' },
-  clientes: { icon: MdPeopleAlt, label: 'Clientes' },
-  creditos: { icon: MdCreditCard, label: 'Créditos' },
-  ofertas: { icon: MdLocalOffer, label: 'Ofertas' },
-  descuentos: { icon: MdDiscount, label: 'Descuentos' },
-  almacen: { icon: MdWarehouse, label: 'Almacenes e Inventario' },
-  productos: { icon: MdRestaurantMenu, label: 'Productos' },
-  informes: { icon: MdAssessment, label: 'Informes' },
-  ventas: { icon: MdAttachMoney, label: 'Ventas' },
-  indicadores: { icon: MdInsights, label: 'Indicadores' },
-  mi_restaurant: { icon: MdStorefront, label: 'Mi Restaurante' },
-  tiempo_trabajado: { icon: MdAccessTime, label: 'Tiempo trabajado' },
-  configuracion: { icon: MdSettings, label: 'Configuración' },
+  escritorio: { icon: MdDashboard, labelKey: 'nav.escritorio', end: true },
+  caja: { icon: MdPointOfSale, labelKey: 'nav.caja' },
+  mesas: { icon: MdTableBar, labelKey: 'nav.mesas' },
+  cocina: { icon: MdKitchen, labelKey: 'nav.cocina' },
+  bar: { icon: MdLocalBar, labelKey: 'nav.bar' },
+  delivery: { icon: MdDeliveryDining, labelKey: 'nav.delivery' },
+  reservas: { icon: MdEventSeat, labelKey: 'nav.reservas' },
+  auto_pedido: { icon: MdQrCode2, labelKey: 'nav.auto_pedido' },
+  clientes: { icon: MdPeopleAlt, labelKey: 'nav.clientes' },
+  creditos: { icon: MdCreditCard, labelKey: 'nav.creditos' },
+  ofertas: { icon: MdLocalOffer, labelKey: 'nav.ofertas' },
+  descuentos: { icon: MdDiscount, labelKey: 'nav.descuentos' },
+  almacen: { icon: MdWarehouse, labelKey: 'nav.almacen' },
+  productos: { icon: MdRestaurantMenu, labelKey: 'nav.productos' },
+  informes: { icon: MdAssessment, labelKey: 'nav.informes' },
+  ventas: { icon: MdAttachMoney, labelKey: 'nav.ventas' },
+  indicadores: { icon: MdInsights, labelKey: 'nav.indicadores' },
+  mi_restaurant: { icon: MdStorefront, labelKey: 'nav.mi_restaurant' },
+  tiempo_trabajado: { icon: MdAccessTime, labelKey: 'nav.tiempo_trabajado' },
+  configuracion: { icon: MdSettings, labelKey: 'nav.configuracion' },
 };
-
-const allLinks = ADMIN_MODULE_PATHS.map((row) => {
-  const meta = SIDEBAR_LINK_META[row.moduleId];
-  if (!meta) return null;
-  const { icon, label, end } = meta;
-  return {
-    to: row.path,
-    icon,
-    label,
-    end: Boolean(end),
-    roles: row.roles,
-    moduleId: row.moduleId,
-  };
-}).filter(Boolean);
 
 if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
   ADMIN_MODULE_PATHS.forEach((row) => {
@@ -60,35 +47,38 @@ if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
   });
 }
 
-const cajaSubOptionsAll = [
-  { id: 'cobrar', label: 'Cobrar' },
-  { id: 'apertura_cierre', label: 'Apertura y cierre' },
-  { id: 'cierres_caja', label: 'Cierres de caja' },
-  { id: 'ingresos', label: 'Ingresos' },
-  { id: 'egresos', label: 'Egresos' },
-  { id: 'notas_credito', label: 'Notas de credito' },
-  { id: 'notas_debito', label: 'Notas de debito' },
-  { id: 'consulta_precios', label: 'Consulta de precios' },
+const CAJA_SUB_IDS = [
+  'cobrar', 'apertura_cierre', 'cierres_caja', 'ingresos', 'egresos',
+  'notas_credito', 'notas_debito', 'consulta_precios',
+];
+const MI_RESTAURANT_SUB_IDS = [
+  'mi_empresa', 'facturacion_electronica', 'pagos_sistema', 'contrato', 'pago_uso_sistema', 'informacion',
+];
+const ALMACEN_SUB_IDS = [
+  'movimiento_interno', 'ir_modulo_logistica', 'requerimiento', 'recepcion', 'ir_modulo_gastos',
 ];
 
-const miRestaurantSubOptionsAll = [
-  { id: 'mi_empresa', label: 'Mi empresa' },
-  { id: 'facturacion_electronica', label: 'Facturación electrónica' },
-  { id: 'pagos_sistema', label: 'Pagos de créditos' },
-  { id: 'contrato', label: 'Contrato' },
-  { id: 'pago_uso_sistema', label: 'Pago por uso del sistema' },
-  { id: 'informacion', label: 'Información' },
-];
-
-const almacenSubOptionsAll = [
-  { id: 'movimiento_interno', label: 'Movimiento interno' },
-  { id: 'ir_modulo_logistica', label: 'Inventario y kardex' },
-  { id: 'requerimiento', label: 'Requerimiento' },
-  { id: 'recepcion', label: 'Recepción' },
-  { id: 'ir_modulo_gastos', label: 'Ir a módulo de gastos' },
-];
 export default function Sidebar({ collapsed, isMobile = false, mobileOpen = false, onClose = () => {} }) {
+  const { t } = useTranslation('dashboard');
+  const { t: tc } = useTranslation('common');
   const { user } = useAuth();
+
+  const allLinks = useMemo(
+    () =>
+      ADMIN_MODULE_PATHS.map((row) => {
+        const meta = SIDEBAR_LINK_META[row.moduleId];
+        if (!meta) return null;
+        return {
+          to: row.path,
+          icon: meta.icon,
+          label: t(meta.labelKey),
+          end: Boolean(meta.end),
+          roles: row.roles,
+          moduleId: row.moduleId,
+        };
+      }).filter(Boolean),
+    [t],
+  );
   const location = useLocation();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
   const [attendanceReviewOpen, setAttendanceReviewOpen] = useState(false);
@@ -128,31 +118,31 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
   const filtered = allLinks.filter(hasLinkPermission);
   const planAllowsAlmacenAvanzado = user?.service_plan !== 'basico';
   const subAlmacen = user?.sub_permissions?.almacen || {};
-  const almacenSubOptions = almacenSubOptionsAll.filter((o) => {
-    if (!planAllowsAlmacenAvanzado && ['requerimiento', 'recepcion'].includes(o.id)) return false;
-    if (subAlmacen[o.id] === false) return false;
+  const almacenSubOptions = ALMACEN_SUB_IDS.filter((id) => {
+    if (!planAllowsAlmacenAvanzado && ['requerimiento', 'recepcion'].includes(id)) return false;
+    if (subAlmacen[id] === false) return false;
     return true;
-  });
+  }).map((id) => ({ id, label: t(`almacenSub.${id}`) }));
   const planProfesional = user?.service_plan === 'profesional';
   const subMi = user?.sub_permissions?.mi_restaurant || {};
-  const miRestaurantSubOptionsByPlan = miRestaurantSubOptionsAll.filter((o) => {
-    if (!planProfesional && o.id === 'facturacion_electronica') return false;
-    if (subMi[o.id] === false) return false;
+  const miRestaurantSubOptionsByPlan = MI_RESTAURANT_SUB_IDS.filter((id) => {
+    if (!planProfesional && id === 'facturacion_electronica') return false;
+    if (subMi[id] === false) return false;
     return true;
-  });
+  }).map((id) => ({ id, label: t(`miRestaurantSub.${id}`) }));
   /** Respaldo/restauración: solo administrador maestro (API también exige rol). */
   const miRestaurantSubOptions =
     user?.role === 'master_admin'
       ? miRestaurantSubOptionsByPlan
       : miRestaurantSubOptionsByPlan.filter((o) => o.id !== 'informacion');
   const subCaja = user?.sub_permissions?.caja || {};
-  const cajaSubOptions = cajaSubOptionsAll.filter((o) => {
-    if (subCaja[o.id] === false) return false;
-    if (String(user?.role || '').toLowerCase() === 'cajero' && (o.id === 'apertura_cierre' || o.id === 'cierres_caja')) {
+  const cajaSubOptions = CAJA_SUB_IDS.filter((id) => {
+    if (subCaja[id] === false) return false;
+    if (String(user?.role || '').toLowerCase() === 'cajero' && (id === 'apertura_cierre' || id === 'cierres_caja')) {
       return false;
     }
     return true;
-  });
+  }).map((id) => ({ id, label: t(`cajaSub.${id}`) }));
   const visibleLinks = user?.role === 'cajero'
     ? [
         filtered.find(l => l.to === '/admin/caja'),
@@ -179,7 +169,7 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
         <div className="rf-sidebar-brand w-9 h-9 bg-gradient-to-br from-[var(--ui-logo-from)] to-[var(--ui-logo-to)] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
           <MdStorefront className="text-white text-lg" />
         </div>
-        {!isCollapsed && <span className="rf-font-display font-bold text-base text-[var(--ui-body-text)] tracking-tight truncate">Resto-FADEY</span>}
+        {!isCollapsed && <span className="rf-font-display font-bold text-base text-[var(--ui-body-text)] tracking-tight truncate">{tc('layout.brandName')}</span>}
       </div>
 
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin">
@@ -284,9 +274,9 @@ export default function Sidebar({ collapsed, isMobile = false, mobileOpen = fals
       </nav>
 
       <div className="p-2 border-t border-[color:var(--ui-sidebar-border)]">
-        <button type="button" onClick={() => void handleFinalizarJornadaClick()} className="flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] w-full transition-colors text-sm" title="Finalizar jornada">
+        <button type="button" onClick={() => void handleFinalizarJornadaClick()} className="flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--ui-body-text)] hover:bg-[var(--ui-sidebar-hover)] w-full transition-colors text-sm" title={tc('layout.endShift')}>
           <MdLogout className="text-lg flex-shrink-0" />
-          {!isCollapsed && <span>Finalizar jornada</span>}
+          {!isCollapsed && <span>{tc('layout.endShift')}</span>}
         </button>
       </div>
       <AdminAttendanceReviewModal

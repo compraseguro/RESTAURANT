@@ -10,6 +10,8 @@
  *   (sin `/api` al final; se añade automáticamente).
  * - Las llamadas bajo `api.printing.*` usan esa base; el resto del sistema sigue usando API_BASE.
  */
+import { translateApiErrorMessage } from '../i18n/translateApiError';
+
 const rawApi = import.meta.env.VITE_API_URL;
 const hasExplicitApi = rawApi !== undefined && rawApi !== null && String(rawApi).trim() !== '';
 let API_ORIGIN = '';
@@ -169,7 +171,8 @@ async function request(endpoint, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+  const url = `${API_BASE}${endpoint}`;
+  const res = await fetch(url, { ...options, headers });
   const text = await res.text();
   let data = null;
   try {
@@ -179,15 +182,11 @@ async function request(endpoint, options = {}) {
   }
 
   if (!res.ok) {
-    if (data?.error) throw new Error(data.error);
-    if (res.status === 404) {
-      throw new Error(
-        'No se encontró el servicio (404). En local, ejecute el backend en el puerto 3001 y use npm run dev sin VITE_API_URL, o despliegue la API con las rutas actualizadas.'
-      );
+    const message = translateApiErrorMessage(res, data, endpoint);
+    if (import.meta.env.DEV) {
+      console.warn('[api]', options.method || 'GET', endpoint, res.status, data || text?.slice(0, 200));
     }
-    throw new Error(
-      data?.message || `Error ${res.status}: el servidor no devolvió JSON válido`
-    );
+    throw new Error(message);
   }
 
   return data;

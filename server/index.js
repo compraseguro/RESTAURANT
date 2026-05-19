@@ -250,6 +250,13 @@ app.use('/api/billing', billingRoutes);
 
 app.use((err, req, res, next) => {
   if (!err) return next();
+  const path = String(req.originalUrl || '');
+  let fallback = 'Ocurrió un error. Intente nuevamente.';
+  if (path.includes('/orders')) fallback = 'No se pudo procesar el pedido. Intente nuevamente.';
+  else if (path.includes('/categories')) fallback = 'Error al guardar la categoría. Intente nuevamente.';
+  const raw = String(err.message || '').trim();
+  const safe =
+    !raw || raw === 'undefined' || /^internal server error$/i.test(raw) ? fallback : raw;
   console.error(JSON.stringify({
     level: 'error',
     msg: 'unhandled_error',
@@ -257,8 +264,11 @@ app.use((err, req, res, next) => {
     path: req.originalUrl,
     method: req.method,
     error: err.message,
+    stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
   }));
-  res.status(500).json({ error: err.message || 'Error interno del servidor' });
+  if (!res.headersSent) {
+    res.status(err.status || 500).json({ error: safe });
+  }
 });
 
 const clientBuild = path.join(__dirname, '..', 'client', 'dist');

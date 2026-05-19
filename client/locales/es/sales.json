@@ -1,0 +1,27 @@
+{
+  "title": "Ventas",
+  "tabs": {
+    "active": "Ventas activas",
+    "voided": "Ventas anuladas"
+  },
+  "totals": {
+    "totalSales": "Total ventas"
+  },
+  "paymentMethods": {
+    "efectivo": "Efectivo",
+    "yape": "Yape",
+    "plin": "Plin",
+    "tarjeta": "Tarjeta",
+    "online": "Online"
+  },
+  "docTypes": {
+    "nota_venta": "Nota de venta",
+    "boleta": "Boleta",
+    "factura": "Factura"
+  },
+  "status": {
+    "paid": "Pagado",
+    "pending": "Pendiente",
+    "refunded": "Reembolsado"
+  }
+}

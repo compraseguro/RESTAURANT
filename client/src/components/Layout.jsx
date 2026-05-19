@@ -7,8 +7,11 @@ import { api } from '../utils/api';
 import { useSocket } from '../hooks/useSocket';
 import { MdMenu, MdPointOfSale, MdLock, MdAdminPanelSettings } from 'react-icons/md';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
 
 export default function Layout() {
+  const { t } = useTranslation('common');
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -81,17 +84,18 @@ export default function Layout() {
             </button>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher compact className="hidden sm:flex" />
             {user?.role === 'master_admin' && (
               <Link
                 to="/master"
                 className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[color:var(--ui-border)] bg-[var(--ui-surface)] text-[var(--ui-accent-muted)] hover:bg-[var(--ui-sidebar-hover)]"
               >
-                <MdAdminPanelSettings className="text-base" /> Panel maestro
+                <MdAdminPanelSettings className="text-base" /> {t('layout.masterPanel')}
               </Link>
             )}
             {isMozoBlocked && (
               <span className="flex items-center gap-1.5 px-3 py-1 bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)] text-xs rounded-full font-medium border border-[color:var(--ui-border)]">
-                <MdLock className="text-sm" /> Caja cerrada
+                <MdLock className="text-sm" /> {t('layout.registerClosed')}
               </span>
             )}
             {!hideNotificationsInKitchenBar && <NotificationCenter />}
@@ -102,7 +106,7 @@ export default function Layout() {
               </div>
               <div className="hidden sm:block">
                 <p className="text-sm font-medium text-[var(--ui-body-text)] leading-tight">{user?.full_name || user?.username}</p>
-                <p className="text-xs text-[var(--ui-muted)] capitalize">{user?.role}</p>
+                <p className="text-xs text-[var(--ui-muted)] capitalize">{t(`roles.${user?.role}`, { defaultValue: user?.role })}</p>
               </div>
             </div>
           </div>
@@ -116,13 +120,13 @@ export default function Layout() {
               <div className="w-16 h-16 bg-[var(--ui-body-bg)] rounded-full flex items-center justify-center mb-4 -mt-10 ml-14 border-4 border-[var(--ui-surface)]">
                 <MdLock className="text-2xl text-[var(--ui-accent)]" />
               </div>
-              <h2 className="text-2xl font-bold text-[var(--ui-body-text)] mb-2">Caja no abierta</h2>
+              <h2 className="text-2xl font-bold text-[var(--ui-body-text)] mb-2">{t('layout.registerNotOpenTitle')}</h2>
               <p className="text-[var(--ui-muted)] max-w-md mb-4">
-                No se puede operar sin una caja abierta. El cajero o administrador debe abrir la caja para que puedas acceder al sistema.
+                {t('layout.registerNotOpenBody')}
               </p>
               <div className="flex items-center gap-2 px-4 py-2 bg-[var(--ui-surface)] border border-[color:var(--ui-border)] rounded-xl text-sm text-[var(--ui-accent-muted)]">
                 <MdPointOfSale />
-                <span>Esperando apertura de caja...</span>
+                <span>{t('layout.waitingRegister')}</span>
                 <div className="animate-spin w-4 h-4 border-2 border-[var(--ui-accent-muted)] border-t-transparent rounded-full ml-1" />
               </div>
             </div>

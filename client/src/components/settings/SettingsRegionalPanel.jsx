@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { MdSave, MdPreview } from 'react-icons/md';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../utils/api';
+import { setAppLocale } from '../../i18n';
 
 const TIMEZONES = [
   { value: 'America/Lima', label: 'America/Lima (UTC-5)' },
@@ -11,6 +13,8 @@ const TIMEZONES = [
 ];
 
 export default function SettingsRegionalPanel({ regional, setRegional, onSave, saving }) {
+  const { t } = useTranslation('settings');
+  const { t: tc } = useTranslation('common');
   const [preview, setPreview] = useState(null);
 
   useEffect(() => {
@@ -55,9 +59,17 @@ export default function SettingsRegionalPanel({ regional, setRegional, onSave, s
           </div>
           <div>
             <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Idioma sistema</label>
-            <select className="input-field" value={regional?.language || 'es'} onChange={(e) => update('language', e.target.value)}>
-              <option value="es">Español</option>
-              <option value="en">English</option>
+            <select
+              className="input-field"
+              value={regional?.language || 'es'}
+              onChange={(e) => {
+                const code = e.target.value;
+                update('language', code);
+                if (code === 'es' || code === 'en') void setAppLocale(code);
+              }}
+            >
+              <option value="es">{tc('language.es')}</option>
+              <option value="en">{tc('language.en')}</option>
             </select>
           </div>
           <div>

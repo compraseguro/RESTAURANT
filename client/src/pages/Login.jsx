@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { api, resolveMediaUrl } from '../utils/api';
 import toast from 'react-hot-toast';
 import { MdStorefront, MdPerson, MdLock, MdVisibility, MdVisibilityOff, MdArrowBack, MdCameraAlt } from 'react-icons/md';
 import AttendancePhotoCapture from '../components/AttendancePhotoCapture';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 function getRoleRoute(role) {
   if (role === 'master_admin') return '/master';
@@ -19,9 +21,8 @@ function getRoleRoute(role) {
 /** Si en Mi empresa no hay nombre guardado, se muestra este texto en el login. */
 const FALLBACK_RESTAURANT_NAME = 'Resto Fadey App';
 
-/** Pie del login: fijo, no configurable (no usar datos de /restaurant). */
-const LOGIN_PRODUCT_FOOTER = 'RESTO FADEY APP - SISTEMA DE GESTION';
 export default function Login() {
+  const { t } = useTranslation('auth');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -68,7 +69,7 @@ export default function Login() {
 
   const submitLogin = async () => {
     if (photosRequired && !photoLogin) {
-      toast.error('Debe tomarse una foto para continuar');
+      toast.error(t('login.photoRequired'));
       return;
     }
     setLoading(true);
@@ -76,7 +77,7 @@ export default function Login() {
       const loginOpts = {};
       if (photoLogin) loginOpts.photo_login = photoLogin;
       const user = await login(username, password, loginOpts);
-      toast.success(`Bienvenido, ${user.full_name}`);
+      toast.success(t('login.welcome', { name: user.full_name }));
       navigate(getRoleRoute(user.role), { replace: true });
     } catch (err) {
       const msg = String(err?.message || '');
@@ -84,9 +85,9 @@ export default function Login() {
         setAttendancePolicy((p) => ({ ...p, loading: false, loginRequired: true }));
         setPhotoLogin(null);
         setStep(2);
-        toast.error('Se requiere foto de asistencia.');
+        toast.error(t('login.photoRequiredShort'));
       } else {
-        toast.error(msg || 'Error al iniciar sesión');
+        toast.error(msg || t('login.loginFailed'));
       }
     } finally {
       setLoading(false);
@@ -96,11 +97,11 @@ export default function Login() {
   const handleContinue = (e) => {
     e.preventDefault();
     if (!policyReady) {
-      toast.error('Espere a cargar la configuración de asistencia');
+      toast.error(t('login.waitPolicy'));
       return;
     }
     if (!username.trim() || !password) {
-      toast.error('Ingrese usuario y contraseña');
+      toast.error(t('login.credentialsRequired'));
       return;
     }
     if (!photosRequired) {
@@ -113,6 +114,9 @@ export default function Login() {
 
   return (
     <div className="rf-login-shell min-h-screen bg-[var(--ui-body-bg)] text-[var(--ui-body-text)] flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute top-4 right-4 z-20">
+        <LanguageSwitcher compact />
+      </div>
       <div className="absolute top-0 left-0 w-96 h-96 bg-[var(--ui-accent)]/15 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-[var(--ui-accent)]/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none" />
       <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-[var(--ui-surface)]/30 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
@@ -138,18 +142,18 @@ export default function Login() {
         <div className="rf-login-card bg-[var(--ui-surface)] backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-[color:var(--ui-border)]">
           {step === 1 && (
             <>
-              <h2 className="rf-font-display text-xl font-bold text-[var(--ui-body-text)] mb-1">Iniciar Sesión</h2>
-              <p className="text-sm text-[var(--ui-muted)] mb-6">Ingresa tus credenciales</p>
+              <h2 className="rf-font-display text-xl font-bold text-[var(--ui-body-text)] mb-1">{t('login.title')}</h2>
+              <p className="text-sm text-[var(--ui-muted)] mb-6">{t('login.subtitle')}</p>
               <form onSubmit={handleContinue} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1.5">Usuario</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1.5">{t('login.username')}</label>
                   <div className="relative">
                     <MdPerson className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)] text-xl pointer-events-none" />
                     <input
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Ingresa tu usuario"
+                      placeholder={t('login.usernamePlaceholder')}
                       className="input-field pl-10"
                       required
                       autoComplete="username"
@@ -158,14 +162,14 @@ export default function Login() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1.5">Contraseña</label>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1.5">{t('login.password')}</label>
                   <div className="relative">
                     <MdLock className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)] text-xl pointer-events-none" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Ingresa tu contraseña"
+                      placeholder={t('login.passwordPlaceholder')}
                       className="input-field pl-10 pr-10"
                       required
                       autoComplete="current-password"
@@ -188,17 +192,17 @@ export default function Login() {
                   {!policyReady ? (
                     <span className="flex items-center justify-center gap-2">
                       <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-                      Cargando…
+                      {t('login.loadingPolicy')}
                     </span>
                   ) : loading && !photosRequired ? (
                     <span className="flex items-center justify-center gap-2">
                       <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-                      Ingresando...
+                      {t('login.entering')}
                     </span>
                   ) : photosRequired ? (
-                    'Continuar'
+                    t('login.continue')
                   ) : (
-                    'Ingresar'
+                    t('login.enter')
                   )}
                 </button>
               </form>
@@ -212,14 +216,14 @@ export default function Login() {
                   type="button"
                   onClick={() => { setStep(1); setPhotoLogin(null); }}
                   className="p-2 rounded-lg hover:bg-[var(--ui-sidebar-hover)] text-[var(--ui-muted)] hover:text-[var(--ui-body-text)]"
-                  aria-label="Volver"
+                  aria-label={t('common:actions.back', { defaultValue: 'Volver' })}
                   disabled={loading}
                 >
                   <MdArrowBack className="text-xl" />
                 </button>
                 <div>
                   <h2 className="text-xl font-bold text-[var(--ui-body-text)] flex items-center gap-2">
-                    <MdCameraAlt className="text-[var(--ui-accent)]" /> Foto de asistencia
+                    <MdCameraAlt className="text-[var(--ui-accent)]" /> {t('login.attendanceTitle')}
                   </h2>
                 </div>
               </div>
@@ -235,10 +239,10 @@ export default function Login() {
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-                    Ingresando...
+                    {t('login.entering')}
                   </span>
                 ) : (
-                  'Ingresar al sistema'
+                  t('login.enterSystem')
                 )}
               </button>
             </>
@@ -246,7 +250,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-[var(--ui-muted)] text-xs mt-6 select-none" aria-hidden="true">
-          {LOGIN_PRODUCT_FOOTER}
+          {t('login.footer')}
         </p>
       </div>
     </div>

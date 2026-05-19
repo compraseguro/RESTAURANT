@@ -1,0 +1,11 @@
+{
+  "title": "Configuración",
+  "general": "General",
+  "printers": "Impresoras",
+  "appearance": "Apariencia",
+  "users": "Usuarios",
+  "language": {
+    "title": "Idioma del sistema",
+    "hint": "Se guarda en este navegador. Afecta menús, botones y mensajes del POS."
+  }
+}

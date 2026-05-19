@@ -1,0 +1,19 @@
+{
+  "generic": "Something went wrong. Please try again.",
+  "server": "Server error. Please try again in a few seconds.",
+  "notFound": "The requested resource was not found.",
+  "forbidden": "You do not have permission for this action.",
+  "unauthorized": "Session expired. Please sign in again.",
+  "service404": "Service not found (404). In local dev, run the backend on port 3001.",
+  "orders": {
+    "sendFailed": "Could not send the order to kitchen/bar. Please try again.",
+    "processFailed": "Could not process the order. Check the data and try again.",
+    "notFound": "Order not found.",
+    "forbidden": "You do not have permission for this order action."
+  },
+  "categories": {
+    "notFound": "Category not found.",
+    "updateFailed": "Could not update category. Please try again.",
+    "saveFailed": "Could not save category. Check the name and try again."
+  }
+}

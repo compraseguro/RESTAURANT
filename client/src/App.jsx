@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from './context/AuthContext';
 
 import Layout from './components/Layout';
@@ -64,6 +65,7 @@ function ProtectedRoute({ children, roles, moduleId }) {
 }
 
 function DefaultPage() {
+  const { t } = useTranslation('common');
   const { user } = useAuth();
   if (!user) return <Navigate to="/" replace />;
   if (user.role === 'master_admin') return <Navigate to="/master" replace />;
@@ -73,8 +75,8 @@ function DefaultPage() {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
         <div className="card max-w-md text-center">
-          <h2 className="text-xl font-bold mb-2">Sin módulos asignados</h2>
-          <p className="text-[var(--ui-muted)] text-sm">Este usuario no tiene permisos activos. Solicita acceso al administrador.</p>
+          <h2 className="text-xl font-bold mb-2">{t('app.noModulesTitle')}</h2>
+          <p className="text-[var(--ui-muted)] text-sm">{t('app.noModulesBody')}</p>
         </div>
       </div>
     );
@@ -95,6 +97,7 @@ function AdminOnlyAutoPedido() {
 }
 
 export default function App() {
+  const { t } = useTranslation('common');
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -102,7 +105,7 @@ export default function App() {
       <div className="min-h-screen flex items-center justify-center bg-[var(--ui-body-bg)] text-[var(--ui-body-text)]">
         <div className="text-center">
           <div className="animate-spin w-12 h-12 border-4 border-[var(--ui-accent)] border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-[var(--ui-muted)]">Cargando...</p>
+          <p className="text-[var(--ui-muted)]">{t('app.loading')}</p>
         </div>
       </div>
     );

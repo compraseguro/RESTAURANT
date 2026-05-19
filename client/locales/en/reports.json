@@ -1,0 +1,11 @@
+{
+  "title": "Reports",
+  "sales": "Sales",
+  "billing": "Billing",
+  "dateRange": "Date range",
+  "from": "From",
+  "to": "To",
+  "total": "Total",
+  "exportPdf": "Export PDF",
+  "noData": "No data for the selected period"
+}

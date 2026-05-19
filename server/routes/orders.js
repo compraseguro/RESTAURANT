@@ -9,6 +9,28 @@ const { restoreNonTransformedStockForOrder } = require('../warehouseStock');
 const kardexInventory = require('../services/kardexInventoryService');
 const { emitInventoryUpdate, emitBillingDocumentUpdate } = require('../socketBroadcast');
 const { recordWorkActivityEvent } = require('../services/workActivityTracker');
+const { logRouteError, publicErrorMessage } = require('../utils/routeErrors');
+
+const DEBUG_ORDERS = String(process.env.DEBUG_ORDERS || process.env.LOG_LEVEL || '')
+  .toLowerCase()
+  .includes('debug');
+
+function logOrderDebug(req, msg, extra = {}) {
+  if (!DEBUG_ORDERS) return;
+  console.log(
+    JSON.stringify({
+      level: 'debug',
+      msg: 'orders_route',
+      detail: msg,
+      request_id: req?.requestId,
+      path: req?.originalUrl,
+      user_id: req?.user?.id,
+      role: req?.user?.role,
+      ...extra,
+    }),
+  );
+}
+
 const router = express.Router();
 const ORDER_TRANSITIONS = {
   pending: ['preparing', 'cancelled'],
@@ -208,6 +230,10 @@ router.put('/:id/lines', authenticateToken, requireRole('admin', 'cajero', 'mozo
     return res.status(400).json({ error: 'El pedido debe tener al menos un producto' });
   }
   try {
+    logOrderDebug(req, 'put_lines_start', {
+      order_id: req.params.id,
+      item_count: items.length,
+    });
     const actor = actorFromRequest(req);
     withTransaction((tx) => replaceOrderLinesInTransaction(tx, req.params.id, items, actor));
     if (Object.prototype.hasOwnProperty.call(req.body || {}, 'notes')) {
@@ -217,6 +243,9 @@ router.put('/:id/lines', authenticateToken, requireRole('admin', 'cajero', 'mozo
       ]);
     }
     const order = getOrderWithItems(req.params.id);
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido no encontrado tras actualizar líneas' });
+    }
     const io = req.app.get('io');
     if (io) {
       io.emit('order-update', order);
@@ -224,9 +253,19 @@ router.put('/:id/lines', authenticateToken, requireRole('admin', 'cajero', 'mozo
       io.emit('order-lines-updated', order);
     }
     emitInventoryUpdate({});
+    logOrderDebug(req, 'put_lines_ok', { order_id: order.id, order_number: order.order_number });
     res.json(order);
   } catch (err) {
-    res.status(400).json({ error: err.message || 'No se pudo actualizar el pedido' });
+    logRouteError(req, err, { order_id: req.params.id, item_count: items?.length });
+    const status = err.message && !/interno|base de datos/i.test(err.message) ? 400 : 500;
+    res.status(status).json({
+      error: publicErrorMessage(
+        err,
+        status >= 500
+          ? 'No se pudo enviar el pedido a cocina/bar. Intente nuevamente.'
+          : 'No se pudo actualizar el pedido',
+      ),
+    });
   }
 });
 
@@ -261,8 +300,10 @@ router.get('/:id', authenticateToken, (req, res) => {
 });
 
 router.post('/', authenticateToken, (req, res) => {
-  const { items, payment_method } = req.body;
-  if (!items || items.length === 0) return res.status(400).json({ error: 'El pedido debe tener al menos un producto' });
+  const { items, payment_method } = req.body || {};
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'El pedido debe tener al menos un producto' });
+  }
   const requestedPaymentMethod = String(payment_method || '').trim().toLowerCase();
   if (requestedPaymentMethod) {
     try {
@@ -272,6 +313,11 @@ router.post('/', authenticateToken, (req, res) => {
     }
   }
   try {
+    logOrderDebug(req, 'post_order_start', {
+      item_count: items.length,
+      type: req.body?.type,
+      table_number: req.body?.table_number,
+    });
     const orderId = uuidv4();
     const actor = actorFromRequest(req);
     const result = withTransaction((tx) =>
@@ -279,17 +325,34 @@ router.post('/', authenticateToken, (req, res) => {
     );
 
     const order = getOrderWithItems(result.orderId);
+    if (!order) {
+      return res.status(500).json({ error: 'El pedido se creó pero no se pudo recuperar. Recargue la pantalla.' });
+    }
     const io = req.app.get('io');
     if (io) { io.emit('new-order', order); io.emit('order-update', order); }
     emitInventoryUpdate({});
     recordWorkActivityEvent(req.user?.id, 'order_created', { module: 'pedidos', refId: order?.id });
+    logOrderDebug(req, 'post_order_ok', { order_id: order.id, order_number: order.order_number });
     res.status(201).json(order);
   } catch (err) {
-    res.status(400).json({ error: err.message || 'No se pudo crear el pedido' });
+    logRouteError(req, err, { item_count: items?.length, type: req.body?.type });
+    const status =
+      err.message && !/interno|base de datos|guardar la base/i.test(String(err.message))
+        ? 400
+        : 500;
+    res.status(status).json({
+      error: publicErrorMessage(
+        err,
+        status >= 500
+          ? 'No se pudo enviar el pedido a cocina/bar. Intente nuevamente.'
+          : 'No se pudo crear el pedido',
+      ),
+    });
   }
 });
 
 router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'mozo', 'cocina', 'bar', 'delivery'), (req, res) => {
+  try {
   const { status, cancellation_reason: cancellationReasonRaw } = req.body;
   const valid = ['pending', 'preparing', 'ready', 'delivered', 'cancelled'];
   if (!valid.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
@@ -405,25 +468,37 @@ router.put('/:id/status', authenticateToken, requireRole('admin', 'cajero', 'moz
       );
     }
   }
-  logAudit({
-    actorUserId: req.user.id,
-    actorName: req.user.full_name || req.user.username || '',
-    action: 'order.status.update',
-    resourceType: 'order',
-    resourceId: req.params.id,
-    details: {
+  try {
+    const auditDetails = {
       from: order.status,
       to: status,
-      ...(status === 'cancelled'
-        ? { cancellation_reason: String(cancellationReasonRaw || '').trim() || undefined }
-        : {}),
-    },
-  });
+    };
+    if (status === 'cancelled') {
+      const reason = String(cancellationReasonRaw || '').trim();
+      if (reason) auditDetails.cancellation_reason = reason;
+    }
+    logAudit({
+      actorUserId: req.user.id,
+      actorName: req.user.full_name || req.user.username || '',
+      action: 'order.status.update',
+      resourceType: 'order',
+      resourceId: req.params.id,
+      details: auditDetails,
+    });
+  } catch (auditErr) {
+    logRouteError(req, auditErr, { order_id: req.params.id, phase: 'audit' });
+  }
 
   const updated = getOrderWithItems(req.params.id);
   const io = req.app.get('io');
   if (io) { io.emit('order-update', updated); if (status === 'ready') io.emit('order-ready', updated); }
   res.json(updated);
+  } catch (err) {
+    logRouteError(req, err, { order_id: req.params.id, phase: 'status' });
+    res.status(500).json({
+      error: publicErrorMessage(err, 'No se pudo actualizar el estado del pedido. Intente nuevamente.'),
+    });
+  }
 });
 
 router.put('/:id/payment', authenticateToken, requireRole('admin', 'cajero', 'mozo'), (req, res) => {

@@ -1,0 +1,49 @@
+{
+  "nav": {
+    "escritorio": "Escritorio",
+    "caja": "Caja",
+    "mesas": "Mesas",
+    "cocina": "Cocina",
+    "bar": "Bar",
+    "delivery": "Delivery",
+    "reservas": "Reservas",
+    "auto_pedido": "Auto pedido (QR)",
+    "clientes": "Clientes",
+    "creditos": "Créditos",
+    "ofertas": "Ofertas",
+    "descuentos": "Descuentos",
+    "almacen": "Almacenes e Inventario",
+    "productos": "Productos",
+    "informes": "Informes",
+    "ventas": "Ventas",
+    "indicadores": "Indicadores",
+    "mi_restaurant": "Mi Restaurante",
+    "tiempo_trabajado": "Tiempo trabajado",
+    "configuracion": "Configuración"
+  },
+  "cajaSub": {
+    "cobrar": "Cobrar",
+    "apertura_cierre": "Apertura y cierre",
+    "cierres_caja": "Cierres de caja",
+    "ingresos": "Ingresos",
+    "egresos": "Egresos",
+    "notas_credito": "Notas de crédito",
+    "notas_debito": "Notas de débito",
+    "consulta_precios": "Consulta de precios"
+  },
+  "miRestaurantSub": {
+    "mi_empresa": "Mi empresa",
+    "facturacion_electronica": "Facturación electrónica",
+    "pagos_sistema": "Pagos de créditos",
+    "contrato": "Contrato",
+    "pago_uso_sistema": "Pago por uso del sistema",
+    "informacion": "Información"
+  },
+  "almacenSub": {
+    "movimiento_interno": "Movimiento interno",
+    "ir_modulo_logistica": "Inventario y kardex",
+    "requerimiento": "Requerimiento",
+    "recepcion": "Recepción",
+    "ir_modulo_gastos": "Ir a módulo de gastos"
+  }
+}

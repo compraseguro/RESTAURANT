@@ -1859,7 +1859,15 @@ export default function POSPanel() {
       resetBillingForm();
       loadData();
     } catch (err) {
-      toast.error(err.message || 'No se pudo completar la operación', { id: tid });
+      const msg = String(err?.message || '').trim();
+      toast.error(
+        msg && !/^internal server error$/i.test(msg)
+          ? msg
+          : editingOrderId
+            ? 'No se pudo actualizar el pedido. Intente nuevamente.'
+            : 'No se pudo enviar el pedido a cocina/bar. Intente nuevamente.',
+        { id: tid },
+      );
     }
   };
 

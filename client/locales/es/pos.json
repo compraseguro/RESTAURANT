@@ -1,0 +1,21 @@
+{
+  "title": "Caja",
+  "checkout": "Cobrar",
+  "openRegister": "Abrir caja",
+  "closeRegister": "Cerrar caja",
+  "precuenta": "Precuenta",
+  "pay": "Cobrar",
+  "table": "Mesa",
+  "quickSale": "Venta rápida",
+  "toast": {
+    "orderSent": "Pedido agregado a {{table}}",
+    "orderSentKitchen": "No se pudo enviar el pedido a cocina/bar. Intente nuevamente.",
+    "orderUpdated": "Pedido actualizado",
+    "ordersUpdated": "Pedidos actualizados",
+    "sendingOrder": "Enviando pedido…",
+    "savingOrder": "Guardando cambios…",
+    "quickSaleDone": "Venta rápida cobrada",
+    "registerOpened": "Caja abierta",
+    "paymentApproved": "Pago aprobado"
+  }
+}

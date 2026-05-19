@@ -1,0 +1,69 @@
+{
+  "language": {
+    "label": "Idioma",
+    "es": "Español",
+    "en": "English",
+    "pt": "Português",
+    "it": "Italiano",
+    "fr": "Français"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Agregar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "refresh": "Actualizar",
+    "back": "Volver",
+    "continue": "Continuar",
+    "submit": "Enviar",
+    "print": "Imprimir",
+    "export": "Exportar",
+    "loading": "Cargando…",
+    "saving": "Guardando…",
+    "retry": "Reintentar"
+  },
+  "status": {
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "pending": "Pendiente",
+    "paid": "Pagado",
+    "cancelled": "Cancelado"
+  },
+  "roles": {
+    "admin": "Administrador",
+    "cajero": "Cajero",
+    "mozo": "Mozo",
+    "cocina": "Cocina",
+    "bar": "Bar",
+    "delivery": "Delivery",
+    "master_admin": "Maestro"
+  },
+  "layout": {
+    "masterPanel": "Panel maestro",
+    "registerClosed": "Caja cerrada",
+    "registerNotOpenTitle": "Caja no abierta",
+    "registerNotOpenBody": "No se puede operar sin una caja abierta. El cajero o administrador debe abrir la caja para que puedas acceder al sistema.",
+    "waitingRegister": "Esperando apertura de caja…",
+    "endShift": "Finalizar jornada",
+    "brandName": "Resto-FADEY"
+  },
+  "app": {
+    "loading": "Cargando…",
+    "noModulesTitle": "Sin módulos asignados",
+    "noModulesBody": "Este usuario no tiene permisos activos. Solicita acceso al administrador.",
+    "unexpectedError": "Ocurrió un error inesperado. Recarga la página.",
+    "reload": "Recargar"
+  },
+  "toast": {
+    "saved": "Guardado correctamente",
+    "deleted": "Eliminado",
+    "updated": "Actualizado",
+    "actionDone": "Acción completada",
+    "connectionError": "Error de conexión. Verifique su red e intente nuevamente."
+  }
+}
