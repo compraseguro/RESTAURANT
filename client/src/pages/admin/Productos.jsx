@@ -7,8 +7,18 @@ import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import {
   MdAdd, MdEdit, MdDelete, MdSearch, MdRestaurantMenu, MdLunchDining,
-  MdTune, MdClose, MdCheck, MdToggleOn, MdToggleOff, MdDownload
+  MdTune, MdClose, MdCheck, MdToggleOn, MdToggleOff, MdDownload, MdSchedule
 } from 'react-icons/md';
+import {
+  DAY_KEYS,
+  SCHEDULE_PRESETS,
+  normalizeAvailableDays,
+  applySchedulePreset,
+  validateScheduleAgainstRestaurant,
+  evaluateProductSchedule,
+  scheduleTypeLabel,
+  parseTimeToMinutes,
+} from '../../utils/productSchedule';
 
 const HIDDEN_PRODUCT_CATEGORY_NAMES = new Set(['PRODUCTOS ALMACEN', 'INSUMOS']);
 
@@ -31,6 +41,11 @@ const EMPTY_PRODUCT_FORM = {
   kardex_insumo_den: '1',
   kardex_insumo_modo: '',
   kardex_insumo_gramos: '0',
+  schedule_enabled: 0,
+  available_from: '',
+  available_to: '',
+  available_days: [],
+  schedule_type: 'personalizado',
 };
 
 export default function Productos() {
@@ -67,6 +82,8 @@ export default function Productos() {
   const [showModModal, setShowModModal] = useState(false);
   const [modForm, setModForm] = useState({ name: '', options: '', required: false });
   const [insumosKardex, setInsumosKardex] = useState([]);
+  const [restaurantSchedule, setRestaurantSchedule] = useState({});
+  const [scheduleWarnings, setScheduleWarnings] = useState([]);
 
   const defaultWarehouseId =
     warehouses.find(w => (w.name || '').toLowerCase() === 'almacen principal')?.id ||
@@ -81,9 +98,11 @@ export default function Productos() {
       api.get('/admin-modules/combos'),
       api.get('/admin-modules/modifiers'),
       api.get('/kardex-inventory/insumos').catch(() => []),
+      api.get('/restaurant').catch(() => ({})),
     ])
-      .then(([p, c, w, combosData, modifiersData, ins]) => {
+      .then(([p, c, w, combosData, modifiersData, ins, restaurant]) => {
         setProducts(p);
+        setRestaurantSchedule(restaurant?.schedule || {});
         setCategories(c);
         setWarehouses(w || []);
         setCombos(combosData || []);
@@ -136,8 +155,43 @@ export default function Productos() {
       category_id: selectedCat || (visibleCategories[0]?.id || ''),
       stock_warehouse_id: defaultWarehouseId,
     });
+    setScheduleWarnings([]);
     setShowProductModal(true);
   };
+
+  const toggleScheduleDay = (dayKey) => {
+    setProductForm((prev) => {
+      const days = normalizeAvailableDays(prev.available_days);
+      const next = days.includes(dayKey)
+        ? days.filter((d) => d !== dayKey)
+        : [...days, dayKey];
+      return { ...prev, available_days: next };
+    });
+  };
+
+  const onScheduleTypeChange = (type) => {
+    setProductForm((prev) => {
+      const next = applySchedulePreset(type, { ...prev, schedule_type: type, schedule_enabled: 1 });
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!productForm.schedule_enabled) {
+      setScheduleWarnings([]);
+      return;
+    }
+    setScheduleWarnings(
+      validateScheduleAgainstRestaurant(productForm, restaurantSchedule, t),
+    );
+  }, [
+    productForm.schedule_enabled,
+    productForm.available_from,
+    productForm.available_to,
+    productForm.available_days,
+    restaurantSchedule,
+    t,
+  ]);
 
   const openEditProduct = (p) => {
     setEditProduct(p);
@@ -169,7 +223,13 @@ export default function Productos() {
       kardex_insumo_gramos: p.kardex_insumo_gramos != null && p.kardex_insumo_gramos !== ''
         ? String(p.kardex_insumo_gramos)
         : '0',
+      schedule_enabled: Number(p.schedule_enabled || 0) === 1 ? 1 : 0,
+      available_from: p.available_from || '',
+      available_to: p.available_to || '',
+      available_days: normalizeAvailableDays(p.available_days),
+      schedule_type: p.schedule_type || 'personalizado',
     });
+    setScheduleWarnings([]);
     setShowProductModal(true);
   };
 
@@ -214,6 +274,13 @@ export default function Productos() {
         }
       }
 
+      if (Number(productForm.schedule_enabled) === 1) {
+        if (parseTimeToMinutes(productForm.available_from) == null || parseTimeToMinutes(productForm.available_to) == null) {
+          toast.error(t('products.schedule.invalidTimes'));
+          return;
+        }
+      }
+
       const kn = parseFloat(productForm.kardex_insumo_num) || 1;
       const kd = parseFloat(productForm.kardex_insumo_den) || 1;
       const kg = parseFloat(productForm.kardex_insumo_gramos) || 0;
@@ -226,6 +293,8 @@ export default function Productos() {
       const payload = {
         ...productForm,
         purchase_price: rawPurchase === '' ? null : parseFloat(rawPurchase),
+        schedule_enabled: Number(productForm.schedule_enabled) === 1 ? 1 : 0,
+        available_days: normalizeAvailableDays(productForm.available_days),
         stock: isNonTransformed ? stockAmount : 0,
         stock_warehouse_id: isNonTransformed ? warehouseId : '',
         kardex_insumo_id: !isNonTransformed ? (productForm.kardex_insumo_id || '').trim() : '',
@@ -243,6 +312,9 @@ export default function Productos() {
             quantity: stockAmount,
           });
         }
+        if (updated?.schedule_warnings?.length) {
+          updated.schedule_warnings.forEach((w) => toast(w, { icon: '⚠️' }));
+        }
         toast.success(t('toast.productUpdated'));
       } else {
         const created = await api.post('/products', payload);
@@ -252,6 +324,9 @@ export default function Productos() {
             warehouse_id: warehouseId,
             quantity: stockAmount,
           });
+        }
+        if (created?.schedule_warnings?.length) {
+          created.schedule_warnings.forEach((w) => toast(w, { icon: '⚠️' }));
         }
         toast.success(t('toast.productCreated'));
       }
@@ -452,6 +527,20 @@ export default function Productos() {
                     <tr key={p.id} className={`border-b border-[color:var(--ui-border)] hover:bg-[var(--ui-sidebar-hover)] transition-colors ${!p.is_active ? 'opacity-50' : ''}`}>
                       <td className="p-3">
                         <p className="font-medium text-[var(--ui-body-text)] hover:text-gold-600 cursor-pointer" onClick={() => openEditProduct(p)}>{p.name}</p>
+                        {Number(p.schedule_enabled) === 1 && (() => {
+                          const st = evaluateProductSchedule(p);
+                          const label = scheduleTypeLabel(p.schedule_type, t);
+                          return (
+                            <span className={`inline-flex items-center gap-1 mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              st.available ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600'
+                            }`}>
+                              <MdSchedule className="text-xs" />
+                              {st.available
+                                ? t('products.schedule.badgeNow', { label, from: p.available_from, to: p.available_to })
+                                : t('products.schedule.badgeOff')}
+                            </span>
+                          );
+                        })()}
                         {p.description && <p className="text-xs text-[var(--ui-muted)] mt-0.5 line-clamp-1">{p.description}</p>}
                       </td>
                       <td className="p-3 text-[var(--ui-muted)]">#{String(idx + 1).padStart(2, '0')}</td>
@@ -845,6 +934,96 @@ export default function Productos() {
               </select>
             </div>
           )}
+          <div className="rounded-xl border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] p-4 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[var(--ui-body-text)] flex items-center gap-2">
+                  <MdSchedule className="text-gold-600" />
+                  {t('products.schedule.sectionTitle')}
+                </p>
+                <p className="text-xs ui-text-muted mt-1">{t('products.schedule.enableHint')}</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={Number(productForm.schedule_enabled) === 1}
+                  onChange={(e) => setProductForm({
+                    ...productForm,
+                    schedule_enabled: e.target.checked ? 1 : 0,
+                  })}
+                />
+                <span className="w-11 h-6 bg-slate-300 rounded-full peer peer-checked:bg-gold-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full relative" />
+              </label>
+            </div>
+            {Number(productForm.schedule_enabled) === 1 && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">{t('products.schedule.type')}</label>
+                  <select
+                    value={productForm.schedule_type}
+                    onChange={(e) => onScheduleTypeChange(e.target.value)}
+                    className="input-field text-sm"
+                  >
+                    {Object.keys(SCHEDULE_PRESETS).map((key) => (
+                      <option key={key} value={key}>{t(`products.schedule.types.${key}`)}</option>
+                    ))}
+                    <option value="personalizado">{t('products.schedule.types.personalizado')}</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">{t('products.schedule.from')}</label>
+                    <input
+                      type="time"
+                      value={productForm.available_from || ''}
+                      onChange={(e) => setProductForm({ ...productForm, available_from: e.target.value, schedule_type: 'personalizado' })}
+                      className="input-field text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--ui-muted)] mb-1">{t('products.schedule.to')}</label>
+                    <input
+                      type="time"
+                      value={productForm.available_to || ''}
+                      onChange={(e) => setProductForm({ ...productForm, available_to: e.target.value, schedule_type: 'personalizado' })}
+                      className="input-field text-sm"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-[var(--ui-muted)] mb-2">{t('products.schedule.days')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {DAY_KEYS.map((dayKey) => {
+                      const selected = normalizeAvailableDays(productForm.available_days).includes(dayKey);
+                      return (
+                        <button
+                          key={dayKey}
+                          type="button"
+                          onClick={() => toggleScheduleDay(dayKey)}
+                          className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                            selected
+                              ? 'bg-gold-500 border-gold-500 text-white'
+                              : 'bg-white border-slate-200 text-[var(--ui-muted)] hover:border-gold-300'
+                          }`}
+                        >
+                          {dayKey.slice(0, 3)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] ui-text-muted mt-1">{t('products.schedule.daysAll')}</p>
+                </div>
+                {scheduleWarnings.length > 0 && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 space-y-1">
+                    {scheduleWarnings.map((w, i) => <p key={i}>{w}</p>)}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
           <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={productForm.is_active === 1 || productForm.is_active === true} onChange={e => setProductForm({ ...productForm, is_active: e.target.checked ? 1 : 0 })} className="rounded text-gold-500" />

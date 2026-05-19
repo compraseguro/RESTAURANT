@@ -1,6 +1,10 @@
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne } = require('./database');
 const { normalizePaymentMethod } = require('./businessRules');
+const {
+  assertProductAvailableForOrder,
+  parseRestaurantSchedule,
+} = require('./services/productScheduleService');
 
 function getOrderWithItems(orderId) {
   const order = queryOne('SELECT * FROM orders WHERE id = ?', [orderId]);
@@ -45,6 +49,8 @@ function createOrderInTransaction(tx, orderId, body, actor) {
     ['admin', 'cajero', 'mozo', 'cocina', 'bar'].includes(String(actor.user.role || ''));
 
   const restaurant = tx.queryOne('SELECT * FROM restaurants LIMIT 1');
+  const restaurantSchedule = parseRestaurantSchedule(restaurant?.schedule);
+  const orderNow = new Date();
   let seq = tx.queryOne('SELECT current_number FROM order_sequence WHERE id = 1');
   if (!seq) {
     tx.run('INSERT INTO order_sequence (id, current_number) VALUES (1, 0)');
@@ -57,6 +63,7 @@ function createOrderInTransaction(tx, orderId, body, actor) {
   const orderItems = items.map((item) => {
     const product = tx.queryOne('SELECT * FROM products WHERE id = ?', [item.product_id]);
     if (!product) throw new Error(`Producto no encontrado: ${item.product_id}`);
+    assertProductAvailableForOrder(product, orderNow, restaurantSchedule);
     const qty = Number(item.quantity || 0);
     if (qty <= 0) throw new Error(`Cantidad inválida para ${product.name}`);
     const requiresStock = product.process_type === 'non_transformed';
@@ -289,6 +296,10 @@ function replaceOrderLinesInTransaction(tx, orderId, items, actor) {
     actor.user.type !== 'customer' &&
     ['admin', 'cajero', 'mozo', 'cocina', 'bar'].includes(String(actor.user.role || ''));
 
+  const restaurantRow = tx.queryOne('SELECT schedule FROM restaurants LIMIT 1');
+  const restaurantSchedule = parseRestaurantSchedule(restaurantRow?.schedule);
+  const orderNow = new Date();
+
   restoreNonTransformedStockForOrderTx(tx, orderId);
   tx.run('DELETE FROM order_items WHERE order_id = ?', [orderId]);
 
@@ -296,6 +307,7 @@ function replaceOrderLinesInTransaction(tx, orderId, items, actor) {
   const orderItems = items.map((item) => {
     const product = tx.queryOne('SELECT * FROM products WHERE id = ?', [item.product_id]);
     if (!product) throw new Error(`Producto no encontrado: ${item.product_id}`);
+    assertProductAvailableForOrder(product, orderNow, restaurantSchedule);
     const qty = Number(item.quantity || 0);
     if (qty <= 0) throw new Error(`Cantidad inválida para ${product.name}`);
     const requiresStock = product.process_type === 'non_transformed';

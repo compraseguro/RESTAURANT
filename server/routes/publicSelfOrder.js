@@ -77,10 +77,19 @@ function normalizeProductForClient(p) {
   return p;
 }
 
+const {
+  filterAvailableProducts,
+  normalizeProductScheduleColumns,
+  parseRestaurantSchedule,
+} = require('../services/productScheduleService');
+
 function loadProductsMenu() {
   const query =
     'SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.is_active = 1 AND COALESCE(TRIM(p.category_id), \'\') <> \'\' ORDER BY c.sort_order, p.name';
-  const products = queryAll(query);
+  const restaurant = queryOne('SELECT schedule FROM restaurants LIMIT 1');
+  const restaurantSchedule = parseRestaurantSchedule(restaurant?.schedule);
+  const now = new Date();
+  let products = queryAll(query);
   const variants = queryAll('SELECT * FROM product_variants WHERE is_active = 1');
   const variantMap = {};
   variants.forEach((v) => {
@@ -89,8 +98,10 @@ function loadProductsMenu() {
   });
   products.forEach((p) => {
     normalizeProductForClient(p);
+    normalizeProductScheduleColumns(p);
     p.variants = variantMap[p.id] || [];
   });
+  products = filterAvailableProducts(products, now, restaurantSchedule);
   return products;
 }
 

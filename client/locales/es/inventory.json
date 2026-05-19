@@ -66,6 +66,29 @@
     "destinationWarehouse": "Almacén destino",
     "activeProduct": "Producto activo",
     "noteRequired": "Nota obligatoria al pedir",
+    "schedule": {
+      "sectionTitle": "Disponibilidad horaria",
+      "enable": "Mostrar producto solo en horario específico",
+      "enableHint": "Fuera del horario el producto no aparece en ventas, delivery ni pedidos.",
+      "from": "Hora inicio",
+      "to": "Hora fin",
+      "days": "Días disponibles",
+      "daysAll": "Todos los días",
+      "type": "Tipo de horario",
+      "types": {
+        "desayuno": "Desayuno",
+        "almuerzo": "Almuerzo",
+        "cena": "Cena",
+        "promocion": "Promoción",
+        "personalizado": "Personalizado"
+      },
+      "availableFrom": "Disponible desde las {{time}}",
+      "badgeNow": "{{label}} · {{from}}–{{to}}",
+      "badgeOff": "Fuera de horario",
+      "warnClosedDay": "El local está cerrado los {{day}}.",
+      "warnOutsideLocal": "El horario del producto puede quedar fuera del horario del local.",
+      "invalidTimes": "Indica hora de inicio y fin válidas (HH:MM)."
+    },
     "deleteConfirm": "¿Eliminar \"{{name}}\"?",
     "kardexInsumo": "Selecciona un insumo o deja en blanco para no vincular kardex",
     "gramsPositive": "Indica gramos de insumo por plato (mayor a 0)."

@@ -66,6 +66,29 @@
     "destinationWarehouse": "Destination warehouse",
     "activeProduct": "Active product",
     "noteRequired": "Note required when ordering",
+    "schedule": {
+      "sectionTitle": "Time-based availability",
+      "enable": "Show product only during specific hours",
+      "enableHint": "Outside this window the product is hidden from sales, delivery, and orders.",
+      "from": "Start time",
+      "to": "End time",
+      "days": "Available days",
+      "daysAll": "Every day",
+      "type": "Schedule type",
+      "types": {
+        "desayuno": "Breakfast",
+        "almuerzo": "Lunch",
+        "cena": "Dinner",
+        "promocion": "Promotion",
+        "personalizado": "Custom"
+      },
+      "availableFrom": "Available from {{time}}",
+      "badgeNow": "{{label}} · {{from}}–{{to}}",
+      "badgeOff": "Off schedule",
+      "warnClosedDay": "The venue is closed on {{day}}.",
+      "warnOutsideLocal": "Product hours may fall outside venue opening hours.",
+      "invalidTimes": "Enter valid start and end times (HH:MM)."
+    },
     "deleteConfirm": "Delete \"{{name}}\"?",
     "kardexInsumo": "Select an ingredient or leave blank to skip kardex link",
     "gramsPositive": "Enter grams of ingredient per dish (greater than 0)."

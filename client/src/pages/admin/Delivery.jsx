@@ -51,7 +51,7 @@ export default function Delivery() {
 
   const loadProducts = () => {
     Promise.all([
-      api.get('/products?active_only=true'),
+      api.get('/products?active_only=true&available_now=true'),
       api.get('/categories/active'),
     ]).then(([prods, cats]) => {
       setProducts(prods);

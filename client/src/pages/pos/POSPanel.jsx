@@ -511,7 +511,7 @@ export default function POSPanel() {
         api.get(currentRegPath),
         api.get('/pos/register-status'),
         api.get('/pos/caja-stations').catch(() => ({ stations: [] })),
-        api.get('/products?active_only=true'),
+        api.get('/products?active_only=true&available_now=true'),
         api.get('/categories/active'),
         api.get('/admin-modules/modifiers').catch(() => []),
         api.get('/admin-modules/config/app').catch(() => null),

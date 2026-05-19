@@ -3,6 +3,14 @@ const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { emitInventoryUpdate, emitStaffDataUpdate } = require('../socketBroadcast');
+const {
+  attachScheduleStatus,
+  filterAvailableProducts,
+  parseScheduleFieldsFromBody,
+  validateScheduleConfig,
+  normalizeProductScheduleColumns,
+  parseRestaurantSchedule,
+} = require('../services/productScheduleService');
 
 const router = express.Router();
 
@@ -117,15 +125,24 @@ function upsertWarehouseStock(productId, warehouseId, quantity) {
 }
 
 /** Respuesta API: filas antiguas pueden tener process_type NULL → tratarlas como transformado en el cliente. */
-function normalizeProductForClient(p) {
+function getRestaurantSchedule() {
+  const restaurant = queryOne('SELECT schedule FROM restaurants LIMIT 1');
+  return parseRestaurantSchedule(restaurant?.schedule);
+}
+
+function normalizeProductForClient(p, options = {}) {
   if (!p || typeof p !== 'object') return p;
   const pt = String(p.process_type ?? '').trim();
   if (!pt) p.process_type = 'transformed';
+  normalizeProductScheduleColumns(p);
+  if (options.attachSchedule !== false) {
+    attachScheduleStatus(p, options.now || new Date(), options.restaurantSchedule ?? getRestaurantSchedule());
+  }
   return p;
 }
 
 router.get('/', (req, res) => {
-  const { category_id, active_only, search } = req.query;
+  const { category_id, active_only, search, available_now } = req.query;
   let query = 'SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE 1=1';
   const params = [];
 
@@ -138,14 +155,19 @@ router.get('/', (req, res) => {
   if (search) { query += ' AND (p.name LIKE ? OR p.description LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
   query += ' ORDER BY c.sort_order, p.name';
 
-  const products = queryAll(query, params);
+  const restaurantSchedule = getRestaurantSchedule();
+  const now = new Date();
+  let products = queryAll(query, params);
   const variants = queryAll('SELECT * FROM product_variants WHERE is_active = 1');
   const variantMap = {};
   variants.forEach(v => { if (!variantMap[v.product_id]) variantMap[v.product_id] = []; variantMap[v.product_id].push(v); });
   products.forEach((p) => {
-    normalizeProductForClient(p);
+    normalizeProductForClient(p, { now, restaurantSchedule });
     p.variants = variantMap[p.id] || [];
   });
+  if (available_now === 'true') {
+    products = filterAvailableProducts(products, now, restaurantSchedule);
+  }
   res.json(products);
 });
 
@@ -178,8 +200,26 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
     kardex_insumo_modo,
     kardex_insumo_gramos,
     purchase_price,
+    schedule_enabled,
+    available_from,
+    available_to,
+    available_days,
+    schedule_type,
   } = req.body;
   if (!name || price === undefined) return res.status(400).json({ error: 'Nombre y precio son requeridos' });
+
+  const restaurant = queryOne('SELECT id, schedule FROM restaurants LIMIT 1');
+  const scheduleFields = parseScheduleFieldsFromBody({
+    schedule_enabled,
+    available_from,
+    available_to,
+    available_days,
+    schedule_type,
+  });
+  const scheduleValidation = validateScheduleConfig(scheduleFields, restaurant?.schedule);
+  if (!scheduleValidation.ok) {
+    return res.status(400).json({ error: scheduleValidation.error });
+  }
 
   const parsedPurchase = parseOptionalPurchasePrice(purchase_price);
   if (parsedPurchase && typeof parsedPurchase === 'object' && parsedPurchase.error) {
@@ -189,7 +229,6 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
   const catPost = assertProductCategory(category_id);
   if (!catPost.ok) return res.status(400).json({ error: catPost.error });
 
-  const restaurant = queryOne('SELECT id FROM restaurants LIMIT 1');
   const id = uuidv4();
   const safeProcessType = process_type === 'non_transformed' ? 'non_transformed' : 'transformed';
   const safeStock = safeProcessType === 'transformed' ? 0 : Math.max(0, Number(stock || 0));
@@ -223,8 +262,9 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
       id, name, description, price, image, category_id, restaurant_id, stock,
       process_type, stock_warehouse_id, production_area, tax_type, modifier_id, note_required,
       kardex_insumo_id, kardex_insumo_num, kardex_insumo_den, kardex_insumo_modo, kardex_insumo_gramos,
-      purchase_price
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      purchase_price,
+      schedule_enabled, available_from, available_to, available_days, schedule_type
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       name,
@@ -246,6 +286,11 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
       safeKardexInsumo ? safeKardexModo : 'unidad',
       safeKardexInsumo ? safeKardexGramos : 0,
       parsedPurchase,
+      scheduleFields.schedule_enabled,
+      scheduleFields.available_from,
+      scheduleFields.available_to,
+      scheduleFields.available_days,
+      scheduleFields.schedule_type,
     ]
   );
   if (safeProcessType === 'non_transformed') {
@@ -258,11 +303,13 @@ router.post('/', authenticateToken, requireRole('admin'), (req, res) => {
 
   const product = queryOne('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.id = ?', [id]);
   product.variants = queryAll('SELECT * FROM product_variants WHERE product_id = ?', [id]);
+  normalizeProductForClient(product);
+  const payload = { ...product, schedule_warnings: scheduleValidation.warnings || [] };
   if (safeProcessType === 'non_transformed') {
     emitInventoryUpdate({ productId: id });
   }
   emitStaffDataUpdate({ domain: 'catalog' });
-  res.status(201).json(product);
+  res.status(201).json(payload);
 });
 
 router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
@@ -287,9 +334,39 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
     kardex_insumo_modo,
     kardex_insumo_gramos,
     purchase_price,
+    schedule_enabled,
+    available_from,
+    available_to,
+    available_days,
+    schedule_type,
   } = req.body;
   const current = queryOne('SELECT * FROM products WHERE id = ?', [req.params.id]);
   if (!current) return res.status(404).json({ error: 'Producto no encontrado' });
+
+  let scheduleWarnings = [];
+  let scheduleUpdate = null;
+  if (
+    schedule_enabled !== undefined
+    || available_from !== undefined
+    || available_to !== undefined
+    || available_days !== undefined
+    || schedule_type !== undefined
+  ) {
+    const mergedScheduleBody = {
+      schedule_enabled: schedule_enabled !== undefined ? schedule_enabled : current.schedule_enabled,
+      available_from: available_from !== undefined ? available_from : current.available_from,
+      available_to: available_to !== undefined ? available_to : current.available_to,
+      available_days: available_days !== undefined ? available_days : current.available_days,
+      schedule_type: schedule_type !== undefined ? schedule_type : current.schedule_type,
+    };
+    scheduleUpdate = parseScheduleFieldsFromBody(mergedScheduleBody);
+    const restaurantRow = queryOne('SELECT schedule FROM restaurants LIMIT 1');
+    const scheduleValidation = validateScheduleConfig(scheduleUpdate, restaurantRow?.schedule);
+    if (!scheduleValidation.ok) {
+      return res.status(400).json({ error: scheduleValidation.error });
+    }
+    scheduleWarnings = scheduleValidation.warnings || [];
+  }
 
   let safePurchasePrice = undefined;
   if (purchase_price !== undefined) {
@@ -395,6 +472,11 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       kardex_insumo_modo = ?,
       kardex_insumo_gramos = ?,
       purchase_price = ?,
+      schedule_enabled = COALESCE(?, schedule_enabled),
+      available_from = COALESCE(?, available_from),
+      available_to = COALESCE(?, available_to),
+      available_days = COALESCE(?, available_days),
+      schedule_type = COALESCE(?, schedule_type),
       updated_at = datetime('now')
     WHERE id = ?`,
     [
@@ -417,6 +499,11 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
       finalProcessType === 'non_transformed' ? 'unidad' : finalKardexModo,
       finalProcessType === 'non_transformed' ? 0 : (finalKardexModo === 'peso' ? finalKardexGramos : 0),
       safePurchasePrice === undefined ? current.purchase_price : safePurchasePrice,
+      scheduleUpdate ? scheduleUpdate.schedule_enabled : null,
+      scheduleUpdate ? scheduleUpdate.available_from : null,
+      scheduleUpdate ? scheduleUpdate.available_to : null,
+      scheduleUpdate ? scheduleUpdate.available_days : null,
+      scheduleUpdate ? scheduleUpdate.schedule_type : null,
       req.params.id,
     ]
   );
@@ -434,11 +521,12 @@ router.put('/:id', authenticateToken, requireRole('admin'), (req, res) => {
 
   const product = queryOne('SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.id = ?', [req.params.id]);
   product.variants = queryAll('SELECT * FROM product_variants WHERE product_id = ?', [req.params.id]);
+  normalizeProductForClient(product);
   if (stock !== undefined || forceZeroStock) {
     emitInventoryUpdate({ productId: req.params.id });
   }
   emitStaffDataUpdate({ domain: 'catalog' });
-  res.json(product);
+  res.json({ ...product, schedule_warnings: scheduleWarnings });
 });
 
 router.delete('/:id', authenticateToken, requireRole('admin'), (req, res) => {

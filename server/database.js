@@ -1032,6 +1032,11 @@ async function initDatabase() {
     addProductColIfMissing('kardex_insumo_modo', "ALTER TABLE products ADD COLUMN kardex_insumo_modo TEXT DEFAULT 'unidad'");
     addProductColIfMissing('kardex_insumo_gramos', "ALTER TABLE products ADD COLUMN kardex_insumo_gramos REAL NOT NULL DEFAULT 0");
     addProductColIfMissing('purchase_price', 'ALTER TABLE products ADD COLUMN purchase_price REAL');
+    addProductColIfMissing('schedule_enabled', 'ALTER TABLE products ADD COLUMN schedule_enabled INTEGER NOT NULL DEFAULT 0');
+    addProductColIfMissing('available_from', "ALTER TABLE products ADD COLUMN available_from TEXT DEFAULT ''");
+    addProductColIfMissing('available_to', "ALTER TABLE products ADD COLUMN available_to TEXT DEFAULT ''");
+    addProductColIfMissing('available_days', "ALTER TABLE products ADD COLUMN available_days TEXT DEFAULT '[]'");
+    addProductColIfMissing('schedule_type', "ALTER TABLE products ADD COLUMN schedule_type TEXT DEFAULT 'personalizado'");
 
     const addInsumoColIfMissing = (col, ddl) => {
       const cols = queryAll('PRAGMA table_info(insumos)');

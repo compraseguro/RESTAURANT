@@ -57,7 +57,7 @@ export default function Tables() {
 
   const loadProducts = () => {
     Promise.all([
-      api.get('/products?active_only=true'),
+      api.get('/products?active_only=true&available_now=true'),
       api.get('/categories/active'),
       api.get('/admin-modules/modifiers').catch(() => []),
     ]).then(([prods, cats, mods]) => {

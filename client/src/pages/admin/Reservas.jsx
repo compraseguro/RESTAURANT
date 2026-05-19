@@ -50,7 +50,7 @@ export default function Reservas() {
         api.get('/tables'),
         api.get('/admin-modules/reservations'),
         api.get('/admin-modules/customers').catch(() => []),
-        api.get('/products?active_only=true').catch(() => []),
+        api.get('/products?active_only=true&available_now=true').catch(() => []),
         api.get('/categories/active').catch(() => []),
         api.get('/admin-modules/modifiers').catch(() => []),
       ]);
