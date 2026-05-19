@@ -28,6 +28,7 @@ function resolvePublicVoucherUrl(relativeUrl) {
   const identity = readClientIdentity();
   const base = String(
     identity.publicApiUrl
+    || process.env.RENDER_PUBLIC_URL
     || process.env.PUBLIC_API_BASE_URL
     || process.env.NEXT_PUBLIC_API_URL
     || '',
@@ -247,6 +248,7 @@ module.exports = {
   syncPlanStatus,
   syncUserActive,
   getSyncStatus,
+  getRestaurantContext,
   fetchCentralLicenseStatus,
   resolvePublicVoucherUrl,
   buildMinimalPaymentPayload,

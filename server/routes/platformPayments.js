@@ -35,7 +35,7 @@ router.get('/diagnostic', (req, res) => {
       { ok: Boolean(sync.clientId), label: 'CLIENT_ID en Render' },
       { ok: diag.configured && !diag.missing.includes('API_SECRET_KEY'), label: 'API_SECRET_KEY (igual en POS y panel)' },
       { ok: Boolean(sync.centralPlatformUrl), label: 'CENTRAL_API_URL' },
-      { ok: sync.hasPublicApiUrl, label: 'NEXT_PUBLIC_API_URL (URL pública del POS)' },
+      { ok: sync.hasPublicApiUrl, label: 'RENDER_PUBLIC_URL o NEXT_PUBLIC_API_URL (URL pública del POS)' },
       { ok: payment.last_central_sync_ok === true, label: 'Último envío al panel exitoso' },
     ],
   });

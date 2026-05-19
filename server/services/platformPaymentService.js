@@ -11,12 +11,18 @@ const {
   addNotification,
   clearNotificationsByTitle,
   releaseAutoLockIfComprobantePresent,
+  PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE,
 } = require('../masterAdminService');
 
 const PAGO_USO_KEY = 'pago_uso_sistema';
 const APPROVAL_NOTIFICATION_TITLE = 'Pago aprobado — Resto Fadey';
 const PENDING_NOTIFICATION_TITLE = 'Comprobante recibido — pendiente de aprobación';
 const REJECTED_NOTIFICATION_TITLE = 'Pago rechazado — Resto Fadey';
+/** Aviso de aprobación en campana y banner de Mi restaurante. */
+const PAYMENT_APPROVAL_NOTICE_MINUTES = Math.max(
+  1,
+  Number(process.env.PLATFORM_PAYMENT_APPROVAL_NOTICE_MINUTES || 30),
+);
 
 const POLL_MS = Math.max(15000, Number(process.env.PLATFORM_PAYMENT_POLL_MS || 60000));
 const RETRY_DELAYS_MS = [800, 2000, 5000];
@@ -171,7 +177,22 @@ async function fetchCentralStatus(referencia) {
   }
 }
 
-function renewLicenseOnPaymentApproved(pago) {
+function parseExpirationDateInput(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
+
+function renewLicenseOnPaymentApproved(pago, expirationDate = null) {
+  const explicit = parseExpirationDateInput(expirationDate);
+  if (explicit) {
+    pago.fecha_proxima_facturacion = explicit;
+    pago.comprobante_alert_sent_for = '';
+    return pago;
+  }
   const periodo = pago.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
   const today = isoDateKeyNow();
   const current = String(pago.fecha_proxima_facturacion || '').trim();
@@ -181,7 +202,23 @@ function renewLicenseOnPaymentApproved(pago) {
   return pago;
 }
 
+function paymentApprovalNoticeExpiresAt() {
+  return new Date(Date.now() + PAYMENT_APPROVAL_NOTICE_MINUTES * 60 * 1000).toISOString();
+}
+
+function isWithinPaymentApprovalNoticeWindow(resolvedAtIso) {
+  const t = new Date(resolvedAtIso || '').getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t < PAYMENT_APPROVAL_NOTICE_MINUTES * 60 * 1000;
+}
+
+function clearPaymentQueueNotifications() {
+  clearNotificationsByTitle(PENDING_NOTIFICATION_TITLE);
+  clearNotificationsByTitle(PAGO_USO_SUBIR_COMPROBANTE_AVISO_TITLE);
+}
+
 function notifyPaymentApproved() {
+  clearPaymentQueueNotifications();
   clearNotificationsByTitle(APPROVAL_NOTIFICATION_TITLE);
   clearNotificationsByTitle('Pago exitoso¡ Gracias por trabajar con Resto Fadey');
   addNotification({
@@ -189,6 +226,7 @@ function notifyPaymentApproved() {
     message: 'Pago aprobado correctamente. Licencia actualizada.',
     created_by: 'Plataforma central',
     level: 'success',
+    expires_at: paymentApprovalNoticeExpiresAt(),
   });
 }
 
@@ -211,7 +249,7 @@ function notifyPaymentPending() {
   });
 }
 
-function applyPaymentApproved({ centralPaymentId, resolvedAt } = {}) {
+function applyPaymentApproved({ centralPaymentId, resolvedAt, expirationDate } = {}) {
   const pago = readPagoUso();
   const pp = { ...(pago.platform_payment || {}) };
   const now = resolvedAt || new Date().toISOString();
@@ -233,16 +271,46 @@ function applyPaymentApproved({ centralPaymentId, resolvedAt } = {}) {
     aprobacion_at: now,
   });
 
-  const renewed = renewLicenseOnPaymentApproved(pago);
+  const renewed = renewLicenseOnPaymentApproved(pago, expirationDate);
   writePagoUso(renewed);
 
   if (url) {
     releaseAutoLockIfComprobantePresent(url, { legacySuccessMessage: false });
   }
   notifyPaymentApproved();
-  clearNotificationsByTitle(PENDING_NOTIFICATION_TITLE);
 
   return getPublicPlatformPaymentState();
+}
+
+/** Confirmación push desde panel SaaS (POST /api/license/confirm). */
+function confirmLicenseFromSaas({ clientId, status, expirationDate } = {}) {
+  const { assertClientIdMatches } = require('./posSaasIdentityService');
+  const access = assertClientIdMatches(clientId);
+  if (!access.ok) {
+    return { ok: false, status: access.status, error: access.error };
+  }
+
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'approved' || normalized === 'aprobado') {
+    const payment = applyPaymentApproved({
+      resolvedAt: new Date().toISOString(),
+      expirationDate,
+    });
+    return {
+      ok: true,
+      message: 'Pago aprobado correctamente. Licencia actualizada.',
+      payment,
+    };
+  }
+  if (normalized === 'rejected' || normalized === 'rechazado') {
+    const payment = applyPaymentRejected({
+      motivo: 'Pago rechazado desde el panel administrativo.',
+      resolvedAt: new Date().toISOString(),
+    });
+    return { ok: true, message: 'Pago rechazado registrado en el POS.', payment };
+  }
+
+  return { ok: false, status: 400, error: 'status debe ser approved o rejected' };
 }
 
 function applyPaymentRejected({ motivo, resolvedAt } = {}) {
@@ -361,8 +429,19 @@ async function pushComprobanteToCentral({ comprobanteUrl, referencia } = {}) {
   }
 }
 
+function syncExpiredPaymentApprovalNotices() {
+  const pago = readPagoUso();
+  const pp = pago.platform_payment || {};
+  const estado = normalizePaymentEstado(pp.estado);
+  if (estado !== PAYMENT_STATUSES.APPROVED) return;
+  if (isWithinPaymentApprovalNoticeWindow(pp.resolved_at)) return;
+  clearNotificationsByTitle(APPROVAL_NOTIFICATION_TITLE);
+  clearNotificationsByTitle('Pago exitoso¡ Gracias por trabajar con Resto Fadey');
+}
+
 async function pollAndApplyPaymentStatus() {
   if (pollInFlight) return;
+  syncExpiredPaymentApprovalNotices();
   if (!isCentralSyncConfigured()) return;
 
   const pago = readPagoUso();
@@ -394,6 +473,7 @@ async function pollAndApplyPaymentStatus() {
 }
 
 function getPublicPlatformPaymentState() {
+  syncExpiredPaymentApprovalNotices();
   const pago = readPagoUso();
   const pp = pago.platform_payment || {};
   const estado = normalizePaymentEstado(pp.estado);
@@ -402,6 +482,7 @@ function getPublicPlatformPaymentState() {
   const pending = estado === PAYMENT_STATUSES.PENDING;
   const rejected = estado === PAYMENT_STATUSES.REJECTED;
   const oculto = Boolean(pp.comprobante_oculto_ui) || approved;
+  const showApprovalNotice = approved && isWithinPaymentApprovalNoticeWindow(pp.resolved_at);
 
   return {
     central_configured: centralOn,
@@ -413,13 +494,13 @@ function getPublicPlatformPaymentState() {
     comprobante_oculto_ui: oculto,
     comprobante_visible_en_panel: Boolean(String(pago.comprobante_pago_url || '').trim()) && !oculto,
     show_pending_banner: pending,
-    show_approved_banner: approved,
+    show_approved_banner: showApprovalNotice,
     show_rejected_banner: rejected,
     plan_activo: approved,
-    mensaje_aprobado: approved
+    mensaje_aprobado: showApprovalNotice
       ? 'Pago aprobado correctamente. Licencia actualizada.'
       : '',
-    mensaje_licencia: approved ? 'Licencia actualizada' : '',
+    mensaje_licencia: showApprovalNotice ? 'Licencia actualizada' : '',
     historial_count: Array.isArray(pp.historial) ? pp.historial.length : 0,
     last_central_sync_ok: pp.last_central_sync_ok ?? null,
     last_central_sync_error: String(pp.last_central_sync_error || ''),
@@ -566,6 +647,7 @@ module.exports = {
   pushComprobanteToCentral,
   submitComprobanteToPanel,
   clearComprobanteDraft,
+  confirmLicenseFromSaas,
   readPagoUso,
   writePagoUso,
 };

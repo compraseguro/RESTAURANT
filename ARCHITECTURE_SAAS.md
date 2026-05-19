@@ -55,11 +55,22 @@ Cada restaurante mantiene su **web service independiente** y base de datos aisla
 | `CLIENT_ID` | Tenant SaaS (obligatorio) |
 | `API_SECRET_KEY` | Bearer POS → central (obligatorio) |
 | `CENTRAL_API_URL` | URL del panel (`https://restofadey.pe`) |
-| `NEXT_PUBLIC_API_URL` | URL pública del POS (vouchers absolutos) |
+| `RENDER_PUBLIC_URL` | URL pública del POS en Render (descubrimiento SaaS; preferida) |
+| `NEXT_PUBLIC_API_URL` | Respaldo URL pública (vouchers si no hay `RENDER_PUBLIC_URL`) |
 | `RESTAURANT_ID` | Opcional (alias de `CLIENT_ID`) |
 | `WEBSERVICE_ID` / `LICENSE_KEY` | Solo si `CENTRAL_SYNC_EXTENDED=1` |
 
 ## Integración mínima POS (sin tocar operaciones)
+
+### POS expone (panel SaaS consulta el Render del cliente)
+
+- `GET /api/restaurant/info` — registro automático (`Bearer API_SECRET_KEY`)
+- `GET /api/system/health` — disponibilidad
+- `POST /api/license/confirm` — push de aprobación/rechazo desde el panel
+
+`CLIENT_ID` y `apiKey` (`RF_CLIENT_KEY_*`) se generan y persisten en SQLite si faltan.
+
+### POS consume (hacia `CENTRAL_API_URL`)
 
 - `POST /api/payments` — comprobante (payload: `clientId`, `restaurantName`, `adminName`, `adminEmail`, `plan`, `voucherUrl`, `amount`, `operationNumber`, `paymentDate`)
 - `GET /api/license-status/:clientId` — licencia + último pago (polling)

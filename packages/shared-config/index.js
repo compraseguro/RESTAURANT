@@ -1,14 +1,25 @@
+/** Permite al POS fusionar CLIENT_ID / URL persistidos en SQLite con variables de entorno. */
+let clientIdentityResolver = null;
+
+function setClientIdentityResolver(fn) {
+  clientIdentityResolver = typeof fn === 'function' ? fn : null;
+}
+
 /**
  * Identidad del web service cliente (aislado por restaurante).
  * Cada despliegue POS define estas variables; la plataforma central las indexa.
  */
 function readClientIdentity(env = process.env) {
+  if (clientIdentityResolver) {
+    const resolved = clientIdentityResolver(env);
+    if (resolved && typeof resolved === 'object') return resolved;
+  }
   const clientId = String(env.CLIENT_ID || '').trim();
   return {
     clientId,
     restaurantId: String(env.RESTAURANT_ID || env.CLIENT_ID || '').trim(),
     webServiceId: String(env.WEBSERVICE_ID || '').trim(),
-    licenseKey: String(env.LICENSE_KEY || '').trim(),
+    licenseKey: String(env.LICENSE_KEY || env.CLIENT_ID || '').trim(),
     centralPlatformUrl: String(
       env.CENTRAL_API_URL
       || env.CENTRAL_PLATFORM_URL
@@ -16,7 +27,13 @@ function readClientIdentity(env = process.env) {
       || 'https://restofadey.pe',
     ).replace(/\/$/, ''),
     apiSecretKey: String(env.API_SECRET_KEY || '').trim(),
-    publicApiUrl: String(env.NEXT_PUBLIC_API_URL || env.PUBLIC_API_BASE_URL || '').replace(/\/$/, ''),
+    publicApiUrl: String(
+      env.RENDER_PUBLIC_URL
+      || env.NEXT_PUBLIC_API_URL
+      || env.PUBLIC_API_BASE_URL
+      || '',
+    ).replace(/\/$/, ''),
+    clientApiKey: '',
   };
 }
 
@@ -63,6 +80,7 @@ function getCentralSyncConfigDiagnostics(identity = readClientIdentity()) {
 
 module.exports = {
   readClientIdentity,
+  setClientIdentityResolver,
   isCentralSyncConfigured,
   isExtendedCentralSyncConfigured,
   getCentralSyncConfigDiagnostics,

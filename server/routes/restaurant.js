@@ -12,6 +12,18 @@ const {
 } = require('../services/miRestaurantConfigService');
 
 const router = express.Router();
+const { requirePosServiceAuth } = require('../middleware/posServiceAuth');
+const { buildRestaurantInfoResponse, touchSaasLastActivity } = require('../services/posSaasIdentityService');
+
+/** GET /api/restaurant/info — registro/descubrimiento SaaS (Bearer API_SECRET_KEY) */
+router.get('/info', requirePosServiceAuth, (req, res) => {
+  try {
+    touchSaasLastActivity();
+    return res.json(buildRestaurantInfoResponse());
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'No se pudo obtener la información del restaurante' });
+  }
+});
 
 function parseJsonSafe(value, fallback) {
   try {

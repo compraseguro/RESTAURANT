@@ -198,6 +198,8 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/customer/login', authLimiter);
 
 app.use('/api/public/self-order', require('./routes/publicSelfOrder'));
+app.use('/api/system', require('./routes/system'));
+app.use('/api/license', require('./routes/license'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/restaurant', require('./routes/restaurant'));
 app.use('/api/categories', require('./routes/categories'));
@@ -344,6 +346,12 @@ function logSqlitePersistenceWarnings() {
 
 async function start() {
   await initDatabase();
+  try {
+    const { initPosSaasIdentity } = require('./services/posSaasIdentityService');
+    initPosSaasIdentity();
+  } catch (err) {
+    console.warn('[saas-pos] identidad no inicializada:', err.message || err);
+  }
   logSqlitePersistenceWarnings();
   console.log(`[DB] SQLite path: ${getDbPath()}`);
   console.log(`[uploads] Archivos estáticos en: ${uploadsDir}`);
