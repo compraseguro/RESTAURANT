@@ -82,7 +82,9 @@ const DEFAULT_PRINTING_CONFIG = {
   cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
   bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
 };
-const DESKTOP_SETUP_URL = import.meta.env.VITE_DESKTOP_SETUP_URL || '/downloads/RestoFADEY Setup.exe';
+const DESKTOP_SETUP_URL =
+  import.meta.env.VITE_DESKTOP_SETUP_URL ||
+  'https://github.com/MECATRONIC-MEN/RESTAURANT/releases/download/RestoFADEY_Desktop_v1.2.0/RestoFADEY%20Setup.exe';
 const PRINTING_CONFIG_CACHE_KEY = 'resto_printing_config_cache_v1';
 
 const MENU_ITEMS = [
