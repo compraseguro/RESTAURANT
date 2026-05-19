@@ -28,13 +28,37 @@ const INTERMEDIO = new Set([
 
 const PROFESIONAL = new Set(MODULE_IDS);
 
+const PLAN_SAAS_LABELS = Object.freeze({
+  basico: 'plan basico',
+  intermedio: 'plan pro',
+  profesional: 'plan premium',
+});
+
 function normalizePlan(value) {
   const s = String(value || '').trim().toLowerCase();
-  if (s === 'basico' || s === 'básico' || s === 'basic') return 'basico';
-  if (s === 'intermedio' || s === 'intermediate') return 'intermedio';
-  if (s === 'profesional' || s === 'professional' || s === 'pro') return 'profesional';
+  if (s === 'basico' || s === 'básico' || s === 'basic' || s === 'plan basico') return 'basico';
+  if (s === 'intermedio' || s === 'intermediate' || s === 'plan pro' || s === 'pro') return 'intermedio';
+  if (
+    s === 'profesional'
+    || s === 'professional'
+    || s === 'plan premium'
+    || s === 'premium'
+  ) {
+    return 'profesional';
+  }
   return 'profesional';
 }
+
+/** Etiqueta enviada al panel SaaS y mostrada en backoffice. */
+function formatPlanForSaas(planKey) {
+  return PLAN_SAAS_LABELS[normalizePlan(planKey)] || PLAN_SAAS_LABELS.profesional;
+}
+
+const PLAN_OPTIONS = Object.freeze([
+  { value: 'basico', label: 'plan basico' },
+  { value: 'intermedio', label: 'plan pro' },
+  { value: 'profesional', label: 'plan premium' },
+]);
 
 function getModuleSetForPlan(planKey) {
   const p = normalizePlan(planKey);
@@ -50,7 +74,10 @@ function planAllowsAlmacenAvanzado(planKey) {
 
 module.exports = {
   MODULE_IDS,
+  PLAN_SAAS_LABELS,
+  PLAN_OPTIONS,
   normalizePlan,
+  formatPlanForSaas,
   getModuleSetForPlan,
   planAllowsAlmacenAvanzado,
 };

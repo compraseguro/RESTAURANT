@@ -107,6 +107,10 @@ function createCentralSyncClient(options = {}) {
     async syncMinimalPayment(payment) {
       return postJson('/api/payments', payment);
     },
+    /** Perfil del POS hacia el panel (plan, URL Render, contacto). */
+    async syncClientProfile(profile) {
+      return postJson('/api/clients/profile', profile);
+    },
     async syncPayment(payment) {
       return postJson('/api/payments', {
         ...basePayload(),

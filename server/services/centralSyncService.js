@@ -4,7 +4,7 @@
  */
 const { queryOne } = require('../database');
 const { getControlConfig } = require('../masterAdminService');
-const { normalizePlan } = require('../servicePlan');
+const { normalizePlan, formatPlanForSaas } = require('../servicePlan');
 const {
   readClientIdentity,
   isCentralSyncConfigured,
@@ -47,9 +47,11 @@ function getRestaurantContext() {
   } catch (_) {
     pagoParsed = {};
   }
+  const planInternal = normalizePlan(control.service_plan);
   return {
     restaurant: row || {},
-    plan: normalizePlan(control.service_plan),
+    plan: planInternal,
+    planSaas: formatPlanForSaas(planInternal),
     pagoUso: pagoParsed,
     billingDate: String(control.billing_date || '').trim(),
     locked: Number(control.global_lock_enabled || 0) === 1,
@@ -141,7 +143,7 @@ async function buildMinimalPaymentPayload({ comprobanteUrl, reference = '', amou
     restaurantName: String(ctx.restaurant?.name || '').trim(),
     adminName: admin.adminName,
     adminEmail: admin.adminEmail,
-    plan: ctx.plan,
+    plan: ctx.planSaas || formatPlanForSaas(ctx.plan),
     voucherUrl: voucherAbsolute,
     amount: resolvedAmount,
     operationNumber,
@@ -187,7 +189,7 @@ function syncPlanStatus(extra = {}) {
     const ctx = getRestaurantContext();
     const c = getClient();
     const payload = {
-      plan: ctx.plan,
+      plan: ctx.planSaas || formatPlanForSaas(ctx.plan),
       billingDate: ctx.billingDate,
       locked: ctx.locked,
       fechaProximaFacturacion: ctx.pagoUso?.fecha_proxima_facturacion || '',
@@ -201,8 +203,36 @@ function syncPlanStatus(extra = {}) {
     await c.syncEvent(SYNC_EVENT_TYPES.LICENSE_ACTIVITY, {
       licenseKey: c.identity.licenseKey || c.identity.clientId,
       status: ctx.locked ? 'suspended' : 'active',
-      plan: ctx.plan,
+      plan: ctx.planSaas || formatPlanForSaas(ctx.plan),
     });
+  });
+}
+
+/** Actualiza plan y datos del restaurante en el panel (sin modo extendido). */
+function syncSaasClientProfile() {
+  if (!isCentralSyncConfigured()) return;
+  fireAndForget(async () => {
+    const { buildRestaurantInfoResponse } = require('./posSaasIdentityService');
+    const info = buildRestaurantInfoResponse();
+    const c = getClient();
+    const profile = {
+      clientId: info.clientId,
+      restaurantName: info.restaurantName,
+      ownerName: info.ownerName,
+      ruc: info.ruc,
+      phone: info.phone,
+      email: info.email,
+      plan: info.plan,
+      licenseStatus: info.licenseStatus,
+      expirationDate: info.expirationDate,
+      renderUrl: info.renderUrl,
+      apiKey: info.apiKey,
+      lastActivity: info.lastActivity,
+    };
+    const res = await c.syncClientProfile(profile);
+    if (!res?.ok) {
+      console.warn('[central-sync] perfil SaaS:', res?.data?.error || res?.error || res?.status);
+    }
   });
 }
 
@@ -246,6 +276,7 @@ module.exports = {
   syncVoucherPayment,
   syncVoucherPaymentNow,
   syncPlanStatus,
+  syncSaasClientProfile,
   syncUserActive,
   getSyncStatus,
   getRestaurantContext,

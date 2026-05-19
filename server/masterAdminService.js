@@ -698,12 +698,12 @@ function setControlConfig(patch = {}, actorName = '') {
     ...patch,
   };
   if (patch.service_plan !== undefined) {
+    const { normalizePlan } = require('./servicePlan');
     const raw = String(patch.service_plan || '').trim().toLowerCase();
-    let norm = 'profesional';
-    if (['basico', 'básico', 'basic'].includes(raw)) norm = 'basico';
-    else if (['intermedio', 'intermediate'].includes(raw)) norm = 'intermedio';
-    else if (['profesional', 'professional', 'pro'].includes(raw)) norm = 'profesional';
-    else throw new Error('Plan inválido: use basico, intermedio o profesional');
+    const norm = normalizePlan(raw);
+    if (!['basico', 'intermedio', 'profesional'].includes(norm)) {
+      throw new Error('Plan inválido: use plan basico, plan pro o plan premium');
+    }
     next.service_plan = norm;
   }
   if (patch.allow_restaurant_admin_billing_bot !== undefined) {
@@ -738,7 +738,8 @@ function setControlConfig(patch = {}, actorName = '') {
   }
   if (patch.service_plan !== undefined || patch.billing_date !== undefined) {
     try {
-      const { syncPlanStatus } = require('./services/centralSyncService');
+      const { syncPlanStatus, syncSaasClientProfile } = require('./services/centralSyncService');
+      syncSaasClientProfile();
       syncPlanStatus({ renewal: patch.billing_date !== undefined });
     } catch (_) {
       /* sync opcional */

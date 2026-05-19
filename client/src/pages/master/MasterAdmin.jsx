@@ -471,17 +471,9 @@ export default function MasterAdmin() {
                       });
                     }}
                   >
-                    <option value="basico">
-                      Básico — operación central + Mi Restaurante (sin SUNAT), ofertas, descuentos, salón, delivery, caja, almacén base, informes,
-                      productos, configuración
-                    </option>
-                    <option value="intermedio">
-                      Intermedio — incluye Básico + QR auto-pedido, clientes/créditos, cocina/bar, indicadores, tiempo trabajado, almacén avanzado
-                      (requerimiento/recepción)
-                    </option>
-                    <option value="profesional">
-                      Profesional — incluye Intermedio + pestaña Bot facturación SUNAT en Mi Restaurante
-                    </option>
+                    <option value="basico">plan basico</option>
+                    <option value="intermedio">plan pro</option>
+                    <option value="profesional">plan premium</option>
                   </select>
                 </div>
                 <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-[var(--ui-muted)]">

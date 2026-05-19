@@ -5,7 +5,7 @@
 const crypto = require('crypto');
 const { queryOne, runSql } = require('../database');
 const { getControlConfig } = require('../masterAdminService');
-const { normalizePlan } = require('../servicePlan');
+const { formatPlanForSaas } = require('../servicePlan');
 const { normalizePaymentEstado, PAYMENT_STATUSES } = require('../../packages/shared-types');
 const { setClientIdentityResolver, readClientIdentity } = require('../../packages/shared-config');
 const { getRestaurantContext } = require('./centralSyncService');
@@ -211,7 +211,7 @@ function buildRestaurantInfoResponse() {
     ruc: String(restaurant?.company_ruc || '').trim(),
     phone: String(restaurant?.phone || '').trim(),
     email: String(restaurant?.email || admin?.email || '').trim(),
-    plan: normalizePlan(control.service_plan),
+    plan: formatPlanForSaas(control.service_plan),
     licenseStatus: deriveLicenseStatus(),
     paymentStatus: derivePaymentStatusForInfo(),
     expirationDate: expDate || null,
@@ -263,6 +263,14 @@ function initPosSaasIdentity() {
       renderUrl: getEffectiveRenderUrl() || '(sin RENDER_PUBLIC_URL)',
     }),
   );
+  if (merged.apiSecretKey && merged.centralPlatformUrl) {
+    try {
+      const { syncSaasClientProfile } = require('./centralSyncService');
+      syncSaasClientProfile();
+    } catch (_) {
+      /* opcional al arranque */
+    }
+  }
   return identity;
 }
 

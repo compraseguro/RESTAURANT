@@ -32,6 +32,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'restofad
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/payments', require('./routes/payments'));
+app.use('/api/clients', require('./routes/clients'));
 app.use('/api/license-status', require('./routes/licenseStatus'));
 app.use('/api/sync', require('./routes/sync'));
 app.use('/api/admin', require('./routes/admin'));

@@ -421,6 +421,14 @@ async function pushComprobanteToCentral({ comprobanteUrl, referencia } = {}) {
       }),
     );
     recordCentralSyncResult(readPagoUso(), syncResult);
+    if (syncResult?.ok) {
+      try {
+        const { syncSaasClientProfile } = require('./centralSyncService');
+        syncSaasClientProfile();
+      } catch (_) {
+        /* opcional */
+      }
+    }
     return syncResult;
   } catch (err) {
     const result = { ok: false, error: err.message || String(err) };
