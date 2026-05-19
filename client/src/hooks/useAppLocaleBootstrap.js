@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../utils/api';
-import { applyResolvedAppLocale, getStoredAppLocale, setAppLocale } from '../i18n';
+import { normalizeConfigFromApi } from '../utils/appSettingsNormalize';
+import { getStoredAppLocale, syncLocaleFromRegional } from '../i18n';
 
 /**
- * Tras iniciar sesión: mantiene idioma en localStorage o carga el del servidor si no hay preferencia local.
+ * Al iniciar sesión: idioma desde configuración regional del servidor (prioridad sobre caché vieja).
  */
 export function useAppLocaleBootstrap() {
   const { user, loading } = useAuth();
@@ -12,22 +13,24 @@ export function useAppLocaleBootstrap() {
   useEffect(() => {
     if (loading || !user) return;
 
-    const stored = getStoredAppLocale();
-    if (stored) {
-      void setAppLocale(stored);
-      return;
-    }
-
     let cancelled = false;
     api
       .get('/admin-modules/config/app')
       .then((cfg) => {
         if (cancelled) return;
-        const settings = cfg?.settings || cfg || {};
-        const lang = String(settings?.regional?.language || '').toLowerCase();
-        void applyResolvedAppLocale(lang);
+        const normalized = normalizeConfigFromApi(cfg);
+        const serverLang = normalized?.regional?.language;
+        const stored = getStoredAppLocale();
+        if (serverLang === 'es' || serverLang === 'en') {
+          void syncLocaleFromRegional(serverLang);
+        } else if (stored) {
+          void syncLocaleFromRegional(stored);
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        const stored = getStoredAppLocale();
+        if (stored) void syncLocaleFromRegional(stored);
+      });
 
     return () => {
       cancelled = true;

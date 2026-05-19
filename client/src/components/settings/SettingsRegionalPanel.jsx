@@ -12,7 +12,7 @@ const TIMEZONES = [
   { value: 'America/Buenos_Aires', label: 'America/Buenos_Aires' },
 ];
 
-export default function SettingsRegionalPanel({ regional, setRegional, onSave, saving }) {
+export default function SettingsRegionalPanel({ regional, setRegional, onSave, saving, onSaved }) {
   const { t } = useTranslation('settings');
   const { t: tc } = useTranslation('common');
   const [preview, setPreview] = useState(null);
@@ -163,8 +163,20 @@ export default function SettingsRegionalPanel({ regional, setRegional, onSave, s
       ) : null}
 
       <div className="flex justify-end">
-        <button type="button" onClick={onSave} disabled={saving} className="btn-primary flex items-center gap-2">
-          <MdSave /> {saving ? 'Guardando…' : 'Guardar regional'}
+        <button
+          type="button"
+          disabled={saving}
+          onClick={async () => {
+            await onSave?.();
+            const code = String(regional?.language || 'es').toLowerCase();
+            if (code === 'es' || code === 'en') {
+              await setAppLocale(code);
+              onSaved?.(code);
+            }
+          }}
+          className="btn-primary flex items-center gap-2"
+        >
+          <MdSave /> {saving ? t('regional.saving', { defaultValue: 'Guardando…' }) : t('regional.save', { defaultValue: 'Guardar regional' })}
         </button>
       </div>
     </div>

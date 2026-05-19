@@ -34,7 +34,8 @@ import {
   MdAutoGraph,
 } from 'react-icons/md';
 import { applyUiThemeFromAppSettings } from '../../theme/uiTheme';
-import { applyResolvedAppLocale, setAppLocale } from '../../i18n';
+import { syncLocaleFromRegional, setAppLocale } from '../../i18n';
+import { normalizeConfigFromApi, mergeSavedAppSettings } from '../../utils/appSettingsNormalize';
 import SettingsAppearancePanel from '../../components/settings/SettingsAppearancePanel';
 import { useSocket } from '../../hooks/useSocket';
 import { useConfigHub } from '../../hooks/useConfigHub';
@@ -371,9 +372,17 @@ export default function Settings() {
   });
   const autoSaveTimerRef = useRef(null);
   const historySearchTimerRef = useRef(null);
+  const appSettingsRef = useRef(appSettings);
+  const skipConfigReloadRef = useRef(false);
+  appSettingsRef.current = appSettings;
   const serializeAppSettings = (value) => JSON.stringify(value || {});
   const normalizeConfigPayload = (payload) => {
-    const merged = { ...DEFAULT_APP_SETTINGS, ...((payload && payload.settings) || payload || {}) };
+    const fromApi = normalizeConfigFromApi(payload);
+    const merged = {
+      ...DEFAULT_APP_SETTINGS,
+      ...fromApi,
+      regional: { ...DEFAULT_APP_SETTINGS.regional, ...fromApi.regional },
+    };
     merged.cajas = ensureCajaIdsDeep(Array.isArray(merged.cajas) ? merged.cajas : []);
     return merged;
   };
@@ -402,7 +411,7 @@ export default function Settings() {
         setAppSettings(normalized);
         setAppSettingsSnapshot(serializeAppSettings(normalized));
         applyUiThemeFromAppSettings(normalized, currentUser?.id);
-        void applyResolvedAppLocale(normalized?.regional?.language);
+        void syncLocaleFromRegional(normalized?.regional?.language);
       })
       .catch(() => {
         setAppSettings(DEFAULT_APP_SETTINGS);
@@ -672,6 +681,12 @@ export default function Settings() {
 
   useSocket('staff-data-update', (p) => {
     if (p?.domain !== 'app_config') return;
+    if (skipConfigReloadRef.current) {
+      skipConfigReloadRef.current = false;
+      void reloadConfigHub?.();
+      if (activeSection === 'config_historial') loadAppSettingsHistory();
+      return;
+    }
     loadAppSettings();
     void reloadConfigHub?.();
     if (activeSection === 'config_historial') loadAppSettingsHistory();
@@ -821,7 +836,7 @@ export default function Settings() {
     if (!hasUnsavedAppSettings || settingsCrudModal.isOpen) return;
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
-      saveAppSettings({ silent: true, nextSettings: appSettings });
+      saveAppSettings({ silent: true, nextSettings: appSettingsRef.current });
     }, 900);
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -927,18 +942,35 @@ export default function Settings() {
 
   const saveAppSettings = async ({ silent = false, nextSettings = null } = {}) => {
     if (isSavingAppSettings) return;
-    const payloadSettings = normalizeConfigPayload({ settings: nextSettings || appSettings });
+    const source = nextSettings || appSettings;
+    const intendedLang = String(source?.regional?.language || '').toLowerCase();
+    const payloadSettings = normalizeConfigPayload({ settings: source });
     try {
       setIsSavingAppSettings(true);
-      const saved = await api.put('/admin-modules/config/app', { settings: payloadSettings });
-      const normalized = normalizeConfigPayload(saved);
+      skipConfigReloadRef.current = true;
+      const saved = await api.put('/admin-modules/config/app', {
+        settings: payloadSettings,
+        regional: payloadSettings.regional || {},
+      });
+      const normalized = mergeSavedAppSettings(normalizeConfigPayload(saved), source);
       setAppSettings(normalized);
       setAppSettingsSnapshot(serializeAppSettings(normalized));
       applyUiThemeFromAppSettings(normalized, currentUser?.id);
-      const uiLang = String(normalized?.regional?.language || '').toLowerCase();
-      if (uiLang === 'es' || uiLang === 'en') void setAppLocale(uiLang);
+      const uiLang =
+        intendedLang === 'es' || intendedLang === 'en'
+          ? intendedLang
+          : String(normalized?.regional?.language || '').toLowerCase();
+      if (uiLang === 'es' || uiLang === 'en') {
+        await setAppLocale(uiLang);
+      }
       if (activeSection === 'config_historial') loadAppSettingsHistory();
-      if (!silent) toast.success('Configuración guardada');
+      if (!silent) {
+        toast.success(
+          uiLang === 'en'
+            ? 'Settings saved. Interface language: English.'
+            : 'Configuración guardada. Idioma de interfaz: Español.',
+        );
+      }
     } catch (err) {
       if (!silent) toast.error(err.message);
     } finally {
@@ -1365,8 +1397,15 @@ export default function Settings() {
           <SettingsRegionalPanel
             regional={appSettings.regional}
             setRegional={(regional) => setAppSettings((prev) => ({ ...prev, regional }))}
-            onSave={() => void saveAppSettings()}
+            onSave={() => saveAppSettings({ silent: true, nextSettings: appSettingsRef.current })}
             saving={isSavingAppSettings}
+            onSaved={(code) => {
+              toast.success(
+                code === 'en'
+                  ? 'English applied to menus and translated screens.'
+                  : 'Español aplicado a menús y pantallas traducidas.',
+              );
+            }}
           />
         )}
 

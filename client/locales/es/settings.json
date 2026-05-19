@@ -10,6 +10,8 @@
   },
   "regional": {
     "systemLanguage": "Idioma del sistema",
-    "systemLanguageHint": "Vista previa al cambiar; pulsa «Guardar regional» para fijarlo en el servidor y en este equipo."
+    "systemLanguageHint": "Vista previa al cambiar; pulsa «Guardar regional» para fijarlo en el servidor y en este equipo.",
+    "save": "Guardar regional",
+    "saving": "Guardando…"
   }
 }

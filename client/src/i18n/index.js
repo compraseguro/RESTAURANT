@@ -7,6 +7,7 @@ import {
   NAMESPACES,
   SUPPORTED_LOCALES,
 } from './constants';
+import { resolveUiLanguage } from '../utils/resolveUiLanguage';
 
 import esCommon from '../../locales/es/common.json';
 import esAuth from '../../locales/es/auth.json';
@@ -80,6 +81,8 @@ i18n
     ns: NAMESPACES,
     interpolation: { escapeValue: false },
     returnEmptyString: false,
+    load: 'languageOnly',
+    nonExplicitSupportedLngs: true,
     detection: {
       order: ['localStorage', 'navigator'],
       lookupLocalStorage: LOCALE_STORAGE_KEY,
@@ -87,6 +90,8 @@ i18n
     },
     react: {
       useSuspense: false,
+      bindI18n: 'languageChanged',
+      bindI18nStore: 'added removed',
     },
   });
 
@@ -109,7 +114,7 @@ export async function setAppLocale(code) {
   return next;
 }
 
-/** Preferencia guardada en este navegador (prioridad sobre servidor). */
+/** Preferencia guardada en este navegador. */
 export function getStoredAppLocale() {
   try {
     const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
@@ -121,15 +126,22 @@ export function getStoredAppLocale() {
 }
 
 /**
- * Aplica idioma sin pisar la elección del usuario en localStorage.
- * @param {string} [serverLanguage] - regional.language del servidor
+ * Aplica idioma desde configuración regional del servidor (fuente de verdad tras guardar).
+ * @param {string} [serverLanguage] - regional.language
  */
-export async function applyResolvedAppLocale(serverLanguage) {
+export async function syncLocaleFromRegional(serverLanguage) {
   const stored = getStoredAppLocale();
-  if (stored) return setAppLocale(stored);
-  const server = String(serverLanguage || '').toLowerCase().split('-')[0];
-  if (activeCodes.has(server)) return setAppLocale(server);
-  return setAppLocale(DEFAULT_LOCALE);
+  const code = resolveUiLanguage(serverLanguage, stored);
+  const applied = await setAppLocale(code);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('resto-locale-changed', { detail: { locale: applied } }));
+  }
+  return applied;
+}
+
+/** @deprecated Usar syncLocaleFromRegional */
+export async function applyResolvedAppLocale(serverLanguage) {
+  return syncLocaleFromRegional(serverLanguage);
 }
 
 export function getAppLocale() {

@@ -70,6 +70,40 @@ function readAppSettingsObject() {
   return out;
 }
 
+/** Fusiona regional (settings.regional tiene prioridad) y devuelve respuesta coherente al cliente. */
+function readAppSettingsForClient() {
+  const { mergeRegional } = require('../services/regionalFormatService');
+  const out = readAppSettingsObject();
+  const settings =
+    out.settings && typeof out.settings === 'object' && !Array.isArray(out.settings)
+      ? { ...out.settings }
+      : {};
+  const topRegional =
+    out.regional && typeof out.regional === 'object' && !Array.isArray(out.regional) ? out.regional : {};
+  const regional = mergeRegional({
+    ...topRegional,
+    ...(settings.regional && typeof settings.regional === 'object' ? settings.regional : {}),
+  });
+  return {
+    ...out,
+    regional,
+    settings: { ...settings, regional },
+  };
+}
+
+function persistRegionalFromSettings(settingsRegional) {
+  if (!settingsRegional || typeof settingsRegional !== 'object') return;
+  const { mergeRegional } = require('../services/regionalFormatService');
+  const { syncRegionalToRestaurant } = require('../services/systemConfigHubService');
+  const regional = mergeRegional(settingsRegional);
+  syncRegionalToRestaurant(regional);
+  runSql(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES ('regional', ?, datetime('now'))
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+    [JSON.stringify(regional)]
+  );
+}
+
 function parseTimeToMinutes(timeValue) {
   const [h, m] = String(timeValue || '').split(':').map(v => Number(v));
   if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
@@ -98,7 +132,7 @@ function hasReservationConflict({ tableId, date, time, excludeId = '' }) {
 }
 
 router.get('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
-  res.json(readAppSettingsObject());
+  res.json(readAppSettingsForClient());
 });
 
 /** Hub de configuración: contexto en vivo por sección (Indicadores, operación, regional). */
@@ -386,23 +420,15 @@ router.put('/config/app', requireRole('admin', 'master_admin'), (req, res) => {
   if (changedKeys.length) {
     broadcastStaffData('app_config');
   }
-  if (changedKeys.includes('settings')) {
+  if (updatedKeys.includes('settings') || updatedKeys.includes('regional')) {
     try {
-      const regional = out.settings?.regional;
-      if (regional && typeof regional === 'object') {
-        const { syncRegionalToRestaurant } = require('../services/systemConfigHubService');
-        syncRegionalToRestaurant(regional);
-        runSql(
-          `INSERT INTO app_settings (key, value, updated_at) VALUES ('regional', ?, datetime('now'))
-           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
-          [JSON.stringify(regional)]
-        );
-      }
+      const regional = out.settings?.regional || out.regional;
+      persistRegionalFromSettings(regional);
     } catch (e) {
       console.error('[config] sync regional:', e.message || e);
     }
   }
-  res.json(out);
+  res.json(readAppSettingsForClient());
   } catch (err) {
     res.status(400).json({ error: err.message || 'No se pudo guardar' });
   }
@@ -453,10 +479,18 @@ router.post('/config/app/rollback/:historyId', requireRole('admin'), (req, res) 
       new_history_id: rollbackHistoryId,
     },
   });
+  if (restoredKeys.includes('settings') || restoredKeys.includes('regional')) {
+    try {
+      const regional = afterRollback.settings?.regional || afterRollback.regional;
+      persistRegionalFromSettings(regional);
+    } catch (e) {
+      console.error('[config] sync regional rollback:', e.message || e);
+    }
+  }
   if (restoredKeys.length) {
     broadcastStaffData('app_config');
   }
-  res.json(afterRollback);
+  res.json(readAppSettingsForClient());
 });
 
 router.get('/customers', requireRole('admin', 'cajero'), (req, res) => {
