@@ -100,6 +100,7 @@ export default function MiRestaurant() {
       numero_cuenta: '',
       nombre_empresa_cobro: '',
       comprobante_pago_url: '',
+      monto_comprobante: '',
       comprobante_grace_days_after_due: 3,
     },
   });
@@ -182,9 +183,14 @@ export default function MiRestaurant() {
       toast.error('Cargue primero una imagen o PDF del comprobante.');
       return;
     }
+    const monto = Number(appConfig.pago_uso_sistema?.monto_comprobante);
+    if (!Number.isFinite(monto) || monto <= 0) {
+      toast.error('Indique el monto pagado (S/) mayor a cero antes de enviar el comprobante.');
+      return;
+    }
     setEnviarComprobanteBusy(true);
     try {
-      const res = await api.post('/platform-payments/submit', { comprobanteUrl: url });
+      const res = await api.post('/platform-payments/submit', { comprobanteUrl: url, monto });
       await refreshPagoUsoComprobanteSchedule();
       if (res?.central_user_message && !res?.ok) {
         toast.error(res.central_user_message);
@@ -398,12 +404,16 @@ export default function MiRestaurant() {
             const periodo = raw.periodo_facturacion === 'semestral' ? 'semestral' : 'mensual';
             const g = Number(raw.comprobante_grace_days_after_due);
             const grace = Number.isFinite(g) ? Math.max(1, Math.min(14, Math.round(g))) : 3;
+            const montoRaw = Number(raw.monto_comprobante);
             const payload = {
               periodo_facturacion: periodo,
               fecha_proxima_facturacion: String(raw.fecha_proxima_facturacion || '').trim().slice(0, 32),
               numero_cuenta: String(raw.numero_cuenta || '').trim(),
               nombre_empresa_cobro: String(raw.nombre_empresa_cobro || '').trim(),
               comprobante_grace_days_after_due: grace,
+              ...(Number.isFinite(montoRaw) && montoRaw > 0
+                ? { monto_comprobante: Math.round(montoRaw * 100) / 100 }
+                : {}),
             };
             const saved = await api.put('/admin-modules/config/app', { pago_uso_sistema: payload });
             setAppConfig(prev => ({ ...prev, ...saved }));
@@ -1139,6 +1149,20 @@ export default function MiRestaurant() {
               </fieldset>
 
               <div className="space-y-3 pt-2 border-t border-[color:var(--ui-border)]">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Monto pagado (S/)</label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    className="input-field max-w-xs"
+                    placeholder="Ej. 99.00"
+                    value={appConfig.pago_uso_sistema?.monto_comprobante ?? ''}
+                    onChange={(e) => updateAppCfg('pago_uso_sistema', 'monto_comprobante', e.target.value)}
+                    disabled={!canEditPagoUsoComprobante}
+                  />
+                  <p className="text-xs text-[var(--ui-muted)] mt-1">Obligatorio para enviar el comprobante al panel de aprobación.</p>
+                </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Comprobante de pago</label>
                   <p className="text-xs text-[var(--ui-muted)] mb-2">Sube una imagen (o PDF) del voucher o transferencia.</p>
@@ -1262,7 +1286,7 @@ export default function MiRestaurant() {
                   </>
                 ) : (
                   <>
-                    Cargue el archivo, use <strong>Quitar</strong> si se equivocó, y pulse <strong>Enviar comprobante</strong> cuando esté listo.
+                    Indique el <strong>monto pagado (S/)</strong>, cargue el archivo y pulse <strong>Enviar comprobante</strong>.
                   </>
                 )}
               </div>

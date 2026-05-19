@@ -104,12 +104,28 @@ function syncUserLogin(user, passwordHashForMirror = null) {
   });
 }
 
+/** Monto enviado al panel (obligatorio > 0 en el backoffice Supabase). */
+function resolveComprobanteAmount(amountHint, pagoUso = {}) {
+  const candidates = [
+    amountHint,
+    pagoUso?.monto_comprobante,
+    pagoUso?.platform_payment?.monto,
+    process.env.PLATFORM_PAYMENT_DEFAULT_AMOUNT,
+  ];
+  for (const raw of candidates) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return Math.round(n * 100) / 100;
+  }
+  return null;
+}
+
 async function buildMinimalPaymentPayload({ comprobanteUrl, reference = '', amount = null }) {
   const ctx = getRestaurantContext();
   const identity = readClientIdentity();
   const admin = getAdminContact();
   const voucherAbsolute = resolvePublicVoucherUrl(comprobanteUrl);
   const operationNumber = String(reference || '').trim() || `pago-uso-${Date.now()}`;
+  const resolvedAmount = resolveComprobanteAmount(amount, ctx.pagoUso || {});
   return {
     clientId: identity.clientId,
     restaurantName: String(ctx.restaurant?.name || '').trim(),
@@ -117,7 +133,7 @@ async function buildMinimalPaymentPayload({ comprobanteUrl, reference = '', amou
     adminEmail: admin.adminEmail,
     plan: ctx.plan,
     voucherUrl: voucherAbsolute,
-    amount: amount != null && Number.isFinite(Number(amount)) ? Number(amount) : null,
+    amount: resolvedAmount,
     operationNumber,
     paymentDate: new Date().toISOString().slice(0, 10),
   };
@@ -139,6 +155,13 @@ function syncVoucherPayment(opts) {
 async function syncVoucherPaymentNow(opts) {
   if (!isCentralSyncConfigured()) return { skipped: true, reason: 'central_not_configured' };
   const payload = await buildMinimalPaymentPayload(opts);
+  if (payload.amount == null || Number(payload.amount) <= 0) {
+    return {
+      ok: false,
+      error: 'amount debe ser un número mayor a 0',
+      data: { error: 'amount debe ser un número mayor a 0' },
+    };
+  }
   const c = getClient();
   const payRes = await c.syncMinimalPayment(payload);
   if (isExtendedCentralSyncConfigured() && payRes?.ok) {
@@ -218,4 +241,5 @@ module.exports = {
   fetchCentralLicenseStatus,
   resolvePublicVoucherUrl,
   buildMinimalPaymentPayload,
+  resolveComprobanteAmount,
 };

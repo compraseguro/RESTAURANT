@@ -467,9 +467,24 @@ async function submitComprobanteToPanel({ comprobanteUrl, monto = null } = {}) {
     /* opcional */
   }
 
+  const { resolveComprobanteAmount } = require('./centralSyncService');
+  const pagoForAmount = readPagoUso();
+  const resolvedMonto = resolveComprobanteAmount(monto, pagoForAmount);
+  if (resolvedMonto == null) {
+    return {
+      ok: false,
+      central_user_message:
+        'Indique el monto pagado (S/) en el formulario, mayor a cero, antes de enviar el comprobante.',
+    };
+  }
+  if (pagoForAmount.monto_comprobante !== resolvedMonto) {
+    pagoForAmount.monto_comprobante = resolvedMonto;
+    writePagoUso(pagoForAmount);
+  }
+
   const paymentState = await registerPendingComprobantePayment({
     comprobanteUrl: url,
-    monto,
+    monto: resolvedMonto,
   });
   const pp = readPagoUso().platform_payment || {};
   const syncOk = pp.last_central_sync_ok === true;

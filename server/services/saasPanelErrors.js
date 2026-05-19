@@ -39,6 +39,9 @@ function mapCentralSyncError(result) {
   if (raw.includes('next_public_api') || raw.includes('url pública')) {
     return 'Configure NEXT_PUBLIC_API_URL en Render con la URL pública de este POS (sin / al final).';
   }
+  if (raw.includes('amount debe') || raw.includes('amount') && raw.includes('mayor')) {
+    return 'Indique el monto pagado (S/) mayor a cero en «Pago por uso del sistema» y vuelva a enviar el comprobante.';
+  }
   if (raw.includes('26 values for 25 columns') || raw.includes('values for') && raw.includes('columns')) {
     return 'Error en el servidor del panel al guardar el pago (columnas SQL incorrectas). Redespliegue la plataforma central o corrija la API de pagos en Vercel/Supabase.';
   }
