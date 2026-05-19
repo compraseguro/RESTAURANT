@@ -414,9 +414,23 @@ export default function Escritorio() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
             <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">Ventas hoy</p>
-              <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{formatCurrency(Number(liveDash.today?.total || 0))}</p>
-              <p className="text-[11px] text-[var(--ui-muted)]">{Number(liveDash.today?.count || 0)} cobradas · día local</p>
+              <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">
+                {liveDash.liveSales?.label || 'Ventas hoy'}
+              </p>
+              <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">
+                {formatCurrency(Number(liveDash.liveSales?.total ?? liveDash.today?.total ?? 0))}
+              </p>
+              <p className="text-[11px] text-[var(--ui-muted)]">
+                {Number(liveDash.liveSales?.count ?? liveDash.today?.count ?? 0)} cobradas
+                {liveDash.liveSales?.subtitle ? ` · ${liveDash.liveSales.subtitle}` : ' · día local'}
+              </p>
+              {liveDash.liveSales?.day_total != null &&
+              liveDash.liveSales.mode !== 'venue_closed' &&
+              Number(liveDash.liveSales.day_total) !== Number(liveDash.liveSales.total) ? (
+                <p className="text-[10px] text-[var(--ui-muted)] mt-0.5">
+                  Día local: {formatCurrency(liveDash.liveSales.day_total)} ({liveDash.liveSales.day_count ?? 0})
+                </p>
+              ) : null}
             </div>
             <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2">
               <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">Pedidos activos</p>
@@ -560,9 +574,15 @@ export default function Escritorio() {
           </button>
           <button onClick={() => navigate('/admin/caja')} className="text-left p-3 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 transition-colors">
             <div className="flex items-center gap-2 text-sky-700 font-semibold"><MdPointOfSale /> Caja</div>
-            <p className="text-2xl font-bold text-sky-800 mt-1">{paidOrdersToday.length}</p>
+            <p className="text-2xl font-bold text-sky-800 mt-1">
+              {liveDash?.liveSales?.register_open
+                ? Number(liveDash.liveSales.count ?? 0)
+                : paidOrdersToday.length}
+            </p>
             <p className="text-xs text-sky-700">
-              Cobradas hoy · {formatCurrency(paidOrdersTodayTotal)}
+              {liveDash?.liveSales?.register_open
+                ? `Turno abierto · ${formatCurrency(Number(liveDash.liveSales.total ?? 0))}`
+                : `Cobradas hoy · ${formatCurrency(paidOrdersTodayTotal)}`}
             </p>
             {datePreset !== 'total' && paidOrders.length !== paidOrdersToday.length ? (
               <p className="text-[10px] text-sky-600 mt-0.5">

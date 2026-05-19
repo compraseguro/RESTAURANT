@@ -4,6 +4,11 @@ const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { FINANCIAL_FILTER_SQL, LOCAL_TODAY_SQL, getLocalTodayDateKey } = require('../businessRules');
 const { getEffectiveFlat } = require('../services/businessConfigService');
+const { computeOpenStatus } = require('../services/systemConfigHubService');
+const {
+  queryRegisterSessionSales,
+  queryRegisterSessionSalesBetween,
+} = require('../services/registerSessionSales');
 const { emitStaffDataUpdate } = require('../socketBroadcast');
 
 const router = express.Router();
@@ -33,6 +38,85 @@ function readBusinessIntelFlat() {
   } catch (_) {
     return {};
   }
+}
+
+/** Ventas «en vivo»: turno de caja abierto; si no, último turno o día según horario del local. */
+function buildLiveSalesPanel(registerOpen) {
+  const todayRow = queryOne(
+    `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ${LOCAL_TODAY_SQL} AND ${FINANCIAL_FILTER}`
+  );
+  const dayTotal = Number(todayRow?.total || 0);
+  const dayCount = Number(todayRow?.count || 0);
+
+  let scheduleJson = {};
+  try {
+    const r = queryOne('SELECT schedule FROM restaurants LIMIT 1');
+    scheduleJson = r?.schedule;
+  } catch (_) {
+    scheduleJson = {};
+  }
+  const venue = computeOpenStatus(scheduleJson);
+
+  if (registerOpen?.id && registerOpen?.opened_at) {
+    const session = queryRegisterSessionSales(registerOpen.opened_at);
+    return {
+      mode: 'register_open',
+      register_open: true,
+      venue_open: venue.is_open,
+      venue_reason: venue.reason,
+      total: session.total_sales,
+      count: session.order_count,
+      day_total: dayTotal,
+      day_count: dayCount,
+      session_opened_at: registerOpen.opened_at,
+      label: 'Ventas del turno (caja abierta)',
+      subtitle: 'Cobradas desde la apertura de caja · en vivo',
+    };
+  }
+
+  const lastClosed = queryOne(
+    `SELECT id, opened_at, closed_at FROM cash_registers
+     WHERE closed_at IS NOT NULL ORDER BY closed_at DESC LIMIT 1`
+  );
+  let lastSession = { total_sales: 0, order_count: 0 };
+  if (lastClosed?.opened_at) {
+    lastSession = queryRegisterSessionSalesBetween(lastClosed.opened_at, lastClosed.closed_at);
+  }
+
+  if (!venue.is_open) {
+    return {
+      mode: 'venue_closed',
+      register_open: false,
+      venue_open: false,
+      venue_reason: venue.reason,
+      venue_hours: venue.hours || null,
+      total: dayTotal,
+      count: dayCount,
+      day_total: dayTotal,
+      day_count: dayCount,
+      last_session_total: lastSession.total_sales,
+      last_session_count: lastSession.order_count,
+      last_closed_at: lastClosed?.closed_at || null,
+      label: 'Ventas del día',
+      subtitle: 'Local fuera de horario · total cobrado hoy (día local)',
+    };
+  }
+
+  return {
+    mode: 'register_closed',
+    register_open: false,
+    venue_open: true,
+    venue_reason: venue.reason,
+    total: lastSession.total_sales,
+    count: lastSession.order_count,
+    day_total: dayTotal,
+    day_count: dayCount,
+    last_session_total: lastSession.total_sales,
+    last_session_count: lastSession.order_count,
+    last_closed_at: lastClosed?.closed_at || null,
+    label: 'Último turno de caja',
+    subtitle: 'Sin caja abierta · cobrado en el último cierre',
+  };
 }
 
 /**
@@ -488,9 +572,11 @@ router.get('/dashboard', authenticateToken, requireRole('admin', 'cajero'), (req
 
   const op = buildOperationalIntelligence({ role: req.user?.role });
   const financeMonth = financeMonthToDateSnapshot();
+  const liveSales = buildLiveSalesPanel(op.registerOpen);
 
   res.json({
     today: todaySales,
+    liveSales,
     month: monthSales,
     activeOrders: op.summary.activeOrders,
     topProducts,
@@ -775,8 +861,11 @@ router.get('/finance-overview', authenticateToken, requireRole('admin'), (req, r
     filters: { from, to },
     sales: { total: totalSales, orders: Number(salesRow?.orders || 0) },
     investment: {
-      total: totalInvestment + inventoryInvestmentTotal,
+      /** Movimientos de inversión en el rango (nómina, aportes, etc.). */
+      total: totalInvestment,
       movements_total: totalInvestment,
+      /** Valor actual del inventario (foto, no filtrada por fechas). */
+      inventory_snapshot: inventoryInvestmentTotal,
       inventory_total: inventoryInvestmentTotal,
     },
     purchases: { total: totalPurchases },
@@ -788,6 +877,7 @@ router.get('/finance-overview', authenticateToken, requireRole('admin'), (req, r
       event_count: Number(r.event_count || 0),
     })),
     losses_combined_total: lossesCombined,
+    /** Ventas − compras de inventario en el rango (no usa valor de inventario actual). */
     approx_gross_margin: approxGross,
     approx_profit: approxProfit,
     business_intel,

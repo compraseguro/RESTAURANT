@@ -1115,12 +1115,16 @@ export default function Reports() {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                   <div className="ui-finance-kpi ui-finance-kpi--amber">
-                    <p className="ui-finance-kpi__label">Inversión (movimientos + inventario)</p>
-                    <p className="ui-finance-kpi__value">{formatCurrency(financeOverview.investment?.total)}</p>
-                    <p className="ui-finance-kpi__sub">
-                      Movimientos: {formatCurrency(financeOverview.investment?.movements_total ?? financeOverview.investment?.total)} ·
-                      Inventario: {formatCurrency(financeOverview.investment?.inventory_total ?? 0)}
+                    <p className="ui-finance-kpi__label">Inversión en el período</p>
+                    <p className="ui-finance-kpi__value">{formatCurrency(financeOverview.investment?.movements_total ?? financeOverview.investment?.total)}</p>
+                    <p className="ui-finance-kpi__sub">Movimientos en el rango (nómina, aportes, etc.)</p>
+                  </div>
+                  <div className="ui-finance-kpi">
+                    <p className="ui-finance-kpi__label">Valor inventario (actual)</p>
+                    <p className="ui-finance-kpi__value">
+                      {formatCurrency(financeOverview.investment?.inventory_snapshot ?? financeOverview.investment?.inventory_total ?? 0)}
                     </p>
+                    <p className="ui-finance-kpi__sub">Foto del stock; no resta en ganancia del rango</p>
                   </div>
                   <div className="ui-finance-kpi ui-finance-kpi--emerald">
                     <p className="ui-finance-kpi__label">Ventas (pedidos pagados)</p>
@@ -1149,10 +1153,12 @@ export default function Reports() {
                   <div className="ui-finance-kpi ui-finance-kpi--violet">
                     <p className="ui-finance-kpi__label">Margen bruto aprox.</p>
                     <p className="ui-finance-kpi__value">{formatCurrency(financeOverview.approx_gross_margin)}</p>
+                    <p className="ui-finance-kpi__sub">Ventas − compras de inventario en el rango</p>
                   </div>
                 </div>
                 <p className="text-xs text-[var(--ui-muted)]">
-                  Rango: {financeOverview.filters?.from} — {financeOverview.filters?.to}. Los totales usan fecha local del servidor.
+                  Rango: {financeOverview.filters?.from} — {financeOverview.filters?.to}. Ganancia = ventas − compras − pérdidas − egresos.
+                  El valor de inventario es una foto actual y no entra en esa fórmula.
                 </p>
               </>
             )}

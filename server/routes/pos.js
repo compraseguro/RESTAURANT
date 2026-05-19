@@ -16,6 +16,7 @@ const {
   dominantPaymentMethod,
   round2,
 } = require('../utils/paymentBreakdown');
+const { sendCashCloseNotification, getCashCloseRecipient } = require('../services/cashCloseNotifyService');
 
 const router = express.Router();
 
@@ -56,15 +57,6 @@ function distributeTipAcrossOrders(tipGross, orderTotals) {
     out[bi] = round2(out[bi] + drift);
   }
   return out;
-}
-
-/** Formspree por defecto; sobrescribe con CASH_CLOSE_FORM_URL en .env */
-const DEFAULT_CASH_CLOSE_FORM_URL = 'https://formspree.io/f/mlgpdblo';
-
-function getCashCloseFormUrl() {
-  const raw = process.env.CASH_CLOSE_FORM_URL;
-  const trimmed = raw === undefined || raw === null ? '' : String(raw).trim();
-  return trimmed || DEFAULT_CASH_CLOSE_FORM_URL;
 }
 
 function getChargeBase(order) {
@@ -354,134 +346,6 @@ function queryRegisterSessionSales(openedAt) {
   };
 }
 
-/**
- * Destino del aviso de cierre: 1) email del usuario administrador (rol admin, el que crea el maestro),
- * 2) CASH_CLOSE_EMAIL, 3) email del registro restaurante.
- */
-function getCashCloseRecipient() {
-  const adminRow = queryOne(
-    `SELECT email, full_name, username FROM users
-     WHERE lower(trim(coalesce(role, ''))) = 'admin'
-     AND COALESCE(is_active, 1) = 1
-     AND trim(coalesce(email, '')) != ''
-     ORDER BY created_at ASC
-     LIMIT 1`
-  );
-  if (adminRow?.email) {
-    return {
-      email: String(adminRow.email).trim(),
-      name: String(adminRow.full_name || adminRow.username || 'Administrador').trim() || 'Administrador',
-    };
-  }
-  const env = String(process.env.CASH_CLOSE_EMAIL || '').trim();
-  if (env) return { email: env, name: 'Administrador' };
-  const r = queryOne('SELECT email FROM restaurants LIMIT 1');
-  const re = String(r?.email || '').trim();
-  if (re) return { email: re, name: 'Restaurante' };
-  return { email: '', name: '' };
-}
-
-async function sendCashCloseNotification({
-  register,
-  sales,
-  movements,
-  expectedCash,
-  countedCash,
-  difference,
-  notes,
-  closedByName,
-}) {
-  const notifyEnabled = String(process.env.CASH_CLOSE_NOTIFY_ENABLED || '1').trim() !== '0';
-  if (!notifyEnabled) return;
-
-  const endpoint = getCashCloseFormUrl();
-
-  const { email: toEmail, name: recipientName } = getCashCloseRecipient();
-  if (!toEmail) {
-    throw new Error(
-      'No hay correo configurado: defina el email del usuario administrador (panel maestro → Usuario administrador), o CASH_CLOSE_EMAIL, o el email en Mi restaurante.'
-    );
-  }
-
-  const restaurant = queryOne('SELECT name FROM restaurants LIMIT 1');
-  const restaurantName = restaurant?.name || 'Resto-FADEY';
-  const closeDate = new Date().toISOString();
-  const subject = `[Caja] Cierre registrado - ${restaurantName}`;
-  const messageLines = [
-    `Notificación para: ${toEmail} (${recipientName})`,
-    `Restaurante: ${restaurantName}`,
-    `Caja: ${register.id}`,
-    `Cajero: ${closedByName || '-'}`,
-    `Apertura: ${register.opened_at || '-'}`,
-    `Cierre: ${closeDate}`,
-    `Ventas: ${Number(sales.total_sales || 0)}`,
-    `Efectivo ventas: ${Number(sales.total_cash || 0)}`,
-    `Propinas (registradas): ${Number(sales.total_tips || 0)}`,
-    `Yape: ${Number(sales.total_yape || 0)}`,
-    `Plin: ${Number(sales.total_plin || 0)}`,
-    `Tarjeta: ${Number(sales.total_card || 0)}`,
-    `Online / otros digitales: ${Number(sales.total_online || 0)}`,
-    `Ingresos caja: ${Number(movements.total_income || 0)}`,
-    `Egresos caja: ${Number(movements.total_expense || 0)}`,
-    `Efectivo esperado: ${Number(expectedCash || 0)}`,
-    `Efectivo contado: ${Number(countedCash || 0)}`,
-    `Diferencia: ${Number(difference || 0)}`,
-    `Observaciones: ${notes || '-'}`,
-  ];
-
-  const plainMessage = messageLines.join('\n');
-
-  const body = {
-    subject,
-    message: plainMessage,
-    restaurant_name: restaurantName,
-    register_id: register.id,
-    opened_at: register.opened_at,
-    closed_at: closeDate,
-    closed_by: closedByName || '',
-    order_count: Number(sales.order_count || 0),
-    total_sales: Number(sales.total_sales || 0),
-    total_cash: Number(sales.total_cash || 0),
-    total_yape: Number(sales.total_yape || 0),
-    total_plin: Number(sales.total_plin || 0),
-    total_card: Number(sales.total_card || 0),
-    total_online: Number(sales.total_online || 0),
-    total_tips: Number(sales.total_tips || 0),
-    total_income: Number(movements.total_income || 0),
-    total_expense: Number(movements.total_expense || 0),
-    expected_cash: Number(expectedCash || 0),
-    counted_cash: Number(countedCash || 0),
-    difference: Number(difference || 0),
-    notes: notes || '',
-    to_email: toEmail,
-    admin_email: toEmail,
-    name: recipientName,
-    email: toEmail,
-    _replyto: toEmail,
-    _subject: subject,
-  };
-
-  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timeout = setTimeout(() => ctrl?.abort(), 8000);
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: ctrl?.signal,
-    });
-    if (!response.ok) {
-      const payload = await response.text().catch(() => '');
-      throw new Error(`No se pudo notificar cierre (${response.status}) ${payload}`.trim());
-    }
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 router.get('/caja-stations', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
   let stations = listCajasWithIds().filter((c) => c.active);
   const role = String(req.user.role || '').toLowerCase();
@@ -670,8 +534,9 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
   });
 
   const closedRegister = queryOne('SELECT * FROM cash_registers WHERE id = ?', [register.id]);
+  let notifyResult = null;
   try {
-    await sendCashCloseNotification({
+    notifyResult = await sendCashCloseNotification({
       register: closedRegister || register,
       sales,
       movements,
@@ -688,6 +553,11 @@ router.post('/close-register', authenticateToken, requireRole('admin', 'cajero')
   const io = req.app.get('io');
   if (io) io.emit('register-update', { action: 'close', registerId: register.id });
 
+  if (closedRegister && notifyResult && !notifyResult.skipped) {
+    closedRegister.notify_email = notifyResult.to;
+    closedRegister.notify_channel = notifyResult.channel;
+    if (notifyResult.warning) closedRegister.notify_warning = notifyResult.warning;
+  }
   res.json(closedRegister);
 });
 
@@ -715,7 +585,8 @@ router.post('/send-close-email', authenticateToken, requireRole('admin', 'cajero
   const diff = roundMoneySoles(countedCash - expectedCash);
 
   try {
-    await sendCashCloseNotification({
+    const { email } = getCashCloseRecipient();
+    const result = await sendCashCloseNotification({
       register,
       sales,
       movements,
@@ -725,7 +596,20 @@ router.post('/send-close-email', authenticateToken, requireRole('admin', 'cajero
       notes: String(arqueo?.observations || notes || '').trim(),
       closedByName: req.user.full_name || req.user.username || '',
     });
-    return res.json({ success: true, message: 'Reporte enviado al correo configurado' });
+    if (result?.warning) {
+      return res.json({
+        success: true,
+        message: `Reporte enviado vía Formspree. Para recibirlo en ${email}, configure SMTP en el servidor.`,
+        notify_email: email,
+        notify_warning: result.warning,
+      });
+    }
+    return res.json({
+      success: true,
+      message: `Reporte enviado a ${result?.to || email}`,
+      notify_email: result?.to || email,
+      notify_channel: result?.channel,
+    });
   } catch (err) {
     return res.status(400).json({ error: err.message || 'No se pudo enviar el reporte por correo' });
   }
