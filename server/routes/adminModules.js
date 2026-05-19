@@ -157,6 +157,107 @@ router.post('/config/regional-preview', requireRole('admin', 'master_admin'), (r
   }
 });
 
+/** Guarda solo configuración regional (settings.regional + clave regional en BD). */
+router.put('/config/regional', requireRole('admin', 'master_admin'), (req, res) => {
+  try {
+    const incoming = req.body?.regional;
+    if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+      return res.status(400).json({ error: 'Se requiere regional: { país, idioma, moneda, … }' });
+    }
+    const { mergeRegional } = require('../services/regionalFormatService');
+    const regional = mergeRegional(incoming);
+
+    const prevRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
+    const settingsObj = parseJsonSafe(prevRow?.value, {});
+    settingsObj.regional = regional;
+
+    runSql(
+      `INSERT INTO app_settings (key, value, updated_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+      ['settings', JSON.stringify(settingsObj)]
+    );
+    persistRegionalFromSettings(regional);
+
+    const { saveDb } = require('../database');
+    saveDb();
+
+    broadcastStaffData('app_config');
+    res.json({ ok: true, regional });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'No se pudo guardar la configuración regional' });
+  }
+});
+
+/** Guarda solo configuración regional (settings.regional + clave regional en BD). */
+router.put('/config/regional', requireRole('admin', 'master_admin'), (req, res) => {
+  try {
+    const incoming = req.body?.regional;
+    if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+      return res.status(400).json({ error: 'Se requiere body.regional con la configuración regional' });
+    }
+    const { mergeRegional } = require('../services/regionalFormatService');
+    const regional = mergeRegional(incoming);
+
+    const prevRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
+    const settingsObj = parseJsonSafe(prevRow?.value, {});
+    settingsObj.regional = regional;
+    runSql(
+      `INSERT INTO app_settings (key, value, updated_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+      ['settings', JSON.stringify(settingsObj)]
+    );
+    persistRegionalFromSettings(regional);
+
+    broadcastStaffData('app_config');
+    res.json({ ok: true, regional });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'No se pudo guardar la configuración regional' });
+  }
+});
+
+/** Guarda solo configuración regional (evita sobrescribir todo el blob `settings` por error). */
+router.put('/config/regional', requireRole('admin', 'master_admin'), (req, res) => {
+  try {
+    const incoming = req.body?.regional;
+    if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+      return res.status(400).json({ error: 'Se requiere body.regional como objeto' });
+    }
+    const { mergeRegional } = require('../services/regionalFormatService');
+    const regional = mergeRegional(incoming);
+
+    const prevRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['settings']);
+    const settingsObj = parseJsonSafe(prevRow?.value, {});
+    settingsObj.regional = regional;
+
+    runSql(
+      `INSERT INTO app_settings (key, value, updated_at)
+       VALUES (?, ?, datetime('now'))
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+      ['settings', JSON.stringify(settingsObj)]
+    );
+    persistRegionalFromSettings(regional);
+
+    const { saveDb } = require('../database');
+    saveDb();
+
+    logAudit({
+      actorUserId: req.user.id,
+      actorName: req.user.full_name || req.user.username || '',
+      action: 'app_settings.regional',
+      resourceType: 'app_settings',
+      resourceId: 'regional',
+      details: { language: regional.language, currency_code: regional.currency_code },
+    });
+
+    broadcastStaffData('app_config');
+    res.json({ ok: true, regional });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'No se pudo guardar la configuración regional' });
+  }
+});
+
 /** Rutas de impresión persistidas (tabla printer_routes, por restaurant_id). */
 router.get('/printer-routes', requireRole('admin', 'master_admin'), (req, res) => {
   try {

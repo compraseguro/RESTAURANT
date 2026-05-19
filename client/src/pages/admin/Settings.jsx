@@ -108,13 +108,14 @@ const MENU_ITEMS = [
   { id: 'modulo_empresarial', label: 'Módulo empresarial', icon: MdAutoGraph },
   { id: 'config_historial', label: 'Historial de configuración', icon: MdHistory },
 ];
+/** Regional se guarda solo con «Guardar regional» (endpoint dedicado), sin autoguardado. */
 const PARTIAL_SECTIONS = new Set([
-  'regional', 'locales', 'almacenes', 'cajas', 'comprobantes',
+  'locales', 'almacenes', 'cajas', 'comprobantes',
   'tarjetas', 'monedas', 'cuentas_transferencia', 'marcas',
   'categoria_anular', 'formas_pago', 'apariencia',
 ]);
 /** Claves para filtrar el historial (incluye legado imagenes_self). */
-const HISTORY_FILTER_SECTIONS = [...PARTIAL_SECTIONS, 'imagenes_self'];
+const HISTORY_FILTER_SECTIONS = [...PARTIAL_SECTIONS, 'imagenes_self', 'regional'];
 const REQUIRED_ACTIVE_SECTIONS = new Set(['comprobantes', 'formas_pago']);
 
 const DEFAULT_APP_SETTINGS = {
@@ -373,7 +374,7 @@ export default function Settings() {
   const autoSaveTimerRef = useRef(null);
   const historySearchTimerRef = useRef(null);
   const appSettingsRef = useRef(appSettings);
-  const skipConfigReloadRef = useRef(false);
+  const skipConfigReloadUntilRef = useRef(0);
   appSettingsRef.current = appSettings;
   const serializeAppSettings = (value) => JSON.stringify(value || {});
   const normalizeConfigPayload = (payload) => {
@@ -681,8 +682,7 @@ export default function Settings() {
 
   useSocket('staff-data-update', (p) => {
     if (p?.domain !== 'app_config') return;
-    if (skipConfigReloadRef.current) {
-      skipConfigReloadRef.current = false;
+    if (Date.now() < skipConfigReloadUntilRef.current) {
       void reloadConfigHub?.();
       if (activeSection === 'config_historial') loadAppSettingsHistory();
       return;
@@ -940,6 +940,48 @@ export default function Settings() {
     }
   };
 
+  const saveRegionalSettings = async (regionalPayload) => {
+    if (isSavingAppSettings) {
+      toast.error('Espere, se está guardando…');
+      return;
+    }
+    const regional = regionalPayload || appSettingsRef.current?.regional;
+    if (!regional || typeof regional !== 'object') {
+      toast.error('No hay datos regionales para guardar');
+      return;
+    }
+    try {
+      setIsSavingAppSettings(true);
+      skipConfigReloadUntilRef.current = Date.now() + 4000;
+      const saved = await api.put('/admin-modules/config/regional', { regional });
+      const merged = {
+        ...DEFAULT_APP_SETTINGS.regional,
+        ...(saved?.regional || regional),
+      };
+      setAppSettings((prev) => {
+        const next = { ...prev, regional: merged };
+        setAppSettingsSnapshot(serializeAppSettings(next));
+        return next;
+      });
+      const uiLang = String(merged.language || '').toLowerCase();
+      if (uiLang === 'es' || uiLang === 'en') {
+        await setAppLocale(uiLang);
+      }
+      void reloadConfigHub?.();
+      toast.success(
+        uiLang === 'en'
+          ? 'Regional settings saved (English).'
+          : 'Configuración regional guardada correctamente.',
+      );
+      return merged;
+    } catch (err) {
+      toast.error(err.message || 'No se pudo guardar la configuración regional');
+      throw err;
+    } finally {
+      setIsSavingAppSettings(false);
+    }
+  };
+
   const saveAppSettings = async ({ silent = false, nextSettings = null } = {}) => {
     if (isSavingAppSettings) return;
     const source = nextSettings || appSettings;
@@ -947,7 +989,7 @@ export default function Settings() {
     const payloadSettings = normalizeConfigPayload({ settings: source });
     try {
       setIsSavingAppSettings(true);
-      skipConfigReloadRef.current = true;
+      skipConfigReloadUntilRef.current = Date.now() + 4000;
       const saved = await api.put('/admin-modules/config/app', {
         settings: payloadSettings,
         regional: payloadSettings.regional || {},
@@ -1397,15 +1439,8 @@ export default function Settings() {
           <SettingsRegionalPanel
             regional={appSettings.regional}
             setRegional={(regional) => setAppSettings((prev) => ({ ...prev, regional }))}
-            onSave={() => saveAppSettings({ silent: true, nextSettings: appSettingsRef.current })}
+            onSave={(regional) => saveRegionalSettings(regional)}
             saving={isSavingAppSettings}
-            onSaved={(code) => {
-              toast.success(
-                code === 'en'
-                  ? 'English applied to menus and translated screens.'
-                  : 'Español aplicado a menús y pantallas traducidas.',
-              );
-            }}
           />
         )}
 

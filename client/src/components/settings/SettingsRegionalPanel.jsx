@@ -12,7 +12,7 @@ const TIMEZONES = [
   { value: 'America/Buenos_Aires', label: 'America/Buenos_Aires' },
 ];
 
-export default function SettingsRegionalPanel({ regional, setRegional, onSave, saving, onSaved }) {
+export default function SettingsRegionalPanel({ regional, setRegional, onSave, saving }) {
   const { t } = useTranslation('settings');
   const { t: tc } = useTranslation('common');
   const [preview, setPreview] = useState(null);
@@ -75,7 +75,7 @@ export default function SettingsRegionalPanel({ regional, setRegional, onSave, s
             </select>
             <p className="text-xs text-[var(--ui-muted)] mt-1">
               {t('regional.systemLanguageHint', {
-                defaultValue: 'Se aplica al guardar y se mantiene en este equipo. Configuración → Configuración regional.',
+                defaultValue: 'Vista previa al cambiar; pulsa «Guardar regional» para fijarlo en el servidor y en este equipo.',
               })}
             </p>
           </div>
@@ -166,14 +166,7 @@ export default function SettingsRegionalPanel({ regional, setRegional, onSave, s
         <button
           type="button"
           disabled={saving}
-          onClick={async () => {
-            await onSave?.();
-            const code = String(regional?.language || 'es').toLowerCase();
-            if (code === 'es' || code === 'en') {
-              await setAppLocale(code);
-              onSaved?.(code);
-            }
-          }}
+          onClick={() => onSave?.(regional)}
           className="btn-primary flex items-center gap-2"
         >
           <MdSave /> {saving ? t('regional.saving', { defaultValue: 'Guardando…' }) : t('regional.save', { defaultValue: 'Guardar regional' })}
