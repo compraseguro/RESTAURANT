@@ -406,6 +406,71 @@ function getPublicPlatformPaymentState() {
   };
 }
 
+/** Guarda URL local y envía comprobante al panel SaaS (acción explícita «Enviar comprobante»). */
+async function submitComprobanteToPanel({ comprobanteUrl, monto = null } = {}) {
+  const url = String(comprobanteUrl || readPagoUso().comprobante_pago_url || '').trim();
+  if (!url) {
+    return {
+      ok: false,
+      error: 'sin_comprobante',
+      central_user_message: 'Primero cargue una imagen o PDF del comprobante.',
+    };
+  }
+
+  const pago = readPagoUso();
+  if (pago.comprobante_pago_url !== url) {
+    pago.comprobante_pago_url = url;
+    writePagoUso(pago);
+  }
+
+  if (!isCentralSyncConfigured()) {
+    const { getCentralSyncConfigDiagnostics } = require('../../packages/shared-config');
+    const diag = getCentralSyncConfigDiagnostics();
+    return {
+      ok: false,
+      skipped: true,
+      central_user_message: diag.missing.length
+        ? `Conexión con el panel no configurada. En Render defina: ${diag.missing.join(', ')}.`
+        : 'Conexión con el panel no configurada.',
+    };
+  }
+
+  const identity = readClientIdentity();
+  const absolute = require('./centralSyncService').resolvePublicVoucherUrl(url);
+  if (!/^https?:\/\//i.test(absolute) && !identity.publicApiUrl) {
+    return {
+      ok: false,
+      central_user_message:
+        'Configure NEXT_PUBLIC_API_URL en el servidor (URL pública del POS) para que el panel pueda ver el comprobante.',
+    };
+  }
+
+  try {
+    const { evaluateAutomaticBillingRules } = require('../masterAdminService');
+    evaluateAutomaticBillingRules();
+  } catch (_) {
+    /* opcional */
+  }
+
+  const paymentState = await registerPendingComprobantePayment({
+    comprobanteUrl: url,
+    monto,
+  });
+  const pp = readPagoUso().platform_payment || {};
+  const syncOk = pp.last_central_sync_ok === true;
+  return {
+    ok: syncOk,
+    payment: paymentState || getPublicPlatformPaymentState(),
+    central_user_message: syncOk
+      ? ''
+      : mapCentralSyncError({
+          ok: false,
+          error: pp.last_central_sync_error,
+          last_central_sync_error: pp.last_central_sync_error,
+        }),
+  };
+}
+
 function startPlatformPaymentPoller() {
   if (pollTimer) return;
   if (!isCentralSyncConfigured()) {
@@ -432,4 +497,7 @@ module.exports = {
   applyPaymentRejected,
   fetchCentralStatus,
   pushComprobanteToCentral,
+  submitComprobanteToPanel,
+  readPagoUso,
+  writePagoUso,
 };

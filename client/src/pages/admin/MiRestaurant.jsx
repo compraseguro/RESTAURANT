@@ -109,6 +109,7 @@ export default function MiRestaurant() {
   /** Ventana de carga del comprobante (servidor): enlazada a fecha_proxima_facturación y días de gracia. */
   const [pagoUsoComprobanteUi, setPagoUsoComprobanteUi] = useState(null);
   const [centralResyncBusy, setCentralResyncBusy] = useState(false);
+  const [enviarComprobanteBusy, setEnviarComprobanteBusy] = useState(false);
   const [billingPanel, setBillingPanel] = useState(() => defaultBillingPanel());
   const [billingPanelPresence, setBillingPanelPresence] = useState(() => defaultBillingPanelPresence());
   const [staffUsers, setStaffUsers] = useState([]);
@@ -148,6 +149,32 @@ export default function MiRestaurant() {
       setCentralResyncBusy(false);
     }
   }, [canReadBillingConfig, refreshPagoUsoComprobanteSchedule]);
+
+  const enviarComprobanteAlPanel = useCallback(async () => {
+    if (!canEditPagoUsoComprobante) {
+      toast.error('No tienes permiso para enviar el comprobante.');
+      return;
+    }
+    const url = String(appConfig.pago_uso_sistema?.comprobante_pago_url || '').trim();
+    if (!url) {
+      toast.error('Cargue primero una imagen o PDF del comprobante.');
+      return;
+    }
+    setEnviarComprobanteBusy(true);
+    try {
+      const res = await api.post('/platform-payments/submit', { comprobanteUrl: url });
+      await refreshPagoUsoComprobanteSchedule();
+      if (res?.central_user_message && !res?.ok) {
+        toast.error(res.central_user_message);
+      } else {
+        toast.success(res?.central_user_message || 'Comprobante enviado. Pendiente de aprobación.');
+      }
+    } catch (err) {
+      toast.error(err.message || 'No se pudo enviar el comprobante.');
+    } finally {
+      setEnviarComprobanteBusy(false);
+    }
+  }, [canEditPagoUsoComprobante, appConfig.pago_uso_sistema?.comprobante_pago_url, refreshPagoUsoComprobanteSchedule]);
 
   const loadInitialData = useCallback(() => {
     const schedulePromise = canReadBillingConfig
@@ -354,24 +381,15 @@ export default function MiRestaurant() {
               fecha_proxima_facturacion: String(raw.fecha_proxima_facturacion || '').trim().slice(0, 32),
               numero_cuenta: String(raw.numero_cuenta || '').trim(),
               nombre_empresa_cobro: String(raw.nombre_empresa_cobro || '').trim(),
-              comprobante_pago_url: String(raw.comprobante_pago_url || '').trim(),
               comprobante_grace_days_after_due: grace,
             };
             const saved = await api.put('/admin-modules/config/app', { pago_uso_sistema: payload });
             setAppConfig(prev => ({ ...prev, ...saved }));
             await refreshPagoUsoComprobanteSchedule();
-            toast.success('Datos de pago por uso del sistema guardados');
+            toast.success('Datos de facturación guardados');
             return;
           }
-          if (canEditPagoUsoComprobante) {
-            const url = String(appConfig.pago_uso_sistema?.comprobante_pago_url || '').trim();
-            const saved = await api.put('/admin-modules/config/app', { pago_uso_sistema: { comprobante_pago_url: url } });
-            setAppConfig(prev => ({ ...prev, ...saved }));
-            await refreshPagoUsoComprobanteSchedule();
-            toast.success('Comprobante de pago guardado');
-            return;
-          }
-          toast.error('No tienes permiso para guardar esta sección.');
+          toast.error('Use «Enviar comprobante» para mandar el voucher al panel. «Guardar» es solo para datos de facturación.');
           return;
         }
         if (key === 'contrato') {
@@ -605,7 +623,7 @@ export default function MiRestaurant() {
       const uploaded = await api.upload(file);
       const url = uploaded?.url || '';
       updateAppCfg('pago_uso_sistema', 'comprobante_pago_url', url);
-      toast.success('Comprobante cargado. Pulsa Guardar cambios para enviarlo a revisión.');
+      toast.success('Comprobante cargado. Pulse «Enviar comprobante» para mandarlo al panel.');
     } catch (err) {
       toast.error(err.message || 'No se pudo subir el comprobante');
     } finally {
@@ -619,7 +637,7 @@ export default function MiRestaurant() {
     activeView !== 'mi_empresa'
     && (activeView !== 'contrato' || canEditContrato)
     && (activeView !== 'facturacion_electronica' || canEditBillingMaster)
-    && (activeView !== 'pago_uso_sistema' || canEditBillingMaster || canEditPagoUsoComprobante);
+    && (activeView !== 'pago_uso_sistema' || canEditBillingMaster);
 
   return (
     <div>
@@ -1157,28 +1175,57 @@ export default function MiRestaurant() {
                     })()}
                   </div>
                   {(() => {
-                    const hidePreview =
-                      pagoUsoComprobanteUi?.platform_payment?.comprobante_oculto_ui
-                      || pagoUsoComprobanteUi?.platform_payment?.show_approved_banner;
+                    const pp = pagoUsoComprobanteUi?.platform_payment;
+                    const hidePreview = pp?.comprobante_oculto_ui || pp?.show_approved_banner;
                     const url = appConfig.pago_uso_sistema?.comprobante_pago_url;
+                    const enviadoOk = pp?.estado === 'pendiente' && pp?.last_central_sync_ok === true;
                     if (!url || hidePreview) return null;
-                    if (String(url).toLowerCase().endsWith('.pdf')) return null;
+                    const isPdf = String(url).toLowerCase().endsWith('.pdf');
                     return (
-                    <div className="mt-3 rounded-lg border border-[color:var(--ui-border)] overflow-hidden max-w-xs bg-[var(--ui-surface-2)]">
-                      <img
-                        src={resolveMediaUrl(url)}
-                        alt="Vista previa del comprobante"
-                        className="w-full max-h-48 object-contain"
-                      />
-                    </div>
+                      <div className="mt-3 flex flex-wrap items-end gap-3">
+                        {!isPdf ? (
+                          <div className="rounded-lg border border-[color:var(--ui-border)] overflow-hidden max-w-xs bg-[var(--ui-surface-2)]">
+                            <img
+                              src={resolveMediaUrl(url)}
+                              alt="Vista previa del comprobante"
+                              className="w-full max-h-48 object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-sm text-[var(--ui-muted)]">PDF listo para enviar.</p>
+                        )}
+                        {canEditPagoUsoComprobante ? (
+                          <button
+                            type="button"
+                            className="btn-primary text-sm px-4 py-2 disabled:opacity-60"
+                            disabled={enviarComprobanteBusy || enviadoOk}
+                            onClick={() => enviarComprobanteAlPanel()}
+                          >
+                            {enviarComprobanteBusy
+                              ? 'Enviando…'
+                              : enviadoOk
+                                ? 'Comprobante enviado'
+                                : 'Enviar comprobante'}
+                          </button>
+                        ) : null}
+                      </div>
                     );
                   })()}
                 </div>
               </div>
 
               <div className="rounded-lg bg-[var(--ui-surface-2)] border border-[color:var(--ui-border)] p-3 text-sm text-[var(--ui-muted)]">
-                Tras cargar el archivo, pulse <strong>Guardar cambios</strong> para guardar la URL del comprobante
-                {canEditBillingMaster ? ' junto al resto de datos' : ''}.
+                {canEditBillingMaster ? (
+                  <>
+                    <strong>Guardar cambios</strong> guarda frecuencia, fechas y datos de cuenta.
+                    {' '}
+                    <strong>Enviar comprobante</strong> manda el voucher al panel de aprobación.
+                  </>
+                ) : (
+                  <>
+                    Cargue el archivo y pulse <strong>Enviar comprobante</strong> para mandarlo a revisión central.
+                  </>
+                )}
               </div>
             </div>
           ) : activeView === 'informacion' ? (
