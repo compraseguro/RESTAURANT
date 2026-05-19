@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { MdSave, MdPreview } from 'react-icons/md';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../utils/api';
-import { setAppLocale } from '../../i18n';
 
 const TIMEZONES = [
   { value: 'America/Lima', label: 'America/Lima (UTC-5)' },
@@ -12,7 +11,7 @@ const TIMEZONES = [
   { value: 'America/Buenos_Aires', label: 'America/Buenos_Aires' },
 ];
 
-export default function SettingsRegionalPanel({ regional, setRegional, onSave, saving }) {
+export default function SettingsRegionalPanel({ regional, setRegional, onSave, saving, hasUnsaved }) {
   const { t } = useTranslation('settings');
   const { t: tc } = useTranslation('common');
   const [preview, setPreview] = useState(null);
@@ -36,7 +35,11 @@ export default function SettingsRegionalPanel({ regional, setRegional, onSave, s
       <div className="card">
         <h3 className="font-semibold text-[var(--ui-body-text)] mb-1">Configuración regional</h3>
         <p className="text-sm text-[var(--ui-muted)] mb-4">
-          Se aplica a tickets, reportes, caja y comprobantes. Los cambios se sincronizan globalmente al guardar.
+          Se aplica a tickets, reportes, caja y comprobantes.{' '}
+          <strong className="text-[var(--ui-body-text)]">No se guarda solo:</strong> pulsa «Guardar regional» al terminar.
+          {hasUnsaved ? (
+            <span className="block mt-1 text-amber-700 dark:text-amber-300">Tienes cambios pendientes en esta sección.</span>
+          ) : null}
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -64,18 +67,14 @@ export default function SettingsRegionalPanel({ regional, setRegional, onSave, s
             <select
               className="input-field"
               value={regional?.language || 'es'}
-              onChange={(e) => {
-                const code = e.target.value;
-                update('language', code);
-                if (code === 'es' || code === 'en') void setAppLocale(code);
-              }}
+              onChange={(e) => update('language', e.target.value)}
             >
               <option value="es">{tc('language.es')}</option>
               <option value="en">{tc('language.en')}</option>
             </select>
             <p className="text-xs text-[var(--ui-muted)] mt-1">
               {t('regional.systemLanguageHint', {
-                defaultValue: 'Vista previa al cambiar; pulsa «Guardar regional» para fijarlo en el servidor y en este equipo.',
+                defaultValue: 'El idioma de menús cambia solo después de «Guardar regional» (no al elegir en la lista).',
               })}
             </p>
           </div>

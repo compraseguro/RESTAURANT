@@ -313,6 +313,11 @@ export default function Settings() {
   const [restaurant, setRestaurant] = useState(null);
   const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
   const [appSettingsSnapshot, setAppSettingsSnapshot] = useState(JSON.stringify(DEFAULT_APP_SETTINGS));
+  /** Borrador regional: no dispara autoguardado del resto de configuración. */
+  const [regionalDraft, setRegionalDraft] = useState(DEFAULT_APP_SETTINGS.regional);
+  const [regionalSavedJson, setRegionalSavedJson] = useState(() =>
+    JSON.stringify(DEFAULT_APP_SETTINGS.regional),
+  );
   const [isSavingAppSettings, setIsSavingAppSettings] = useState(false);
   const [settingsHistory, setSettingsHistory] = useState([]);
   const [settingsHistoryLoading, setSettingsHistoryLoading] = useState(false);
@@ -377,6 +382,11 @@ export default function Settings() {
   const skipConfigReloadUntilRef = useRef(0);
   appSettingsRef.current = appSettings;
   const serializeAppSettings = (value) => JSON.stringify(value || {});
+  const stripRegionalFromSettings = (value) => {
+    if (!value || typeof value !== 'object') return value;
+    const { regional: _r, ...rest } = value;
+    return rest;
+  };
   const normalizeConfigPayload = (payload) => {
     const fromApi = normalizeConfigFromApi(payload);
     const merged = {
@@ -387,7 +397,10 @@ export default function Settings() {
     merged.cajas = ensureCajaIdsDeep(Array.isArray(merged.cajas) ? merged.cajas : []);
     return merged;
   };
-  const hasUnsavedAppSettings = serializeAppSettings(appSettings) !== appSettingsSnapshot;
+  const hasUnsavedAppSettings =
+    serializeAppSettings(stripRegionalFromSettings(appSettings)) !==
+    serializeAppSettings(stripRegionalFromSettings(JSON.parse(appSettingsSnapshot || '{}')));
+  const hasUnsavedRegional = JSON.stringify(regionalDraft || {}) !== regionalSavedJson;
 
   const loadUsers = () => {
     api.get('/users').then(data => {
@@ -411,6 +424,8 @@ export default function Settings() {
         const normalized = normalizeConfigPayload(cfg);
         setAppSettings(normalized);
         setAppSettingsSnapshot(serializeAppSettings(normalized));
+        setRegionalDraft(normalized.regional || DEFAULT_APP_SETTINGS.regional);
+        setRegionalSavedJson(JSON.stringify(normalized.regional || DEFAULT_APP_SETTINGS.regional));
         applyUiThemeFromAppSettings(normalized, currentUser?.id);
         void syncLocaleFromRegional(normalized?.regional?.language);
       })
@@ -831,17 +846,35 @@ export default function Settings() {
       if (historySearchTimerRef.current) clearTimeout(historySearchTimerRef.current);
     };
   }, [historySearch]);
+  const prevSettingsSectionRef = useRef(null);
   useEffect(() => {
-    if (!activeSection || !PARTIAL_SECTIONS.has(activeSection)) return;
-    if (!hasUnsavedAppSettings || settingsCrudModal.isOpen) return;
+    if (activeSection === 'regional') {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+      if (prevSettingsSectionRef.current !== 'regional') {
+        setRegionalDraft(appSettings.regional || DEFAULT_APP_SETTINGS.regional);
+        setRegionalSavedJson(JSON.stringify(appSettings.regional || DEFAULT_APP_SETTINGS.regional));
+      }
+      prevSettingsSectionRef.current = activeSection;
+      return undefined;
+    }
+    prevSettingsSectionRef.current = activeSection;
+    if (!activeSection || !PARTIAL_SECTIONS.has(activeSection)) return undefined;
+    if (!hasUnsavedAppSettings || settingsCrudModal.isOpen) return undefined;
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
-      saveAppSettings({ silent: true, nextSettings: appSettingsRef.current });
+      const snap = JSON.parse(appSettingsSnapshot || '{}');
+      saveAppSettings({
+        silent: true,
+        nextSettings: { ...appSettingsRef.current, regional: snap.regional || appSettingsRef.current?.regional },
+      });
     }, 900);
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [activeSection, appSettings, hasUnsavedAppSettings, settingsCrudModal.isOpen]);
+  }, [activeSection, appSettings, appSettingsSnapshot, hasUnsavedAppSettings, settingsCrudModal.isOpen]);
 
   useEffect(() => () => {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -958,6 +991,9 @@ export default function Settings() {
         ...DEFAULT_APP_SETTINGS.regional,
         ...(saved?.regional || regional),
       };
+      const savedJson = JSON.stringify(merged);
+      setRegionalSavedJson(savedJson);
+      setRegionalDraft(merged);
       setAppSettings((prev) => {
         const next = { ...prev, regional: merged };
         setAppSettingsSnapshot(serializeAppSettings(next));
@@ -984,7 +1020,9 @@ export default function Settings() {
 
   const saveAppSettings = async ({ silent = false, nextSettings = null } = {}) => {
     if (isSavingAppSettings) return;
-    const source = nextSettings || appSettings;
+    const snap = JSON.parse(appSettingsSnapshot || '{}');
+    const base = nextSettings || appSettings;
+    const source = { ...base, regional: snap.regional || base.regional };
     const intendedLang = String(source?.regional?.language || '').toLowerCase();
     const payloadSettings = normalizeConfigPayload({ settings: source });
     try {
@@ -1287,6 +1325,23 @@ export default function Settings() {
         <div className="flex items-center gap-3 mb-5">
           {activeMenu && <activeMenu.icon className="text-2xl text-[var(--ui-accent)]" />}
           <h1 className="text-2xl font-bold text-[var(--ui-body-text)]">{activeMenu?.label || 'Configuración'}</h1>
+          {activeSection === 'regional' && (
+            <span
+              className={`text-xs px-2 py-1 rounded-full border border-[color:var(--ui-border)] ${
+                isSavingAppSettings
+                  ? 'bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)]'
+                  : hasUnsavedRegional
+                    ? 'bg-amber-100 text-amber-950 border-amber-200/80'
+                    : 'bg-emerald-100 text-emerald-900 border-emerald-200/80'
+              }`}
+            >
+              {isSavingAppSettings
+                ? 'Guardando…'
+                : hasUnsavedRegional
+                  ? 'Sin guardar — usa «Guardar regional»'
+                  : 'Guardado en servidor'}
+            </span>
+          )}
           {activeSection && PARTIAL_SECTIONS.has(activeSection) && (
             <span className={`text-xs px-2 py-1 rounded-full border border-[color:var(--ui-border)] ${isSavingAppSettings ? 'bg-[var(--ui-sidebar-active-bg)] text-[var(--ui-body-text)]' : hasUnsavedAppSettings ? 'bg-amber-100 text-amber-950 border-amber-200/80' : 'bg-[var(--ui-surface-2)] text-[var(--ui-muted)]'}`}>
               {isSavingAppSettings ? 'Guardando...' : hasUnsavedAppSettings ? 'Cambios sin guardar' : 'Sincronizado'}
@@ -1437,10 +1492,11 @@ export default function Settings() {
         {/* CONFIGURACIÓN REGIONAL */}
         {activeSection === 'regional' && restaurant && (
           <SettingsRegionalPanel
-            regional={appSettings.regional}
-            setRegional={(regional) => setAppSettings((prev) => ({ ...prev, regional }))}
+            regional={regionalDraft}
+            setRegional={setRegionalDraft}
             onSave={(regional) => saveRegionalSettings(regional)}
             saving={isSavingAppSettings}
+            hasUnsaved={hasUnsavedRegional}
           />
         )}
 
