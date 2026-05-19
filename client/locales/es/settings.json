@@ -7,5 +7,9 @@
   "language": {
     "title": "Idioma del sistema",
     "hint": "Se guarda en este navegador. Afecta menús, botones y mensajes del POS."
+  },
+  "regional": {
+    "systemLanguage": "Idioma del sistema",
+    "systemLanguageHint": "Vista previa al cambiar; pulsa «Guardar regional» para fijarlo en el servidor y en este equipo."
   }
 }

@@ -7,5 +7,9 @@
   "language": {
     "title": "System language",
     "hint": "Saved in this browser. Affects menus, buttons, and POS messages."
+  },
+  "regional": {
+    "systemLanguage": "System language",
+    "systemLanguageHint": "Preview on change; click «Save regional» to persist on the server and this device."
   }
 }

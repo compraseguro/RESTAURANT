@@ -109,6 +109,29 @@ export async function setAppLocale(code) {
   return next;
 }
 
+/** Preferencia guardada en este navegador (prioridad sobre servidor). */
+export function getStoredAppLocale() {
+  try {
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (stored && activeCodes.has(stored)) return stored;
+  } catch (_) {
+    /* noop */
+  }
+  return null;
+}
+
+/**
+ * Aplica idioma sin pisar la elección del usuario en localStorage.
+ * @param {string} [serverLanguage] - regional.language del servidor
+ */
+export async function applyResolvedAppLocale(serverLanguage) {
+  const stored = getStoredAppLocale();
+  if (stored) return setAppLocale(stored);
+  const server = String(serverLanguage || '').toLowerCase().split('-')[0];
+  if (activeCodes.has(server)) return setAppLocale(server);
+  return setAppLocale(DEFAULT_LOCALE);
+}
+
 export function getAppLocale() {
   const lng = i18n.language || DEFAULT_LOCALE;
   return String(lng).split('-')[0];

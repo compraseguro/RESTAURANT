@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ORDER_TYPES, formatTime, parseApiDate } from '../../utils/api';
-import LanguageSwitcher from '../../components/LanguageSwitcher';
 import { getKitchenOrderNotesDisplay } from '../../utils/reservationKitchenNotes';
 import { useSocket, useSocketEmit } from '../../hooks/useSocket';
 import { useActiveInterval } from '../../hooks/useActiveInterval';
 import { useAuth } from '../../context/AuthContext';
+import { useAppLocaleBootstrap } from '../../hooks/useAppLocaleBootstrap';
 import EndShiftModal from '../../components/EndShiftModal';
 import { MdKitchen, MdLocalBar, MdLogout, MdRestaurant, MdDeliveryDining, MdTableBar, MdCheckCircle, MdAccessTime, MdPrint } from 'react-icons/md';
 import toast from 'react-hot-toast';
@@ -35,6 +35,7 @@ export default function KitchenPanel({ station = 'cocina' }) {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
   const { user } = useAuth();
+  useAppLocaleBootstrap();
   const [endShiftOpen, setEndShiftOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -202,7 +203,6 @@ export default function KitchenPanel({ station = 'cocina' }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <LanguageSwitcher compact />
           <div className="flex flex-wrap items-center gap-2">
             {[
               { v: 'all', l: t('panel.filterAll') },

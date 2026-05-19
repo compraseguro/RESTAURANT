@@ -34,7 +34,7 @@ import {
   MdAutoGraph,
 } from 'react-icons/md';
 import { applyUiThemeFromAppSettings } from '../../theme/uiTheme';
-import { setAppLocale } from '../../i18n';
+import { applyResolvedAppLocale, setAppLocale } from '../../i18n';
 import SettingsAppearancePanel from '../../components/settings/SettingsAppearancePanel';
 import { useSocket } from '../../hooks/useSocket';
 import { useConfigHub } from '../../hooks/useConfigHub';
@@ -402,8 +402,7 @@ export default function Settings() {
         setAppSettings(normalized);
         setAppSettingsSnapshot(serializeAppSettings(normalized));
         applyUiThemeFromAppSettings(normalized, currentUser?.id);
-        const uiLang = String(normalized?.regional?.language || '').toLowerCase();
-        if (uiLang === 'es' || uiLang === 'en') void setAppLocale(uiLang);
+        void applyResolvedAppLocale(normalized?.regional?.language);
       })
       .catch(() => {
         setAppSettings(DEFAULT_APP_SETTINGS);

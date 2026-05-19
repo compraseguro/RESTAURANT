@@ -2,7 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { queryAll, queryOne, runSql } = require('../database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const { FINANCIAL_FILTER_SQL } = require('../businessRules');
+const { FINANCIAL_FILTER_SQL, LOCAL_TODAY_SQL, getLocalTodayDateKey } = require('../businessRules');
 const { getEffectiveFlat } = require('../services/businessConfigService');
 const { emitStaffDataUpdate } = require('../socketBroadcast');
 
@@ -51,7 +51,7 @@ function buildOperationalIntelligence(opts = {}) {
   const slowMovingDays = Math.min(365, Math.max(1, Math.round(Number(biz.auto_slow_moving_days ?? 14))));
   const predHorizonDays = Math.min(180, Math.max(1, Math.round(Number(biz.pred_horizon_days ?? 14))));
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalTodayDateKey();
   const tablesWithActiveOrders = queryOne(
     `SELECT COUNT(DISTINCT TRIM(o.table_number)) as count
      FROM orders o
@@ -86,11 +86,10 @@ function buildOperationalIntelligence(opts = {}) {
   const peakHourToday = queryOne(
     `SELECT ${SALES_EVENT_HOUR_SQL} as hour, COALESCE(SUM(total), 0) as total
      FROM orders
-     WHERE ${SALES_EVENT_DATE_SQL} = ? AND ${FINANCIAL_FILTER}
+     WHERE ${SALES_EVENT_DATE_SQL} = ${LOCAL_TODAY_SQL} AND ${FINANCIAL_FILTER}
      GROUP BY ${SALES_EVENT_HOUR_SQL}
      ORDER BY total DESC
-     LIMIT 1`,
-    [today]
+     LIMIT 1`
   );
   const barPreparingDistinct = queryOne(
     `SELECT COUNT(DISTINCT o.id) as count
@@ -475,13 +474,17 @@ function financeMonthToDateSnapshot() {
 }
 
 router.get('/dashboard', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
-  const todaySales = queryOne(`SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ? AND ${FINANCIAL_FILTER}`, [today]);
+  const today = getLocalTodayDateKey();
+  const todaySales = queryOne(
+    `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ${LOCAL_TODAY_SQL} AND ${FINANCIAL_FILTER}`
+  );
   const monthSales = queryOne(`SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE ${SALES_EVENT_MONTH_SQL} = strftime('%Y-%m', 'now', 'localtime') AND ${FINANCIAL_FILTER}`);
   const topProducts = queryAll(`SELECT oi.product_name, SUM(oi.quantity) as total_sold, SUM(oi.subtotal) as total_revenue FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE o.status != 'cancelled' AND o.payment_status = 'paid' AND ${SALES_EVENT_ORDER_MONTH_SQL} = strftime('%Y-%m', 'now', 'localtime') GROUP BY oi.product_name ORDER BY total_sold DESC LIMIT 10`);
   const recentOrders = queryAll('SELECT * FROM orders ORDER BY created_at DESC LIMIT 10');
   recentOrders.forEach(o => { o.items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [o.id]); });
-  const paymentMethods = queryAll(`SELECT payment_method, COUNT(*) as count, SUM(total) as total FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ? AND ${FINANCIAL_FILTER} GROUP BY payment_method`, [today]);
+  const paymentMethods = queryAll(
+    `SELECT payment_method, COUNT(*) as count, SUM(total) as total FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ${LOCAL_TODAY_SQL} AND ${FINANCIAL_FILTER} GROUP BY payment_method`
+  );
 
   const op = buildOperationalIntelligence({ role: req.user?.role });
   const financeMonth = financeMonthToDateSnapshot();
@@ -519,28 +522,24 @@ router.get('/operational-alerts', authenticateToken, requireRole('admin', 'cajer
 });
 
 router.get('/daily', authenticateToken, requireRole('admin', 'cajero'), (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalTodayDateKey();
 
   const register = queryOne("SELECT * FROM cash_registers WHERE closed_at IS NULL ORDER BY opened_at DESC LIMIT 1");
 
   const sales = queryOne(
-    `SELECT COUNT(*) as order_count, COALESCE(SUM(total), 0) as total_sales, COALESCE(SUM(subtotal), 0) as subtotal, COALESCE(SUM(tax), 0) as total_tax, COALESCE(SUM(discount), 0) as total_discount, COALESCE(SUM(tip_amount), 0) as total_tips FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ? AND ${FINANCIAL_FILTER}`,
-    [today]
+    `SELECT COUNT(*) as order_count, COALESCE(SUM(total), 0) as total_sales, COALESCE(SUM(subtotal), 0) as subtotal, COALESCE(SUM(tax), 0) as total_tax, COALESCE(SUM(discount), 0) as total_discount, COALESCE(SUM(tip_amount), 0) as total_tips FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ${LOCAL_TODAY_SQL} AND ${FINANCIAL_FILTER}`
   );
 
   const hourly = queryAll(
-    `SELECT ${SALES_EVENT_HOUR_SQL} as hour, COUNT(*) as orders, COALESCE(SUM(total), 0) as total FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ? AND ${FINANCIAL_FILTER} GROUP BY ${SALES_EVENT_HOUR_SQL} ORDER BY hour`,
-    [today]
+    `SELECT ${SALES_EVENT_HOUR_SQL} as hour, COUNT(*) as orders, COALESCE(SUM(total), 0) as total FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ${LOCAL_TODAY_SQL} AND ${FINANCIAL_FILTER} GROUP BY ${SALES_EVENT_HOUR_SQL} ORDER BY hour`
   );
 
   const paymentMethods = queryAll(
-    `SELECT payment_method, COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ? AND ${FINANCIAL_FILTER} GROUP BY payment_method`,
-    [today]
+    `SELECT payment_method, COUNT(*) as count, COALESCE(SUM(total), 0) as total FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ${LOCAL_TODAY_SQL} AND ${FINANCIAL_FILTER} GROUP BY payment_method`
   );
 
   const orders = queryAll(
-    `SELECT * FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ? ORDER BY ${SALES_EVENT_AT_SQL} DESC`,
-    [today]
+    `SELECT * FROM orders WHERE ${SALES_EVENT_DATE_SQL} = ${LOCAL_TODAY_SQL} ORDER BY ${SALES_EVENT_AT_SQL} DESC`
   );
   orders.forEach(o => { o.items = queryAll('SELECT * FROM order_items WHERE order_id = ?', [o.id]); });
 

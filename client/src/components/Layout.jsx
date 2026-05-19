@@ -8,10 +8,11 @@ import { useSocket } from '../hooks/useSocket';
 import { MdMenu, MdPointOfSale, MdLock, MdAdminPanelSettings } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from './LanguageSwitcher';
+import { useAppLocaleBootstrap } from '../hooks/useAppLocaleBootstrap';
 
 export default function Layout() {
   const { t } = useTranslation('common');
+  useAppLocaleBootstrap();
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -84,7 +85,6 @@ export default function Layout() {
             </button>
           </div>
           <div className="flex items-center gap-3">
-            <LanguageSwitcher compact className="hidden sm:flex" />
             {user?.role === 'master_admin' && (
               <Link
                 to="/master"

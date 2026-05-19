@@ -58,7 +58,9 @@ export default function SettingsRegionalPanel({ regional, setRegional, onSave, s
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Idioma sistema</label>
+            <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">
+              {t('regional.systemLanguage', { defaultValue: 'Idioma del sistema' })}
+            </label>
             <select
               className="input-field"
               value={regional?.language || 'es'}
@@ -71,6 +73,11 @@ export default function SettingsRegionalPanel({ regional, setRegional, onSave, s
               <option value="es">{tc('language.es')}</option>
               <option value="en">{tc('language.en')}</option>
             </select>
+            <p className="text-xs text-[var(--ui-muted)] mt-1">
+              {t('regional.systemLanguageHint', {
+                defaultValue: 'Se aplica al guardar y se mantiene en este equipo. Configuración → Configuración regional.',
+              })}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-[var(--ui-body-text)] mb-1">Idioma tickets</label>

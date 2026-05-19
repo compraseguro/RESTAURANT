@@ -128,6 +128,18 @@ export default function Escritorio() {
     () => scopedOrders.filter(o => o.payment_status === 'paid'),
     [scopedOrders]
   );
+  const todayDateKey = useMemo(() => toInputDate(new Date()), []);
+  const paidOrdersToday = useMemo(
+    () => orders.filter((o) => {
+      if (o.status === 'cancelled' || o.payment_status !== 'paid') return false;
+      return toLocalDateKey(o.updated_at || o.created_at) === todayDateKey;
+    }),
+    [orders, todayDateKey],
+  );
+  const paidOrdersTodayTotal = useMemo(
+    () => paidOrdersToday.reduce((sum, o) => sum + Number(o.total || 0), 0),
+    [paidOrdersToday],
+  );
   const paidOrdersCount = useMemo(
     () => scopedOrdersAll.filter(o => o.status !== 'cancelled' && o.payment_status === 'paid').length,
     [scopedOrdersAll]
@@ -404,7 +416,7 @@ export default function Escritorio() {
             <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2">
               <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">Ventas hoy</p>
               <p className="text-lg font-bold text-[var(--ui-body-text)] tabular-nums">{formatCurrency(Number(liveDash.today?.total || 0))}</p>
-              <p className="text-[11px] text-[var(--ui-muted)]">{Number(liveDash.today?.count || 0)} pedidos</p>
+              <p className="text-[11px] text-[var(--ui-muted)]">{Number(liveDash.today?.count || 0)} cobradas · día local</p>
             </div>
             <div className="rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-2)] px-3 py-2">
               <p className="text-[10px] uppercase tracking-wide text-[var(--ui-muted)]">Pedidos activos</p>
@@ -548,8 +560,15 @@ export default function Escritorio() {
           </button>
           <button onClick={() => navigate('/admin/caja')} className="text-left p-3 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 transition-colors">
             <div className="flex items-center gap-2 text-sky-700 font-semibold"><MdPointOfSale /> Caja</div>
-            <p className="text-2xl font-bold text-sky-800 mt-1">{paidOrders.length}</p>
-            <p className="text-xs text-sky-700">Ventas cobradas ({datePreset === 'total' ? 'total' : 'rango'})</p>
+            <p className="text-2xl font-bold text-sky-800 mt-1">{paidOrdersToday.length}</p>
+            <p className="text-xs text-sky-700">
+              Cobradas hoy · {formatCurrency(paidOrdersTodayTotal)}
+            </p>
+            {datePreset !== 'total' && paidOrders.length !== paidOrdersToday.length ? (
+              <p className="text-[10px] text-sky-600 mt-0.5">
+                En el período: {paidOrders.length} · {formatCurrency(totalSales)}
+              </p>
+            ) : null}
           </button>
         </div>
       </div>

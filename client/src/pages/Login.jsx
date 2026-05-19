@@ -6,7 +6,7 @@ import { api, resolveMediaUrl } from '../utils/api';
 import toast from 'react-hot-toast';
 import { MdStorefront, MdPerson, MdLock, MdVisibility, MdVisibilityOff, MdArrowBack, MdCameraAlt } from 'react-icons/md';
 import AttendancePhotoCapture from '../components/AttendancePhotoCapture';
-import LanguageSwitcher from '../components/LanguageSwitcher';
+import { getStoredAppLocale, setAppLocale } from '../i18n';
 
 function getRoleRoute(role) {
   if (role === 'master_admin') return '/master';
@@ -40,6 +40,11 @@ export default function Login() {
 
   const photosRequired = attendancePolicy.loginRequired;
   const policyReady = !attendancePolicy.loading;
+
+  useEffect(() => {
+    const stored = getStoredAppLocale();
+    if (stored) void setAppLocale(stored);
+  }, []);
 
   useEffect(() => {
     api
@@ -114,9 +119,6 @@ export default function Login() {
 
   return (
     <div className="rf-login-shell min-h-screen bg-[var(--ui-body-bg)] text-[var(--ui-body-text)] flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-4 right-4 z-20">
-        <LanguageSwitcher compact />
-      </div>
       <div className="absolute top-0 left-0 w-96 h-96 bg-[var(--ui-accent)]/15 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-[var(--ui-accent)]/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none" />
       <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-[var(--ui-surface)]/30 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />

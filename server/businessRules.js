@@ -88,8 +88,18 @@ function assertPaymentMethodAllowed(method, { allowOnline = false } = {}) {
 
 const FINANCIAL_FILTER_SQL = "status != 'cancelled' AND payment_status = 'paid'";
 
+/** Fecha calendario local del servidor SQLite (no UTC de JavaScript). */
+const LOCAL_TODAY_SQL = "date('now', 'localtime')";
+
+function getLocalTodayDateKey() {
+  const row = queryOne(`SELECT ${LOCAL_TODAY_SQL} as d`);
+  return row?.d || '';
+}
+
 module.exports = {
   FINANCIAL_FILTER_SQL,
+  LOCAL_TODAY_SQL,
+  getLocalTodayDateKey,
   getAllowedPaymentMethods,
   normalizePaymentMethod,
   isPaymentMethodAllowed,
