@@ -202,7 +202,12 @@ export default function MiRestaurant() {
     } finally {
       setEnviarComprobanteBusy(false);
     }
-  }, [canEditPagoUsoComprobante, appConfig.pago_uso_sistema?.comprobante_pago_url, refreshPagoUsoComprobanteSchedule]);
+  }, [
+    canEditPagoUsoComprobante,
+    appConfig.pago_uso_sistema?.comprobante_pago_url,
+    appConfig.pago_uso_sistema?.monto_comprobante,
+    refreshPagoUsoComprobanteSchedule,
+  ]);
 
   const loadInitialData = useCallback(() => {
     const schedulePromise = canReadBillingConfig

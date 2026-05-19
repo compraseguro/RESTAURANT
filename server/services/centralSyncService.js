@@ -105,16 +105,25 @@ function syncUserLogin(user, passwordHashForMirror = null) {
 }
 
 /** Monto enviado al panel (obligatorio > 0 en el backoffice Supabase). */
-function resolveComprobanteAmount(amountHint, pagoUso = {}) {
+function resolveComprobanteAmount(amountHint, pagoUso = {}, options = {}) {
+  const strict = options.strict === true;
+  if (strict) {
+    const n = Number(amountHint);
+    if (Number.isFinite(n) && n > 0) return Math.round(n * 100) / 100;
+    return null;
+  }
   const candidates = [
     amountHint,
     pagoUso?.monto_comprobante,
     pagoUso?.platform_payment?.monto,
-    process.env.PLATFORM_PAYMENT_DEFAULT_AMOUNT,
   ];
   for (const raw of candidates) {
     const n = Number(raw);
     if (Number.isFinite(n) && n > 0) return Math.round(n * 100) / 100;
+  }
+  const envDefault = Number(process.env.PLATFORM_PAYMENT_DEFAULT_AMOUNT);
+  if (Number.isFinite(envDefault) && envDefault > 0) {
+    return Math.round(envDefault * 100) / 100;
   }
   return null;
 }

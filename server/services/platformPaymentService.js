@@ -91,15 +91,36 @@ function legacyConfirmComprobanteOnUpload(urlTrimmed) {
   releaseAutoLockIfComprobantePresent(urlTrimmed, { legacySuccessMessage: true });
 }
 
+/** Panel Vercel/Supabase envuelve respuestas en { success, data: { ... } }. */
+function unwrapCentralApiBody(data) {
+  if (!data || typeof data !== 'object') return data;
+  const inner = data.data;
+  if (inner && typeof inner === 'object' && (data.success === true || data.ok === true)) {
+    return inner;
+  }
+  return data;
+}
+
+function pickRemotePaymentEstado(payload) {
+  const d = unwrapCentralApiBody(payload);
+  if (!d || typeof d !== 'object') return null;
+  return normalizePaymentEstado(
+    d.paymentStatus
+      || d.estado
+      || d.status
+      || d.payment?.paymentStatus
+      || d.payment?.estado
+      || d.payment?.status,
+  );
+}
+
 async function fetchCentralStatus(referencia) {
   if (!isCentralSyncConfigured()) return { skipped: true };
   const { fetchCentralLicenseStatus } = require('./centralSyncService');
   const licenseRes = await fetchCentralLicenseStatus();
   if (licenseRes?.ok && licenseRes.data) {
-    const d = licenseRes.data;
-    const remoteEstado = normalizePaymentEstado(
-      d.paymentStatus || d.payment?.estado,
-    );
+    const d = unwrapCentralApiBody(licenseRes.data);
+    const remoteEstado = pickRemotePaymentEstado(d);
     if (remoteEstado) {
       return {
         ok: true,
@@ -135,7 +156,16 @@ async function fetchCentralStatus(referencia) {
     if (!res.ok) {
       return { ok: false, status: res.status, data };
     }
-    return { ok: true, data };
+    const unwrapped = unwrapCentralApiBody(data);
+    const remoteEstado = pickRemotePaymentEstado(unwrapped);
+    return {
+      ok: true,
+      data: {
+        ...unwrapped,
+        estado: remoteEstado || unwrapped.estado,
+        payment: unwrapped.payment || unwrapped,
+      },
+    };
   } catch (err) {
     return { ok: false, error: err.message || String(err) };
   }
@@ -469,7 +499,10 @@ async function submitComprobanteToPanel({ comprobanteUrl, monto = null } = {}) {
 
   const { resolveComprobanteAmount } = require('./centralSyncService');
   const pagoForAmount = readPagoUso();
-  const resolvedMonto = resolveComprobanteAmount(monto, pagoForAmount);
+  const resolvedMonto =
+    monto != null && Number.isFinite(Number(monto))
+      ? resolveComprobanteAmount(monto, pagoForAmount, { strict: true })
+      : resolveComprobanteAmount(null, pagoForAmount);
   if (resolvedMonto == null) {
     return {
       ok: false,

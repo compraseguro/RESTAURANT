@@ -39,6 +39,9 @@ function mapCentralSyncError(result) {
   if (raw.includes('next_public_api') || raw.includes('url pública')) {
     return 'Configure NEXT_PUBLIC_API_URL en Render con la URL pública de este POS (sin / al final).';
   }
+  if (raw.includes('clientid no registrado') || raw.includes('no registrado en el panel')) {
+    return 'El CLIENT_ID de Render no coincide con el registrado en el panel SaaS. Use el mismo clientId que muestra el backoffice (pestaña integración POS).';
+  }
   if (raw.includes('amount debe') || raw.includes('amount') && raw.includes('mayor')) {
     return 'Indique el monto pagado (S/) mayor a cero en «Pago por uso del sistema» y vuelva a enviar el comprobante.';
   }
