@@ -82,9 +82,10 @@ const DEFAULT_PRINTING_CONFIG = {
   cocina: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
   bar: { tipo: 'usb', nombre: '', ip: '', puerto: 9100, autoPrint: true, paperWidth: 80, anchoPapel: 80 },
 };
+/** Debe coincidir con el nombre exacto del asset en GitHub Releases (actual: RestoFADEY.Setup.exe). */
 const DESKTOP_SETUP_URL =
   import.meta.env.VITE_DESKTOP_SETUP_URL ||
-  'https://github.com/MECATRONIC-MEN/RESTAURANT/releases/download/RestoFADEY_Desktop_v1.2.0/RestoFADEY%20Setup.exe';
+  'https://github.com/MECATRONIC-MEN/RESTAURANT/releases/latest/download/RestoFADEY.Setup.exe';
 const PRINTING_CONFIG_CACHE_KEY = 'resto_printing_config_cache_v1';
 
 const MENU_ITEMS = [
@@ -609,11 +610,19 @@ export default function Settings() {
       .finally(() => setPrintingBusy(false));
   };
   const openDesktopInstaller = () => {
-    try {
-      window.open(DESKTOP_SETUP_URL, '_blank', 'noopener,noreferrer');
-    } catch (_) {
-      window.location.href = DESKTOP_SETUP_URL;
+    const url = String(DESKTOP_SETUP_URL || '').trim();
+    if (!url) {
+      toast.error('No hay URL de instalador configurada (VITE_DESKTOP_SETUP_URL).');
+      return;
     }
+    const a = document.createElement('a');
+    a.href = url;
+    a.rel = 'noopener noreferrer';
+    a.target = '_blank';
+    a.download = 'RestoFADEY-Setup.exe';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
   const verifyPrintingLink = async () => {
     setPrintingLinkStatus((prev) => ({ ...prev, checking: true }));

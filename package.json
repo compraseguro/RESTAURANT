@@ -84,7 +84,7 @@
           ]
         }
       ],
-      "artifactName": "RestoFADEY Setup.exe",
+      "artifactName": "RestoFADEY.Setup.exe",
       "icon": "client/public/icon-512.png",
       "signAndEditExecutable": false
     },
