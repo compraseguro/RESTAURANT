@@ -8,10 +8,38 @@ const {
   pollAndApplyPaymentStatus,
   pushComprobanteToCentral,
   submitComprobanteToPanel,
+  clearComprobanteDraft,
   readPagoUso,
 } = require('../services/platformPaymentService');
 
 router.use(authenticateToken, requireRole('admin', 'master_admin'));
+
+const { getCentralSyncConfigDiagnostics } = require('../../packages/shared-config');
+
+/** GET /api/platform-payments/diagnostic — por qué falla el envío (sin secretos) */
+router.get('/diagnostic', (req, res) => {
+  const { getPublicPlatformPaymentState } = require('../services/platformPaymentService');
+  const diag = getCentralSyncConfigDiagnostics();
+  const sync = getSyncStatus();
+  const payment = getPublicPlatformPaymentState();
+  return res.json({
+    configured: diag.configured,
+    missingEnvVars: diag.missing,
+    centralPlatformUrl: sync.centralPlatformUrl,
+    clientId: sync.clientId,
+    hasPublicApiUrl: sync.hasPublicApiUrl,
+    paymentsEndpoint: sync.paymentsEndpoint,
+    lastSyncOk: payment.last_central_sync_ok,
+    lastSyncError: payment.last_central_sync_error || null,
+    checklist: [
+      { ok: Boolean(sync.clientId), label: 'CLIENT_ID en Render' },
+      { ok: diag.configured && !diag.missing.includes('API_SECRET_KEY'), label: 'API_SECRET_KEY (igual en POS y panel)' },
+      { ok: Boolean(sync.centralPlatformUrl), label: 'CENTRAL_API_URL' },
+      { ok: sync.hasPublicApiUrl, label: 'NEXT_PUBLIC_API_URL (URL pública del POS)' },
+      { ok: payment.last_central_sync_ok === true, label: 'Último envío al panel exitoso' },
+    ],
+  });
+});
 
 /** GET /api/platform-payments/status — estado local + sincronización con central */
 router.get('/status', async (req, res) => {
@@ -26,6 +54,32 @@ router.get('/status', async (req, res) => {
       ...getPublicPlatformPaymentState(),
       central_sync: getSyncStatus(),
       central_user_message: 'No se pudo consultar el estado del pago. Intente más tarde.',
+    });
+  }
+});
+
+/** POST /api/platform-payments/clear — quita comprobante (solo si no está aprobado) */
+router.post('/clear', async (req, res) => {
+  try {
+    const isMaster = String(req.user?.role || '').toLowerCase() === 'master_admin';
+    const pago = readPagoUso();
+    const previousUrl = String(pago.comprobante_pago_url || '').trim();
+    assertComprobantePagoUsoChangeAllowed({
+      isMaster,
+      incomingUrl: '',
+      previousUrl,
+    });
+    const result = clearComprobanteDraft();
+    return res.status(200).json({
+      ok: result.ok,
+      payment: getPublicPlatformPaymentState(),
+      central_sync: getSyncStatus(),
+      central_user_message: result.central_user_message || '',
+    });
+  } catch (err) {
+    return res.status(200).json({
+      ok: false,
+      central_user_message: err.message || 'No se pudo quitar el comprobante.',
     });
   }
 });

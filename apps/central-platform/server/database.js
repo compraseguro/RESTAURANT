@@ -54,6 +54,8 @@ async function initDatabase() {
       estado TEXT DEFAULT 'pending',
       periodo_facturacion TEXT DEFAULT 'mensual',
       fecha_proxima_facturacion TEXT DEFAULT '',
+      admin_name TEXT DEFAULT '',
+      admin_email TEXT DEFAULT '',
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -94,8 +96,21 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_payments_estado ON payments(estado);
     CREATE INDEX IF NOT EXISTS idx_sync_events_client ON sync_events(client_id);
   `);
+  migratePaymentsColumns();
   persist();
   return db;
+}
+
+/** Columnas añadidas después del primer deploy (SQLite no altera CREATE IF NOT EXISTS). */
+function migratePaymentsColumns() {
+  const cols = queryAll('PRAGMA table_info(payments)');
+  const names = new Set(cols.map((c) => c.name));
+  if (!names.has('admin_name')) {
+    db.run('ALTER TABLE payments ADD COLUMN admin_name TEXT DEFAULT \'\'');
+  }
+  if (!names.has('admin_email')) {
+    db.run('ALTER TABLE payments ADD COLUMN admin_email TEXT DEFAULT \'\'');
+  }
 }
 
 function persist() {

@@ -406,6 +406,21 @@ function getPublicPlatformPaymentState() {
   };
 }
 
+/** Quita comprobante local (antes de enviar o si aún no fue aprobado). */
+function clearComprobanteDraft() {
+  const pago = readPagoUso();
+  const pp = pago.platform_payment || {};
+  const estado = normalizePaymentEstado(pp.estado);
+  if (estado === PAYMENT_STATUSES.APPROVED) {
+    return { ok: false, central_user_message: 'No puede quitar un comprobante ya aprobado.' };
+  }
+  pago.comprobante_pago_url = '';
+  delete pago.platform_payment;
+  writePagoUso(pago);
+  clearNotificationsByTitle(PENDING_NOTIFICATION_TITLE);
+  return { ok: true };
+}
+
 /** Guarda URL local y envía comprobante al panel SaaS (acción explícita «Enviar comprobante»). */
 async function submitComprobanteToPanel({ comprobanteUrl, monto = null } = {}) {
   const url = String(comprobanteUrl || readPagoUso().comprobante_pago_url || '').trim();
@@ -467,6 +482,10 @@ async function submitComprobanteToPanel({ comprobanteUrl, monto = null } = {}) {
           ok: false,
           error: pp.last_central_sync_error,
           last_central_sync_error: pp.last_central_sync_error,
+          status: (() => {
+            const m = String(pp.last_central_sync_error || '').match(/HTTP\s+(\d+)/i);
+            return m ? Number(m[1]) : undefined;
+          })(),
         }),
   };
 }
@@ -498,6 +517,7 @@ module.exports = {
   fetchCentralStatus,
   pushComprobanteToCentral,
   submitComprobanteToPanel,
+  clearComprobanteDraft,
   readPagoUso,
   writePagoUso,
 };

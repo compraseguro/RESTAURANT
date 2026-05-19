@@ -606,7 +606,11 @@ function buildPagoUsoComprobanteUiState() {
     comprobante_upload_start: uploadStart,
     comprobante_upload_deadline: deadline,
     upload_comprobante_allowed: uploadOk,
-    quitar_comprobante_allowed: diffDays(today, nextDue) <= 0,
+    quitar_comprobante_allowed: (() => {
+      const estado = String(platformPayment?.estado || '').toLowerCase();
+      if (estado === 'aprobado' || estado === 'approved') return false;
+      return true;
+    })(),
     upload_comprobante_message: msg,
     has_comprobante: hasUrl,
     days_until_fecha_proxima: daysToDue,
@@ -622,8 +626,16 @@ function assertComprobantePagoUsoChangeAllowed({ isMaster, incomingUrl, previous
   const prev = String(previousUrl ?? '').trim();
 
   if (!inc && prev) {
-    if (todayBeforeDue(st)) {
-      throw new Error('No puede quitar el comprobante antes de la fecha de facturación de pago por uso.');
+    const pagoRow = queryOne('SELECT value FROM app_settings WHERE key = ?', ['pago_uso_sistema']);
+    let pp = {};
+    try {
+      pp = pagoRow?.value ? JSON.parse(pagoRow.value).platform_payment || {} : {};
+    } catch (_) {
+      pp = {};
+    }
+    const estado = String(pp.estado || '').toLowerCase();
+    if (estado === 'aprobado' || estado === 'approved') {
+      throw new Error('No puede quitar un comprobante ya aprobado.');
     }
     return;
   }

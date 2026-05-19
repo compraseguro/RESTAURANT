@@ -150,6 +150,28 @@ export default function MiRestaurant() {
     }
   }, [canReadBillingConfig, refreshPagoUsoComprobanteSchedule]);
 
+  const quitarComprobantePagoUso = useCallback(async () => {
+    if (!canEditPagoUsoComprobante) {
+      toast.error('No tienes permiso para quitar el comprobante.');
+      return;
+    }
+    try {
+      const res = await api.post('/platform-payments/clear');
+      setAppConfig((prev) => ({
+        ...prev,
+        pago_uso_sistema: { ...(prev.pago_uso_sistema || {}), comprobante_pago_url: '' },
+      }));
+      await refreshPagoUsoComprobanteSchedule();
+      if (res?.ok === false && res?.central_user_message) {
+        toast.error(res.central_user_message);
+      } else {
+        toast.success('Comprobante quitado. Puede cargar otro archivo.');
+      }
+    } catch (err) {
+      toast.error(err.message || 'No se pudo quitar el comprobante.');
+    }
+  }, [canEditPagoUsoComprobante, refreshPagoUsoComprobanteSchedule]);
+
   const enviarComprobanteAlPanel = useCallback(async () => {
     if (!canEditPagoUsoComprobante) {
       toast.error('No tienes permiso para enviar el comprobante.');
@@ -1126,10 +1148,12 @@ export default function MiRestaurant() {
                       const restrictComprobanteForRestaurant =
                         isRestaurantAdmin && !isMasterAdmin && Boolean(compUi?.policy_active);
                       const blockUpload = restrictComprobanteForRestaurant && !compUi.upload_comprobante_allowed;
-                      const blockRemove = restrictComprobanteForRestaurant && !compUi.quitar_comprobante_allowed;
+                      const ppUi = compUi?.platform_payment;
+                      const comprobanteAprobado = Boolean(ppUi?.show_approved_banner);
+                      const blockRemove = comprobanteAprobado
+                        || (restrictComprobanteForRestaurant && compUi.quitar_comprobante_allowed === false);
                       const hideComprobanteUi =
-                        compUi?.platform_payment?.comprobante_oculto_ui
-                        || compUi?.platform_payment?.show_approved_banner;
+                        ppUi?.comprobante_oculto_ui || comprobanteAprobado;
                       const showComprobanteEnPanel =
                         appConfig.pago_uso_sistema?.comprobante_pago_url
                         && !hideComprobanteUi;
@@ -1164,7 +1188,7 @@ export default function MiRestaurant() {
                                 type="button"
                                 className="text-sm text-red-600 hover:underline disabled:opacity-50"
                                 disabled={!canEditPagoUsoComprobante || blockRemove}
-                                onClick={() => updateAppCfg('pago_uso_sistema', 'comprobante_pago_url', '')}
+                                onClick={() => quitarComprobantePagoUso()}
                               >
                                 Quitar
                               </button>
@@ -1179,6 +1203,11 @@ export default function MiRestaurant() {
                     const hidePreview = pp?.comprobante_oculto_ui || pp?.show_approved_banner;
                     const url = appConfig.pago_uso_sistema?.comprobante_pago_url;
                     const enviadoOk = pp?.estado === 'pendiente' && pp?.last_central_sync_ok === true;
+                    const compUiPrev = pagoUsoComprobanteUi;
+                    const restrictRm =
+                      isRestaurantAdmin && !isMasterAdmin && Boolean(compUiPrev?.policy_active);
+                    const blockRemovePreview = Boolean(pp?.show_approved_banner)
+                      || (restrictRm && compUiPrev?.quitar_comprobante_allowed === false);
                     if (!url || hidePreview) return null;
                     const isPdf = String(url).toLowerCase().endsWith('.pdf');
                     return (
@@ -1195,18 +1224,28 @@ export default function MiRestaurant() {
                           <p className="text-sm text-[var(--ui-muted)]">PDF listo para enviar.</p>
                         )}
                         {canEditPagoUsoComprobante ? (
-                          <button
-                            type="button"
-                            className="btn-primary text-sm px-4 py-2 disabled:opacity-60"
-                            disabled={enviarComprobanteBusy || enviadoOk}
-                            onClick={() => enviarComprobanteAlPanel()}
-                          >
-                            {enviarComprobanteBusy
-                              ? 'Enviando…'
-                              : enviadoOk
-                                ? 'Comprobante enviado'
-                                : 'Enviar comprobante'}
-                          </button>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              className="btn-primary text-sm px-4 py-2 disabled:opacity-60"
+                              disabled={enviarComprobanteBusy}
+                              onClick={() => enviarComprobanteAlPanel()}
+                            >
+                              {enviarComprobanteBusy
+                                ? 'Enviando…'
+                                : enviadoOk
+                                  ? 'Reenviar comprobante'
+                                  : 'Enviar comprobante'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-secondary text-sm px-4 py-2 disabled:opacity-60"
+                              disabled={blockRemovePreview}
+                              onClick={() => quitarComprobantePagoUso()}
+                            >
+                              Quitar
+                            </button>
+                          </div>
                         ) : null}
                       </div>
                     );
@@ -1223,7 +1262,7 @@ export default function MiRestaurant() {
                   </>
                 ) : (
                   <>
-                    Cargue el archivo y pulse <strong>Enviar comprobante</strong> para mandarlo a revisión central.
+                    Cargue el archivo, use <strong>Quitar</strong> si se equivocó, y pulse <strong>Enviar comprobante</strong> cuando esté listo.
                   </>
                 )}
               </div>
