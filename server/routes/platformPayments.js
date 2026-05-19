@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { getSyncStatus } = require('../services/centralSyncService');
+const { mapCentralSyncError } = require('../services/saasPanelErrors');
 const {
   getPublicPlatformPaymentState,
   pollAndApplyPaymentStatus,
@@ -18,7 +19,11 @@ router.get('/status', async (req, res) => {
       central_sync: getSyncStatus(),
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Error al consultar pago' });
+    return res.status(200).json({
+      ...getPublicPlatformPaymentState(),
+      central_sync: getSyncStatus(),
+      central_user_message: 'No se pudo consultar el estado del pago. Intente más tarde.',
+    });
   }
 });
 
@@ -30,9 +35,14 @@ router.post('/resync', async (req, res) => {
       sync: result,
       payment: getPublicPlatformPaymentState(),
       central_sync: getSyncStatus(),
+      central_user_message: mapCentralSyncError(result),
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Error al reenviar pago' });
+    return res.status(200).json({
+      payment: getPublicPlatformPaymentState(),
+      central_sync: getSyncStatus(),
+      central_user_message: 'No se pudo conectar. Use «Reintentar envío».',
+    });
   }
 });
 

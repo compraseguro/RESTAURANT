@@ -1,6 +1,6 @@
 /**
- * Sincronización hacia https://restofadey.pe sin fusionar bases de datos locales.
- * Solo eventos SaaS: pagos, vouchers, planes, licencias, login.
+ * Puente SaaS hacia el panel central: solo comprobantes y licencia por defecto.
+ * Sync extendido (login, planes, eventos) requiere CENTRAL_SYNC_EXTENDED=1.
  */
 const { queryOne } = require('../database');
 const { getControlConfig } = require('../masterAdminService');
@@ -8,6 +8,7 @@ const { normalizePlan } = require('../servicePlan');
 const {
   readClientIdentity,
   isCentralSyncConfigured,
+  isExtendedCentralSyncConfigured,
   getCentralSyncConfigDiagnostics,
 } = require('../../packages/shared-config');
 const { createCentralSyncClient } = require('../../packages/shared-api');
@@ -29,7 +30,7 @@ function resolvePublicVoucherUrl(relativeUrl) {
     identity.publicApiUrl
     || process.env.PUBLIC_API_BASE_URL
     || process.env.NEXT_PUBLIC_API_URL
-    || ''
+    || '',
   ).replace(/\/$/, '');
   if (!base) return url;
   return `${base}${url.startsWith('/') ? url : `/${url}`}`;
@@ -54,6 +55,19 @@ function getRestaurantContext() {
   };
 }
 
+function getAdminContact() {
+  const row = queryOne(
+    `SELECT email, full_name FROM users
+     WHERE lower(role) IN ('admin','master_admin') AND is_active = 1
+     ORDER BY CASE WHEN lower(role) = 'admin' THEN 0 ELSE 1 END, created_at ASC
+     LIMIT 1`,
+  );
+  return {
+    adminName: String(row?.full_name || '').trim(),
+    adminEmail: String(row?.email || '').trim(),
+  };
+}
+
 function fireAndForget(promiseFactory) {
   if (!isCentralSyncConfigured()) return;
   Promise.resolve()
@@ -63,8 +77,9 @@ function fireAndForget(promiseFactory) {
     });
 }
 
-/** Login de personal: actividad + espejo de usuario para dashboard central (mismo email/contraseña). */
+/** Login → central solo con CENTRAL_SYNC_EXTENDED=1 */
 function syncUserLogin(user, passwordHashForMirror = null) {
+  if (!isExtendedCentralSyncConfigured()) return;
   fireAndForget(async () => {
     const ctx = getRestaurantContext();
     const c = getClient();
@@ -89,49 +104,52 @@ function syncUserLogin(user, passwordHashForMirror = null) {
   });
 }
 
-async function buildVoucherPaymentPayload({ comprobanteUrl, reference = '', amount = null, status = PAYMENT_STATUSES.PENDING }) {
+async function buildMinimalPaymentPayload({ comprobanteUrl, reference = '', amount = null }) {
   const ctx = getRestaurantContext();
-  const pago = ctx.pagoUso || {};
-  const c = getClient();
+  const identity = readClientIdentity();
+  const admin = getAdminContact();
   const voucherAbsolute = resolvePublicVoucherUrl(comprobanteUrl);
+  const operationNumber = String(reference || '').trim() || `pago-uso-${Date.now()}`;
   return {
-    client: c,
-    payload: {
-      clientId: c.identity.clientId,
-      restaurantId: c.identity.restaurantId,
-      restaurante: ctx.restaurant?.name || '',
-      plan: ctx.plan,
-      monto: amount,
-      fecha: new Date().toISOString().slice(0, 10),
-      voucher: voucherAbsolute,
-      referencia: reference || `pago-uso-${Date.now()}`,
-      estado: status,
-      periodoFacturacion: pago.periodo_facturacion || 'mensual',
-      fechaProximaFacturacion: pago.fecha_proxima_facturacion || ctx.billingDate || '',
-    },
+    clientId: identity.clientId,
+    restaurantName: String(ctx.restaurant?.name || '').trim(),
+    adminName: admin.adminName,
+    adminEmail: admin.adminEmail,
+    plan: ctx.plan,
+    voucherUrl: voucherAbsolute,
+    amount: amount != null && Number.isFinite(Number(amount)) ? Number(amount) : null,
+    operationNumber,
+    paymentDate: new Date().toISOString().slice(0, 10),
   };
 }
 
-/** Comprobante de pago por uso del sistema → POST /api/payments (asíncrono) */
+/** Comprobante → POST /api/payments (asíncrono, payload mínimo) */
 function syncVoucherPayment(opts) {
   fireAndForget(async () => {
-    const { client: c, payload } = await buildVoucherPaymentPayload(opts);
-    await c.syncPayment(payload);
-    await c.syncEvent(SYNC_EVENT_TYPES.VOUCHER, payload);
+    const payload = await buildMinimalPaymentPayload(opts);
+    const c = getClient();
+    await c.syncMinimalPayment(payload);
+    if (isExtendedCentralSyncConfigured()) {
+      await c.syncEvent(SYNC_EVENT_TYPES.VOUCHER, payload);
+    }
   });
 }
 
-/** Misma sincronización pero espera respuesta (registro pendiente). */
+/** Envío con respuesta (registro pendiente + reintentos en platformPaymentService). */
 async function syncVoucherPaymentNow(opts) {
   if (!isCentralSyncConfigured()) return { skipped: true, reason: 'central_not_configured' };
-  const { client: c, payload } = await buildVoucherPaymentPayload(opts);
-  const payRes = await c.syncPayment(payload);
-  await c.syncEvent(SYNC_EVENT_TYPES.VOUCHER, payload);
+  const payload = await buildMinimalPaymentPayload(opts);
+  const c = getClient();
+  const payRes = await c.syncMinimalPayment(payload);
+  if (isExtendedCentralSyncConfigured() && payRes?.ok) {
+    await c.syncEvent(SYNC_EVENT_TYPES.VOUCHER, payload);
+  }
   return payRes;
 }
 
-/** Cambio de plan o renovación */
+/** Planes / licencia en central — solo modo extendido */
 function syncPlanStatus(extra = {}) {
+  if (!isExtendedCentralSyncConfigured()) return;
   fireAndForget(async () => {
     const ctx = getRestaurantContext();
     const c = getClient();
@@ -148,15 +166,15 @@ function syncPlanStatus(extra = {}) {
       await c.syncEvent(SYNC_EVENT_TYPES.PLAN_RENEWAL, payload);
     }
     await c.syncEvent(SYNC_EVENT_TYPES.LICENSE_ACTIVITY, {
-      licenseKey: c.identity.licenseKey,
+      licenseKey: c.identity.licenseKey || c.identity.clientId,
       status: ctx.locked ? 'suspended' : 'active',
       plan: ctx.plan,
     });
   });
 }
 
-/** Usuario activo (heartbeat opcional) */
 function syncUserActive(user) {
+  if (!isExtendedCentralSyncConfigured()) return;
   fireAndForget(async () => {
     const c = getClient();
     await c.syncEvent(SYNC_EVENT_TYPES.USER_ACTIVE, {
@@ -167,18 +185,26 @@ function syncUserActive(user) {
   });
 }
 
+async function fetchCentralLicenseStatus() {
+  if (!isCentralSyncConfigured()) return { skipped: true };
+  const c = getClient();
+  return c.fetchLicenseStatus(c.identity.clientId);
+}
+
 function getSyncStatus() {
   const identity = readClientIdentity();
   const diagnostics = getCentralSyncConfigDiagnostics(identity);
   return {
     configured: diagnostics.configured,
+    extendedConfigured: diagnostics.extendedConfigured,
     centralPlatformUrl: identity.centralPlatformUrl,
     clientId: identity.clientId,
-    webServiceId: identity.webServiceId,
+    webServiceId: identity.webServiceId || identity.clientId,
     restaurantId: identity.restaurantId,
     hasPublicApiUrl: diagnostics.hasPublicApiUrl,
     missingEnvVars: diagnostics.missing,
     paymentsEndpoint: `${identity.centralPlatformUrl || ''}/api/payments`,
+    licenseEndpoint: `${identity.centralPlatformUrl || ''}/api/license-status/${identity.clientId || ':clientId'}`,
   };
 }
 
@@ -189,5 +215,7 @@ module.exports = {
   syncPlanStatus,
   syncUserActive,
   getSyncStatus,
+  fetchCentralLicenseStatus,
   resolvePublicVoucherUrl,
+  buildMinimalPaymentPayload,
 };

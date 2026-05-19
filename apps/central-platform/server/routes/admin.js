@@ -104,10 +104,28 @@ router.patch('/payments/:id', (req, res) => {
   }
   const row = queryOne('SELECT id FROM payments WHERE id = ?', [req.params.id]);
   if (!row) return res.status(404).json({ error: 'Pago no encontrado' });
+  const payment = queryOne('SELECT client_id, plan FROM payments WHERE id = ?', [req.params.id]);
   runSql(
     `UPDATE payments SET estado = ?, updated_at = datetime('now') WHERE id = ?`,
     [estado, req.params.id]
   );
+  if (payment?.client_id && estado === PAYMENT_STATUSES.APPROVED) {
+    const plan = String(payment.plan || 'profesional').trim();
+    runSql(
+      `UPDATE clients SET license_status = 'active', plan = COALESCE(?, plan), updated_at = datetime('now')
+       WHERE client_id = ?`,
+      [plan, payment.client_id],
+    );
+    runSql(
+      `INSERT INTO licenses (client_id, license_key, plan, status, updated_at)
+       VALUES (?, ?, ?, 'active', datetime('now'))
+       ON CONFLICT(client_id) DO UPDATE SET
+         plan = excluded.plan,
+         status = 'active',
+         updated_at = datetime('now')`,
+      [payment.client_id, payment.client_id, plan],
+    );
+  }
   return res.json({ ok: true, id: req.params.id, estado });
 });
 

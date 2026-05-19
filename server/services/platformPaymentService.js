@@ -4,7 +4,7 @@
  */
 const { readClientIdentity, isCentralSyncConfigured } = require('../../packages/shared-config');
 const { PAYMENT_STATUSES, normalizePaymentEstado } = require('../../packages/shared-types');
-const { createCentralSyncClient } = require('../../packages/shared-api');
+const { mapCentralSyncError } = require('./saasPanelErrors');
 const { queryOne, runSql } = require('../database');
 const { proximaFechaFromControlAnchor } = require('../pagoUsoBillingSync');
 const {
@@ -19,9 +19,26 @@ const PENDING_NOTIFICATION_TITLE = 'Comprobante recibido — pendiente de aproba
 const REJECTED_NOTIFICATION_TITLE = 'Pago rechazado — Resto Fadey';
 
 const POLL_MS = Math.max(15000, Number(process.env.PLATFORM_PAYMENT_POLL_MS || 60000));
+const RETRY_DELAYS_MS = [800, 2000, 5000];
 
 let pollTimer = null;
 let pollInFlight = false;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withCentralRetry(fn) {
+  let last = null;
+  for (let i = 0; i < RETRY_DELAYS_MS.length; i += 1) {
+    last = await fn();
+    if (last?.ok || last?.skipped) return last;
+    if (i < RETRY_DELAYS_MS.length - 1) {
+      await sleep(RETRY_DELAYS_MS[i]);
+    }
+  }
+  return last;
+}
 
 function readPagoUso() {
   const row = queryOne('SELECT value FROM app_settings WHERE key = ?', [PAGO_USO_KEY]);
@@ -76,6 +93,25 @@ function legacyConfirmComprobanteOnUpload(urlTrimmed) {
 
 async function fetchCentralStatus(referencia) {
   if (!isCentralSyncConfigured()) return { skipped: true };
+  const { fetchCentralLicenseStatus } = require('./centralSyncService');
+  const licenseRes = await fetchCentralLicenseStatus();
+  if (licenseRes?.ok && licenseRes.data) {
+    const d = licenseRes.data;
+    const remoteEstado = normalizePaymentEstado(
+      d.paymentStatus || d.payment?.estado,
+    );
+    if (remoteEstado) {
+      return {
+        ok: true,
+        data: {
+          estado: remoteEstado,
+          payment: d.payment || { estado: remoteEstado, id: d.payment?.id },
+          licenseStatus: d.licenseStatus,
+        },
+      };
+    }
+  }
+
   const identity = readClientIdentity();
   const ref = String(referencia || '').trim();
   const qs = new URLSearchParams({ clientId: identity.clientId });
@@ -84,8 +120,8 @@ async function fetchCentralStatus(referencia) {
   const headers = {
     Authorization: `Bearer ${identity.apiSecretKey}`,
     'X-Client-Id': identity.clientId,
-    'X-WebService-Id': identity.webServiceId,
-    'X-License-Key': identity.licenseKey,
+    'X-WebService-Id': identity.webServiceId || identity.clientId,
+    'X-License-Key': identity.licenseKey || identity.clientId,
   };
   try {
     const res = await fetch(url, { method: 'GET', headers });
@@ -120,7 +156,7 @@ function notifyPaymentApproved() {
   clearNotificationsByTitle('Pago exitoso¡ Gracias por trabajar con Resto Fadey');
   addNotification({
     title: APPROVAL_NOTIFICATION_TITLE,
-    message: 'Tu pago ha sido aprobado correctamente.',
+    message: 'Pago aprobado correctamente. Licencia actualizada.',
     created_by: 'Plataforma central',
     level: 'success',
   });
@@ -175,21 +211,6 @@ function applyPaymentApproved({ centralPaymentId, resolvedAt } = {}) {
   }
   notifyPaymentApproved();
   clearNotificationsByTitle(PENDING_NOTIFICATION_TITLE);
-
-  try {
-    const { syncPlanStatus, syncVoucherPayment } = require('./centralSyncService');
-    syncPlanStatus({ renewal: true });
-    if (url) {
-      syncVoucherPayment({
-        comprobanteUrl: url,
-        reference: ref,
-        amount: pp.monto,
-        status: PAYMENT_STATUSES.APPROVED,
-      });
-    }
-  } catch (_) {
-    /* sync opcional */
-  }
 
   return getPublicPlatformPaymentState();
 }
@@ -294,12 +315,13 @@ async function pushComprobanteToCentral({ comprobanteUrl, referencia } = {}) {
   const ref = String(referencia || pago.platform_payment?.referencia || '').trim() || generateReferencia();
   try {
     const { syncVoucherPaymentNow } = require('./centralSyncService');
-    const syncResult = await syncVoucherPaymentNow({
-      comprobanteUrl: url,
-      reference: ref,
-      amount: pago.platform_payment?.monto ?? null,
-      status: PAYMENT_STATUSES.PENDING,
-    });
+    const syncResult = await withCentralRetry(() =>
+      syncVoucherPaymentNow({
+        comprobanteUrl: url,
+        reference: ref,
+        amount: pago.platform_payment?.monto ?? null,
+      }),
+    );
     recordCentralSyncResult(readPagoUso(), syncResult);
     return syncResult;
   } catch (err) {
@@ -364,10 +386,21 @@ function getPublicPlatformPaymentState() {
     show_approved_banner: approved,
     show_rejected_banner: rejected,
     plan_activo: approved,
-    mensaje_aprobado: approved ? 'Tu pago ha sido aprobado correctamente.' : '',
+    mensaje_aprobado: approved
+      ? 'Pago aprobado correctamente. Licencia actualizada.'
+      : '',
+    mensaje_licencia: approved ? 'Licencia actualizada' : '',
     historial_count: Array.isArray(pp.historial) ? pp.historial.length : 0,
     last_central_sync_ok: pp.last_central_sync_ok ?? null,
     last_central_sync_error: String(pp.last_central_sync_error || ''),
+    central_user_message: !pp.last_central_sync_ok && pp.last_central_sync_error
+      ? mapCentralSyncError({
+          ok: false,
+          error: pp.last_central_sync_error,
+          last_central_sync_error: pp.last_central_sync_error,
+        })
+      : '',
+    show_resync_hint: pending && pp.last_central_sync_ok === false,
     last_central_sync_at: pp.last_central_sync_at || null,
     central_payment_id: pp.central_payment_id || null,
   };

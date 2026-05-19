@@ -9,11 +9,21 @@ const router = express.Router();
 
 router.use(requireBearerApiSecret(() => process.env.API_SECRET_KEY));
 
+function assertClientAccess(req, clientId) {
+  const hdr = String(req.headers['x-client-id'] || '').trim();
+  if (hdr && hdr !== clientId) {
+    return { ok: false, status: 403, error: 'Acceso denegado para este cliente' };
+  }
+  return { ok: true };
+}
+
 /** GET /api/payments/status?clientId=&referencia= — consulta estado para polling del POS */
 router.get('/status', (req, res) => {
   const clientId = String(req.query.clientId || req.headers['x-client-id'] || '').trim();
   const referencia = String(req.query.referencia || '').trim();
   if (!clientId) return res.status(400).json({ error: 'clientId es requerido' });
+  const access = assertClientAccess(req, clientId);
+  if (!access.ok) return res.status(access.status).json({ error: access.error });
 
   let row;
   if (referencia) {
@@ -54,35 +64,47 @@ router.get('/status', (req, res) => {
   });
 });
 
-/** POST /api/payments — recibe comprobantes y pagos desde web services cliente */
+/** POST /api/payments — recibe comprobantes (payload mínimo o legacy) */
 router.post('/', (req, res) => {
   const body = req.body || {};
   const clientId = String(body.clientId || '').trim();
-  const webServiceId = String(body.webServiceId || req.headers['x-web-service-id'] || '').trim();
+  const webServiceId = String(
+    body.webServiceId || req.headers['x-web-service-id'] || clientId,
+  ).trim();
   if (!clientId) return res.status(400).json({ error: 'clientId es requerido' });
+  const access = assertClientAccess(req, clientId);
+  if (!access.ok) return res.status(access.status).json({ error: access.error });
+
+  const restaurantName = String(body.restaurantName || body.restaurante || '').trim();
+  const voucher = String(body.voucherUrl || body.voucher || '').trim();
+  const referencia = String(
+    body.operationNumber || body.referencia || body.reference || `pay-${Date.now()}`,
+  ).trim();
+  const fecha = String(
+    body.paymentDate || body.fecha || new Date().toISOString().slice(0, 10),
+  ).trim();
 
   upsertClient({
     clientId,
     restaurantId: body.restaurantId || clientId,
     webServiceId,
-    licenseKey: body.licenseKey || req.headers['x-license-key'],
-    restaurantName: body.restaurante || body.restaurantName || '',
+    licenseKey: body.licenseKey || req.headers['x-license-key'] || clientId,
+    restaurantName,
     sourceWebServiceUrl: body.sourceWebServiceUrl,
     plan: body.plan,
   });
 
-  const referencia = String(body.referencia || body.reference || `pay-${Date.now()}`).trim();
   const existing = queryOne(
     'SELECT id FROM payments WHERE client_id = ? AND referencia = ?',
     [clientId, referencia]
   );
 
   const fields = {
-    restaurante: String(body.restaurante || body.restaurantName || ''),
+    restaurante: restaurantName,
     plan: String(body.plan || ''),
-    monto: body.monto != null ? Number(body.monto) : null,
-    fecha: String(body.fecha || new Date().toISOString().slice(0, 10)),
-    voucher: String(body.voucher || ''),
+    monto: body.amount != null ? Number(body.amount) : body.monto != null ? Number(body.monto) : null,
+    fecha,
+    voucher,
     estado: normalizePaymentEstado(body.estado || body.status) || PAYMENT_STATUSES.PENDING,
     periodo_facturacion: String(body.periodoFacturacion || body.periodo_facturacion || 'mensual'),
     fecha_proxima_facturacion: String(body.fechaProximaFacturacion || body.fecha_proxima_facturacion || ''),

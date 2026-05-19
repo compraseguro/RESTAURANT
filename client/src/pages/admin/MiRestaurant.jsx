@@ -108,6 +108,7 @@ export default function MiRestaurant() {
   const [billingAnchorDate, setBillingAnchorDate] = useState('');
   /** Ventana de carga del comprobante (servidor): enlazada a fecha_proxima_facturación y días de gracia. */
   const [pagoUsoComprobanteUi, setPagoUsoComprobanteUi] = useState(null);
+  const [centralResyncBusy, setCentralResyncBusy] = useState(false);
   const [billingPanel, setBillingPanel] = useState(() => defaultBillingPanel());
   const [billingPanelPresence, setBillingPanelPresence] = useState(() => defaultBillingPanelPresence());
   const [staffUsers, setStaffUsers] = useState([]);
@@ -134,6 +135,19 @@ export default function MiRestaurant() {
       setPagoUsoComprobanteUi(null);
     }
   }, [canReadBillingConfig]);
+
+  const resyncCentralPayment = useCallback(async () => {
+    if (!canReadBillingConfig) return;
+    setCentralResyncBusy(true);
+    try {
+      await api.post('/platform-payments/resync');
+      await refreshPagoUsoComprobanteSchedule();
+    } catch (_) {
+      /* mensaje amigable vía platform_payment */
+    } finally {
+      setCentralResyncBusy(false);
+    }
+  }, [canReadBillingConfig, refreshPagoUsoComprobanteSchedule]);
 
   const loadInitialData = useCallback(() => {
     const schedulePromise = canReadBillingConfig
@@ -952,12 +966,29 @@ export default function MiRestaurant() {
               </div>
               {pagoUsoComprobanteUi?.platform_payment?.show_approved_banner ? (
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                  <p className="font-semibold">Pago aprobado</p>
-                  <p className="mt-1">Plan activo</p>
+                  <p className="font-semibold">Pago aprobado correctamente</p>
+                  <p className="mt-1">
+                    {pagoUsoComprobanteUi.platform_payment.mensaje_licencia || 'Licencia actualizada'}
+                  </p>
                   <p className="mt-2 text-emerald-800">
                     {pagoUsoComprobanteUi.platform_payment.mensaje_aprobado
-                      || 'Tu pago ha sido aprobado correctamente.'}
+                      || 'Pago aprobado correctamente. Licencia actualizada.'}
                   </p>
+                </div>
+              ) : null}
+              {pagoUsoComprobanteUi?.platform_payment?.central_user_message ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                  <p>{pagoUsoComprobanteUi.platform_payment.central_user_message}</p>
+                  {pagoUsoComprobanteUi.platform_payment.show_resync_hint ? (
+                    <button
+                      type="button"
+                      className="mt-3 rounded-md bg-red-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-800 disabled:opacity-60"
+                      disabled={centralResyncBusy}
+                      onClick={() => resyncCentralPayment()}
+                    >
+                      {centralResyncBusy ? 'Reenviando…' : 'Reintentar envío'}
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
               {pagoUsoComprobanteUi?.platform_payment?.show_pending_banner ? (

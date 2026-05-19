@@ -1,5 +1,18 @@
-const { readClientIdentity, isCentralSyncConfigured } = require('@restofadey/shared-config');
+const {
+  readClientIdentity,
+  isCentralSyncConfigured,
+} = require('@restofadey/shared-config');
 const { SYNC_EVENT_TYPES } = require('@restofadey/shared-types');
+
+function serviceHeaders(identity, extraHeaders = {}) {
+  return {
+    Authorization: `Bearer ${identity.apiSecretKey}`,
+    'X-Client-Id': identity.clientId,
+    'X-WebService-Id': identity.webServiceId || identity.clientId,
+    'X-License-Key': identity.licenseKey || identity.clientId,
+    ...extraHeaders,
+  };
+}
 
 /**
  * Cliente de sincronización hacia la plataforma central.
@@ -15,13 +28,7 @@ function createCentralSyncClient(options = {}) {
       return { skipped: true, reason: 'central_not_configured' };
     }
     const url = `${identity.centralPlatformUrl}${path.startsWith('/') ? path : `/${path}`}`;
-    const headers = {
-      Authorization: `Bearer ${identity.apiSecretKey}`,
-      'X-Client-Id': identity.clientId,
-      'X-WebService-Id': identity.webServiceId,
-      'X-License-Key': identity.licenseKey,
-      ...extraHeaders,
-    };
+    const headers = serviceHeaders(identity, extraHeaders);
     try {
       const res = await fetchImpl(url, { method: 'GET', headers });
       const text = await res.text();
@@ -49,11 +56,7 @@ function createCentralSyncClient(options = {}) {
     const url = `${identity.centralPlatformUrl}${path.startsWith('/') ? path : `/${path}`}`;
     const headers = {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${identity.apiSecretKey}`,
-      'X-Client-Id': identity.clientId,
-      'X-WebService-Id': identity.webServiceId,
-      'X-License-Key': identity.licenseKey,
-      ...extraHeaders,
+      ...serviceHeaders(identity, extraHeaders),
     };
     try {
       const res = await fetchImpl(url, {
@@ -83,8 +86,8 @@ function createCentralSyncClient(options = {}) {
     return {
       clientId: identity.clientId,
       restaurantId: identity.restaurantId || identity.clientId,
-      webServiceId: identity.webServiceId,
-      licenseKey: identity.licenseKey,
+      webServiceId: identity.webServiceId || identity.clientId,
+      licenseKey: identity.licenseKey || identity.clientId,
       sourceWebServiceUrl: identity.publicApiUrl || null,
       syncedAt: new Date().toISOString(),
     };
@@ -100,6 +103,10 @@ function createCentralSyncClient(options = {}) {
         payload,
       });
     },
+    /** Payload mínimo acordado con el panel SaaS (sin datos operativos). */
+    async syncMinimalPayment(payment) {
+      return postJson('/api/payments', payment);
+    },
     async syncPayment(payment) {
       return postJson('/api/payments', {
         ...basePayload(),
@@ -110,6 +117,11 @@ function createCentralSyncClient(options = {}) {
       const qs = new URLSearchParams({ clientId: identity.clientId });
       if (referencia) qs.set('referencia', String(referencia));
       return getJson(`/api/payments/status?${qs.toString()}`);
+    },
+    async fetchLicenseStatus(clientId) {
+      const id = String(clientId || identity.clientId || '').trim();
+      if (!id) return { ok: false, error: 'clientId requerido' };
+      return getJson(`/api/license-status/${encodeURIComponent(id)}`);
     },
     async syncUser(user) {
       return postJson('/api/sync/users', {
